@@ -11,16 +11,16 @@ function buildColumns() {
     {
       field: 'Date',
         headerName: 'Date',
-        width: 80,
+        width: 60,
         suppressSizeToFit: true,
         sort: 'asc',
         comparator: (a,b) => (a??0) - (b??0), // tri numérique sur int
         valueFormatter: p => intToPretty(p.value),       // int -> pretty
         valueParser:   p => parseDateToInt(p.newValue),  // saisie -> int
     },
-    { field: 'Début',   width: 80, suppressSizeToFit: true },
-    { field: 'Durée',   width: 80, suppressSizeToFit: true },
-    { field: 'Fin',   width: 80, suppressSizeToFit: true },
+    { field: 'Début',   width: 60, suppressSizeToFit: true },
+    { field: 'Durée',   width: 60, suppressSizeToFit: true },
+    { field: 'Fin',   width: 60, suppressSizeToFit: true },
     { field: 'Activité', minWidth: 200, flex: 1, cellRenderer: ActiviteRenderer },
     { field: 'Lieu', minWidth: 200,     flex: 1 },
     { field: 'Relâche', minWidth: 50,  flex: 0.5 },
