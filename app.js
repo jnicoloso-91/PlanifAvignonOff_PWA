@@ -17,14 +17,15 @@ function buildColumns() {
       valueFormatter: p => intToPretty(p.value),       // int -> pretty
       valueParser:   p => parseDateToInt(p.newValue),  // saisie -> int
     },
-    { field: 'Début',   minWidth: 100 },
-    { field: 'Durée',   minWidth: 100 },
-    { field: 'Activité', flex: 1, cellRenderer: ActiviteRenderer },
-    { field: 'Lieu',     flex: 1 },
-    { field: 'Relâche',  flex: 1 },
-    { field: 'Réservé',  flex: 1 },
-    { field: 'Priorité', flex: 1 },
-    { field: 'Hyperlien', flex: 1 }, // utile en debug; tu peux la masquer si tu veux
+    { field: 'Début',   minWidth: 50 },
+    { field: 'Durée',   minWidth: 50 },
+    { field: 'Fin',   minWidth: 50 },
+    { field: 'Activité', minWidth: 200, flex: 1, cellRenderer: ActiviteRenderer },
+    { field: 'Lieu', minWidth: 200,     flex: 1 },
+    { field: 'Relâche', minWidth: 50,  flex: 1 },
+    { field: 'Réservé', minWidth: 50,  flex: 1 },
+    { field: 'Priorité', minWidth: 50, flex: 1 },
+    { field: 'Hyperlien', minWidth: 100, flex: 1 }, // utile en debug; tu peux la masquer si tu veux
   ];  
 }
 
