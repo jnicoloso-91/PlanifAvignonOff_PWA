@@ -21,7 +21,7 @@ function buildColumns() {
     { field: 'Début',   width: 100 },
     { field: 'Durée',   width: 100 },
     { field: 'Fin',   width: 100 },
-    { field: 'Activité', minWidth: 100, flex: 2, cellRenderer: ActiviteRenderer },
+    { field: 'Activité', minWidth: 100, flex: 1, cellRenderer: ActiviteRenderer },
     { field: 'Lieu', minWidth: 100,     flex: 1 },
     { field: 'Relâche', minWidth: 50,  flex: 1 },
     { field: 'Réservé', minWidth: 50,  flex: 1 },
@@ -569,6 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // const det = document.getElementById('gridExpander');
   // if (det && det.open) { createOrAttachGrid(); }
 });
+
 
 
 
