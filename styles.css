@@ -162,7 +162,7 @@ main, .page-wrap {
   --ag-font-size: 10px; 
   --ag-row-height:32px; 
   --ag-header-height:32px; 
-  --ag-horizontal-padding:3px; 
+  --ag-horizontal-padding:1px; 
 }
 
 /* 1) Forcer le padding sur la cellule d’en-tête */
