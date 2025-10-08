@@ -159,24 +159,24 @@ main, .page-wrap {
 }
 
 .ag-theme-quartz.compact { 
-  --ag-font-size: 12px; 
+  --ag-font-size: 10px; 
   --ag-row-height:32px; 
   --ag-header-height:32px; 
-  --ag-horizontal-padding:5px; 
+  --ag-horizontal-padding:3px; 
 }
 
 /* 1) Forcer le padding sur la cellule d’en-tête */
 .ag-theme-quartz .ag-header-cell,
 .ag-theme-quartz .ag-header-group-cell {
-  padding-left: 5px !important;
-  padding-right: 5px !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
 
 /* 2) Et sur le wrapper interne du label (souvent celui qui gagne) */
 .ag-theme-quartz .ag-header-cell .ag-header-cell-comp-wrapper,
 .ag-theme-quartz .ag-header-group-cell .ag-header-group-cell-label {
-  padding-left: 5px !important;
-  padding-right: 5px !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
 
 /* (optionnel) ajuster la hauteur si besoin */
