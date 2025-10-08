@@ -156,14 +156,18 @@ main, .page-wrap {
 /* (optionnel) neutraliser le hover si tu veux garder la couleur de fond */
 .ag-theme-quartz {
   --ag-row-hover-color: transparent;
-  --ag-horizontal-padding:1px; 
 }
 
 .ag-theme-quartz.compact { 
   --ag-font-size: 10px; 
   --ag-row-height:32px; 
-  --ag-header-height:32px; 
-  --ag-horizontal-padding:1px; 
+  --ag-header-height:32px;  
+}
+
+/* Applique sur le conteneur de ta grille */
+.ag-theme-quartz.compact-grid {
+  --ag-cell-horizontal-padding: 4px;        /* cellules “texte” */
+  --ag-cell-widget-horizontal-padding: 4px; /* cellules avec widget (checkbox, group, etc.) */
 }
 
 /* 1) Forcer le padding sur la cellule d’en-tête */
