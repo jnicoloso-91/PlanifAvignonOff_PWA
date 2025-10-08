@@ -160,8 +160,8 @@ main, .page-wrap {
 
 .ag-theme-quartz.compact { 
   --ag-font-size: 10px; 
-  --ag-row-height:28px; 
-  --ag-header-height:28px;  
+  --ag-row-height:25px; 
+  --ag-header-height:25px;  
 }
 
 .ag-theme-quartz.compact-grid .ag-cell,
