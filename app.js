@@ -11,7 +11,7 @@ function buildColumns() {
     {
       field: 'Date',
         headerName: 'Date',
-        width: 400,
+        width: 100,
         sort: 'asc',
         comparator: (a,b) => (a??0) - (b??0), // tri numérique sur int
         valueFormatter: p => intToPretty(p.value),       // int -> pretty
@@ -20,12 +20,12 @@ function buildColumns() {
     { field: 'Début',   width: 100 },
     { field: 'Durée',   width: 100 },
     { field: 'Fin',   width: 100 },
-    { field: 'Activité', minWidth: 200, flex: 4, cellRenderer: ActiviteRenderer },
-    { field: 'Lieu', minWidth: 200,     flex: 2 },
+    { field: 'Activité', minWidth: 200, flex: 2, cellRenderer: ActiviteRenderer },
+    { field: 'Lieu', minWidth: 200,     flex: 1 },
     { field: 'Relâche', minWidth: 50,  flex: 1 },
     { field: 'Réservé', minWidth: 50,  flex: 1 },
     { field: 'Priorité', minWidth: 50, flex: 1 },
-    { field: 'Hyperlien', minWidth: 100, flex: 2 }, // utile en debug; tu peux la masquer si tu veux
+    { field: 'Hyperlien', minWidth: 100, flex: 1 }, // utile en debug; tu peux la masquer si tu veux
   ];  
 }
 
@@ -568,5 +568,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // const det = document.getElementById('gridExpander');
   // if (det && det.open) { createOrAttachGrid(); }
 });
+
 
 
