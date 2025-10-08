@@ -166,8 +166,8 @@ main, .page-wrap {
 
 /* Applique sur le conteneur de ta grille */
 .ag-theme-quartz.compact-grid {
-  --ag-cell-horizontal-padding: 4px;        /* cellules “texte” */
-  --ag-cell-widget-horizontal-padding: 4px; /* cellules avec widget (checkbox, group, etc.) */
+  --ag-cell-horizontal-padding: 2px;        /* cellules “texte” */
+  --ag-cell-widget-horizontal-padding: 2px; /* cellules avec widget (checkbox, group, etc.) */
 }
 
 /* 1) Forcer le padding sur la cellule d’en-tête */
