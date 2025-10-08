@@ -11,7 +11,7 @@ function buildColumns() {
     {
       field: 'Date',
         headerName: 'Date',
-        width: 200,
+        width: 400,
         sort: 'asc',
         comparator: (a,b) => (a??0) - (b??0), // tri numérique sur int
         valueFormatter: p => intToPretty(p.value),       // int -> pretty
@@ -568,4 +568,5 @@ document.addEventListener('DOMContentLoaded', () => {
   // const det = document.getElementById('gridExpander');
   // if (det && det.open) { createOrAttachGrid(); }
 });
+
 
