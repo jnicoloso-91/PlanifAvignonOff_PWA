@@ -33,8 +33,14 @@ function buildColumns() {
 // ------- Helpers -------
 // Palette pastel (ajuste si tu veux)
 const DAY_COLORS = [
-  '#fdf6e3', '#e8f4ff', '#eef6ff', '#f3f7e7', '#fbefff',
-  '#eaf7f3', '#fff4ea', '#f2f2ff'
+  '#fff2b3',  // jaune sable doux mais lumineux
+  '#cde9ff',  // bleu clair franc
+  '#d9ebff',  // bleu-gris un peu plus saturé
+  '#e6f5b0',  // vert anis doux
+  '#f6d8ff',  // mauve clair éclatant
+  '#c8f3e0',  // vert d’eau plus vivant
+  '#ffe3c1',  // orange très clair et chaud
+  '#e0d8ff',  // lavande pastel un peu plus soutenu
 ];
 
 function colorForDate(dateInt) {
