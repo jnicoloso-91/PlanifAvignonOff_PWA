@@ -1,0 +1,169 @@
+:root { --bg:#0d1117; --fg:#e6edf3; --muted:#8b949e; --accent:#2ea043; }
+* { box-sizing: border-box; }
+html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #30363d; }
+header h1 { font-size:16px; margin:0; }
+.actions { display:flex; gap:8px; }
+button { background:#21262d; color:var(--fg); border:1px solid #30363d; padding:8px 10px; border-radius:6px; cursor:pointer; }
+button:hover { border-color:#3b4149; }
+main { padding:10px; }
+#grid { height: calc(100vh - 64px); width: 100%; }
+.ag-theme-quartz { --ag-foreground-color: var(--fg); --ag-background-color: #161b22; --ag-border-color: #30363d; --ag-row-hover-color: #1f242d; }
+
+body {
+  background-color: #f5f5f5;  /* fond clair neutre */
+  color: #111;                /* texte noir lisible */
+  font-family: system-ui, sans-serif;
+}
+
+/* ===============================
+   Thème clair Streamlit-like
+   =============================== */
+
+body {
+  background-color: #f5f5f5;   /* fond page clair */
+  color: #111;                 /* texte noir */
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Conteneur expander : centrage + cadre gris clair */
+.st-expander {
+  margin: 16px 8px;
+  /* max-width: 1100px; */
+  border: 1px solid #d1d5db;   /* gris clair */
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+
+/* HEADER */
+.st-expander-header {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .9rem 1.1rem;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  color: #1f2937;              /* texte gris foncé */
+  background: #fff;
+  transition: background-color .15s ease, color .15s ease;
+  border-radius: 8px 8px 0 0;
+}
+.st-expander-header:hover {
+  background: #f3f4f6;          /* hover gris doux */
+}
+
+/* CHEVRON custom (style Streamlit) */
+.st-expander .chevron {
+  display: inline-block;
+  width: 1.2em;
+}
+.st-expander .chevron::before {
+  content: "›";                /* "❯" ou "›" selon goût */
+  display: inline-block;
+  font-size: 1.5em;
+  line-height: 1;
+  font-weight: 600;
+  color: #6b7280;              /* gris moyen */
+  transform: rotate(0deg);
+  transition: transform .2s ease, color .15s ease;
+}
+.st-expander.open .chevron::before {
+  transform: rotate(90deg);
+  color: #374151;              /* plus foncé une fois ouvert */
+}
+
+/* BODY */
+.st-expander-body {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0 1rem;
+  background: #fff;
+  transition: max-height .28s ease, opacity .18s ease, padding .18s ease;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0 0 8px 8px;
+}
+.st-expander.open .st-expander-body {
+  max-height: 80vh;
+  opacity: 1;
+  padding: 1rem;
+}
+
+/* AG GRID clair intégré */
+.ag-theme-quartz {
+  --ag-background-color: #fff;
+  --ag-foreground-color: #111827;
+  --ag-border-color: #e5e7eb;
+  --ag-row-hover-color: #f9fafb;
+  --ag-header-background-color: #f3f4f6;
+  --ag-header-foreground-color: #111827;
+}
+
+/* En-tête page et boutons */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: #111827;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  background: #f9fafb;
+  color: #111827;
+  border: 1px solid #d1d5db;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Marge horizontale globale */
+main, .page-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* Applique la couleur sur chaque cellule de la ligne */
+/* .ag-theme-quartz .ag-row.row-past   .ag-cell { background-color: #f5f5f5 !important; color: #777 !important; }
+.ag-theme-quartz .ag-row.row-today  .ag-cell { background-color: #fff8c4 !important; }
+.ag-theme-quartz .ag-row.row-future .ag-cell { background-color: #e1ffd0 !important; } */
+
+/* (optionnel) Neutraliser le zebra si ça gêne la lecture */
+/* .ag-theme-quartz {
+  --ag-odd-row-background-color: transparent;
+} */
+
+/* Applique la couleur par jour à toutes les cellules de la ligne */
+.ag-theme-quartz .ag-row .ag-cell {
+  background-color: var(--day-bg) !important;
+}
+
+/* (optionnel) neutraliser le hover si tu veux garder la couleur de fond */
+.ag-theme-quartz {
+  --ag-row-hover-color: transparent;
+}

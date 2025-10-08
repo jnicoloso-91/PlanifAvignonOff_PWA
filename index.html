@@ -1,0 +1,75 @@
+
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Avignon PWA (Pyodide + AG Grid)</title>
+
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0d1117">
+
+  <!-- iOS (icône + standalone) -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png" sizes="180x180">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+  <!-- Favicon classique -->
+  <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">  <meta name="theme-color" content="#0d1117" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="./ag-grid.css" />
+
+  <!-- AG Grid (local, déjà dans ta racine) -->
+  <script src="./ag-grid-community.min.js"></script>
+
+  <!-- SheetJS (Excel) — place lib/xlsx.full.min.js localement -->
+  <script src="./lib/xlsx.full.min.js"></script>
+</head>
+
+<body>
+  <header>
+    <h1>POC AG Grid + IndexedDB + Pyodide</h1>
+    <div class="actions">
+      <button id="btnImport">Importer Excel</button>
+      <button id="btnExport">Exporter Excel</button>
+      <button id="btnReload">Recharger</button>
+      <button id="btnSeed">Ajouter échantillon</button>
+      <button id="btnPy">Python test</button>
+    </div>
+  </header>
+
+  <!-- EXPANDER -->
+  <!-- <details id="gridExpander" open>
+    <summary>Planning (AG Grid)</summary>
+    <div id="grid" class="ag-theme-quartz" style="width:100%; height:55vh;"></div>
+  </details> -->
+
+<div class="st-expander" id="gridExpander">
+  <div class="st-expander-header" id="expander-header">
+    <span class="chevron"></span>  <!-- Laisse vide -->
+    <span class="title">Planning (AG Grid)</span>
+  </div>
+  <div class="st-expander-body" id="expander-body">
+    <div id="grid" class="ag-theme-quartz" style="width:100%; height:55vh;"></div>
+    <div class="expander-resizer" title="Redimensionner"></div>
+  </div>
+</div>
+
+  <!-- input fichier caché pour import -->
+  <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" />
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script>
+  <script type="module" src="./app.js"></script>
+
+  <script>
+    // PWA : enregistre le service worker (offline basique)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
