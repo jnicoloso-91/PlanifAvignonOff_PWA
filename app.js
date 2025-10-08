@@ -12,21 +12,20 @@ function buildColumns() {
       field: 'Date',
         headerName: 'Date',
         width: 100,
-        suppressSizeToFit: true,
         sort: 'asc',
         comparator: (a,b) => (a??0) - (b??0), // tri numérique sur int
         valueFormatter: p => intToPretty(p.value),       // int -> pretty
         valueParser:   p => parseDateToInt(p.newValue),  // saisie -> int
     },
-    { field: 'Début',   width: 100, suppressSizeToFit: true},
-    { field: 'Durée',   width: 100, suppressSizeToFit: true },
-    { field: 'Fin',   width: 100, suppressSizeToFit: true },
-    { field: 'Activité', minWidth: 100, flex: 1, cellRenderer: ActiviteRenderer },
-    { field: 'Lieu', minWidth: 100,     flex: 1 },
-    { field: 'Relâche', minWidth: 50,  flex: 0.5 },
-    { field: 'Réservé', minWidth: 50,  flex: 0.5 },
-    { field: 'Priorité', minWidth: 50, flex: 0.5 },
-    { field: 'Hyperlien', minWidth: 50, flex: 1 }, // utile en debug; tu peux la masquer si tu veux
+    { field: 'Début',   width: 100 },
+    { field: 'Durée',   width: 100 },
+    { field: 'Fin',   width: 100 },
+    { field: 'Activité', minWidth: 200, flex: 4, cellRenderer: ActiviteRenderer },
+    { field: 'Lieu', minWidth: 200,     flex: 2 },
+    { field: 'Relâche', minWidth: 50,  flex: 1 },
+    { field: 'Réservé', minWidth: 50,  flex: 1 },
+    { field: 'Priorité', minWidth: 50, flex: 1 },
+    { field: 'Hyperlien', minWidth: 100, flex: 2 }, // utile en debug; tu peux la masquer si tu veux
   ];  
 }
 
@@ -137,6 +136,7 @@ function createOrAttachGrid() {
       getRowId: p => p.data?.__uuid,          // clé stable
       onGridReady: async () => {
         await refreshGrid();
+        params.api.sizeColumnsToFit();
         // safeSizeToFit();
       },
       getRowStyle: p => {
@@ -569,12 +569,3 @@ document.addEventListener('DOMContentLoaded', () => {
   // const det = document.getElementById('gridExpander');
   // if (det && det.open) { createOrAttachGrid(); }
 });
-
-
-
-
-
-
-
-
-
