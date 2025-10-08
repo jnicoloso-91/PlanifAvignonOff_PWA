@@ -158,20 +158,4 @@ main, .page-wrap {
   --ag-row-hover-color: transparent;
 }
 
-/* styles.css — compacter le thème Quartz */
-.ag-theme-quartz {
-  /* densité générale */
-  --ag-grid-size: 2px;              /* padding interne */
-  --ag-list-item-height: 22px;      /* menus/context */
-  /* tableaux */
-  --ag-row-height: 26px;            /* hauteur des lignes */
-  --ag-header-height: 28px;         /* hauteur des entêtes */
-  --ag-header-foreground-color: #111;
-  --ag-foreground-color: #111;
-}
-
-/* optionnel: compacter le contenu des cellules */
-.ag-theme-quartz .ag-cell-wrapper {
-  padding-top: 2px;
-  padding-bottom: 2px;
-}
+.ag-theme-quartz.compact { --ag-row-height:34px; --ag-header-height:36px; }
