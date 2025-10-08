@@ -162,6 +162,9 @@ main, .page-wrap {
   --ag-font-size: 10px; 
   --ag-row-height:25px; 
   --ag-header-height:28px;  
+  --ag-card-radius: 0px;         /* bordure interne du “card” */
+  --ag-border-radius: 0px;       /* rayon global */
+  border-radius: 0 !important;   /* sécurité */
 }
 
 .ag-theme-quartz.compact-grid .ag-cell,
