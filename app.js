@@ -19,7 +19,7 @@ function buildColumns() {
     },
     { field: 'Début',   minWidth: 100 },
     { field: 'Durée',   minWidth: 100 },
-    { field: 'Activité', flex: 1, cellRenderer: activityCellRenderer },
+    { field: 'Activité', flex: 1, cellRenderer: ActiviteRenderer },
     { field: 'Lieu',     flex: 1 },
     { field: 'Relâche',  flex: 1 },
     { field: 'Réservé',  flex: 1 },
@@ -150,103 +150,153 @@ function createOrAttachGrid() {
 }
 
 // ------- Renderers -------
-function activityCellRenderer(params) {
+// function activityCellRenderer(params) {
+//   const e = document.createElement('div');
+//   e.style.display = 'flex';
+//   e.style.alignItems = 'center';
+//   e.style.gap = '0.35rem';
+//   e.style.width = '100%';
+//   e.style.overflow = 'hidden';
+
+//   const label = params.value != null ? String(params.value) : '';
+//   const href  = (params.data && params.data.Hyperlien) 
+//               ? String(params.data.Hyperlien).trim()
+//               : `https://www.festivaloffavignon.com/resultats-recherche?recherche=${encodeURIComponent(label)}`;
+
+//   const txt = document.createElement('span');
+//   txt.textContent = label;
+//   txt.style.flex = '1 1 auto';
+//   txt.style.overflow = 'hidden';
+//   txt.style.textOverflow = 'ellipsis';
+//   txt.style.cursor = 'pointer';
+//   e.appendChild(txt);
+
+//   // --- helper: click synthétique pour la sélection AG Grid correcte ---
+//   function tapSelectViaSyntheticClick(el) {
+//     const cell = el.closest?.('.ag-cell');
+//     if (!cell) return;
+//     try {
+//       cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+//       cell.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true }));
+//       cell.dispatchEvent(new MouseEvent('click',     { bubbles: true }));
+//     } catch (_) {}
+//   }
+
+//   // --- Long-press minimal cross-platform ---
+//   (function attachLongPress(el, url) {
+//     let t0 = 0, pressed = false, moved = false, timer = null;
+//     const DELAY = 550, THRESH = 8;
+
+//     function clearT(){ if (timer){ clearTimeout(timer); timer = null; } }
+
+//     function onDown(ev){
+//       const p = ev.touches ? ev.touches[0] : ev;
+//       pressed = true; moved = false;
+//       const sx = p.clientX, sy = p.clientY;
+//       clearT();
+//       timer = setTimeout(() => {
+//         if (pressed && !moved) {
+//           openNewTab(url);
+//           pressed = false;
+//         }
+//       }, DELAY);
+
+//       function onMove(ev2){
+//         const q = ev2.touches ? ev2.touches[0] : ev2;
+//         if (!q) return;
+//         if (Math.abs(q.clientX - sx) > THRESH || Math.abs(q.clientY - sy) > THRESH) {
+//           moved = true; clearT();
+//         }
+//       }
+//       function onUp(){
+//         pressed = false; clearT();
+//         el.removeEventListener('mousemove', onMove, true);
+//         el.removeEventListener('mouseup', onUp, true);
+//         el.removeEventListener('touchmove', onMove, true);
+//         el.removeEventListener('touchend', onUp, true);
+//       }
+
+//       el.addEventListener('mousemove', onMove, true);
+//       el.addEventListener('mouseup', onUp, true);
+//       el.addEventListener('touchmove', onMove, true);
+//       el.addEventListener('touchend', onUp, true);
+//     }
+
+//     function openNewTab(u){
+//       if (!u) return;
+//       // essai ancre (meilleur pour iOS)
+//       try {
+//         const a = document.createElement('a');
+//         a.href = u; a.target = '_blank'; a.rel = 'noopener';
+//         a.style.position = 'absolute'; a.style.left = '-9999px';
+//         document.body.appendChild(a); a.click(); a.remove(); return;
+//       } catch(_) {}
+//       // fallback
+//       try { window.open(u, '_blank', 'noopener'); } catch(_) {
+//         try { window.location.assign(u); } catch(_){}
+//       }
+//     }
+
+//     el.addEventListener('mousedown', onDown, true);
+//     el.addEventListener('touchstart', onDown, true);
+//     el.addEventListener('contextmenu', (e)=>e.preventDefault(), true);
+
+//     // tap court = sélection de la cellule (pas d’ouverture)
+//     el.addEventListener('click', (e)=>{ tapSelectViaSyntheticClick(el); }, true);
+//   })(txt, href);
+
+//   return e;
+// }
+const ActiviteRenderer = function () {};
+ActiviteRenderer.prototype.init = function (params) {
   const e = document.createElement('div');
   e.style.display = 'flex';
   e.style.alignItems = 'center';
-  e.style.gap = '0.35rem';
+  e.style.gap = '.4rem';
   e.style.width = '100%';
   e.style.overflow = 'hidden';
 
-  const label = params.value != null ? String(params.value) : '';
-  const href  = (params.data && params.data.Hyperlien) 
-              ? String(params.data.Hyperlien).trim()
-              : `https://www.festivaloffavignon.com/resultats-recherche?recherche=${encodeURIComponent(label)}`;
+  const label = (params.value != null ? String(params.value) : '').trim();
+  const raw   = params.data?.Hyperlien || '';
+  const href  = String(raw || ("https://www.festivaloffavignon.com/resultats-recherche?recherche="+encodeURIComponent(label)));
+
+  // lien-icône (ouvre NOUVEL onglet)
+  const a = document.createElement('a');
+  a.href = href;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.title = 'Ouvrir le site';
+  a.style.textDecoration = 'none';
+  a.style.flex = '0 0 auto';
+  a.style.display = 'inline-flex';
+  a.style.alignItems = 'center';
+  a.style.opacity = '.85';
+  a.addEventListener('mouseenter', () => a.style.opacity = '1');
+  a.addEventListener('mouseleave', () => a.style.opacity = '.85');
+  a.addEventListener('click', (ev) => {
+    // important : ne PAS mettre preventDefault ici,
+    // on laisse le navigateur ouvrir le nouvel onglet.
+    ev.stopPropagation(); // évite de changer la sélection de la ligne
+  });
+
+  const icon = document.createElement('span');
+  icon.textContent = '🔗';
+  icon.style.fontSize = '1rem';
+  a.appendChild(icon);
 
   const txt = document.createElement('span');
   txt.textContent = label;
   txt.style.flex = '1 1 auto';
   txt.style.overflow = 'hidden';
   txt.style.textOverflow = 'ellipsis';
-  txt.style.cursor = 'pointer';
+
+  e.appendChild(a);
   e.appendChild(txt);
+  this.eGui = e;
+};
+ActiviteRenderer.prototype.getGui = function(){ return this.eGui; };
+ActiviteRenderer.prototype.refresh = function(){ return false; };
 
-  // --- helper: click synthétique pour la sélection AG Grid correcte ---
-  function tapSelectViaSyntheticClick(el) {
-    const cell = el.closest?.('.ag-cell');
-    if (!cell) return;
-    try {
-      cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-      cell.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true }));
-      cell.dispatchEvent(new MouseEvent('click',     { bubbles: true }));
-    } catch (_) {}
-  }
-
-  // --- Long-press minimal cross-platform ---
-  (function attachLongPress(el, url) {
-    let t0 = 0, pressed = false, moved = false, timer = null;
-    const DELAY = 550, THRESH = 8;
-
-    function clearT(){ if (timer){ clearTimeout(timer); timer = null; } }
-
-    function onDown(ev){
-      const p = ev.touches ? ev.touches[0] : ev;
-      pressed = true; moved = false;
-      const sx = p.clientX, sy = p.clientY;
-      clearT();
-      timer = setTimeout(() => {
-        if (pressed && !moved) {
-          openNewTab(url);
-          pressed = false;
-        }
-      }, DELAY);
-
-      function onMove(ev2){
-        const q = ev2.touches ? ev2.touches[0] : ev2;
-        if (!q) return;
-        if (Math.abs(q.clientX - sx) > THRESH || Math.abs(q.clientY - sy) > THRESH) {
-          moved = true; clearT();
-        }
-      }
-      function onUp(){
-        pressed = false; clearT();
-        el.removeEventListener('mousemove', onMove, true);
-        el.removeEventListener('mouseup', onUp, true);
-        el.removeEventListener('touchmove', onMove, true);
-        el.removeEventListener('touchend', onUp, true);
-      }
-
-      el.addEventListener('mousemove', onMove, true);
-      el.addEventListener('mouseup', onUp, true);
-      el.addEventListener('touchmove', onMove, true);
-      el.addEventListener('touchend', onUp, true);
-    }
-
-    function openNewTab(u){
-      if (!u) return;
-      // essai ancre (meilleur pour iOS)
-      try {
-        const a = document.createElement('a');
-        a.href = u; a.target = '_blank'; a.rel = 'noopener';
-        a.style.position = 'absolute'; a.style.left = '-9999px';
-        document.body.appendChild(a); a.click(); a.remove(); return;
-      } catch(_) {}
-      // fallback
-      try { window.open(u, '_blank', 'noopener'); } catch(_) {
-        try { window.location.assign(u); } catch(_){}
-      }
-    }
-
-    el.addEventListener('mousedown', onDown, true);
-    el.addEventListener('touchstart', onDown, true);
-    el.addEventListener('contextmenu', (e)=>e.preventDefault(), true);
-
-    // tap court = sélection de la cellule (pas d’ouverture)
-    el.addEventListener('click', (e)=>{ tapSelectViaSyntheticClick(el); }, true);
-  })(txt, href);
-
-  return e;
-}
 
 // ------- Expander (details/summary) -------
 function wireExpander() {
