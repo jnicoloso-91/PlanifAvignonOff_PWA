@@ -156,6 +156,7 @@ main, .page-wrap {
 /* (optionnel) neutraliser le hover si tu veux garder la couleur de fond */
 .ag-theme-quartz {
   --ag-row-hover-color: transparent;
+  --ag-horizontal-padding:1px; 
 }
 
 .ag-theme-quartz.compact { 
