@@ -158,7 +158,8 @@ main, .page-wrap {
   --ag-row-hover-color: transparent;
 }
 
-.ag-theme-quartz.compact {--ag-font-size: 10px; --ag-row-height:28px; --ag-header-height:30px; }
+.ag-theme-quartz.compact {--ag-font-size: 12px; --ag-row-height:30px; --ag-header-height:32px; }
+
 
 
 
