@@ -138,7 +138,7 @@ function createOrAttachGrid() {
   if (!gridOptions) {
     gridOptions = {
       columnDefs: buildColumns(),
-      defaultColDef: { resizable: true, sortable: true, filter: true },
+      defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
       rowData: [],
       getRowId: p => p.data?.__uuid,          // clé stable
       onGridReady: async () => {
