@@ -167,29 +167,29 @@ main, .page-wrap {
 .ag-theme-quartz.compact-grid .ag-cell,
 .ag-theme-quartz.compact-grid .ag-cell-wrapper,
 .ag-theme-quartz.compact-grid .ag-cell-value {
-  padding-left: 4px !important;
-  padding-right: 4px !important;
+  padding-left: 2px !important;
+  padding-right: 2px !important;
 }
 
 /* Pinned edges gardent parfois un padding différent */
 .ag-theme-quartz.compact-grid .ag-cell.ag-cell-first-right-pinned,
 .ag-theme-quartz.compact-grid .ag-cell.ag-cell-last-left-pinned {
-  padding-left: 4px !important;
-  padding-right: 4px !important;
+  padding-left: 2px !important;
+  padding-right: 2px !important;
 }
 
 /* 1) Forcer le padding sur la cellule d’en-tête */
 .ag-theme-quartz .ag-header-cell,
 .ag-theme-quartz .ag-header-group-cell {
-  padding-left: 4px !important;
-  padding-right: 4px !important;
+  padding-left: 2px !important;
+  padding-right: 2px !important;
 }
 
 /* 2) Et sur le wrapper interne du label (souvent celui qui gagne) */
 .ag-theme-quartz .ag-header-cell .ag-header-cell-comp-wrapper,
 .ag-theme-quartz .ag-header-group-cell .ag-header-group-cell-label {
-  padding-left: 4px !important;
-  padding-right: 4px !important;
+  padding-left: 2px !important;
+  padding-right: 2px !important;
 }
 
 /* (optionnel) ajuster la hauteur si besoin */
