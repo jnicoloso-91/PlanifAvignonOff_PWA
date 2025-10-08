@@ -183,3 +183,29 @@ main, .page-wrap {
 .ag-theme-quartz {
   --ag-header-height: 32px;
 }
+
+/* Le body doit pouvoir contenir le handle en bas */
+.st-expander-body { position: relative; }
+
+/* Le “grab bar” */
+.expander-resizer {
+  height: 8px;                 /* épaisseur de la poignée */
+  margin-top: 8px;
+  border-radius: 4px;
+  cursor: ns-resize;
+  background: linear-gradient(to right, #cfd6e1 0%, #e3e8f1 50%, #cfd6e1 100%);
+  opacity: .9;
+  transition: opacity .15s ease, background-color .15s ease;
+}
+
+.expander-resizer:hover { opacity: 1; }
+
+/* Option: un petit trait séparateur au-dessus */
+.expander-resizer::before {
+  content: "";
+  display: block;
+  height: 1px;
+  background: #d6dde8;
+  transform: translateY(-8px);
+  opacity: .7;
+}
