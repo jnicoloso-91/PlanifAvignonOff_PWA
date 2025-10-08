@@ -532,29 +532,53 @@ function wireCustomExpander() {
   header.addEventListener("touchstart", (e) => { e.preventDefault(); toggle(); }, {passive:false});
 
   // Poignée de redimensionnement
-  const handle = exp.querySelector(".expander-resizer");
-  if (handle) {
-    let startY, startH, dragging = false;
-    const gridEl = document.getElementById("grid");
+const handle = exp.querySelector(".expander-resizer");
+if (handle) {
+  let startY, startH, dragging = false;
+  const gridEl = document.getElementById("grid");
 
-    handle.addEventListener("mousedown", e => {
-      dragging = true;
-      startY = e.clientY;
-      startH = gridEl.offsetHeight;
-      document.body.style.userSelect = "none";
-    });
-    window.addEventListener("mousemove", e => {
-      if (!dragging) return;
-      const newH = Math.min(900, Math.max(240, startH + (e.clientY - startY)));
-      gridEl.style.height = `${newH}px`;
-      try { window.gridApi?.onGridSizeChanged?.(); } catch(_) {}
-      try { window.gridApi?.sizeColumnsToFit?.(); } catch(_) {}
-    });
-    window.addEventListener("mouseup", () => {
-      dragging = false;
-      document.body.style.userSelect = "";
-    });
-  }
+  // Souris
+  handle.addEventListener("mousedown", e => {
+    dragging = true;
+    startY = e.clientY;
+    startH = gridEl.offsetHeight;
+    document.body.style.userSelect = "none";
+  });
+  window.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    const newH = Math.min(900, Math.max(240, startH + (e.clientY - startY)));
+    gridEl.style.height = `${newH}px`;
+    try { window.gridApi?.onGridSizeChanged?.(); } catch(_) {}
+    try { window.gridApi?.sizeColumnsToFit?.(); } catch(_) {}
+  });
+  window.addEventListener("mouseup", () => {
+    dragging = false;
+    document.body.style.userSelect = "";
+  });
+
+  // Tactile (iOS/Android)
+  handle.addEventListener("touchstart", e => {
+    const t = e.touches[0];
+    dragging = true;
+    startY = t.clientY;
+    startH = gridEl.offsetHeight;
+    document.body.style.userSelect = "none";
+  }, { passive: true });
+
+  window.addEventListener("touchmove", e => {
+    if (!dragging) return;
+    const t = e.touches[0];
+    const newH = Math.min(900, Math.max(240, startH + (t.clientY - startY)));
+    gridEl.style.height = `${newH}px`;
+    try { window.gridApi?.onGridSizeChanged?.(); } catch(_) {}
+    try { window.gridApi?.sizeColumnsToFit?.(); } catch(_) {}
+  }, { passive: true });
+
+  window.addEventListener("touchend", () => {
+    dragging = false;
+    document.body.style.userSelect = "";
+  });
+}
 
   // Ouvre par défaut au démarrage
   exp.classList.add("open");
