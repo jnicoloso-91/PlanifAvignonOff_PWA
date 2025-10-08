@@ -164,10 +164,18 @@ main, .page-wrap {
   --ag-header-height:32px;  
 }
 
-/* Applique sur le conteneur de ta grille */
-.ag-theme-quartz.compact-grid {
-  --ag-cell-horizontal-padding: 2px;        /* cellules “texte” */
-  --ag-cell-widget-horizontal-padding: 2px; /* cellules avec widget (checkbox, group, etc.) */
+.ag-theme-quartz.compact-grid .ag-cell,
+.ag-theme-quartz.compact-grid .ag-cell-wrapper,
+.ag-theme-quartz.compact-grid .ag-cell-value {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+
+/* Pinned edges gardent parfois un padding différent */
+.ag-theme-quartz.compact-grid .ag-cell.ag-cell-first-right-pinned,
+.ag-theme-quartz.compact-grid .ag-cell.ag-cell-last-left-pinned {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
 
 /* 1) Forcer le padding sur la cellule d’en-tête */
