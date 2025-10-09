@@ -226,15 +226,35 @@ main, .page-wrap {
 }
 
 /* Scroller: horizontal, no scrollbar UI */
-.bottom-bar__scroller {
+/* .bottom-bar__scroller {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;        /* Firefox */
+  scrollbar-width: none;        Firefox
+} */
+/* .bottom-bar__scroller::-webkit-scrollbar { display: none; } WebKit */
+
+.bottom-bar__scroller {
+  display: flex;
+  gap: 8px;
+
+  /* scroll uniquement horizontal */
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  /* gestes tactiles : autorise seulement le pan horizontal */
+  touch-action: pan-x;
+
+  white-space: nowrap;              /* pas de retour à la ligne */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;            /* Firefox */
 }
 .bottom-bar__scroller::-webkit-scrollbar { display: none; } /* WebKit */
+
+/* évite que les items “s’étirent” */
+.bottom-bar__scroller > * { flex: 0 0 auto; }
 
 /* Buttons */
 .bb-btn {
