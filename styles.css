@@ -1,4 +1,15 @@
-:root { --bg:#f5f5f5; --fg:#111; --muted:#8b949e; --accent:#2ea043; }
+:root { 
+  --bg:#f5f5f5; 
+  --fg:#111; 
+  --muted:#8b949e; 
+  --accent:#2ea043;
+  /* iOS safe areas */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top:    env(safe-area-inset-top, 0px);
+  /* viewport unit that works on iOS when JS sets it (see JS below) */
+  --dvh: 100dvh; /* fallback if JS not run yet */
+}
+
 * { box-sizing: border-box; }
 html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
 #grid { height: calc(100vh - 64px); width: 100%; }
@@ -11,6 +22,10 @@ body {
   background-color: var(--bg);  /* fond clair neutre */
   color: var(--fg);                /* texte noir lisible */
   font-family: system-ui, sans-serif;
+
+  /* Make room for the bottom bar so content isn’t hidden behind it */
+  /* this padding gets updated from JS to include bar height too */
+  padding-bottom: calc(var(--safe-bottom) + 64px);
 }
 
 /* En-tête page et boutons */
@@ -203,10 +218,20 @@ main, .page-wrap {
    Bottom bar
    =============================== */
 
-   /* Container */
+/* iOS 100vh bug guard (use --dvh instead of 100vh where needed) */
+.full-height-panel{
+  height: var(--dvh);
+}
+
+/* Container */
 .bottom-bar {
   background: var(--bg);
   position: fixed;
+  bottom: 0;
+
+  /* add space for the Home indicator area */
+  padding-bottom: var(--safe-bottom);
+
   left: 0; right: 0; bottom: 0;
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
   backdrop-filter: blur(8px);               /* nice glass effect */
@@ -224,17 +249,6 @@ main, .page-wrap {
 
   -webkit-overflow-scrolling: touch; /* inertie iOS */
 }
-
-/* Scroller: horizontal, no scrollbar UI */
-/* .bottom-bar__scroller {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;        Firefox
-} */
-/* .bottom-bar__scroller::-webkit-scrollbar { display: none; } WebKit */
 
 .bottom-bar__scroller {
   display: flex;
@@ -290,6 +304,7 @@ body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
 .bar-toggle {
   position: fixed;
   right: 0px;
+  bottom: calc(var(--safe-bottom) + 56px);
   transform: translateX(-50%);
   background: #f7f7f7;
   border: 1px solid #ccc;
