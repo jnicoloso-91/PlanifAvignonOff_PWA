@@ -32,32 +32,44 @@
 
 <body>
   <header>
-    <h1>POC AG Grid + IndexedDB + Pyodide</h1>
-    <div class="actions">
+    <h1>Planificateur Avignon Off</h1>
+    <!-- <div class="actions">
       <button id="btnImport">Importer Excel</button>
       <button id="btnExport">Exporter Excel</button>
       <button id="btnReload">Recharger</button>
       <button id="btnSeed">Ajouter échantillon</button>
       <button id="btnPy">Python test</button>
-    </div>
+    </div> -->
   </header>
 
-  <!-- EXPANDER -->
-  <!-- <details id="gridExpander" open>
-    <summary>Planning (AG Grid)</summary>
-    <div id="grid" class="ag-theme-quartz" style="width:100%; height:55vh;"></div>
-  </details> -->
+  <!-- EXPANDERS -->
+  <div class="st-expander" id="gridExpander">
+    <div class="st-expander-header" id="expander-header">
+      <span class="chevron"></span>  <!-- Laisse vide -->
+      <span class="title">Activités programmées</span>
+    </div>
+    <div class="st-expander-body" id="expander-body">
+      <div id="grid" class="ag-theme-quartz compact" style="width:100%;height:55vh;"></div>
+      <div class="expander-resizer" title="Redimensionner"></div>
+    </div>
+  </div>
 
-<div class="st-expander" id="gridExpander">
-  <div class="st-expander-header" id="expander-header">
-    <span class="chevron"></span>  <!-- Laisse vide -->
-    <span class="title">Planning (AG Grid)</span>
+  <!-- Bottom action bar -->
+  <div class="bottom-bar" id="bottomBar" role="toolbar" aria-label="Actions">
+    <div class="bottom-bar__scroller" id="bottomBarScroller">
+      <button class="bb-btn" data-action="import">Importer</button>
+      <button class="bb-btn" data-action="export">Exporter</button>
+      <button class="bb-btn" data-action="reload">Recharger</button>
+      <button class="bb-btn" data-action="undo">↶ Annuler</button>
+      <button class="bb-btn" data-action="redo">↷ Rétablir</button>
+      <button class="bb-btn" data-action="add">＋ Ajouter</button>
+      <button class="bb-btn" data-action="python test">Test Python</button>
+      <!-- ajoute ce que tu veux -->
+    </div>
   </div>
-  <div class="st-expander-body" id="expander-body">
-    <div id="grid" class="ag-theme-quartz compact" style="width:100%;height:55vh;"></div>
-    <div class="expander-resizer" title="Redimensionner"></div>
-  </div>
-</div>
+  
+  <!-- Languette toggle -->
+  <button id="toggleBar" class="bar-toggle" aria-label="Montrer ou cacher la barre">^</button>
 
   <!-- input fichier caché pour import -->
   <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" />
