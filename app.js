@@ -711,6 +711,48 @@ function lockHorizontalScroll() {
   }, { passive: false });
 }
 
+function isStandaloneIOS(){
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  return isIOS && standalone;
+}
+
+function syncSafeLayout(){
+  // robust dvh (avoid iOS address-bar jumps)
+  const dvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--dvh', dvh + 'px');
+
+  // place toggle right above the bar (bar height + safe-bottom)
+  const bar = document.querySelector('.bottom-bar');
+  const tog = document.querySelector('.bottom-toggle');
+  if (bar && tog){
+    const h = Math.round(bar.getBoundingClientRect().height); // includes padding-bottom safe area
+    tog.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${h}px)`;
+  }
+
+  // give the page enough bottom padding so content never hides under the bar
+  if (bar){
+    const h = Math.round(bar.getBoundingClientRect().height);
+    document.body.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${h}px)`;
+  }
+}
+
+function initSafeAreaWatch(){
+  // recalc on resize, orientation, keyboard pop, etc.
+  window.addEventListener('resize', syncSafeLayout);
+  if (window.visualViewport){
+    window.visualViewport.addEventListener('resize', syncSafeLayout);
+  }
+  // observe bottom bar height changes (collapsed/expanded)
+  const bar = document.querySelector('.bottom-bar');
+  if (bar){
+    new ResizeObserver(syncSafeLayout).observe(bar);
+  }
+  // first paint (2 RAFs helps on iOS)
+  requestAnimationFrame(()=>requestAnimationFrame(syncSafeLayout));
+}
+
 // ------- Boot -------
 document.addEventListener('DOMContentLoaded', () => {
   wireCustomExpander();
@@ -718,4 +760,6 @@ document.addEventListener('DOMContentLoaded', () => {
   wireHiddenFileInput();
   wireBottomBarToggle();
   lockHorizontalScroll();
+  initSafeAreaWatch();
+  setTimeout(syncSafeLayout, 300); // re-sync after 1s (iOS late adjustments )
 });
