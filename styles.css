@@ -1,107 +1,16 @@
-:root { --bg:#0d1117; --fg:#e6edf3; --muted:#8b949e; --accent:#2ea043; }
+:root { --bg:#f5f5f5; --fg:#111; --muted:#8b949e; --accent:#2ea043; }
 * { box-sizing: border-box; }
 html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #30363d; }
-header h1 { font-size:16px; margin:0; }
-.actions { display:flex; gap:8px; }
-button { background:#21262d; color:var(--fg); border:1px solid #30363d; padding:8px 10px; border-radius:6px; cursor:pointer; }
-button:hover { border-color:#3b4149; }
-main { padding:10px; }
 #grid { height: calc(100vh - 64px); width: 100%; }
-.ag-theme-quartz { --ag-foreground-color: var(--fg); --ag-background-color: #161b22; --ag-border-color: #30363d; --ag-row-hover-color: #1f242d; }
-
-body {
-  background-color: #f5f5f5;  /* fond clair neutre */
-  color: #111;                /* texte noir lisible */
-  font-family: system-ui, sans-serif;
-}
 
 /* ===============================
    Thème clair Streamlit-like
    =============================== */
 
 body {
-  background-color: #f5f5f5;   /* fond page clair */
-  color: #111;                 /* texte noir */
+  background-color: var(--bg);  /* fond clair neutre */
+  color: var(--fg);                /* texte noir lisible */
   font-family: system-ui, sans-serif;
-  margin: 0;
-  padding: 0;
-}
-
-/* Conteneur expander : centrage + cadre gris clair */
-.st-expander {
-  margin: 16px 8px;
-  /* max-width: 1100px; */
-  border: 1px solid #d1d5db;   /* gris clair */
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-  overflow: hidden;
-}
-
-/* HEADER */
-.st-expander-header {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  padding: .9rem 1.1rem;
-  cursor: pointer;
-  user-select: none;
-  font-weight: 600;
-  color: #1f2937;              /* texte gris foncé */
-  background: #fff;
-  transition: background-color .15s ease, color .15s ease;
-  border-radius: 8px 8px 0 0;
-}
-.st-expander-header:hover {
-  background: #f3f4f6;          /* hover gris doux */
-}
-
-/* CHEVRON custom (style Streamlit) */
-.st-expander .chevron {
-  display: inline-block;
-  width: 1.2em;
-}
-.st-expander .chevron::before {
-  content: "›";                /* "❯" ou "›" selon goût */
-  display: inline-block;
-  font-size: 1.5em;
-  line-height: 1;
-  font-weight: 600;
-  color: #6b7280;              /* gris moyen */
-  transform: rotate(0deg);
-  transition: transform .2s ease, color .15s ease;
-}
-.st-expander.open .chevron::before {
-  transform: rotate(90deg);
-  color: #374151;              /* plus foncé une fois ouvert */
-}
-
-/* BODY */
-.st-expander-body {
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  padding: 0 1rem;
-  background: #fff;
-  transition: max-height .28s ease, opacity .18s ease, padding .18s ease;
-  border-top: 1px solid #e5e7eb;
-  border-radius: 0 0 8px 8px;
-}
-.st-expander.open .st-expander-body {
-  max-height: 80vh;
-  opacity: 1;
-  padding: 1rem;
-}
-
-/* AG GRID clair intégré */
-.ag-theme-quartz {
-  --ag-background-color: #fff;
-  --ag-foreground-color: #111827;
-  --ag-border-color: #e5e7eb;
-  --ag-row-hover-color: #f9fafb;
-  --ag-header-background-color: #f3f4f6;
-  --ag-header-foreground-color: #111827;
 }
 
 /* En-tête page et boutons */
@@ -148,6 +57,90 @@ main, .page-wrap {
   padding: 0 16px;
 }
 
+/* ===============================
+   Expanders custom
+   =============================== */
+
+/* Conteneur : centrage + cadre gris clair */
+.st-expander {
+  margin: 16px 8px;
+  /* max-width: 1100px; */
+  border: 1px solid #d1d5db;   /* gris clair */
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+
+/* Header */
+.st-expander-header {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .9rem 1.1rem;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  color: #1f2937;              /* texte gris foncé */
+  background: #fff;
+  transition: background-color .15s ease, color .15s ease;
+  border-radius: 8px 8px 0 0;
+}
+.st-expander-header:hover {
+  background: #f3f4f6;          /* hover gris doux */
+}
+
+/* Chevron custom (style Streamlit) */
+.st-expander .chevron {
+  display: inline-block;
+  width: 1.2em;
+}
+.st-expander .chevron::before {
+  content: "›";                /* "❯" ou "›" selon goût */
+  display: inline-block;
+  font-size: 1.5em;
+  line-height: 1;
+  font-weight: 600;
+  color: #6b7280;              /* gris moyen */
+  transform: rotate(0deg);
+  transition: transform .2s ease, color .15s ease;
+}
+.st-expander.open .chevron::before {
+  transform: rotate(90deg);
+  color: #374151;              /* plus foncé une fois ouvert */
+}
+
+/* Body */
+.st-expander-body {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0 1rem;
+  background: #fff;
+  transition: max-height .28s ease, opacity .18s ease, padding .18s ease;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0 0 8px 8px;
+}
+.st-expander.open .st-expander-body {
+  max-height: 80vh;
+  opacity: 1;
+  padding: 1rem;
+}
+
+/* ===============================
+   Ag Grid 
+   =============================== */
+
+/* Thème clair intégré */
+.ag-theme-quartz {
+  --ag-background-color: #fff;
+  --ag-foreground-color: #111827;
+  --ag-border-color: #e5e7eb;
+  --ag-row-hover-color: #f9fafb;
+  --ag-header-background-color: #f3f4f6;
+  --ag-header-foreground-color: #111827;
+}
+
 /* Applique la couleur par jour à toutes les cellules de la ligne */
 .ag-theme-quartz .ag-row .ag-cell {
   background-color: var(--day-bg) !important;
@@ -159,69 +152,139 @@ main, .page-wrap {
 }
 
 .ag-theme-quartz.compact { 
-  --ag-font-size: 10px; 
-  --ag-row-height:25px; 
-  --ag-header-height:28px;  
   --ag-card-radius: 0px;         /* bordure interne du “card” */
   --ag-border-radius: 0px;       /* rayon global */
   border-radius: 0 !important;   /* sécurité */
 }
 
-.ag-theme-quartz.compact-grid .ag-cell,
-.ag-theme-quartz.compact-grid .ag-cell-wrapper,
-.ag-theme-quartz.compact-grid .ag-cell-value {
-  padding-left: 2px !important;
-  padding-right: 2px !important;
+.ag-theme-quartz.compact { 
+  --ag-font-size: 13px; 
+  --ag-row-height:30px; 
+  --ag-header-height:32px;  
 }
 
-/* Pinned edges gardent parfois un padding différent */
-.ag-theme-quartz.compact-grid .ag-cell.ag-cell-first-right-pinned,
-.ag-theme-quartz.compact-grid .ag-cell.ag-cell-last-left-pinned {
-  padding-left: 2px !important;
-  padding-right: 2px !important;
+@media (max-width: 750px) {
+  .ag-theme-quartz.compact { 
+    --ag-font-size: 10px; 
+    --ag-row-height:25px; 
+    --ag-header-height:28px;  
+  }
+
+  .ag-theme-quartz.compact-grid .ag-cell,
+  .ag-theme-quartz.compact-grid .ag-cell-wrapper,
+  .ag-theme-quartz.compact-grid .ag-cell-value {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+  }
+
+  /* Pinned edges gardent parfois un padding différent */
+  .ag-theme-quartz.compact-grid .ag-cell.ag-cell-first-right-pinned,
+  .ag-theme-quartz.compact-grid .ag-cell.ag-cell-last-left-pinned {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+  }
+
+  /* 1) Forcer le padding sur la cellule d’en-tête */
+  .ag-theme-quartz .ag-header-cell,
+  .ag-theme-quartz .ag-header-group-cell {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+  }
+
+  /* 2) Et sur le wrapper interne du label (souvent celui qui gagne) */
+  .ag-theme-quartz .ag-header-cell .ag-header-cell-comp-wrapper,
+  .ag-theme-quartz .ag-header-group-cell .ag-header-group-cell-label {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+  }
 }
 
-/* 1) Forcer le padding sur la cellule d’en-tête */
-.ag-theme-quartz .ag-header-cell,
-.ag-theme-quartz .ag-header-group-cell {
-  padding-left: 2px !important;
-  padding-right: 2px !important;
+/* ===============================
+   Bottom bar
+   =============================== */
+
+   /* Container */
+.bottom-bar {
+  background: var(--bg);
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  backdrop-filter: blur(8px);               /* nice glass effect */
+  border-top: 1px solid #d1d5db;
+  display: flex;
+  transition: transform 0.3s ease;
+  z-index: 1000;
 }
 
-/* 2) Et sur le wrapper interne du label (souvent celui qui gagne) */
-.ag-theme-quartz .ag-header-cell .ag-header-cell-comp-wrapper,
-.ag-theme-quartz .ag-header-group-cell .ag-header-group-cell-label {
-  padding-left: 2px !important;
-  padding-right: 2px !important;
+/* Scroller: horizontal, no scrollbar UI */
+.bottom-bar__scroller {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;        /* Firefox */
+}
+.bottom-bar__scroller::-webkit-scrollbar { display: none; } /* WebKit */
+
+/* Buttons */
+.bb-btn {
+  flex: 0 0 auto;
+  min-width: 90px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;         /* pill */
+  /* background: #1a1f27;
+  color: #e6edf3; */
+  font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  cursor: pointer;
+  transition: transform .08s ease, background .15s ease, border-color .15s ease;
+  user-select: none;
+  touch-action: manipulation;
+}
+.bb-btn:hover { background:#e9ecf0; border-color:#8391b8; }
+.bb-btn:active { transform: translateY(1px) scale(0.99); }
+.bb-btn.is-active { background:#d1dcf0; border-color:#5e6a85; }
+
+@media (max-width: 768px) {
+  .bb-btn { min-width: 84px; padding: 10px 12px; font-size: 13px; }
 }
 
-/* (optionnel) ajuster la hauteur si besoin */
-.ag-theme-quartz {
-  --ag-header-height: 32px;
+/* Make sure content isn't hidden behind the bar */
+body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+
+.bottom-bar.hidden {
+  transform: translateY(100%);
 }
 
-/* Le body doit pouvoir contenir le handle en bas */
-/* .st-expander-body { position: relative; } */
+/* ----- toggle “languette” juste au-dessus ----- */
+.bar-toggle {
+  position: fixed;
+  right: 0px;
+  transform: translateX(-50%);
+  background: #f7f7f7;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: #333;
+  font-size: 0.9rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  z-index: 1001;
+  transition: background 0.3s ease;
+}
 
-/* Le “grab bar” */
-/* .expander-resizer {
-  height: 8px;                 
-  margin-top: 8px;
-  border-radius: 4px;
-  cursor: ns-resize;
-  background: linear-gradient(to right, #cfd6e1 0%, #e3e8f1 50%, #cfd6e1 100%);
-  opacity: .9;
-  transition: opacity .15s ease, background-color .15s ease;
-} */
+/* effet de rotation fluide */
+.bar-toggle span {
+  display: inline-block;
+  transform: rotate(0deg);
+  transition: transform 0.3s ease;
+}
 
-/* .expander-resizer:hover { opacity: 1; } */
+.bar-toggle.rotated span {
+  transform: rotate(180deg);
+}
 
-/* Option: un petit trait séparateur au-dessus */
-/* .expander-resizer::before {
-  content: "";
-  display: block;
-  height: 1px;
-  background: #d6dde8;
-  transform: translateY(-8px);
-  opacity: .7;
-} */
+.bar-toggle:hover {
+  background: #eaeaea;
+}
