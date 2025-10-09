@@ -11,19 +11,21 @@ function buildColumns() {
   return [
     {
       field: 'Date',
-        headerName: 'Date',
-        width: width,
-        suppressSizeToFit: true,
-        // sort: 'asc',
-        valueFormatter: p => dateintToPretty(p.value),
-        valueParser: p => {
-          // l’utilisateur saisit "dd[/mm][/yy]" -> on re-range un dateint
-          const di = prettyToDateint(p.newValue);
-          return di ?? p.oldValue ?? null;
-        },
-        comparator: (a, b) => (safeDateint(a)||0) - (safeDateint(b)||0),
+      headerName: 'Date',
+      width: width,
+      suppressSizeToFit: true,
+      // sort: 'asc',
+      valueFormatter: p => dateintToPretty(p.value),
+      valueParser: p => {
+        // l’utilisateur saisit "dd[/mm][/yy]" -> on re-range un dateint
+        const di = prettyToDateint(p.newValue);
+        return di ?? p.oldValue ?? null;
+      },
+      comparator: (a, b) => (safeDateint(a)||0) - (safeDateint(b)||0),
     },
-    { field: 'Début', width: width,
+    { field: 'Début', 
+      width: width,
+      suppressSizeToFit: true,
       comparator: (a,b) => {
         const pa = /(\d{1,2})h(\d{2})/i.exec(String(a||'')); 
         const pb = /(\d{1,2})h(\d{2})/i.exec(String(b||'')); 
@@ -32,9 +34,9 @@ function buildColumns() {
         return ma - mb;
       }
     },
+    { field: 'Activité', minWidth: 200, flex: 1, cellRenderer: ActiviteRenderer },
     { field: 'Durée',   width: width, suppressSizeToFit: true },
     { field: 'Fin',   width: width, suppressSizeToFit: true },
-    { field: 'Activité', minWidth: 200, flex: 1, cellRenderer: ActiviteRenderer },
     { field: 'Lieu', minWidth: 200,     flex: 1 },
     { field: 'Relâche', minWidth: 50,  flex: 0.5 },
     { field: 'Réservé', minWidth: 50,  flex: 0.5 },
@@ -719,81 +721,120 @@ function isStandaloneIOS(){
   return isIOS && standalone;
 }
 
-function syncSafeLayout(){
-  // robust dvh (avoid iOS address-bar jumps)
-  const dvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  document.documentElement.style.setProperty('--dvh', dvh + 'px');
+// function syncSafeLayout(){
+//   // robust dvh (avoid iOS address-bar jumps)
+//   const dvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+//   document.documentElement.style.setProperty('--dvh', dvh + 'px');
 
-  // place toggle right above the bar (bar height + safe-bottom)
-  const bar = document.querySelector('.bottom-bar');
-  const tog = document.querySelector('.bottom-toggle');
-  if (bar && tog){
-    const h = Math.round(bar.getBoundingClientRect().height); // includes padding-bottom safe area
-    tog.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${h}px)`;
-  }
+//   // place toggle right above the bar (bar height + safe-bottom)
+//   const bar = document.querySelector('.bottom-bar');
+//   const tog = document.querySelector('.bottom-toggle');
+//   if (bar && tog){
+//     const h = Math.round(bar.getBoundingClientRect().height); // includes padding-bottom safe area
+//     tog.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${h}px)`;
+//   }
 
-  // give the page enough bottom padding so content never hides under the bar
-  if (bar){
-    const h = Math.round(bar.getBoundingClientRect().height);
-    document.body.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${h}px)`;
-  }
-}
+//   // give the page enough bottom padding so content never hides under the bar
+//   if (bar){
+//     const h = Math.round(bar.getBoundingClientRect().height);
+//     document.body.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${h}px)`;
+//   }
+// }
 
-function initSafeAreaWatch(){
-  // recalc on resize, orientation, keyboard pop, etc.
-  window.addEventListener('resize', syncSafeLayout);
-  if (window.visualViewport){
-    window.visualViewport.addEventListener('resize', syncSafeLayout);
-  }
-  // observe bottom bar height changes (collapsed/expanded)
-  const bar = document.querySelector('.bottom-bar');
-  if (bar){
-    new ResizeObserver(syncSafeLayout).observe(bar);
-  }
-  // first paint (2 RAFs helps on iOS)
-  requestAnimationFrame(()=>requestAnimationFrame(syncSafeLayout));
-}
+// function initSafeAreaWatch(){
+//   // recalc on resize, orientation, keyboard pop, etc.
+//   window.addEventListener('resize', syncSafeLayout);
+//   if (window.visualViewport){
+//     window.visualViewport.addEventListener('resize', syncSafeLayout);
+//   }
+//   // observe bottom bar height changes (collapsed/expanded)
+//   const bar = document.querySelector('.bottom-bar');
+//   if (bar){
+//     new ResizeObserver(syncSafeLayout).observe(bar);
+//   }
+//   // first paint (2 RAFs helps on iOS)
+//   requestAnimationFrame(()=>requestAnimationFrame(syncSafeLayout));
+// }
 
-function getSafeBottom() {
-  // iOS notch etc.
-  return 'env(safe-area-inset-bottom, 0px)';
-}
+// function getSafeBottom() {
+//   // iOS notch etc.
+//   return 'env(safe-area-inset-bottom, 0px)';
+// }
 
-function syncBottomBarTogglePosition() {
-  const bar = document.querySelector('.bottom-bar');
-  const tog = document.querySelector('.bottom-toggle');
-  if (!bar || !tog) return;
+// function syncBottomBarTogglePosition() {
+//   const bar = document.querySelector('.bottom-bar');
+//   const tog = document.querySelector('.bottom-toggle');
+//   if (!bar || !tog) return;
 
-  // Mesurer la hauteur réellement rendue
-  const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
+//   // Mesurer la hauteur réellement rendue
+//   const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
 
-  // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
-  tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
-}
+//   // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
+//   tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
+// }
 
-/* Recalcule après :
-   - chargement,
-   - redimensionnement/orientation,
-   - changements de taille de la barre (ouverture/fermeture, contenu qui wrap).
-*/
-function initBottomBarAutoLayout() {
+// /* Recalcule après :
+//    - chargement,
+//    - redimensionnement/orientation,
+//    - changements de taille de la barre (ouverture/fermeture, contenu qui wrap).
+// */
+// function initBottomBarAutoLayout() {
+//   const bar = document.querySelector('.bottom-bar');
+//   if (!bar) return;
+
+//   // Observe les changements de taille de la barre
+//   const ro = new ResizeObserver(() => syncBottomBarTogglePosition());
+//   ro.observe(bar);
+
+//   // Orientation / clavier mobile / viewport iOS
+//   window.addEventListener('resize', syncBottomBarTogglePosition);
+//   if (window.visualViewport) {
+//     window.visualViewport.addEventListener('resize', syncBottomBarTogglePosition);
+//   }
+
+//   // Premier sync après stabilisation du layout
+//   requestAnimationFrame(() => {
+//     requestAnimationFrame(syncBottomBarTogglePosition);
+//   });
+// }
+
+function hardPinBottom() {
   const bar = document.querySelector('.bottom-bar');
   if (!bar) return;
 
-  // Observe les changements de taille de la barre
-  const ro = new ResizeObserver(() => syncBottomBarTogglePosition());
-  ro.observe(bar);
+  const vv = window.visualViewport;
+  let gap = 0;
 
-  // Orientation / clavier mobile / viewport iOS
-  window.addEventListener('resize', syncBottomBarTogglePosition);
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', syncBottomBarTogglePosition);
+  if (vv) {
+    gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
   }
 
-  // Premier sync après stabilisation du layout
-  requestAnimationFrame(() => {
-    requestAnimationFrame(syncBottomBarTogglePosition);
-  });
+  bar.style.bottom = gap + 'px';
+}
+
+// --- initialisation robuste ---
+function initSafeAreaWatch() {
+  // Premier calage rapide
+  hardPinBottom();
+
+  // Recalage après stabilisation du viewport (iOS au lancement)
+  setTimeout(hardPinBottom, 450);
+
+  // Recalage à chaque rotation ou resize viewport
+  const vv = window.visualViewport;
+  if (vv) {
+    vv.addEventListener('resize', hardPinBottom);
+    vv.addEventListener('scroll', hardPinBottom);
+  }
+
+  window.addEventListener('orientationchange', () =>
+    setTimeout(hardPinBottom, 400)
+  );
+
+  // Recalage après retour d’arrière-plan (quand la PWA revient active)
+  window.addEventListener('pageshow', () =>
+    setTimeout(hardPinBottom, 200)
+  );
 }
 
 // ------- Boot -------
@@ -804,9 +845,9 @@ document.addEventListener('DOMContentLoaded', () => {
   wireBottomBarToggle();
   lockHorizontalScroll();
   initSafeAreaWatch();
-  initBottomBarAutoLayout();   
-  setTimeout(document.getElementById('toggleBar').click(), 500);
-  setTimeout(document.getElementById('toggleBar').click(), 1500);
+  // initBottomBarAutoLayout();   
   // setTimeout(syncBottomBarTogglePosition, 1000);
   // setTimeout(syncSafeLayout, 1000); 
+  // setTimeout(document.getElementById('toggleBar').click(), 500);
+  // setTimeout(document.getElementById('toggleBar').click(), 1500);
 });
