@@ -298,7 +298,7 @@ main, .page-wrap {
 }
 
 /* Make sure content isn't hidden behind the bar */
-body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+/* body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); } */
 
 .bottom-bar.hidden {
   transform: translateY(100%);
