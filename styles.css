@@ -214,6 +214,15 @@ main, .page-wrap {
   display: flex;
   transition: transform 0.3s ease;
   z-index: 1000;
+
+  /* scroll uniquement horizontal */
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  /* tactile : pan horizontal seulement (iOS/Android) */
+  touch-action: pan-x;
+
+  -webkit-overflow-scrolling: touch; /* inertie iOS */
 }
 
 /* Scroller: horizontal, no scrollbar UI */
