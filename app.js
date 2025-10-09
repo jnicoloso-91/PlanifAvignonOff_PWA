@@ -762,17 +762,17 @@ function isStandaloneIOS(){
 //   return 'env(safe-area-inset-bottom, 0px)';
 // }
 
-// function syncBottomBarTogglePosition() {
-//   const bar = document.querySelector('.bottom-bar');
-//   const tog = document.querySelector('.bottom-toggle');
-//   if (!bar || !tog) return;
+function syncBottomBarTogglePosition() {
+  const bar = document.querySelector('.bottom-bar');
+  const tog = document.querySelector('.bottom-toggle');
+  if (!bar || !tog) return;
 
-//   // Mesurer la hauteur réellement rendue
-//   const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
+  // Mesurer la hauteur réellement rendue
+  const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
 
-//   // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
-//   tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
-// }
+  // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
+  tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
+}
 
 // /* Recalcule après :
 //    - chargement,
