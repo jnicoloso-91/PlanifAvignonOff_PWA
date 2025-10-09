@@ -6,8 +6,7 @@
   /* iOS safe areas */
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top:    env(safe-area-inset-top, 0px);
-  /* viewport unit that works on iOS when JS sets it (see JS below) */
-  --dvh: 100dvh; /* fallback if JS not run yet */
+  /*--dvh: 100dvh; /* fallback if JS not run yet */
 }
 
 * { box-sizing: border-box; }
