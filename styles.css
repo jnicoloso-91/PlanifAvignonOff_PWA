@@ -269,7 +269,7 @@ main, .page-wrap {
 /* évite que les items “s’étirent” */
 .bottom-bar__scroller > * { flex: 0 0 auto; }
 
-/* Buttons */
+/* bb Buttons */
 .bb-btn {
   flex: 0 0 auto;
   min-width: 90px;
@@ -332,26 +332,3 @@ body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
   background: #eaeaea;
 }
 
-:root{
-  --safe-gap: 0px;              /* injecté par JS */
-  --bar-height: 56px;           /* hauteur barre (approx) */
-}
-
-/* barre collée au bas en tenant compte du safe area */
-.bottom-bar{
-  position: fixed;
-  left: 0; right: 0;
-  bottom: max(var(--safe-gap), env(safe-area-inset-bottom));
-  height: var(--bar-height);
-  /* ... ton style ... */
-  z-index: 1000;
-}
-
-/* toggle collé à la barre (au-dessus), à droite */
-.bb-toggle{
-  position: fixed;
-  right: 12px;
-  bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height) + 8px );
-  /* ... ton style ... */
-  z-index: 1001; /* au-dessus de la barre */
-}
