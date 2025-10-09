@@ -2,7 +2,7 @@
 import { openDB } from './lib/idb.mjs';
 
 export const DB_NAME = 'avignon';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 const STORES = {
   df: 'df',
@@ -12,16 +12,30 @@ const STORES = {
 };
 
 export const dbp = openDB(DB_NAME, DB_VERSION, {
-  upgrade(db) {
-    if (!db.objectStoreNames.contains(STORES.df)) {
-      db.createObjectStore(STORES.df, { keyPath: '__uuid' });
+  upgrade(db, oldVersion, newVersion, tx) {
+    // df
+    let dfStore;
+    if (db.objectStoreNames.contains(STORES.df)) {
+      dfStore = tx.objectStore(STORES.df);
+    } else {
+      dfStore = db.createObjectStore(STORES.df, { keyPath: '__uuid' });
     }
+    // index sur __order (pour lecture ordonnée)
+    if (!Array.from(dfStore.indexNames).includes('by_order')) {
+      dfStore.createIndex('by_order', '__order');
+    }
+
+    // meta
     if (!db.objectStoreNames.contains(STORES.meta)) {
       db.createObjectStore(STORES.meta); // key = "singleton"
     }
+
+    // carnet
     if (!db.objectStoreNames.contains(STORES.carnet)) {
       db.createObjectStore(STORES.carnet, { keyPath: '__uuid' });
     }
+
+    // snapshots
     if (!db.objectStoreNames.contains(STORES.snapshots)) {
       db.createObjectStore(STORES.snapshots);
     }
@@ -35,47 +49,49 @@ export async function df_getAll() {
   const db = await dbp;
   return db.getAll(STORES.df);
 }
-// export async function df_putMany(rows) {
-//   const db = await dbp;
-//   const tx = db.transaction(STORES.df, 'readwrite');
-//   for (const r of rows) tx.store.put(r);
-//   await tx.done;
-// }
-// export async function df_putMany(rows) {
-//   const db = await dbp;
-//   const tx = db.transaction(STORES.df, 'readwrite');
-//   for (let r of rows || []) {
-//     if (!r) continue;
-//     let id = r.__uuid;
-//     const bad = id == null || id === '' || (typeof id === 'number' && Number.isNaN(id));
-//     if (bad) id = (crypto?.randomUUID?.()) || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-//     r.__uuid = String(id);
-//     await tx.store.put(r);
-//   }
-//   await tx.done;
-// }
+
+export async function df_getAllOrdered() {
+  const db = await dbp;
+  const tx = db.transaction('df', 'readonly');
+  const st = tx.store;
+  const idx = st.index('by_order');
+  return idx.getAll(); // renvoie trié par __order
+}
+
 export async function df_putMany(rows) {
   const db = await dbp;
   const tx = db.transaction(STORES.df, 'readwrite');
 
-  const putOne = (r) => {
+  let orderBase = Date.now(); // base unique pour cet import
+
+  const putOne = (r, i = 0) => {
     if (!r || typeof r !== 'object' || Array.isArray(r)) return; // ignore non-objets
     const obj = { ...r }; // clone, on ne mutera pas l’original
+
+    // UUID unique
     if (!obj.__uuid) {
       obj.__uuid =
         (crypto.randomUUID && crypto.randomUUID()) ||
         (`${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     }
+
+    // Ordre (si absent)
+    if (obj.__order == null) {
+      obj.__order = orderBase + i;
+    }
+
     tx.store.put(obj);
   };
 
   if (Array.isArray(rows)) {
-    for (const r of rows) putOne(r);
+    rows.forEach((r, i) => putOne(r, i));
   } else {
-    putOne(rows);
+    putOne(rows, 0);
   }
+
   await tx.done;
 }
+
 
 export async function df_clear() {
   const db = await dbp;
