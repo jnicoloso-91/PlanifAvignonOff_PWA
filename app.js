@@ -805,7 +805,8 @@ document.addEventListener('DOMContentLoaded', () => {
   lockHorizontalScroll();
   initSafeAreaWatch();
   initBottomBarAutoLayout();   
-  setTimeout(syncBottomBarTogglePosition, 1000);
-  setTimeout(syncSafeLayout, 1000); // re-sync after 1s (iOS late adjustments )
+  document.getElementById('toggleBar').click();
+  document.getElementById('toggleBar').click();
+  // setTimeout(syncBottomBarTogglePosition, 1000);
+  // setTimeout(syncSafeLayout, 1000); 
 });
-
