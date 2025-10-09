@@ -676,6 +676,7 @@ function wireBottomBarToggle() {
     const hidden = bar.classList.toggle('hidden');
     toggle.classList.toggle('rotated', hidden);
     updateTogglePos();
+    setTimeout(syncBottomBarTogglePosition, 180);
   });
 
   updateTogglePos();
@@ -753,6 +754,48 @@ function initSafeAreaWatch(){
   requestAnimationFrame(()=>requestAnimationFrame(syncSafeLayout));
 }
 
+function getSafeBottom() {
+  // iOS notch etc.
+  return 'env(safe-area-inset-bottom, 0px)';
+}
+
+function syncBottomBarTogglePosition() {
+  const bar = document.querySelector('.bottom-bar');
+  const tog = document.querySelector('.bottom-toggle');
+  if (!bar || !tog) return;
+
+  // Mesurer la hauteur réellement rendue
+  const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
+
+  // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
+  tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
+}
+
+/* Recalcule après :
+   - chargement,
+   - redimensionnement/orientation,
+   - changements de taille de la barre (ouverture/fermeture, contenu qui wrap).
+*/
+function initBottomBarAutoLayout() {
+  const bar = document.querySelector('.bottom-bar');
+  if (!bar) return;
+
+  // Observe les changements de taille de la barre
+  const ro = new ResizeObserver(() => syncBottomBarTogglePosition());
+  ro.observe(bar);
+
+  // Orientation / clavier mobile / viewport iOS
+  window.addEventListener('resize', syncBottomBarTogglePosition);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncBottomBarTogglePosition);
+  }
+
+  // Premier sync après stabilisation du layout
+  requestAnimationFrame(() => {
+    requestAnimationFrame(syncBottomBarTogglePosition);
+  });
+}
+
 // ------- Boot -------
 document.addEventListener('DOMContentLoaded', () => {
   wireCustomExpander();
@@ -761,5 +804,7 @@ document.addEventListener('DOMContentLoaded', () => {
   wireBottomBarToggle();
   lockHorizontalScroll();
   initSafeAreaWatch();
-  setTimeout(syncSafeLayout, 300); // re-sync after 1s (iOS late adjustments )
+  initBottomBarAutoLayout();   
+  setTimeout(syncBottomBarTogglePosition, 300);
+  // setTimeout(syncSafeLayout, 300); // re-sync after 1s (iOS late adjustments )
 });
