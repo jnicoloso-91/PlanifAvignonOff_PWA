@@ -24,7 +24,7 @@ body {
 
   /* Make room for the bottom bar so content isn’t hidden behind it */
   /* this padding gets updated from JS to include bar height too */
-  padding-bottom: calc(var(--safe-bottom) + 64px);
+  /* padding-bottom: calc(var(--safe-bottom) + 64px); */
 }
 
 /* En-tête page et boutons */
@@ -229,7 +229,7 @@ main, .page-wrap {
   bottom: 0;
 
   /* add space for the Home indicator area */
-  padding-bottom: var(--safe-bottom);
+  /* padding-bottom: var(--safe-bottom); */
 
   left: 0; right: 0; bottom: 0;
   padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
@@ -303,7 +303,7 @@ body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
 .bar-toggle {
   position: fixed;
   right: 0px;
-  bottom: calc(var(--safe-bottom) + 56px);
+  /* bottom: calc(var(--safe-bottom) + 56px); */
   transform: translateX(-50%);
   background: #f7f7f7;
   border: 1px solid #ccc;
@@ -330,4 +330,28 @@ body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
 
 .bar-toggle:hover {
   background: #eaeaea;
+}
+
+:root{
+  --safe-gap: 0px;              /* injecté par JS */
+  --bar-height: 56px;           /* hauteur barre (approx) */
+}
+
+/* barre collée au bas en tenant compte du safe area */
+.bottom-bar{
+  position: fixed;
+  left: 0; right: 0;
+  bottom: max(var(--safe-gap), env(safe-area-inset-bottom));
+  height: var(--bar-height);
+  /* ... ton style ... */
+  z-index: 1000;
+}
+
+/* toggle collé à la barre (au-dessus), à droite */
+.bb-toggle{
+  position: fixed;
+  right: 12px;
+  bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height) + 8px );
+  /* ... ton style ... */
+  z-index: 1001; /* au-dessus de la barre */
 }
