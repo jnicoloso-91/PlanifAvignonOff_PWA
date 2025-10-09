@@ -4,8 +4,10 @@
   --muted:#8b949e; 
   --accent:#2ea043;
   /* iOS safe areas */
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-top:    env(safe-area-inset-top, 0px);
+  /* --safe-bottom: env(safe-area-inset-bottom, 0px); */
+  /* --safe-top:    env(safe-area-inset-top, 0px); */
+  --safe-gap: 0px;              /* injecté par JS */
+  --bar-height: 56px;           /* hauteur barre (approx) */
   /*--dvh: 100dvh; /* fallback if JS not run yet */
 }
 
@@ -226,7 +228,10 @@ main, .page-wrap {
 .bottom-bar {
   background: var(--bg);
   position: fixed;
-  bottom: 0;
+  /* bottom: 0; */
+
+  bottom: max(var(--safe-gap), env(safe-area-inset-bottom));
+  height: var(--bar-height);
 
   /* add space for the Home indicator area */
   /* padding-bottom: var(--safe-bottom); */
@@ -303,7 +308,7 @@ body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
 .bar-toggle {
   position: fixed;
   right: 0px;
-  /* bottom: calc(var(--safe-bottom) + 56px); */
+  bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height) + 8px );
   transform: translateX(-50%);
   background: #f7f7f7;
   border: 1px solid #ccc;
@@ -331,4 +336,5 @@ body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
 .bar-toggle:hover {
   background: #eaeaea;
 }
+
 
