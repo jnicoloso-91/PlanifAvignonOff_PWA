@@ -237,7 +237,7 @@ main, .page-wrap {
   /* padding-bottom: var(--safe-bottom); */
 
   left: 0; right: 0; bottom: 0;
-  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  /* padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); */
   backdrop-filter: blur(8px);               /* nice glass effect */
   border-top: 1px solid #d1d5db;
   display: flex;
