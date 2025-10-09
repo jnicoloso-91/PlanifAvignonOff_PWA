@@ -1,5 +1,5 @@
 // app.js (module)
-import { df_getAll, df_putMany, df_clear } from './db.mjs';
+import { df_getAll, df_getAllOrdered, df_putMany, df_clear } from './db.mjs';
 
 // ------- État global -------
 let gridApi = null;
@@ -7,26 +7,39 @@ let gridOptions = null;
 
 // ------- Colonnes -------
 function buildColumns() {
+  let width = window.matchMedia("(max-width: 750px)").matches ? 65 : 90;
   return [
     {
       field: 'Date',
         headerName: 'Date',
-        width: 65,
+        width: width,
         suppressSizeToFit: true,
-        sort: 'asc',
-        comparator: (a,b) => (a??0) - (b??0), // tri numérique sur int
-        valueFormatter: p => intToPretty(p.value),       // int -> pretty
-        valueParser:   p => parseDateToInt(p.newValue),  // saisie -> int
+        // sort: 'asc',
+        valueFormatter: p => dateintToPretty(p.value),
+        valueParser: p => {
+          // l’utilisateur saisit "dd[/mm][/yy]" -> on re-range un dateint
+          const di = prettyToDateint(p.newValue);
+          return di ?? p.oldValue ?? null;
+        },
+        comparator: (a, b) => (safeDateint(a)||0) - (safeDateint(b)||0),
     },
-    { field: 'Début',   width: 65, suppressSizeToFit: true },
-    { field: 'Durée',   width: 65, suppressSizeToFit: true },
-    { field: 'Fin',   width: 65, suppressSizeToFit: true },
+    { field: 'Début', width: width,
+      comparator: (a,b) => {
+        const pa = /(\d{1,2})h(\d{2})/i.exec(String(a||'')); 
+        const pb = /(\d{1,2})h(\d{2})/i.exec(String(b||'')); 
+        const ma = pa ? (+pa[1])*60 + (+pa[2]) : 0;
+        const mb = pb ? (+pb[1])*60 + (+pb[2]) : 0;
+        return ma - mb;
+      }
+    },
+    { field: 'Durée',   width: width, suppressSizeToFit: true },
+    { field: 'Fin',   width: width, suppressSizeToFit: true },
     { field: 'Activité', minWidth: 200, flex: 1, cellRenderer: ActiviteRenderer },
     { field: 'Lieu', minWidth: 200,     flex: 1 },
     { field: 'Relâche', minWidth: 50,  flex: 0.5 },
     { field: 'Réservé', minWidth: 50,  flex: 0.5 },
     { field: 'Priorité', minWidth: 50, flex: 0.5 },
-    { field: 'Hyperlien', minWidth: 100, flex: 1 }, // utile en debug; tu peux la masquer si tu veux
+    { field: 'Hyperlien', minWidth: 100, flex: 2 }, 
   ];  
 }
 
@@ -49,53 +62,144 @@ function colorForDate(dateInt) {
   return DAY_COLORS[i];
 }
 
-function pad2(n){ return String(n).padStart(2,'0'); }
+// Padding 2 chiffres pour jour/mois "1" -> "01"
+const pad2 = n => String(n).padStart(2, '0');
 
-function parseDateToInt(val, {defaultYear=null, defaultMonth=null} = {}) {
-  if (val == null) return null;
-  const s = String(val).trim();
-  if (!s) return null;
+// ===== Date helpers: Excel/pretty <-> dateint (yyyymmdd) =====
+const TODAY = new Date();
+const CUR_Y = TODAY.getFullYear();
+const CUR_M = TODAY.getMonth() + 1;
 
-  // yyyymmdd
-  if (/^\d{8}$/.test(s)) {
-    const y = +s.slice(0,4), m = +s.slice(4,6), d = +s.slice(6,8);
-    return (m>=1&&m<=12&&d>=1&&d<=31) ? y*10000+m*100+d : null;
-  }
-  // dd
-  if (/^\d{1,2}$/.test(s)) {
-    const base = new Date();
-    const y = defaultYear ?? base.getFullYear();
-    const m = defaultMonth ?? (base.getMonth()+1);
-    const d = +s;
-    return (d>=1&&d<=31) ? y*10000+m*100+d : null;
-  }
-  // dd/mm(/yy|yyyy)
-  const m1 = s.match(/^(\d{1,2})\s*\/\s*(\d{1,2})(?:\s*\/\s*(\d{2,4}))?$/);
-  if (m1) {
-    const d = +m1[1], m = +m1[2];
-    let y = m1[3] != null ? +m1[3] : (defaultYear ?? new Date().getFullYear());
-    if (y < 100) y = 2000 + y;
-    return (m>=1&&m<=12&&d>=1&&d<=31) ? y*10000+m*100+d : null;
-  }
-  // nombre → tente int 8 chiffres
-  const n = Number(s);
-  if (Number.isFinite(n)) {
-    const i = Math.trunc(n);
-    if (/^\d{8}$/.test(String(i))) {
-      const y = Math.trunc(i/10000), m = Math.trunc((i/100)%100), d = i%100;
-      return (m>=1&&m<=12&&d>=1&&d<=31) ? i : null;
-    }
-  }
-  return null;
+function hmToMinutes(hm) {
+  if (!hm) return -1;
+  const m = String(hm).match(/(\d{1,2})h(\d{2})/i);
+  if (!m) return -1;
+  return parseInt(m[1],10)*60 + parseInt(m[2],10);
 }
 
-function intToPretty(di) {
-  if (!Number.isInteger(di)) return '';
-  const y = Math.trunc(di/10000), m = Math.trunc((di/100)%100), d = di%100;
-  const now = new Date();
-  return (y === now.getFullYear())
-    ? `${pad2(d)}/${pad2(m)}`
-    : `${pad2(d)}/${pad2(m)}/${y}`;
+// Excel (Windows) : 1899-12-30 base
+function excelSerialToYMD(serial) {
+  if (typeof serial !== 'number' || !isFinite(serial)) return null;
+  const ms = (serial - 0) * 86400000; // jours -> ms
+  const base = Date.UTC(1899, 11, 30); // 1899-12-30
+  const d = new Date(base + ms);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
+}
+
+// "dd/mm" | "dd/mm/yy" | "dd/mm/yyyy"
+function parseSmartDateToYMD(s, defY = CUR_Y, defM = CUR_M) {
+  if (s == null) return null;
+  const t = String(s).trim();
+  if (!t) return null;
+
+  // Excel serial ?
+  if (!Number.isNaN(+t) && t.trim() !== '') {
+    const n = Number(t);
+    if (Number.isFinite(n) && n > 59) { // évite les petites valeurs ambiguës
+      const ymd = excelSerialToYMD(n);
+      if (ymd) return ymd;
+    }
+  }
+
+  const m = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/.exec(t);
+  if (!m) return null;
+  let d = +m[1], mm = +m[2];
+  let y = m[3] ? +m[3] : defY;
+  if (m[3] && m[3].length === 2) y = 2000 + y;
+  if (!(y>=1900 && mm>=1 && mm<=12 && d>=1 && d<=31)) return null;
+
+  // contrôle validité réelle (ex: 31/11 KO)
+  const dt = new Date(Date.UTC(y, mm-1, d));
+  if (dt.getUTCFullYear() !== y || (dt.getUTCMonth()+1) !== mm || dt.getUTCDate() !== d) return null;
+
+  return { y, m: mm, d };
+}
+
+function ymdToDateint({ y, m, d }) { return y*10000 + m*100 + d; }
+function safeDateint(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 10000101 ? n : null;
+}
+
+// Parse “pretty” utilisateur vers dateint (dd[/mm][/yy])
+function prettyToDateint(value) {
+  if (!value) return null;
+
+  // si c’est déjà un entier (ou convertible)
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && /^\d{8}$/.test(value)) return parseInt(value, 10);
+
+  let s = String(value).trim();
+  if (!s) return null;
+
+  const today = new Date();
+  const curY = today.getFullYear();
+  const curM = today.getMonth() + 1;
+
+  //  "jj", "jj/mm", "jj/mm/aa" ou "jj/mm/yyyy" -> int yyyymmdd
+  const parts = s.split(/[\/\-\.]/).map(p => p.trim());
+  let d = 1, m = curM, y = curY;
+
+  if (parts.length === 1) {
+    // "jj"
+    d = parseInt(parts[0], 10);
+  } else if (parts.length === 2) {
+    // "jj/mm"
+    d = parseInt(parts[0], 10);
+    m = parseInt(parts[1], 10);
+  } else if (parts.length >= 3) {
+    // "jj/mm/aa" ou "jj/mm/yyyy"
+    d = parseInt(parts[0], 10);
+    m = parseInt(parts[1], 10);
+    y = parseInt(parts[2], 10);
+    if (y < 100) y += 2000; // normalise 25 -> 2025
+  }
+
+  if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+
+  return y * 10000 + m * 100 + d;
+}
+
+// Affichage “pretty" d’un dateint:
+// - même mois+année => "dd"
+// - même année (mois diff) => "dd/mm"
+// - sinon => "dd/mm/yy"
+function dateintToPretty(di) {
+  if (di == null) return '';
+
+  // Si déjà une string, on ne touche pas
+  if (typeof di === 'string') return di;
+
+  // Si c'est un petit nombre (ex: "21")
+  if (di < 1000) {
+    return String(di).padStart(2, '0');
+  }
+
+  // Si c’est un format complet yyyymmdd
+  if (di >= 10000000) {
+    const y = Math.floor(di / 10000);
+    const m = Math.floor((di % 10000) / 100);
+    const d = di % 100;
+
+    const today = new Date();
+    const curY = today.getFullYear();
+    const curM = today.getMonth() + 1;
+
+    // Cas 1 : même année et même mois → jj (sur 2 digits)
+    if (y === curY && m === curM) {
+      return `${String(d).padStart(2, '0')}`;
+    }
+
+    // Cas 2 : même année, mois différent → jj/mm (2 digits)
+    if (y === curY) {
+      return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+    }
+
+    // Cas 3 : année différente → jj/mm/aa (2 digits partout)
+    return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${String(y).slice(-2).padStart(2, '0')}`;
+  }
+
+  return '';
 }
 
 function todayInt(){
@@ -125,7 +229,7 @@ function normalizeImportedRows(rows) {
 
 // ------- Grille -------
 async function refreshGrid() {
-  const rows = await df_getAll();             // <- pas d’argument
+  const rows = await df_getAllOrdered();             // <- pas d’argument
   if (!gridApi) return;
   gridApi.setGridOption('rowData', rows || []);
   safeSizeToFit();
@@ -143,8 +247,7 @@ function createOrAttachGrid() {
       getRowId: p => p.data?.__uuid,          // clé stable
       onGridReady: async () => {
         await refreshGrid();
-        params.api.sizeColumnsToFit();
-        // safeSizeToFit();
+        safeSizeToFit();
       },
       getRowStyle: p => {
         const c = colorForDate(p.data?.Date);
@@ -159,103 +262,6 @@ function createOrAttachGrid() {
 }
 
 // ------- Renderers -------
-// function activityCellRenderer(params) {
-//   const e = document.createElement('div');
-//   e.style.display = 'flex';
-//   e.style.alignItems = 'center';
-//   e.style.gap = '0.35rem';
-//   e.style.width = '100%';
-//   e.style.overflow = 'hidden';
-
-//   const label = params.value != null ? String(params.value) : '';
-//   const href  = (params.data && params.data.Hyperlien) 
-//               ? String(params.data.Hyperlien).trim()
-//               : `https://www.festivaloffavignon.com/resultats-recherche?recherche=${encodeURIComponent(label)}`;
-
-//   const txt = document.createElement('span');
-//   txt.textContent = label;
-//   txt.style.flex = '1 1 auto';
-//   txt.style.overflow = 'hidden';
-//   txt.style.textOverflow = 'ellipsis';
-//   txt.style.cursor = 'pointer';
-//   e.appendChild(txt);
-
-//   // --- helper: click synthétique pour la sélection AG Grid correcte ---
-//   function tapSelectViaSyntheticClick(el) {
-//     const cell = el.closest?.('.ag-cell');
-//     if (!cell) return;
-//     try {
-//       cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-//       cell.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true }));
-//       cell.dispatchEvent(new MouseEvent('click',     { bubbles: true }));
-//     } catch (_) {}
-//   }
-
-//   // --- Long-press minimal cross-platform ---
-//   (function attachLongPress(el, url) {
-//     let t0 = 0, pressed = false, moved = false, timer = null;
-//     const DELAY = 550, THRESH = 8;
-
-//     function clearT(){ if (timer){ clearTimeout(timer); timer = null; } }
-
-//     function onDown(ev){
-//       const p = ev.touches ? ev.touches[0] : ev;
-//       pressed = true; moved = false;
-//       const sx = p.clientX, sy = p.clientY;
-//       clearT();
-//       timer = setTimeout(() => {
-//         if (pressed && !moved) {
-//           openNewTab(url);
-//           pressed = false;
-//         }
-//       }, DELAY);
-
-//       function onMove(ev2){
-//         const q = ev2.touches ? ev2.touches[0] : ev2;
-//         if (!q) return;
-//         if (Math.abs(q.clientX - sx) > THRESH || Math.abs(q.clientY - sy) > THRESH) {
-//           moved = true; clearT();
-//         }
-//       }
-//       function onUp(){
-//         pressed = false; clearT();
-//         el.removeEventListener('mousemove', onMove, true);
-//         el.removeEventListener('mouseup', onUp, true);
-//         el.removeEventListener('touchmove', onMove, true);
-//         el.removeEventListener('touchend', onUp, true);
-//       }
-
-//       el.addEventListener('mousemove', onMove, true);
-//       el.addEventListener('mouseup', onUp, true);
-//       el.addEventListener('touchmove', onMove, true);
-//       el.addEventListener('touchend', onUp, true);
-//     }
-
-//     function openNewTab(u){
-//       if (!u) return;
-//       // essai ancre (meilleur pour iOS)
-//       try {
-//         const a = document.createElement('a');
-//         a.href = u; a.target = '_blank'; a.rel = 'noopener';
-//         a.style.position = 'absolute'; a.style.left = '-9999px';
-//         document.body.appendChild(a); a.click(); a.remove(); return;
-//       } catch(_) {}
-//       // fallback
-//       try { window.open(u, '_blank', 'noopener'); } catch(_) {
-//         try { window.location.assign(u); } catch(_){}
-//       }
-//     }
-
-//     el.addEventListener('mousedown', onDown, true);
-//     el.addEventListener('touchstart', onDown, true);
-//     el.addEventListener('contextmenu', (e)=>e.preventDefault(), true);
-
-//     // tap court = sélection de la cellule (pas d’ouverture)
-//     el.addEventListener('click', (e)=>{ tapSelectViaSyntheticClick(el); }, true);
-//   })(txt, href);
-
-//   return e;
-// }
 const ActiviteRenderer = function () {};
 ActiviteRenderer.prototype.init = function (params) {
   const e = document.createElement('div');
@@ -308,209 +314,6 @@ ActiviteRenderer.prototype.refresh = function(){ return false; };
 
 
 // ------- Expander (details/summary) -------
-function wireExpander() {
-  const det = document.getElementById('gridExpander');
-  if (!det) return;
-  det.addEventListener('toggle', () => {
-    if (det.open) {
-      // ouvrir → (re)monter la grille et recalculer les tailles
-      createOrAttachGrid();
-      safeSizeToFit();
-    }
-  });
-}
-
-// ------- Boutons -------
-function wireButtons() {
-  const $ = id => document.getElementById(id);
-
-  // Import Excel
-  const btnImport = $('btnImport');
-  const fileInput = $('fileInput');
-  if (btnImport && fileInput) {
-    btnImport.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async (ev) => {
-      const f = ev.target.files?.[0];
-      if (!f) return;
-      try {
-        const buf = await f.arrayBuffer();
-        const wb  = XLSX.read(buf, { type: 'array' });
-        const ws  = wb.Sheets[wb.SheetNames[0]];
-
-        // 1) JSON “classique” (valeurs) — garde toutes les colonnes
-        let rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
-
-        // 2) Carte d’en-têtes (détection robuste de "Activité" et "Hyperlien")
-        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-        const norm = (s) => (s ?? '')
-          .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-          .trim().toLowerCase();
-
-        // headers: map nomNormalisé -> index de colonne (c)
-        const headers = {};
-        for (let c = range.s.c; c <= range.e.c; c++) {
-          const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
-          const cell = ws[addr];
-          const txt  = (cell && String(cell.v)) || '';
-          const key  = norm(txt);
-          if (key) headers[key] = c;
-        }
-
-        const colActivite = headers['activite'] ?? headers['activité']; // tolère les deux
-        const colHyperlienHeader = headers['hyperlien']; // si une colonne existe déjà
-
-        // 3) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
-        if (typeof colActivite === 'number') {
-          for (let i = 0; i < rows.length; i++) {
-            const r = i + 1; // +1 car row 0 = ligne 2 en Excel (entête sur r0)
-            const addr = XLSX.utils.encode_cell({ r: range.s.r + 1 + i, c: colActivite });
-            const cell = ws[addr];
-            const link = cell?.l?.Target || cell?.l?.target || null;
-
-            // S’il y a déjà une colonne "Hyperlien" dans Excel, on la garde prioritaire,
-            // sinon on remplit depuis le lien de la cellule Activité.
-            if (!rows[i].Hyperlien && link) {
-              rows[i].Hyperlien = link;
-            }
-          }
-        }
-
-        // 4) __uuid garanti + (optionnel) Date → dateint, etc.
-        rows = rows.map((r, i) => {
-          const o = { ...r };
-          if (!o.__uuid) {
-            o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
-          }
-          return o;
-        });
-
-        // 5) à toi d’éventuellement convertir o.Date en dateint ici
-
-        await df_clear();
-        await df_putMany(rows);
-
-        await refreshGrid();
-        console.log('✅ Import OK', rows.length, 'lignes');
-      } catch (e) {
-        console.error('❌ Import Excel KO', e);
-        alert('Import échoué : ' + e.message);
-      } finally {
-        ev.target.value = '';
-      }
-    });
-  }
-
-  // Export Excel
-  const btnExport = $('btnExport');
-  if (btnExport) {
-    btnExport.addEventListener('click', async () => {
-      try {
-        const rows = await df_getAll();
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(rows || []);
-
-        // repérer la colonne "Activité" (ligne d'entête)
-        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-        let colActivite = null;
-        for (let c = range.s.c; c <= range.e.c; c++) {
-          const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
-          const v = ws[addr]?.v;
-          if (String(v).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'activite') {
-            colActivite = c;
-            break;
-          }
-        }
-
-        if (colActivite != null) {
-          // pour chaque data row, si Hyperlien présent -> pose un lien sur la cellule Activité
-          for (let i = 0; i < (rows?.length || 0); i++) {
-            const r = range.s.r + 1 + i; // 1-based après entête
-            const addr = XLSX.utils.encode_cell({ r, c: colActivite });
-            const cell = ws[addr] || (ws[addr] = { t: 's', v: rows[i]?.Activité || '' });
-            const url  = rows[i]?.Hyperlien;
-            if (url) {
-              cell.l = { Target: String(url) };
-            }
-          }
-        }
-
-        XLSX.utils.book_append_sheet(wb, ws, 'data');
-        XLSX.writeFile(wb, 'planning.xlsx');
-      } catch (e) {
-        console.error(e);
-        alert('❌ Export KO');
-      }
-    });
-  }
-
-
-  // Recharger
-  const btnReload = $('btnReload');
-  if (btnReload) {
-    btnReload.addEventListener('click', async () => {
-      await refreshGrid();
-    });
-  }
-
-  // Seed (avec __uuid)
-  const btnSeed = $('btnSeed');
-  if (btnSeed) {
-    btnSeed.addEventListener('click', async () => {
-      const sample = [
-        { __uuid: crypto.randomUUID?.() || `${Date.now()}-a`,
-          Date: 20250721, Début:'13h20', Durée:'1h20', Activité:"Activité 1", Lieu:"Roi René", Relâche:"", Réservé:"", Priorité:"" },
-        { __uuid: crypto.randomUUID?.() || `${Date.now()}-b`,
-          Date: 20250722, Début:'15h00', Durée:'1h10', Activité:"Activité 2", Lieu:"La Scala", Relâche:"", Réservé:"", Priorité:""  },
-      ];
-      await df_putMany(sample);
-      await refreshGrid();
-    });
-  }
-
-  // Test Python (Pyodide)
-  const btnPy = $('btnPy');
-  if (btnPy) {
-    btnPy.addEventListener('click', onPythonTest);
-  }
-}
-
-// ------- Pyodide (POC) -------
-let pyodideReady = null;
-async function getPyodideOnce() {
-  if (!pyodideReady) {
-    pyodideReady = (async () => {
-      const pyodide = await loadPyodide(); // script déjà inclus dans index.html
-      return pyodide;
-    })();
-  }
-  return pyodideReady;
-}
-
-async function onPythonTest() {
-  try {
-    const t0 = performance.now();
-    const pyodide = await getPyodideOnce();
-    const t1 = performance.now();
-
-    const code = `
-def pretty_duration(hhmm: str) -> str:
-    try:
-        hh, mm = hhmm.lower().split('h')
-        return f"{int(hh):02d}:{int(mm):02d}"
-    except Exception:
-        return hhmm
-
-pretty_duration("1h20")
-`;
-    const out = await pyodide.runPythonAsync(code);
-    const t2 = performance.now();
-    alert(`Pyodide OK : ${out}\nInit: ${(t1-t0).toFixed(1)} ms, Exec: ${(t2-t1).toFixed(1)} ms`);
-  } catch (e) {
-    console.error(e);
-    alert('Pyodide KO');
-  }
-}
-
 function wireCustomExpander() {
   const exp = document.getElementById("gridExpander");
   const header = exp?.querySelector(".st-expander-header");
@@ -592,11 +395,298 @@ if (handle) {
   safeSizeToFit();
 }
 
+// ------- Actions -------
+async function doImport() {
+  // déclenche l’input caché
+  const fi = $('fileInput');
+  if (fi) fi.click();
+}
+
+// Export Excel
+async function doExport() {
+  try {
+    const rows = await df_getAll();
+    // copie “pretty” pour Excel
+    const pretty = (rows || []).map(r => ({
+      ...r,
+      Date: dateintToPretty(r.Date),
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(pretty);
+
+    // repérer la colonne "Activité" (ligne d'entête)
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    let colActivite = null;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
+      const v = ws[addr]?.v;
+      if (String(v).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'activite') {
+        colActivite = c;
+        break;
+      }
+    }
+
+    if (colActivite != null) {
+      // pour chaque data row, si Hyperlien présent -> pose un lien sur la cellule Activité
+      for (let i = 0; i < (rows?.length || 0); i++) {
+        const r = range.s.r + 1 + i; // 1-based après entête
+        const addr = XLSX.utils.encode_cell({ r, c: colActivite });
+        const cell = ws[addr] || (ws[addr] = { t: 's', v: rows[i]?.Activité || '' });
+        const url  = rows[i]?.Hyperlien;
+        if (url) {
+          cell.l = { Target: String(url) };
+        }
+      }
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, 'data');
+    XLSX.writeFile(wb, 'planning.xlsx');
+  } catch (e) {
+    console.error(e);
+    alert('❌ Export KO');
+  }
+}
+
+// Recharger
+async function doReload() {
+  await refreshGrid();
+}
+
+// Ajouter 
+async function doAdd() {
+  const sample = [
+    { __uuid: crypto.randomUUID?.() || `${Date.now()}-a`,
+      Date: 20250721, Début:'13h20', Durée:'1h20', Activité:"Activité 1", Lieu:"Roi René", Relâche:"", Réservé:"", Priorité:"" },
+    { __uuid: crypto.randomUUID?.() || `${Date.now()}-b`,
+      Date: 20250722, Début:'15h00', Durée:'1h10', Activité:"Activité 2", Lieu:"La Scala", Relâche:"", Réservé:"", Priorité:""  },
+  ];
+  await df_putMany(sample);
+  await refreshGrid();
+}
+
+// Test Python 
+async function doPythonTest() {
+  try {
+    const t0 = performance.now();
+    const pyodide = await getPyodideOnce();
+    const t1 = performance.now();
+
+    const code = `
+      def pretty_duration(hhmm: str) -> str:
+          try:
+              hh, mm = hhmm.lower().split('h')
+              return f"{int(hh):02d}:{int(mm):02d}"
+          except Exception:
+              return hhmm
+
+      pretty_duration("1h20")
+      `;
+    const out = await pyodide.runPythonAsync(code);
+    const t2 = performance.now();
+    alert(`Pyodide OK : ${out}\nInit: ${(t1-t0).toFixed(1)} ms, Exec: ${(t2-t1).toFixed(1)} ms`);
+  } catch (e) {
+    console.error(e);
+    alert('Pyodide KO');
+  }
+}
+
+// Init Pyodide (singleton)
+let pyodideReady = null;
+async function getPyodideOnce() {
+  if (!pyodideReady) {
+    pyodideReady = (async () => {
+      const pyodide = await loadPyodide(); // script déjà inclus dans index.html
+      return pyodide;
+    })();
+  }
+  return pyodideReady;
+}
+
+// ------- Bottom Bar -------
+const $ = id => document.getElementById(id);
+
+function wireBottomBar() {
+  const bar = document.getElementById('bottomBar');
+  const scroller = document.getElementById('bottomBarScroller');
+  if (!bar || !scroller) return;
+
+  // Click actions
+  scroller.addEventListener('click', (e) => {
+    const btn = e.target.closest('.bb-btn');
+    if (!btn) return;
+    const act = btn.dataset.action;
+
+    // optional visual toggle
+    scroller.querySelectorAll('.bb-btn').forEach(b => b.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    setTimeout(() => btn.classList.remove('is-active'), 200);
+
+    // Route actions (adapt to your handlers)
+    switch (act) {
+      case 'import':      doImport(); break;
+      case 'export':      doExport(); break;
+      case 'reload':      doReload(); break;
+      case 'undo':        /* your undo() */        console.log('undo'); break;
+      case 'redo':        /* your redo() */        console.log('redo'); break;
+      case 'add':         doAdd(); break;
+      case 'python test': doPythonTest(); break;
+    }
+  });
+
+  // Drag-to-scroll with mouse (desktop)
+  let isDown = false, startX = 0, startScroll = 0;
+  scroller.addEventListener('mousedown', (e) => {
+    isDown = true;
+    startX = e.clientX;
+    startScroll = scroller.scrollLeft;
+    scroller.style.cursor = 'grabbing';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    const dx = e.clientX - startX;
+    scroller.scrollLeft = startScroll - dx;
+  });
+  window.addEventListener('mouseup', () => {
+    isDown = false;
+    scroller.style.cursor = '';
+  });
+
+  // Optional: hide bar when an input focuses (to avoid overlap with mobile keyboard)
+  window.addEventListener('focusin', (e) => {
+    if (e.target.closest('input, textarea, [contenteditable="true"]')) {
+      bar.style.transform = 'translateY(120%)';
+    }
+  });
+  window.addEventListener('focusout', () => {
+    bar.style.transform = '';
+  });
+}
+
+// --- Handler du file input caché (import Excel effectif) ---
+function wireHiddenFileInput(){
+  const fi = $('fileInput');
+  if (!fi) return;
+  fi.addEventListener('change', async (ev)=>{
+    const f = ev.target.files?.[0];
+    if (!f) return;
+    try {
+      const buf = await f.arrayBuffer();
+      const wb  = XLSX.read(buf, { type: 'array' });
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+
+      // 1) JSON “classique” (valeurs) — garde toutes les colonnes
+      let rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+
+      // 2) Carte d’en-têtes (détection robuste de "Activité" et "Hyperlien")
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      const norm = (s) => (s ?? '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .trim().toLowerCase();
+
+      // headers: map nomNormalisé -> index de colonne (c)
+      const headers = {};
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
+        const cell = ws[addr];
+        const txt  = (cell && String(cell.v)) || '';
+        const key  = norm(txt);
+        if (key) headers[key] = c;
+      }
+
+      const colActivite = headers['activite'] ?? headers['activité']; // tolère les deux
+      const colHyperlienHeader = headers['hyperlien']; // si une colonne existe déjà
+
+      // 3) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
+      if (typeof colActivite === 'number') {
+        for (let i = 0; i < rows.length; i++) {
+          const r = i + 1; // +1 car row 0 = ligne 2 en Excel (entête sur r0)
+          const addr = XLSX.utils.encode_cell({ r: range.s.r + 1 + i, c: colActivite });
+          const cell = ws[addr];
+          const link = cell?.l?.Target || cell?.l?.target || null;
+
+          // S’il y a déjà une colonne "Hyperlien" dans Excel, on la garde prioritaire,
+          // sinon on remplit depuis le lien de la cellule Activité.
+          if (!rows[i].Hyperlien && link) {
+            rows[i].Hyperlien = link;
+          }
+        }
+      }
+
+      // 4) normalisation colonnes + __uuid + Date->dateint + tri date/debut
+      rows = rows.map((r, i) => {
+        const o = { ...r };
+
+        // --- Date -> dateint ---
+        // Accepte Excel serial ou "dd/mm[/yy]"
+        let di = null;
+        if (o.Date != null && String(o.Date).trim() !== '') {
+          // d'abord tentative pretty
+          di = prettyToDateint(String(o.Date).trim());
+          // sinon Excel serial
+          if (!di && typeof o.Date === 'number') {
+            const ymd = excelSerialToYMD(o.Date);
+            if (ymd) di = ymdToDateint(ymd);
+          }
+        }
+        o.Date = di || null; // stock interne = dateint ou null
+
+        // --- Début en minutes pour tri ---
+        const m = /(\d{1,2})h(\d{2})/i.exec(String(o['Début'] ?? o['Debut'] ?? ''));
+        const mins = m ? (parseInt(m[1],10)||0)*60 + (parseInt(m[2],10)||0) : 0;
+
+        // __uuid garanti
+        if (!o.__uuid) {
+          o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
+        }
+        return o;
+      });
+
+      await df_clear();
+      await df_putMany(rows);
+
+      await refreshGrid();
+      console.log('✅ Import OK', rows.length, 'lignes');
+    } catch (e) {
+      console.error('❌ Import Excel KO', e);
+      alert('Import échoué : ' + e.message);
+    } finally {
+      ev.target.value = '';
+    }
+  });
+}
+
+function wireBottomBarToggle() {
+  const bar = document.getElementById('bottomBar');
+  const toggle = document.getElementById('toggleBar');
+  if (!bar || !toggle) return;
+
+  // Injecte le span rotatif si pas déjà là
+  if (!toggle.querySelector('span')) {
+    toggle.innerHTML = '<span>⌃</span>';
+  }
+  const icon = toggle.querySelector('span');
+
+  const updateTogglePos = () => {
+    const barHeight = bar.offsetHeight || 0;
+    toggle.style.bottom = bar.classList.contains('hidden')
+      ? '0'
+      : `${barHeight}px`;
+  };
+
+  toggle.addEventListener('click', () => {
+    const hidden = bar.classList.toggle('hidden');
+    toggle.classList.toggle('rotated', hidden);
+    updateTogglePos();
+  });
+
+  updateTogglePos();
+  window.addEventListener('resize', updateTogglePos);
+}
+
 // ------- Boot -------
 document.addEventListener('DOMContentLoaded', () => {
-  wireButtons();
   wireCustomExpander();
-  // ⛔️ à supprimer : ce bloc ne vaut que pour <details>
-  // const det = document.getElementById('gridExpander');
-  // if (det && det.open) { createOrAttachGrid(); }
+  wireBottomBar();
+  wireHiddenFileInput();
+  wireBottomBarToggle();
 });
