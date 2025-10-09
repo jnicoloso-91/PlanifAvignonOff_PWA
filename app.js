@@ -249,6 +249,7 @@ function createOrAttachGrid() {
       onGridReady: async () => {
         await refreshGrid();
         safeSizeToFit();
+        setTimeout(hardPinBottom, 100)
       },
       getRowStyle: p => {
         const c = colorForDate(p.data?.Date);
@@ -798,43 +799,72 @@ function isStandaloneIOS(){
 //   });
 // }
 
-function hardPinBottom() {
-  const bar = document.querySelector('.bottom-bar');
-  if (!bar) return;
+// function hardPinBottom() {
+//   const bar = document.querySelector('.bottom-bar');
+//   if (!bar) return;
 
-  const vv = window.visualViewport;
-  let gap = 0;
+//   const vv = window.visualViewport;
+//   let gap = 0;
 
-  if (vv) {
-    gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  }
+//   if (vv) {
+//     gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+//   }
 
-  bar.style.bottom = gap + 'px';
+//   bar.style.bottom = gap + 'px';
+// }
+
+function setSafeGap(px){
+  document.documentElement.style.setProperty('--safe-gap', `${px}px`);
 }
 
-// --- initialisation robuste ---
-function initSafeAreaWatch() {
-  // Premier calage rapide
+function computeSafeGap(){
+  const vv = window.visualViewport;
+  if (!vv) {
+    setSafeGap(0);
+    return;
+  }
+  // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
+  const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  setSafeGap(gap);
+}
+
+function hardPinBottom(){
+  computeSafeGap();
+}
+
+function initSafeAreaWatch(){
+  // 1) premier calage dès que possible
   hardPinBottom();
 
-  // Recalage après stabilisation du viewport (iOS au lancement)
+  // 2) raf-loop pour laisser iOS stabiliser le viewport
+  let frames = 0, lastGap = -1;
+  const rafStabilize = () => {
+    const vv = window.visualViewport;
+    let gap = 0;
+    if (vv) gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    if (gap !== lastGap) {
+      setSafeGap(gap);
+      lastGap = gap;
+    }
+    if (++frames < 8) requestAnimationFrame(rafStabilize);
+  };
+  requestAnimationFrame(rafStabilize);
+
+  // 3) petit recalage différé (iOS met parfois 300–450ms)
   setTimeout(hardPinBottom, 450);
 
-  // Recalage à chaque rotation ou resize viewport
+  // 4) écoute les variations de viewport (clavier, slide bar, zoom)
   const vv = window.visualViewport;
   if (vv) {
     vv.addEventListener('resize', hardPinBottom);
     vv.addEventListener('scroll', hardPinBottom);
   }
 
-  window.addEventListener('orientationchange', () =>
-    setTimeout(hardPinBottom, 400)
-  );
+  // 5) rotation = recalage après animation
+  window.addEventListener('orientationchange', () => setTimeout(hardPinBottom, 350));
 
-  // Recalage après retour d’arrière-plan (quand la PWA revient active)
-  window.addEventListener('pageshow', () =>
-    setTimeout(hardPinBottom, 200)
-  );
+  // 6) retour PWA (ou onglet) = recalcule
+  window.addEventListener('pageshow', () => setTimeout(hardPinBottom, 200));
 }
 
 // ------- Boot -------
