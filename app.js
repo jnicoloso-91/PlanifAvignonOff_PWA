@@ -7,7 +7,7 @@ let gridOptions = null;
 
 // ------- Colonnes -------
 function buildColumns() {
-  let width = window.matchMedia("(max-width: 750px)").matches ? 65 : 90;
+  let width = window.matchMedia("(max-width: 750px)").matches ? 70 : 90;
   return [
     {
       field: 'Date',
@@ -161,8 +161,7 @@ function prettyToDateint(value) {
 }
 
 // Affichage “pretty" d’un dateint:
-// - même mois+année => "dd"
-// - même année (mois diff) => "dd/mm"
+// - même année => "dd/mm"
 // - sinon => "dd/mm/yy"
 function dateintToPretty(di) {
   if (di == null) return '';
@@ -186,9 +185,9 @@ function dateintToPretty(di) {
     const curM = today.getMonth() + 1;
 
     // Cas 1 : même année et même mois → jj (sur 2 digits)
-    if (y === curY && m === curM) {
-      return `${String(d).padStart(2, '0')}`;
-    }
+    // if (y === curY && m === curM) {
+    //   return `${String(d).padStart(2, '0')}`;
+    // }
 
     // Cas 2 : même année, mois différent → jj/mm (2 digits)
     if (y === curY) {
