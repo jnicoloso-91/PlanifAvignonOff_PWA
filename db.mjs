@@ -58,9 +58,84 @@ export async function df_getAllOrdered() {
   return idx.getAll(); // renvoie trié par __order
 }
 
+/**
+ * Tri par Date (YYYYMMDD) puis Début ("HHhMM").
+ * - Les lignes SANS Date vont à la fin, triées entre elles par Début.
+ * - Ne modifie PAS le tableau d'origine.
+ *
+ * @param {Array<Object>} rows
+ * @param {Object} [opts]
+ * @param {boolean} [opts.desc=false] - sens du tri pour les lignes AVEC date
+ * @param {string}  [opts.dateKey='Date']
+ * @param {string}  [opts.timeKey='Début']  // <-- accent
+ * @returns {Array<Object>}
+ */
+function sortRows(rows, opts = {}) {
+  const {
+    desc = false,
+    dateKey = 'Date',
+    timeKey = 'Début',
+  } = opts;
+
+  const dir = desc ? -1 : 1;
+
+  const parseDateInt = (d) => {
+    if (d == null || d === '') return null;
+    const n = Number(d);
+    return Number.isFinite(n) ? n : null; // attend YYYYMMDD
+  };
+
+  const parseTimeHhMM = (t) => {
+    if (t == null || t === '') return null;
+    const m = String(t).trim().match(/^(\d{1,2})h(\d{2})$/i);
+    if (!m) return null;
+    const hh = Number(m[1]), mm = Number(m[2]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh >= 24 || mm >= 60) return null;
+    return hh * 60 + mm; // minutes depuis 00:00
+  };
+
+  const indexed = rows.map((r, i) => ({
+    r,
+    i,
+    d: parseDateInt(r[dateKey]),
+    m: parseTimeHhMM(r[timeKey]),
+  }));
+
+  indexed.sort((A, B) => {
+    const aNoDate = A.d == null;
+    const bNoDate = B.d == null;
+
+    // 0) Sans date : toujours APRES ceux avec date
+    if (aNoDate && !bNoDate) return 1;
+    if (!aNoDate && bNoDate) return -1;
+
+    if (!aNoDate && !bNoDate) {
+      // 1) Les deux ont une date -> comparer Date
+      if (A.d !== B.d) return (A.d - B.d) * dir;
+
+      // 2) Puis l'heure (nulls après)
+      const aNull = A.m == null, bNull = B.m == null;
+      if (aNull && bNull) return A.i - B.i;   // stabilité
+      if (aNull) return 1;
+      if (bNull) return -1;
+      return (A.m - B.m) * dir;
+    }
+
+    // 3) Les deux sont sans date -> trier par Début (nulls après)
+    const aNull = A.m == null, bNull = B.m == null;
+    if (aNull && bNull) return A.i - B.i;
+    if (aNull) return 1;
+    if (bNull) return -1;
+    return A.m - B.m;
+  });
+
+  return indexed.map(x => x.r);
+}
+
 export async function df_putMany(rows) {
   const db = await dbp;
   const tx = db.transaction(STORES.df, 'readwrite');
+  const orderedRows = sortRows(rows);
 
   let orderBase = Date.now(); // base unique pour cet import
 
@@ -83,10 +158,10 @@ export async function df_putMany(rows) {
     tx.store.put(obj);
   };
 
-  if (Array.isArray(rows)) {
-    rows.forEach((r, i) => putOne(r, i));
+  if (Array.isArray(orderedRows)) {
+    orderedRows.forEach((r, i) => putOne(r, i));
   } else {
-    putOne(rows, 0);
+    putOne(orderedRows, 0);
   }
 
   await tx.done;
