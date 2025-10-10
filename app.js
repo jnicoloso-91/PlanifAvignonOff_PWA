@@ -657,69 +657,76 @@ function wireHiddenFileInput(){
   });
 }
 
-// function wireBottomBarToggle() {
-//   const bar = document.getElementById('bottomBar');
-//   const toggle = document.getElementById('toggleBar');
-//   if (!bar || !toggle) return;
-
-//   // Injecte le span rotatif si pas déjà là
-//   if (!toggle.querySelector('span')) {
-//     toggle.innerHTML = '<span>⌃</span>';
-//   }
-//   const icon = toggle.querySelector('span');
-
-//   const updateTogglePos = () => {
-//     const barHeight = bar.offsetHeight || 0;
-//     toggle.style.bottom = bar.classList.contains('hidden')
-//       ? '0'
-//       : `${barHeight}px`;
-//   };
-
-//   toggle.addEventListener('click', () => {
-//     const hidden = bar.classList.toggle('hidden');
-//     toggle.classList.toggle('rotated', hidden);
-//     updateTogglePos();
-//     setTimeout(syncBottomBarTogglePosition, 180);
-//   });
-
-//   updateTogglePos();
-//   window.addEventListener('resize', updateTogglePos);
-// }
-
 function wireBottomBarToggle() {
   const bar = document.getElementById('bottomBar');
   const toggle = document.getElementById('toggleBar');
   if (!bar || !toggle) return;
 
-  // icône
-  if (!toggle.querySelector('span')) toggle.innerHTML = '<span>⌃</span>';
+  // Injecte le span rotatif si pas déjà là
+  if (!toggle.querySelector('span')) {
+    toggle.innerHTML = '<span>⌃</span>';
+  }
   const icon = toggle.querySelector('span');
 
-  const setCssVar = (name, val) =>
-    document.documentElement.style.setProperty(name, val);
+  const updateTogglePos = () => {
+    const barHeight = bar.offsetHeight || 0;
+    const barBottom = parseFloat(getComputedStyle(bar).bottom) || 0;
 
-  const updateHeights = () => {
-    const h = bar.offsetHeight || 56;        // mesure réelle
-    setCssVar('--bar-height', `${h}px`);     // ⬅️ alimente le CSS
-    // (optionnel) si utilisation d'un gap clavier/viewport ailleurs :
-    // setCssVar('--dynamic-gap', ${gapPx}px);
+    // Place la languette juste au-dessus de la barre, en tenant compte du safe-area   
+  //   toggle.style.bottom = bar.classList.contains('hidden')
+  //     ? '0'
+  //     : `${barHeight}px`;
+  // };
+    toggle.style.bottom = bar.classList.contains('hidden')
+      ? `${barBottom}px`
+      : `${barBottom + barHeight}px`;
   };
 
-  const toggleBar = () => {
+  toggle.addEventListener('click', () => {
     const hidden = bar.classList.toggle('hidden');
     toggle.classList.toggle('rotated', hidden);
-    // plus de toggle.style.bottom = ...
-    updateHeights();                         // au cas où la hauteur change
-    // petit délai pour recalculs de layout si nécessaire
-    setTimeout(updateHeights, 180);
-  };
+    updateTogglePos();
+    setTimeout(syncBottomBarTogglePosition, 180);
+  });
 
-  toggle.addEventListener('click', toggleBar);
-  window.addEventListener('resize', updateHeights);
-
-  // init
-  updateHeights();
+  updateTogglePos();
+  window.addEventListener('resize', updateTogglePos);
 }
+
+// function wireBottomBarToggle() {
+//   const bar = document.getElementById('bottomBar');
+//   const toggle = document.getElementById('toggleBar');
+//   if (!bar || !toggle) return;
+
+//   // icône
+//   if (!toggle.querySelector('span')) toggle.innerHTML = '<span>⌃</span>';
+//   const icon = toggle.querySelector('span');
+
+//   const setCssVar = (name, val) =>
+//     document.documentElement.style.setProperty(name, val);
+
+//   const updateHeights = () => {
+//     const h = bar.offsetHeight || 56;        // mesure réelle
+//     setCssVar('--bar-height', `${h}px`);     // ⬅️ alimente le CSS
+//     // (optionnel) si utilisation d'un gap clavier/viewport ailleurs :
+//     // setCssVar('--dynamic-gap', ${gapPx}px);
+//   };
+
+//   const toggleBar = () => {
+//     const hidden = bar.classList.toggle('hidden');
+//     toggle.classList.toggle('rotated', hidden);
+//     // plus de toggle.style.bottom = ...
+//     updateHeights();                         // au cas où la hauteur change
+//     // petit délai pour recalculs de layout si nécessaire
+//     setTimeout(updateHeights, 180);
+//   };
+
+//   toggle.addEventListener('click', toggleBar);
+//   window.addEventListener('resize', updateHeights);
+
+//   // init
+//   updateHeights();
+// }
 
 // ---------- iOS fix: lock scroll horizontal sur la bottom bar ----------
 function lockHorizontalScroll() {
@@ -858,7 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
   wireCustomExpander();
   wireBottomBar();
   wireHiddenFileInput();
-  wireBottomBarToggle();
   lockHorizontalScroll();
   initSafeAreaWatch();
+  wireBottomBarToggle();
 });
