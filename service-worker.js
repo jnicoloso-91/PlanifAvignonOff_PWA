@@ -1,18 +1,18 @@
 const CACHE = "avignon-cache-v1";
 const OFFLINE_ASSETS = [
-  "/",
-  "/index.html",
-  "/styles.css",
-  "/app.js",
-  "/ag-grid-community.min.js",
-  "/ag-grid.css",
-  "/lib/idb.mjs",
-  "/lib/xlsx.full.min.js",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/apple-touch-icon-180.png",
-  "/favicon.ico",
-  "/manifest.webmanifest"
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./app.js",
+  "./ag-grid-community.min.js",
+  "./ag-grid.css",
+  "./lib/idb.mjs",
+  "./lib/xlsx.full.min.js",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./apple-touch-icon-180.png",
+  "./favicon.ico",
+  "./manifest.webmanifest"
 ];
 
 self.addEventListener("install", (e) => {
