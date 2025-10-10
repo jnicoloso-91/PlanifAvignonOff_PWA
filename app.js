@@ -266,6 +266,62 @@ function onCreneauxSelectionChanged(gridId){
 //   });
 // }
 
+// function wireExpanderSplitters(){
+//   document.querySelectorAll('.v-splitter').forEach(sp => {
+//     const handle = sp.querySelector('.v-splitter__handle');
+//     if (!handle) return;
+
+//     const topId = sp.getAttribute('data-top');
+//     const bottomId = sp.getAttribute('data-bottom');
+//     const topBody = document.querySelector(`#${topId} .st-expander-body > div[id^="grid"]`);
+//     const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
+//     if (!topBody || !botBody) return;
+
+//     let dragging = false, startY = 0, hTop = 0, hBot = 0;
+
+//     const start = (clientY, e) => {
+//       // souris : bouton gauche uniquement
+//       if (e.pointerType === 'mouse' && e.button !== 0) return;
+//       dragging = true;
+//       startY = clientY;
+//       hTop = topBody.offsetHeight;
+//       hBot = botBody.offsetHeight;
+
+//       // capture tous les moves sur la poignée (plus besoin de window listeners)
+//       try { handle.setPointerCapture(e.pointerId); } catch {}
+//       document.body.style.userSelect = 'none';
+//       document.body.style.cursor = 'row-resize';
+//       e.preventDefault(); // empêche le scroll pendant le drag
+//     };
+
+//     const move = (clientY, e) => {
+//       if (!dragging) return;
+//       const dy = clientY - startY;
+//       const newTop = Math.max(140, hTop + dy);
+//       const newBot = Math.max(140, hBot - dy);
+//       topBody.style.height = `${newTop}px`;
+//       botBody.style.height = `${newBot}px`;
+//       // recalcul ag-Grid
+//       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
+//       e.preventDefault();
+//     };
+
+//     const end = () => {
+//       dragging = false;
+//       document.body.style.userSelect = '';
+//       document.body.style.cursor = '';
+//       try { handle.releasePointerCapture?.(); } catch {}
+//     };
+
+//     // 👉 Pointer Events unifiés (iOS/Android/Souris)
+//     handle.addEventListener('pointerdown', e => start(e.clientY, e));
+//     handle.addEventListener('pointermove',  e => move(e.clientY, e));
+//     handle.addEventListener('pointerup',    end);
+//     handle.addEventListener('pointercancel',end);
+//     handle.addEventListener('lostpointercapture', end);
+//   });
+// }
+
 function wireExpanderSplitters(){
   document.querySelectorAll('.v-splitter').forEach(sp => {
     const handle = sp.querySelector('.v-splitter__handle');
@@ -277,50 +333,90 @@ function wireExpanderSplitters(){
     const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
     if (!topBody || !botBody) return;
 
-    let dragging = false, startY = 0, hTop = 0, hBot = 0;
+    let dragging = false, startY=0, hTop=0, hBot=0;
 
-    const start = (clientY, e) => {
-      // souris : bouton gauche uniquement
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const begin = (clientY) => {
       dragging = true;
       startY = clientY;
       hTop = topBody.offsetHeight;
       hBot = botBody.offsetHeight;
-
-      // capture tous les moves sur la poignée (plus besoin de window listeners)
-      try { handle.setPointerCapture(e.pointerId); } catch {}
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
-      e.preventDefault(); // empêche le scroll pendant le drag
     };
 
-    const move = (clientY, e) => {
+    const update = (clientY) => {
       if (!dragging) return;
       const dy = clientY - startY;
       const newTop = Math.max(140, hTop + dy);
       const newBot = Math.max(140, hBot - dy);
       topBody.style.height = `${newTop}px`;
       botBody.style.height = `${newBot}px`;
-      // recalcul ag-Grid
+      // recalcul AG Grid
       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
-      e.preventDefault();
     };
 
-    const end = () => {
+    const finish = () => {
       dragging = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
       try { handle.releasePointerCapture?.(); } catch {}
     };
 
-    // 👉 Pointer Events unifiés (iOS/Android/Souris)
-    handle.addEventListener('pointerdown', e => start(e.clientY, e));
-    handle.addEventListener('pointermove',  e => move(e.clientY, e));
-    handle.addEventListener('pointerup',    end);
-    handle.addEventListener('pointercancel',end);
-    handle.addEventListener('lostpointercapture', end);
+    // ----- Pointer Events si dispo (iOS moderne ok) -----
+    if (window.PointerEvent) {
+      handle.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        begin(e.clientY);
+        try { handle.setPointerCapture(e.pointerId); } catch {}
+        e.preventDefault(); // empêche le scroll pendant le drag
+      });
+
+      handle.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        update(e.clientY);
+        e.preventDefault();
+      });
+
+      handle.addEventListener('pointerup', finish);
+      handle.addEventListener('pointercancel', finish);
+      handle.addEventListener('lostpointercapture', finish);
+      return; // on a câblé en pointer events, on sort
+    }
+
+    // ----- Fallback tactile pur (sans listeners globaux) -----
+    handle.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      begin(t.clientY);
+      // pas de capture en touch: on reste sur la poignée
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', (e) => {
+      if (!dragging) return;
+      const t = e.touches[0];
+      update(t.clientY);
+      e.preventDefault(); // bloque le scroll de page seulement pendant le drag
+    }, { passive: false });
+
+    handle.addEventListener('touchend', finish);
+    handle.addEventListener('touchcancel', finish);
+
+    // ----- Fallback souris (desktop) -----
+    handle.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      begin(e.clientY);
+      e.preventDefault();
+      const onMove = (ev) => update(ev.clientY);
+      const onUp   = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp, true);
+        finish();
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp, true);
+    });
   });
 }
+
 
 
 // ===== Boot : créer les 4 grilles =====

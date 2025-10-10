@@ -388,6 +388,8 @@ main, .page-wrap {
 /* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
 
+/* Le splitter ne capte rien, seule la poignée capte */
+/* Le splitter ne capte rien, seule la poignée capte */
 .v-splitter {
   position: relative;
   height: 10px;
@@ -411,4 +413,42 @@ main, .page-wrap {
   /* Indispensable pour iOS Safari + Pointer Events */
   touch-action: none;
 }
+.v-splitter__handle:active { background: rgba(60,60,60,.6); }
+
+/* Le splitter ne capte rien, seule la poignée capte */
+/* Le splitter ne capte rien, seule la poignée capte */
+/* Le splitter ne capte rien, seule la poignée capte */
+.v-splitter {
+  position: relative;
+  height: 12px;               /* espace entre grilles */
+  pointer-events: none;        /* important */
+  z-index: 5;                  /* au-dessus des grilles */
+}
+
+/* Poignée : zone tactile large et au centre */
+.v-splitter__handle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 160px;
+  height: 10px;                /* visible */
+  border-radius: 5px;
+  background: rgba(130,130,130,.35);
+  cursor: row-resize;
+  pointer-events: auto;        /* capte les events */
+  touch-action: none;          /* indispensable pour le drag tactile */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Hit area élargie sans visuel (meilleure prise au doigt) */
+.v-splitter__handle::before {
+  content: "";
+  position: absolute;
+  left: -20px; right: -20px;
+  top: -10px; bottom: -10px;   /* x2 la surface tactile */
+  /* invisible mais cliquable */
+}
+
+/* focus/drag feedback */
 .v-splitter__handle:active { background: rgba(60,60,60,.6); }
