@@ -249,7 +249,7 @@ function createOrAttachGrid() {
       onGridReady: async () => {
         await refreshGrid();
         safeSizeToFit();
-        setTimeout(hardPinBottom, 100)
+        // setTimeout(hardPinBottom, 100)
       },
       getRowStyle: p => {
         const c = colorForDate(p.data?.Date);
@@ -722,46 +722,6 @@ function isStandaloneIOS(){
   return isIOS && standalone;
 }
 
-// function syncSafeLayout(){
-//   // robust dvh (avoid iOS address-bar jumps)
-//   const dvh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-//   document.documentElement.style.setProperty('--dvh', dvh + 'px');
-
-//   // place toggle right above the bar (bar height + safe-bottom)
-//   const bar = document.querySelector('.bottom-bar');
-//   const tog = document.querySelector('.bottom-toggle');
-//   if (bar && tog){
-//     const h = Math.round(bar.getBoundingClientRect().height); // includes padding-bottom safe area
-//     tog.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${h}px)`;
-//   }
-
-//   // give the page enough bottom padding so content never hides under the bar
-//   if (bar){
-//     const h = Math.round(bar.getBoundingClientRect().height);
-//     document.body.style.paddingBottom = `calc(env(safe-area-inset-bottom, 0px) + ${h}px)`;
-//   }
-// }
-
-// function initSafeAreaWatch(){
-//   // recalc on resize, orientation, keyboard pop, etc.
-//   window.addEventListener('resize', syncSafeLayout);
-//   if (window.visualViewport){
-//     window.visualViewport.addEventListener('resize', syncSafeLayout);
-//   }
-//   // observe bottom bar height changes (collapsed/expanded)
-//   const bar = document.querySelector('.bottom-bar');
-//   if (bar){
-//     new ResizeObserver(syncSafeLayout).observe(bar);
-//   }
-//   // first paint (2 RAFs helps on iOS)
-//   requestAnimationFrame(()=>requestAnimationFrame(syncSafeLayout));
-// }
-
-// function getSafeBottom() {
-//   // iOS notch etc.
-//   return 'env(safe-area-inset-bottom, 0px)';
-// }
-
 function syncBottomBarTogglePosition() {
   const bar = document.querySelector('.bottom-bar');
   const tog = document.querySelector('.bottom-toggle');
@@ -773,45 +733,6 @@ function syncBottomBarTogglePosition() {
   // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
   tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
 }
-
-// /* Recalcule après :
-//    - chargement,
-//    - redimensionnement/orientation,
-//    - changements de taille de la barre (ouverture/fermeture, contenu qui wrap).
-// */
-// function initBottomBarAutoLayout() {
-//   const bar = document.querySelector('.bottom-bar');
-//   if (!bar) return;
-
-//   // Observe les changements de taille de la barre
-//   const ro = new ResizeObserver(() => syncBottomBarTogglePosition());
-//   ro.observe(bar);
-
-//   // Orientation / clavier mobile / viewport iOS
-//   window.addEventListener('resize', syncBottomBarTogglePosition);
-//   if (window.visualViewport) {
-//     window.visualViewport.addEventListener('resize', syncBottomBarTogglePosition);
-//   }
-
-//   // Premier sync après stabilisation du layout
-//   requestAnimationFrame(() => {
-//     requestAnimationFrame(syncBottomBarTogglePosition);
-//   });
-// }
-
-// function hardPinBottom() {
-//   const bar = document.querySelector('.bottom-bar');
-//   if (!bar) return;
-
-//   const vv = window.visualViewport;
-//   let gap = 0;
-
-//   if (vv) {
-//     gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-//   }
-
-//   bar.style.bottom = gap + 'px';
-// }
 
 function setSafeGap(px){
   document.documentElement.style.setProperty('--safe-gap', `${px}px`);
@@ -875,9 +796,4 @@ document.addEventListener('DOMContentLoaded', () => {
   wireBottomBarToggle();
   lockHorizontalScroll();
   initSafeAreaWatch();
-  // initBottomBarAutoLayout();   
-  // setTimeout(syncBottomBarTogglePosition, 1000);
-  // setTimeout(syncSafeLayout, 1000); 
-  // setTimeout(document.getElementById('toggleBar').click(), 500);
-  // setTimeout(document.getElementById('toggleBar').click(), 1500);
 });
