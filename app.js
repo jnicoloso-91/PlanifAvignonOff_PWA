@@ -249,7 +249,7 @@ function createOrAttachGrid() {
       onGridReady: async () => {
         await refreshGrid();
         safeSizeToFit();
-        // setTimeout(hardPinBottom, 100)
+        setTimeout(hardPinBottom, 100)
       },
       getRowStyle: p => {
         const c = colorForDate(p.data?.Date);
@@ -722,6 +722,11 @@ function isStandaloneIOS(){
   return isIOS && standalone;
 }
 
+function getSafeBottom() {
+  // iOS notch etc.
+  return 'env(safe-area-inset-bottom, 0px)';
+}
+
 function syncBottomBarTogglePosition() {
   const bar = document.querySelector('.bottom-bar');
   const tog = document.querySelector('.bottom-toggle');
@@ -732,6 +737,31 @@ function syncBottomBarTogglePosition() {
 
   // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
   tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
+}
+
+/* Recalcule après :
+   - chargement,
+   - redimensionnement/orientation,
+   - changements de taille de la barre (ouverture/fermeture, contenu qui wrap).
+*/
+function initBottomBarAutoLayout() {
+  const bar = document.querySelector('.bottom-bar');
+  if (!bar) return;
+
+  // Observe les changements de taille de la barre
+  const ro = new ResizeObserver(() => syncBottomBarTogglePosition());
+  ro.observe(bar);
+
+  // Orientation / clavier mobile / viewport iOS
+  window.addEventListener('resize', syncBottomBarTogglePosition);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncBottomBarTogglePosition);
+  }
+
+  // Premier sync après stabilisation du layout
+  requestAnimationFrame(() => {
+    requestAnimationFrame(syncBottomBarTogglePosition);
+  });
 }
 
 function setSafeGap(px){
