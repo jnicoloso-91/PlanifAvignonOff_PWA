@@ -337,3 +337,25 @@ main, .page-wrap {
   z-index: 1002;                                          /* sur la bottom bar et le toggle */
   pointer-events: none;                                   /* ne bloque aucun geste système */
 }
+
+/* ===============================
+   Splitter entre grilles
+   =============================== */
+.v-splitter {
+  position: relative;
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+.v-splitter__handle {
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(130,130,130,.35);
+  cursor: row-resize;
+}
+.v-splitter:active .v-splitter__handle {
+  background: rgba(60,60,60,.6);
+}

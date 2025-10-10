@@ -1,9 +1,340 @@
 // app.js (module)
 import { df_getAll, df_getAllOrdered, df_putMany, df_clear } from './db.mjs';
 
+
+// ===== Multi-grilles =====
+const grids = new Map();           // id -> { api, el, loader }
+let activeGridId = null;
+
+// Mémorise le créneau sélectionné (grille C)
+let selectedSlot = null;
+
+// util
+const $ = id => document.getElementById(id);
+
+// Helpers heure/durée
+const parseHHhMM = (s) => {
+  const m = /(\d{1,2})h(\d{2})/i.exec(String(s ?? ''));
+  if (!m) return null;
+  const hh = +m[1], mm = +m[2];
+  if (Number.isNaN(hh) || Number.isNaN(mm) || hh>=24 || mm>=60) return null;
+  return hh*60 + mm;
+};
+const parseDureeMin = (s) => parseHHhMM(s); // même format "1h20" -> minutes
+
+function safeSizeToFitFor(id){
+  const g = grids.get(id);
+  if (!g?.api) return;
+  setTimeout(()=>{ try{ g.api.sizeColumnsToFit(); }catch{} },0);
+}
+
+// ===== Colonnes (tu peux factoriser ; j’ajoute un set pour les créneaux) =====
+function buildColumnsCommon(){
+  let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
+  return [
+    { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
+      valueFormatter:p=>dateintToPretty(p.value),
+      valueParser:p=>prettyToDateint(p.newValue) ?? p.oldValue ?? null,
+      comparator:(a,b)=>(safeDateint(a)||0)-(safeDateint(b)||0)
+    },
+    { field:'Début', width, suppressSizeToFit:true,
+      comparator:(a,b)=>{
+        const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
+        return ma-mb;
+      }
+    },
+    { field:'Durée', width, suppressSizeToFit:true },
+    { field:'Fin',   width, suppressSizeToFit:true },
+    { field:'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
+    { field:'Lieu',  minWidth:160, flex:1 },
+    { field:'Relâche', minWidth:60, flex:.5 },
+    { field:'Réservé', minWidth:60, flex:.5 },
+    { field:'Priorité',minWidth:60, flex:.5 },
+    { field:'Hyperlien', minWidth:120, flex:2 }
+  ];
+}
+
+// Colonnes créneaux (grille C) – placeholder pour l’instant
+function buildColumnsCreneaux(){
+  let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
+  return [
+    { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
+      valueFormatter:p=>dateintToPretty(p.value),
+      comparator:(a,b)=>(safeDateint(a)||0)-(safeDateint(b)||0)
+    },
+    { field:'Début', width, suppressSizeToFit:true,
+      comparator:(a,b)=>{
+        const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
+        return ma-mb;
+      }
+    },
+    { field:'Fin', width, suppressSizeToFit:true,
+      comparator:(a,b)=>{
+        const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
+        return ma-mb;
+      }
+    },
+    { field:'Capacité', headerName:'Capacité (min)', width:100, suppressSizeToFit:true }
+  ];
+}
+
+// ===== Contrôleur de grille =====
+function createGridController({ gridId, elementId, loader, columnsBuilder, onSelectionChanged }) {
+  if (grids.has(gridId)) return grids.get(gridId);
+  const el = $(elementId);
+  if (!el) return null;
+
+  const gridOptions = {
+    columnDefs: (columnsBuilder ?? buildColumnsCommon)(),
+    defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
+    rowData: [],
+    getRowId: p => p.data?.__uuid ?? p.data?.id ?? JSON.stringify(p.data),
+    onGridReady: async () => {
+      await refreshGrid(gridId);
+      safeSizeToFitFor(gridId);
+    },
+    onFirstDataRendered: () => safeSizeToFitFor(gridId),
+    onModelUpdated: () => safeSizeToFitFor(gridId),
+    onCellFocused: () => setActiveGrid(gridId),
+    onGridSizeChanged: () => safeSizeToFitFor(gridId),
+    getRowStyle: p => {
+      const c = colorForDate(p.data?.Date);
+      return c ? { '--day-bg': c } : null;
+    },
+    onSelectionChanged: onSelectionChanged
+      ? () => onSelectionChanged(gridId)
+      : undefined,
+    rowSelection: 'single'
+  };
+
+  const api = window.agGrid.createGrid(el, gridOptions);
+  const handle = { id: gridId, el, api, loader, columnsBuilder };
+  grids.set(gridId, handle);
+  if (!activeGridId) setActiveGrid(gridId);
+  return handle;
+}
+
+function setActiveGrid(gridId){
+  activeGridId = gridId;
+  grids.forEach(g => g?.el?.classList.toggle('is-active-grid', g.id === gridId));
+}
+
+async function refreshGrid(gridId){
+  const g = grids.get(gridId);
+  if (!g?.api) return;
+  const rows = await (g.loader ? g.loader() : df_getAllOrdered());
+  g.api.setGridOption('rowData', rows || []);
+  safeSizeToFitFor(gridId);
+}
+
+/**
+ * Recharge TOUTES les grilles enregistrées
+ */
+async function refreshAllGrids() {
+  const ids = Array.from(grids.keys());
+  await Promise.all(ids.map(id => refreshGrid(id)));
+}
+
+// ===== Loaders pour chaque grille =====
+
+// 1) Programmées : Date non nulle
+async function loadProgrammees(){
+  const all = await df_getAll();
+  return (all||[])
+    .filter(r => r.Date != null && r.Date !== '')
+    .sort((a,b)=>{
+      const da = Number(a.Date)||0, db = Number(b.Date)||0;
+      if (da!==db) return da-db;
+      const ma = parseHHhMM(a['Début'])??Infinity, mb = parseHHhMM(b['Début'])??Infinity;
+      return ma-mb;
+    });
+}
+
+// 2) Non programmées : Date vide/null
+async function loadNonProgrammees(){
+  const all = await df_getAll();
+  return (all||[])
+    .filter(r => r.Date == null || r.Date === '')
+    .sort((a,b)=>{
+      const ma = parseHHhMM(a['Début'])??Infinity, mb = parseHHhMM(b['Début'])??Infinity;
+      return ma-mb;
+    });
+}
+
+// 3) Créneaux disponibles : pour l’instant, vide (ou maquette)
+async function loadCreneaux(){
+  // Placeholder : laisse vide. Exemple de format si tu veux tester :
+  // return [
+  //   { __uuid:'slot-1', Date:20250722, Début:'14h00', Fin:'16h00', Capacité:120 },
+  //   { __uuid:'slot-2', Date:20250722, Début:'18h00', Fin:'19h30', Capacité:90  },
+  // ];
+  return [];
+}
+
+// 4) Activités programmables selon `selectedSlot`
+async function loadProgrammables(){
+  if (!selectedSlot) return [];
+  const all = await df_getAll();
+
+  // Contraintes minimales (à affiner plus tard) :
+  // - activité sans Date (non programmée)
+  // - durée <= capacité du créneau
+  // NB: on ignore les conflits salle/relâche/etc. pour l’instant.
+  const cap = Number(selectedSlot?.Capacité) || (() => {
+    const s = parseHHhMM(selectedSlot?.Début);
+    const e = parseHHhMM(selectedSlot?.Fin);
+    return (s!=null && e!=null && e>s) ? (e-s) : Infinity;
+  })();
+
+  return (all||[])
+    .filter(r => r.Date == null || r.Date === '')
+    .map(r => {
+      const mins = parseDureeMin(r['Durée']) ?? Infinity;
+      return { ...r, __fit: mins <= cap ? 1 : 0, __mins: mins };
+    })
+    .sort((a,b)=>{
+      // Favoriser ceux qui rentrent dans le créneau
+      if (a.__fit !== b.__fit) return b.__fit - a.__fit;
+      // puis par priorité si tu veux (optionnel)
+      const pa = Number(a['Priorité'])||0, pb = Number(b['Priorité'])||0;
+      if (pa!==pb) return pb-pa;
+      // puis par durée croissante
+      return (a.__mins||Infinity) - (b.__mins||Infinity);
+    });
+}
+
+// ===== Sélection sur la grille des créneaux =====
+function onCreneauxSelectionChanged(gridId){
+  const g = grids.get(gridId);
+  if (!g?.api) return;
+  const sel = g.api.getSelectedRows?.() || [];
+  selectedSlot = sel[0] || null;
+
+  // rafraîchir la grille 4 (programmables)
+  refreshGrid('grid-programmables');
+}
+
+// ===== Séparateurs verticaux entre expanders =====
+function wireVerticalSplitters(){
+  const splitters = document.querySelectorAll('.v-splitter');
+  splitters.forEach(sp => {
+    const topId = sp.getAttribute('data-top');
+    const bottomId = sp.getAttribute('data-bottom');
+    const top = document.getElementById(topId);
+    const bottom = document.getElementById(bottomId);
+    if (!top || !bottom) return;
+
+    const topBody = top.querySelector('.st-expander-body > div[id^="grid"]');
+    const botBody = bottom.querySelector('.st-expander-body > div[id^="grid"]');
+    if (!topBody || !botBody) return;
+
+    let startY=0, hTop=0, hBot=0, dragging=false;
+
+    const start = (y) => {
+      dragging = true;
+      startY = y;
+      hTop = topBody.offsetHeight;
+      hBot = botBody.offsetHeight;
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'row-resize';
+    };
+    const move = (y) => {
+      if (!dragging) return;
+      const dy = y - startY;
+      const newTop = Math.max(140, hTop + dy);
+      const newBot = Math.max(140, hBot - dy);
+      topBody.style.height = `${newTop}px`;
+      botBody.style.height = `${newBot}px`;
+      try { grids.forEach(g => g.api?.onGridSizeChanged?.()); } catch {}
+      try { grids.forEach(g => g.api?.sizeColumnsToFit?.()); } catch {}
+    };
+    const end = () => {
+      dragging = false;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+
+    // souris
+    sp.addEventListener('mousedown', (e)=>start(e.clientY));
+    window.addEventListener('mousemove', (e)=>move(e.clientY));
+    window.addEventListener('mouseup', end);
+
+    // tactile
+    sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
+    window.addEventListener('touchmove', (e)=>{ move(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+    window.addEventListener('touchend', end);
+  });
+}
+
+// ===== Boot : créer les 4 grilles =====
+document.addEventListener('DOMContentLoaded', () => {
+  // 1) Programmées
+  createGridController({
+    gridId: 'grid-programmees',
+    elementId: 'gridA',
+    loader: loadProgrammees,
+    columnsBuilder: buildColumnsCommon
+  });
+
+  // 2) Non programmées
+  createGridController({
+    gridId: 'grid-non-prog',
+    elementId: 'gridB',
+    loader: loadNonProgrammees,
+    columnsBuilder: buildColumnsCommon
+  });
+
+  // 3) Créneaux
+  createGridController({
+    gridId: 'grid-creneaux',
+    elementId: 'gridC',
+    loader: loadCreneaux,
+    columnsBuilder: buildColumnsCreneaux,
+    onSelectionChanged: onCreneauxSelectionChanged
+  });
+
+  // 4) Programmables (dépend de selectedSlot)
+  createGridController({
+    gridId: 'grid-programmables',
+    elementId: 'gridD',
+    loader: loadProgrammables,
+    columnsBuilder: buildColumnsCommon
+  });
+
+  wireVerticalSplitters();
+
+});
+
+function wireAllExpanders() {
+  document.querySelectorAll('.st-expander').forEach(exp => {
+    const header = exp.querySelector('.st-expander-header');
+    if (!header) return;
+
+    header.addEventListener('click', () => {
+      const open = exp.classList.toggle('open');
+      header.setAttribute('aria-expanded', String(open));
+
+      // recalculer la taille des grilles si on ouvre
+      if (open) {
+        const gridDiv = exp.querySelector('div[id^="grid"]');
+        if (gridDiv) {
+          try {
+            const id = Array.from(grids.keys()).find(k =>
+              grids.get(k)?.el === gridDiv
+            );
+            if (id) {
+              grids.get(id)?.api?.onGridSizeChanged?.();
+              grids.get(id)?.api?.sizeColumnsToFit?.();
+            }
+          } catch {}
+        }
+      }
+    });
+  });
+}
 // ------- État global -------
-let gridApi = null;
-let gridOptions = null;
+// let gridApi = null;
+// let gridOptions = null;
 
 // ------- Colonnes -------
 function buildColumns() {
@@ -208,12 +539,12 @@ function todayInt(){
   return d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
 }
 
-function safeSizeToFit() {
-  if (!gridApi) return;
-  setTimeout(() => {
-    try { gridApi.sizeColumnsToFit(); } catch {}
-  }, 0);
-}
+// function safeSizeToFit() {
+//   if (!gridApi) return;
+//   setTimeout(() => {
+//     try { gridApi.sizeColumnsToFit(); } catch {}
+//   }, 0);
+// }
 
 function normalizeImportedRows(rows) {
   return (rows || []).map((r, i) => {
@@ -229,39 +560,39 @@ function normalizeImportedRows(rows) {
 }
 
 // ------- Grille -------
-async function refreshGrid() {
-  const rows = await df_getAllOrdered();             // <- pas d’argument
-  if (!gridApi) return;
-  gridApi.setGridOption('rowData', rows || []);
-  safeSizeToFit();
-}
+// async function refreshGrid() {
+//   const rows = await df_getAllOrdered();             // <- pas d’argument
+//   if (!gridApi) return;
+//   gridApi.setGridOption('rowData', rows || []);
+//   safeSizeToFit();
+// }
 
-function createOrAttachGrid() {
-  const eGrid = document.getElementById('grid');
-  if (!eGrid) return;
+// function createOrAttachGrid() {
+//   const eGrid = document.getElementById('grid');
+//   if (!eGrid) return;
 
-  if (!gridOptions) {
-    gridOptions = {
-      columnDefs: buildColumns(),
-      defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
-      rowData: [],
-      getRowId: p => p.data?.__uuid,          // clé stable
-      onGridReady: async () => {
-        await refreshGrid();
-        safeSizeToFit();
-        setTimeout(hardPinBottom, 100)
-      },
-      getRowStyle: p => {
-        const c = colorForDate(p.data?.Date);
-        return c ? { '--day-bg': c } : null;     // on pousse la couleur en variable CSS
-      },
-    };
-  }
-  if (!gridApi) {
-    // v31+
-    gridApi = window.agGrid.createGrid(eGrid, gridOptions);
-  }
-}
+//   if (!gridOptions) {
+//     gridOptions = {
+//       columnDefs: buildColumns(),
+//       defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
+//       rowData: [],
+//       getRowId: p => p.data?.__uuid,          // clé stable
+//       onGridReady: async () => {
+//         await refreshGrid();
+//         safeSizeToFit();
+//         setTimeout(hardPinBottom, 100)
+//       },
+//       getRowStyle: p => {
+//         const c = colorForDate(p.data?.Date);
+//         return c ? { '--day-bg': c } : null;     // on pousse la couleur en variable CSS
+//       },
+//     };
+//   }
+//   if (!gridApi) {
+//     // v31+
+//     gridApi = window.agGrid.createGrid(eGrid, gridOptions);
+//   }
+// }
 
 // ------- Renderers -------
 const ActiviteRenderer = function () {};
@@ -316,86 +647,86 @@ ActiviteRenderer.prototype.refresh = function(){ return false; };
 
 
 // ------- Expander (details/summary) -------
-function wireCustomExpander() {
-  const exp = document.getElementById("gridExpander");
-  const header = exp?.querySelector(".st-expander-header");
-  const body   = exp?.querySelector(".st-expander-body");
-  if (!exp || !header || !body) return;
+// function wireCustomExpander() {
+//   const exp = document.getElementById("gridExpander");
+//   const header = exp?.querySelector(".st-expander-header");
+//   const body   = exp?.querySelector(".st-expander-body");
+//   if (!exp || !header || !body) return;
 
-  // Chevron: optionnel, juste pour l’animation
-  // const chevron = header.querySelector(".chevron");
+//   // Chevron: optionnel, juste pour l’animation
+//   // const chevron = header.querySelector(".chevron");
 
-  const toggle = () => {
-    const open = exp.classList.toggle("open");
-    header.setAttribute("aria-expanded", String(open));
-    if (open) {
-      // première ouverture -> instancie la grille si besoin
-      if (!window.gridApi) {
-        createOrAttachGrid();
-      }
-      // ajuste la taille des colonnes
-      safeSizeToFit();
-    }
-  };
+//   const toggle = () => {
+//     const open = exp.classList.toggle("open");
+//     header.setAttribute("aria-expanded", String(open));
+//     if (open) {
+//       // première ouverture -> instancie la grille si besoin
+//       if (!window.gridApi) {
+//         createOrAttachGrid();
+//       }
+//       // ajuste la taille des colonnes
+//       safeSizeToFit();
+//     }
+//   };
 
-  header.addEventListener("click", toggle);
-  // (facultatif) prise en charge tactile
-  header.addEventListener("touchstart", (e) => { e.preventDefault(); toggle(); }, {passive:false});
+//   header.addEventListener("click", toggle);
+//   // (facultatif) prise en charge tactile
+//   header.addEventListener("touchstart", (e) => { e.preventDefault(); toggle(); }, {passive:false});
 
-  // Poignée de redimensionnement
-const handle = exp.querySelector(".expander-resizer");
-if (handle) {
-  let startY, startH, dragging = false;
-  const gridEl = document.getElementById("grid");
+//   // Poignée de redimensionnement
+//   const handle = exp.querySelector(".expander-resizer");
+//   if (handle) {
+//     let startY, startH, dragging = false;
+//     const gridEl = document.getElementById("grid");
 
-  // Souris
-  handle.addEventListener("mousedown", e => {
-    dragging = true;
-    startY = e.clientY;
-    startH = gridEl.offsetHeight;
-    document.body.style.userSelect = "none";
-  });
-  window.addEventListener("mousemove", e => {
-    if (!dragging) return;
-    const newH = Math.min(900, Math.max(240, startH + (e.clientY - startY)));
-    gridEl.style.height = `${newH}px`;
-    try { window.gridApi?.onGridSizeChanged?.(); } catch(_) {}
-    try { window.gridApi?.sizeColumnsToFit?.(); } catch(_) {}
-  });
-  window.addEventListener("mouseup", () => {
-    dragging = false;
-    document.body.style.userSelect = "";
-  });
+//   // Souris
+//   handle.addEventListener("mousedown", e => {
+//     dragging = true;
+//     startY = e.clientY;
+//     startH = gridEl.offsetHeight;
+//     document.body.style.userSelect = "none";
+//   });
+//   window.addEventListener("mousemove", e => {
+//     if (!dragging) return;
+//     const newH = Math.min(900, Math.max(240, startH + (e.clientY - startY)));
+//     gridEl.style.height = `${newH}px`;
+//     try { window.gridApi?.onGridSizeChanged?.(); } catch(_) {}
+//     try { window.gridApi?.sizeColumnsToFit?.(); } catch(_) {}
+//   });
+//   window.addEventListener("mouseup", () => {
+//     dragging = false;
+//     document.body.style.userSelect = "";
+//   });
 
-  // Tactile (iOS/Android)
-  handle.addEventListener("touchstart", e => {
-    const t = e.touches[0];
-    dragging = true;
-    startY = t.clientY;
-    startH = gridEl.offsetHeight;
-    document.body.style.userSelect = "none";
-  }, { passive: true });
+//   // Tactile (iOS/Android)
+//   handle.addEventListener("touchstart", e => {
+//     const t = e.touches[0];
+//     dragging = true;
+//     startY = t.clientY;
+//     startH = gridEl.offsetHeight;
+//     document.body.style.userSelect = "none";
+//   }, { passive: true });
 
-  window.addEventListener("touchmove", e => {
-    if (!dragging) return;
-    const t = e.touches[0];
-    const newH = Math.min(900, Math.max(240, startH + (t.clientY - startY)));
-    gridEl.style.height = `${newH}px`;
-    try { window.gridApi?.onGridSizeChanged?.(); } catch(_) {}
-    try { window.gridApi?.sizeColumnsToFit?.(); } catch(_) {}
-  }, { passive: true });
+//   window.addEventListener("touchmove", e => {
+//     if (!dragging) return;
+//     const t = e.touches[0];
+//     const newH = Math.min(900, Math.max(240, startH + (t.clientY - startY)));
+//     gridEl.style.height = `${newH}px`;
+//     try { window.gridApi?.onGridSizeChanged?.(); } catch(_) {}
+//     try { window.gridApi?.sizeColumnsToFit?.(); } catch(_) {}
+//   }, { passive: true });
 
-  window.addEventListener("touchend", () => {
-    dragging = false;
-    document.body.style.userSelect = "";
-  });
-}
+//   window.addEventListener("touchend", () => {
+//     dragging = false;
+//     document.body.style.userSelect = "";
+//   });
+// }
 
-  // Ouvre par défaut au démarrage
-  exp.classList.add("open");
-  createOrAttachGrid();
-  safeSizeToFit();
-}
+//   // Ouvre par défaut au démarrage
+//   exp.classList.add("open");
+//   createOrAttachGrid();
+//   safeSizeToFit();
+// }
 
 // ------- Actions -------
 async function doImport() {
@@ -450,8 +781,9 @@ async function doExport() {
 }
 
 // Recharger
-async function doReload() {
-  await refreshGrid();
+async function doReload(){
+  if (activeGridId) await refreshGrid(activeGridId);
+  else await refreshAllGrids();
 }
 
 // Ajouter 
@@ -505,8 +837,6 @@ async function getPyodideOnce() {
 }
 
 // ------- Bottom Bar -------
-const $ = id => document.getElementById(id);
-
 function wireBottomBar() {
   const bar = document.getElementById('bottomBar');
   const scroller = document.getElementById('bottomBarScroller');
@@ -646,7 +976,7 @@ function wireHiddenFileInput(){
       await df_clear();
       await df_putMany(rows);
 
-      await refreshGrid();
+      await refreshAllGrids();
       console.log('✅ Import OK', rows.length, 'lignes');
     } catch (e) {
       console.error('❌ Import Excel KO', e);
@@ -688,41 +1018,6 @@ function wireBottomBarToggle() {
   // updateTogglePos();
   window.addEventListener('resize', updateTogglePos);
 }
-
-// function wireBottomBarToggle() {
-//   const bar = document.getElementById('bottomBar');
-//   const toggle = document.getElementById('toggleBar');
-//   if (!bar || !toggle) return;
-
-//   // icône
-//   if (!toggle.querySelector('span')) toggle.innerHTML = '<span>⌃</span>';
-//   const icon = toggle.querySelector('span');
-
-//   const setCssVar = (name, val) =>
-//     document.documentElement.style.setProperty(name, val);
-
-//   const updateHeights = () => {
-//     const h = bar.offsetHeight || 56;        // mesure réelle
-//     setCssVar('--bar-height', `${h}px`);     // ⬅️ alimente le CSS
-//     // (optionnel) si utilisation d'un gap clavier/viewport ailleurs :
-//     // setCssVar('--dynamic-gap', ${gapPx}px);
-//   };
-
-//   const toggleBar = () => {
-//     const hidden = bar.classList.toggle('hidden');
-//     toggle.classList.toggle('rotated', hidden);
-//     // plus de toggle.style.bottom = ...
-//     updateHeights();                         // au cas où la hauteur change
-//     // petit délai pour recalculs de layout si nécessaire
-//     setTimeout(updateHeights, 180);
-//   };
-
-//   toggle.addEventListener('click', toggleBar);
-//   window.addEventListener('resize', updateHeights);
-
-//   // init
-//   updateHeights();
-// }
 
 // ---------- iOS fix: lock scroll horizontal sur la bottom bar ----------
 function lockHorizontalScroll() {
@@ -858,7 +1153,7 @@ function initSafeAreaWatch(){
 
 // ------- Boot -------
 document.addEventListener('DOMContentLoaded', () => {
-  wireCustomExpander();
+  wireAllExpanders();
   wireBottomBar();
   wireHiddenFileInput();
   lockHorizontalScroll();
