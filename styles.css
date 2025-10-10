@@ -4,8 +4,8 @@
   --muted:#8b949e; 
   --accent:#2ea043;
   /* iOS safe areas */
-  --safe-gap: 0px;              /* injecté par JS */
-  --bar-height: 60px;           /* hauteur bottom bar (approx) */
+  --safe-gap: 200px;              /* injecté par JS */
+  --bar-height: 56px;           /* hauteur bottom bar (approx) */
   /*--dvh: 100dvh; fallback if JS not run yet */
 }
 
@@ -222,11 +222,11 @@ main, .page-wrap {
   background: var(--bg);
   position: fixed;
 
-  bottom: max(var(--safe-gap), env(safe-area-inset-bottom));
+  bottom: max(var(--safe-gap), env(safe-area-inset-bottom)); 
   height: var(--bar-height);
 
-  left: 0; right: 0; bottom: 0;
-  padding: 8px 12px 20px;
+  left: 0; right: 0; /* bottom: 0; */
+  padding: 10px 12px;
   backdrop-filter: blur(8px);               /* nice glass effect */
   border-top: 1px solid #d1d5db;
   display: flex;
@@ -296,7 +296,7 @@ main, .page-wrap {
 /* ----- toggle “languette” juste au-dessus ----- */
 .bar-toggle {
   position: fixed;
-  right: 0px;
+  right: 8px;
   bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height) + 8px );
   transform: translateX(-50%);
   background: #f7f7f7;
@@ -305,7 +305,7 @@ main, .page-wrap {
   border-radius: 6px 6px 0 0;
   color: #333;
   font-size: 0.9rem;
-  padding: 2px 8px;
+  padding: 2px 10px;
   cursor: pointer;
   z-index: 1001;
   transition: background 0.3s ease;
