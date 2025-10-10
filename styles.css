@@ -183,8 +183,8 @@ main, .page-wrap {
   .ag-theme-quartz .ag-cell,
   .ag-theme-quartz .ag-cell-wrapper,
   .ag-theme-quartz .ag-cell-value {
-    padding-left: 4px !important;   /* ajuste à ton goût */
-    padding-right: 4px !important;
+    padding-left: 10px !important;   /* ajuste à ton goût */
+    padding-right: 10px !important;
   }
 
   /* .ag-theme-quartz.compact-grid .ag-cell,
