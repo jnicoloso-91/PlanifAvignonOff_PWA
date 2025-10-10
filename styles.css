@@ -359,3 +359,31 @@ main, .page-wrap {
 .v-splitter:active .v-splitter__handle {
   background: rgba(60,60,60,.6);
 }
+
+/* Les conteneurs de grilles doivent scroller en inertiel sur iOS */
+#gridA, #gridB, #gridC, #gridD {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch; /* inertie iOS */
+  touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
+  overscroll-behavior: contain;       /* évite le rebond qui “fait bouger” la page */
+}
+
+/* Couches internes d'AG Grid qui gèrent le scroll */
+.ag-root-wrapper,
+.ag-root-wrapper-body,
+.ag-body-viewport,
+.ag-center-cols-viewport,
+.ag-body-horizontal-scroll-viewport {
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* IMPORTANT : ne pas empêcher le scroll à cause du parent */
+.st-expander-body {
+  overflow: visible;         /* le scroll se fait dans la grille, pas ici */
+}
+.st-expander.open .st-expander-body {
+  overflow: visible;
+}
+
+/* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
+.ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
