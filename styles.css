@@ -179,14 +179,6 @@ main, .page-wrap {
     --ag-header-height:28px;  
   }
 
-  /* ↓ pour le thème Quartz */
-  .ag-theme-quartz .ag-cell,
-  .ag-theme-quartz .ag-cell-wrapper,
-  .ag-theme-quartz .ag-cell-value {
-    padding-left: 10px !important;   /* ajuste à ton goût */
-    padding-right: 10px !important;
-  }
-
   /* .ag-theme-quartz.compact-grid .ag-cell,
   .ag-theme-quartz.compact-grid .ag-cell-wrapper,
   .ag-theme-quartz.compact-grid .ag-cell-value {
@@ -345,3 +337,12 @@ main, .page-wrap {
   z-index: 1002;                                          /* sur la bottom bar et le toggle */
   pointer-events: none;                                   /* ne bloque aucun geste système */
 }
+
+  /* ↓ pour le thème Quartz */
+  .ag-theme-quartz .ag-cell,
+  .ag-theme-quartz .ag-cell-wrapper,
+  .ag-theme-quartz .ag-cell-value {
+    padding-left: 10px !important;   /* ajuste à ton goût */
+    padding-right: 10px !important;
+  }
+
