@@ -26,12 +26,12 @@ html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:1
   height: 64px;
   border-radius: 20%; /* ou 0 si tu veux un carré pur */
 }
-@media (max-width: 750px) {
+/* @media (max-width: 750px) {
   .app-logo {
     width: 32px;
     height: 32px;
   }
-}
+} */
 
 /* ===============================
    Thème clair Streamlit-like
