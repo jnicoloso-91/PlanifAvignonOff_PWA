@@ -255,9 +255,9 @@ function wireExpanderSplitters(){
     };
 
     // souris
-    sp.addEventListener('mousedown', (e)=>start(e.clientY));
-    window.addEventListener('mousemove', (e)=>move(e.clientY));
-    window.addEventListener('mouseup', end);
+    // sp.addEventListener('mousedown', (e)=>start(e.clientY));
+    // window.addEventListener('mousemove', (e)=>move(e.clientY));
+    // window.addEventListener('mouseup', end);
 
     // tactile
     // sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
