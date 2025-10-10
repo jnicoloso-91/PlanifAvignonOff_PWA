@@ -215,56 +215,113 @@ function onCreneauxSelectionChanged(gridId){
 }
 
 // ===== Séparateurs entre expanders =====
+// function wireExpanderSplitters(){
+//   const splitters = document.querySelectorAll('.v-splitter');
+//   splitters.forEach(sp => {
+//     const topId = sp.getAttribute('data-top');
+//     const bottomId = sp.getAttribute('data-bottom');
+//     const top = document.getElementById(topId);
+//     const bottom = document.getElementById(bottomId);
+//     if (!top || !bottom) return;
+
+//     const topBody = top.querySelector('.st-expander-body > div[id^="grid"]');
+//     const botBody = bottom.querySelector('.st-expander-body > div[id^="grid"]');
+//     if (!topBody || !botBody) return;
+
+//     let startY=0, hTop=0, hBot=0, dragging=false;
+
+//     const start = (y) => {
+//       dragging = true;
+//       startY = y;
+//       hTop = topBody.offsetHeight;
+//       hBot = botBody.offsetHeight;
+//       document.body.style.userSelect = 'none';
+//       document.body.style.cursor = 'row-resize';
+//     };
+//     const move = (y) => {
+//       if (!dragging) return;
+//       const dy = y - startY;
+//       const newTop = Math.max(140, hTop + dy);
+//       const newBot = Math.max(140, hBot - dy);
+//       topBody.style.height = `${newTop}px`;
+//       botBody.style.height = `${newBot}px`;
+//       try { grids.forEach(g => g.api?.onGridSizeChanged?.()); } catch {}
+//       try { grids.forEach(g => g.api?.sizeColumnsToFit?.()); } catch {}
+//     };
+//     const end = () => {
+//       dragging = false;
+//       document.body.style.userSelect = '';
+//       document.body.style.cursor = '';
+//     };
+
+//     // souris
+//     sp.addEventListener('mousedown', (e)=>start(e.clientY));
+//     window.addEventListener('mousemove', (e)=>move(e.clientY));
+//     window.addEventListener('mouseup', end);
+
+//     // tactile
+//     sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
+//     window.addEventListener('touchmove', (e)=>{ move(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+//     window.addEventListener('touchend', end);
+//   });
+// }
+
 function wireExpanderSplitters(){
-  const splitters = document.querySelectorAll('.v-splitter');
-  splitters.forEach(sp => {
+  document.querySelectorAll('.v-splitter').forEach(sp => {
+    const handle = sp.querySelector('.v-splitter__handle');
+    if (!handle) return;
+
     const topId = sp.getAttribute('data-top');
     const bottomId = sp.getAttribute('data-bottom');
-    const top = document.getElementById(topId);
-    const bottom = document.getElementById(bottomId);
-    if (!top || !bottom) return;
-
-    const topBody = top.querySelector('.st-expander-body > div[id^="grid"]');
-    const botBody = bottom.querySelector('.st-expander-body > div[id^="grid"]');
+    const topBody = document.querySelector(`#${topId} .st-expander-body > div[id^="grid"]`);
+    const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
     if (!topBody || !botBody) return;
 
-    let startY=0, hTop=0, hBot=0, dragging=false;
+    let dragging = false, startY = 0, hTop = 0, hBot = 0;
 
-    const start = (y) => {
+    const start = (clientY, e) => {
+      // souris : bouton gauche uniquement
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       dragging = true;
-      startY = y;
+      startY = clientY;
       hTop = topBody.offsetHeight;
       hBot = botBody.offsetHeight;
+
+      // capture tous les moves sur la poignée (plus besoin de window listeners)
+      try { handle.setPointerCapture(e.pointerId); } catch {}
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
+      e.preventDefault(); // empêche le scroll pendant le drag
     };
-    const move = (y) => {
+
+    const move = (clientY, e) => {
       if (!dragging) return;
-      const dy = y - startY;
+      const dy = clientY - startY;
       const newTop = Math.max(140, hTop + dy);
       const newBot = Math.max(140, hBot - dy);
       topBody.style.height = `${newTop}px`;
       botBody.style.height = `${newBot}px`;
-      try { grids.forEach(g => g.api?.onGridSizeChanged?.()); } catch {}
-      try { grids.forEach(g => g.api?.sizeColumnsToFit?.()); } catch {}
+      // recalcul ag-Grid
+      grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
+      e.preventDefault();
     };
+
     const end = () => {
       dragging = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
+      try { handle.releasePointerCapture?.(); } catch {}
     };
 
-    // souris
-    // sp.addEventListener('mousedown', (e)=>start(e.clientY));
-    // window.addEventListener('mousemove', (e)=>move(e.clientY));
-    // window.addEventListener('mouseup', end);
-
-    // tactile
-    // sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
-    // window.addEventListener('touchmove', (e)=>{ move(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
-    // window.addEventListener('touchend', end);
+    // 👉 Pointer Events unifiés (iOS/Android/Souris)
+    handle.addEventListener('pointerdown', e => start(e.clientY, e));
+    handle.addEventListener('pointermove',  e => move(e.clientY, e));
+    handle.addEventListener('pointerup',    end);
+    handle.addEventListener('pointercancel',end);
+    handle.addEventListener('lostpointercapture', end);
   });
 }
+
 
 // ===== Boot : créer les 4 grilles =====
 document.addEventListener('DOMContentLoaded', () => {

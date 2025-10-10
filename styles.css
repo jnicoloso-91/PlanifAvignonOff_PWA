@@ -332,7 +332,7 @@ main, .page-wrap {
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(env(safe-area-inset-bottom, 0px) - 10px);  /* zone système iOS uniquement (-10px pour laisser la bordure) */
+  height: calc(env(safe-area-inset-bottom, 0px) - 7px);  /* zone système iOS uniquement (-10px pour laisser la bordure) */
   background: var(--bg);                                  /* même couleur que le fond */
   z-index: 1002;                                          /* sur la bottom bar et le toggle */
   pointer-events: none;                                   /* ne bloque aucun geste système */
@@ -387,3 +387,28 @@ main, .page-wrap {
 
 /* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
+
+.v-splitter {
+  position: relative;
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Ne capte AUCUN événement, sauf la poignée */
+  pointer-events: none;
+}
+
+.v-splitter__handle {
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(130,130,130,.35);
+  cursor: row-resize;
+
+  /* La poignée, elle, capte les events */
+  pointer-events: auto;
+
+  /* Indispensable pour iOS Safari + Pointer Events */
+  touch-action: none;
+}
+.v-splitter__handle:active { background: rgba(60,60,60,.6); }
