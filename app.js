@@ -417,7 +417,7 @@ function onCreneauxSelectionChanged(gridId){
 //   });
 // }
 
-function wireVerticalSplitters(){
+function wireExpanderSplitters(){
   document.querySelectorAll('.v-splitter').forEach(sp => {
     const handle = sp.querySelector('.v-splitter__handle');
     if (!handle) return;
