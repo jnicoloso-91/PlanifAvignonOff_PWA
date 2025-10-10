@@ -417,15 +417,15 @@ function onCreneauxSelectionChanged(gridId){
 //   });
 // }
 
-function wireExpanderSplitters(){
+function wireVerticalSplitters(){
   document.querySelectorAll('.v-splitter').forEach(sp => {
     const handle = sp.querySelector('.v-splitter__handle');
     if (!handle) return;
 
     const topId = sp.getAttribute('data-top');
     const bottomId = sp.getAttribute('data-bottom');
-    const topBody = document.querySelector(#${topId} .st-expander-body > div[id^="grid"]);
-    const botBody = document.querySelector(#${bottomId} .st-expander-body > div[id^="grid"]);
+    const topBody = document.querySelector(`#${topId} .st-expander-body > div[id^="grid"]`);
+    const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
     if (!topBody || !botBody) return;
 
     // lis min-height depuis le style, sinon fallback (px)
@@ -457,14 +457,14 @@ function wireExpanderSplitters(){
     const update = (clientY) => {
       if (!dragging) return;
       const dyRaw = clientY - startY;
-      // * CLAMP DU DELTA *
+      // *** CLAMP DU DELTA ***
       const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));
 
       const newTop = hTop + dy;
       const newBot = hBot - dy;
 
-      topBody.style.height = ${newTop}px;
-      botBody.style.height = ${newBot}px;
+      topBody.style.height = `${newTop}px`;
+      botBody.style.height = `${newBot}px`;
 
       // recalcul AG Grid
       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
@@ -505,6 +505,7 @@ function wireExpanderSplitters(){
     }
   });
 }
+
 
 // ===== Boot : créer les 4 grilles =====
 document.addEventListener('DOMContentLoaded', () => {
