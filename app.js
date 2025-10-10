@@ -7,7 +7,7 @@ let gridOptions = null;
 
 // ------- Colonnes -------
 function buildColumns() {
-  let width = window.matchMedia("(max-width: 750px)").matches ? 70 : 90;
+  let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
     {
       field: 'Date',
@@ -673,10 +673,6 @@ function wireBottomBarToggle() {
     const barBottom = parseFloat(getComputedStyle(bar).bottom) || 0;
 
     // Place la languette juste au-dessus de la barre, en tenant compte du safe-area   
-  //   toggle.style.bottom = bar.classList.contains('hidden')
-  //     ? '0'
-  //     : `${barHeight}px`;
-  // };
     toggle.style.bottom = bar.classList.contains('hidden')
       ? `${barBottom}px`
       : `${barBottom + barHeight}px`;
