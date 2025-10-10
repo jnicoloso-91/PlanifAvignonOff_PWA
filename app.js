@@ -215,103 +215,55 @@ function onCreneauxSelectionChanged(gridId){
 }
 
 // ===== Séparateurs entre expanders =====
-// function wireExpanderSplitters(){
-//   const splitters = document.querySelectorAll('.v-splitter');
-//   splitters.forEach(sp => {
-//     const topId = sp.getAttribute('data-top');
-//     const bottomId = sp.getAttribute('data-bottom');
-//     const top = document.getElementById(topId);
-//     const bottom = document.getElementById(bottomId);
-//     if (!top || !bottom) return;
-
-//     const topBody = top.querySelector('.st-expander-body > div[id^="grid"]');
-//     const botBody = bottom.querySelector('.st-expander-body > div[id^="grid"]');
-//     if (!topBody || !botBody) return;
-
-//     let startY=0, hTop=0, hBot=0, dragging=false;
-
-//     const start = (y) => {
-//       dragging = true;
-//       startY = y;
-//       hTop = topBody.offsetHeight;
-//       hBot = botBody.offsetHeight;
-//       document.body.style.userSelect = 'none';
-//       document.body.style.cursor = 'row-resize';
-//     };
-//     const move = (y) => {
-//       if (!dragging) return;
-//       const dy = y - startY;
-//       const newTop = Math.max(140, hTop + dy);
-//       const newBot = Math.max(140, hBot - dy);
-//       topBody.style.height = `${newTop}px`;
-//       botBody.style.height = `${newBot}px`;
-//       try { grids.forEach(g => g.api?.onGridSizeChanged?.()); } catch {}
-//       try { grids.forEach(g => g.api?.sizeColumnsToFit?.()); } catch {}
-//     };
-//     const end = () => {
-//       dragging = false;
-//       document.body.style.userSelect = '';
-//       document.body.style.cursor = '';
-//     };
-
-//     // souris
-//     sp.addEventListener('mousedown', (e)=>start(e.clientY));
-//     window.addEventListener('mousemove', (e)=>move(e.clientY));
-//     window.addEventListener('mouseup', end);
-
-//     // tactile
-//     sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
-//     window.addEventListener('touchmove', (e)=>{ move(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
-//     window.addEventListener('touchend', end);
-//   });
-// }
 function wireExpanderSplitters(){
   const splitters = document.querySelectorAll('.v-splitter');
-  splitters.forEach(sp => {
-    const handle = sp.querySelector('.v-splitter__handle');
-    if (!handle) return;
+  // splitters.forEach(sp => {
+  //   const topId = sp.getAttribute('data-top');
+  //   const bottomId = sp.getAttribute('data-bottom');
+  //   const top = document.getElementById(topId);
+  //   const bottom = document.getElementById(bottomId);
+  //   if (!top || !bottom) return;
 
-    let dragging = false, startY=0, hTop=0, hBot=0;
-    const topId = sp.getAttribute('data-top');
-    const bottomId = sp.getAttribute('data-bottom');
-    const topBody = document.querySelector(#${topId} .st-expander-body > div[id^="grid"]);
-    const botBody = document.querySelector(#${bottomId} .st-expander-body > div[id^="grid"]);
+  //   const topBody = top.querySelector('.st-expander-body > div[id^="grid"]');
+  //   const botBody = bottom.querySelector('.st-expander-body > div[id^="grid"]');
+  //   if (!topBody || !botBody) return;
 
-    const start = (y) => {
-      dragging = true;
-      startY = y;
-      hTop = topBody?.offsetHeight || 0;
-      hBot = botBody?.offsetHeight || 0;
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'row-resize';
-    };
-    const move = (y, evt) => {
-      if (!dragging) return;
-      const dy = y - startY;
-      const newTop = Math.max(140, hTop + dy);
-      const newBot = Math.max(140, hBot - dy);
-      if (topBody) topBody.style.height = ${newTop}px;
-      if (botBody) botBody.style.height = ${newBot}px;
-      grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
-      // Bloque le scroll uniquement PENDANT le drag et UNIQUEMENT sur la poignée
-      evt?.preventDefault?.();
-    };
-    const end = () => {
-      dragging = false;
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-    };
+  //   let startY=0, hTop=0, hBot=0, dragging=false;
 
-    // Souris
-    handle.addEventListener('mousedown', e => start(e.clientY));
-    window.addEventListener('mousemove', e => move(e.clientY));
-    window.addEventListener('mouseup', end);
+  //   const start = (y) => {
+  //     dragging = true;
+  //     startY = y;
+  //     hTop = topBody.offsetHeight;
+  //     hBot = botBody.offsetHeight;
+  //     document.body.style.userSelect = 'none';
+  //     document.body.style.cursor = 'row-resize';
+  //   };
+  //   const move = (y) => {
+  //     if (!dragging) return;
+  //     const dy = y - startY;
+  //     const newTop = Math.max(140, hTop + dy);
+  //     const newBot = Math.max(140, hBot - dy);
+  //     topBody.style.height = `${newTop}px`;
+  //     botBody.style.height = `${newBot}px`;
+  //     try { grids.forEach(g => g.api?.onGridSizeChanged?.()); } catch {}
+  //     try { grids.forEach(g => g.api?.sizeColumnsToFit?.()); } catch {}
+  //   };
+  //   const end = () => {
+  //     dragging = false;
+  //     document.body.style.userSelect = '';
+  //     document.body.style.cursor = '';
+  //   };
 
-    // Tactile (bloque seulement pendant le drag de la poignée)
-    handle.addEventListener('touchstart', e => start(e.touches[0].clientY), { passive: true });
-    window.addEventListener('touchmove', e => move(e.touches[0].clientY, e), { passive: false });
-    window.addEventListener('touchend', end);
-  });
+  //   // souris
+  //   sp.addEventListener('mousedown', (e)=>start(e.clientY));
+  //   window.addEventListener('mousemove', (e)=>move(e.clientY));
+  //   window.addEventListener('mouseup', end);
+
+  //   // tactile
+  //   sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
+  //   window.addEventListener('touchmove', (e)=>{ move(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+  //   window.addEventListener('touchend', end);
+  // });
 }
 
 // ===== Boot : créer les 4 grilles =====
