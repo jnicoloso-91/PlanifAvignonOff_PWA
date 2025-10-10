@@ -322,6 +322,101 @@ function onCreneauxSelectionChanged(gridId){
 //   });
 // }
 
+// function wireExpanderSplitters(){
+//   document.querySelectorAll('.v-splitter').forEach(sp => {
+//     const handle = sp.querySelector('.v-splitter__handle');
+//     if (!handle) return;
+
+//     const topId = sp.getAttribute('data-top');
+//     const bottomId = sp.getAttribute('data-bottom');
+//     const topBody = document.querySelector(`#${topId} .st-expander-body > div[id^="grid"]`);
+//     const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
+//     if (!topBody || !botBody) return;
+
+//     let dragging = false, startY=0, hTop=0, hBot=0;
+
+//     const begin = (clientY) => {
+//       dragging = true;
+//       startY = clientY;
+//       hTop = topBody.offsetHeight;
+//       hBot = botBody.offsetHeight;
+//       document.body.style.userSelect = 'none';
+//       document.body.style.cursor = 'row-resize';
+//     };
+
+//     const update = (clientY) => {
+//       if (!dragging) return;
+//       const dy = clientY - startY;
+//       const newTop = Math.max(140, hTop + dy);
+//       const newBot = Math.max(140, hBot - dy);
+//       topBody.style.height = `${newTop}px`;
+//       botBody.style.height = `${newBot}px`;
+//       // recalcul AG Grid
+//       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
+//     };
+
+//     const finish = () => {
+//       dragging = false;
+//       document.body.style.userSelect = '';
+//       document.body.style.cursor = '';
+//       try { handle.releasePointerCapture?.(); } catch {}
+//     };
+
+//     // ----- Pointer Events si dispo (iOS moderne ok) -----
+//     if (window.PointerEvent) {
+//       handle.addEventListener('pointerdown', (e) => {
+//         if (e.pointerType === 'mouse' && e.button !== 0) return;
+//         begin(e.clientY);
+//         try { handle.setPointerCapture(e.pointerId); } catch {}
+//         e.preventDefault(); // empêche le scroll pendant le drag
+//       });
+
+//       handle.addEventListener('pointermove', (e) => {
+//         if (!dragging) return;
+//         update(e.clientY);
+//         e.preventDefault();
+//       });
+
+//       handle.addEventListener('pointerup', finish);
+//       handle.addEventListener('pointercancel', finish);
+//       handle.addEventListener('lostpointercapture', finish);
+//       return; // on a câblé en pointer events, on sort
+//     }
+
+//     // ----- Fallback tactile pur (sans listeners globaux) -----
+//     handle.addEventListener('touchstart', (e) => {
+//       const t = e.touches[0];
+//       begin(t.clientY);
+//       // pas de capture en touch: on reste sur la poignée
+//     }, { passive: true });
+
+//     handle.addEventListener('touchmove', (e) => {
+//       if (!dragging) return;
+//       const t = e.touches[0];
+//       update(t.clientY);
+//       e.preventDefault(); // bloque le scroll de page seulement pendant le drag
+//     }, { passive: false });
+
+//     handle.addEventListener('touchend', finish);
+//     handle.addEventListener('touchcancel', finish);
+
+//     // ----- Fallback souris (desktop) -----
+//     handle.addEventListener('mousedown', (e) => {
+//       if (e.button !== 0) return;
+//       begin(e.clientY);
+//       e.preventDefault();
+//       const onMove = (ev) => update(ev.clientY);
+//       const onUp   = () => {
+//         window.removeEventListener('mousemove', onMove);
+//         window.removeEventListener('mouseup', onUp, true);
+//         finish();
+//       };
+//       window.addEventListener('mousemove', onMove);
+//       window.addEventListener('mouseup', onUp, true);
+//     });
+//   });
+// }
+
 function wireExpanderSplitters(){
   document.querySelectorAll('.v-splitter').forEach(sp => {
     const handle = sp.querySelector('.v-splitter__handle');
@@ -329,28 +424,48 @@ function wireExpanderSplitters(){
 
     const topId = sp.getAttribute('data-top');
     const bottomId = sp.getAttribute('data-bottom');
-    const topBody = document.querySelector(`#${topId} .st-expander-body > div[id^="grid"]`);
-    const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
+    const topBody = document.querySelector(#${topId} .st-expander-body > div[id^="grid"]);
+    const botBody = document.querySelector(#${bottomId} .st-expander-body > div[id^="grid"]);
     if (!topBody || !botBody) return;
 
-    let dragging = false, startY=0, hTop=0, hBot=0;
+    // lis min-height depuis le style, sinon fallback (px)
+    const getMinH = (el, fallback=140) => {
+      const v = parseFloat(getComputedStyle(el).minHeight);
+      return Number.isFinite(v) && v>0 ? v : fallback;
+    };
+
+    let dragging=false, startY=0, hTop=0, hBot=0, minTop=0, minBot=0, dyMin=0, dyMax=0;
 
     const begin = (clientY) => {
       dragging = true;
       startY = clientY;
-      hTop = topBody.offsetHeight;
-      hBot = botBody.offsetHeight;
+      hTop   = topBody.offsetHeight;
+      hBot   = botBody.offsetHeight;
+      minTop = getMinH(topBody);
+      minBot = getMinH(botBody);
+
+      // ==> intervalle autorisé pour dy :
+      //    hTop + dy >= minTop  ->  dy >= (minTop - hTop)
+      //    hBot - dy >= minBot  ->  dy <= (hBot - minBot)
+      dyMin  = minTop - hTop;
+      dyMax  = hBot   - minBot;
+
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
     };
 
     const update = (clientY) => {
       if (!dragging) return;
-      const dy = clientY - startY;
-      const newTop = Math.max(140, hTop + dy);
-      const newBot = Math.max(140, hBot - dy);
-      topBody.style.height = `${newTop}px`;
-      botBody.style.height = `${newBot}px`;
+      const dyRaw = clientY - startY;
+      // * CLAMP DU DELTA *
+      const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));
+
+      const newTop = hTop + dy;
+      const newBot = hBot - dy;
+
+      topBody.style.height = ${newTop}px;
+      botBody.style.height = ${newBot}px;
+
       // recalcul AG Grid
       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
     };
@@ -359,65 +474,37 @@ function wireExpanderSplitters(){
       dragging = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      try { handle.releasePointerCapture?.(); } catch {}
     };
 
-    // ----- Pointer Events si dispo (iOS moderne ok) -----
+    // Pointer Events (ou garde ta version actuelle si déjà câblée)
     if (window.PointerEvent) {
       handle.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         begin(e.clientY);
         try { handle.setPointerCapture(e.pointerId); } catch {}
-        e.preventDefault(); // empêche le scroll pendant le drag
-      });
-
-      handle.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
-        update(e.clientY);
         e.preventDefault();
       });
-
-      handle.addEventListener('pointerup', finish);
-      handle.addEventListener('pointercancel', finish);
+      handle.addEventListener('pointermove',  (e) => { if (dragging) { update(e.clientY); e.preventDefault(); } });
+      handle.addEventListener('pointerup',    finish);
+      handle.addEventListener('pointercancel',finish);
       handle.addEventListener('lostpointercapture', finish);
-      return; // on a câblé en pointer events, on sort
+    } else {
+      // Fallback touch + souris (si besoin)
+      handle.addEventListener('touchstart', e => begin(e.touches[0].clientY), {passive:true});
+      handle.addEventListener('touchmove',  e => { update(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+      handle.addEventListener('touchend',   finish);
+      handle.addEventListener('mousedown',  e => {
+        if (e.button !== 0) return;
+        begin(e.clientY);
+        const onMove = ev => update(ev.clientY);
+        const onUp   = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp, true);
+        e.preventDefault();
+      });
     }
-
-    // ----- Fallback tactile pur (sans listeners globaux) -----
-    handle.addEventListener('touchstart', (e) => {
-      const t = e.touches[0];
-      begin(t.clientY);
-      // pas de capture en touch: on reste sur la poignée
-    }, { passive: true });
-
-    handle.addEventListener('touchmove', (e) => {
-      if (!dragging) return;
-      const t = e.touches[0];
-      update(t.clientY);
-      e.preventDefault(); // bloque le scroll de page seulement pendant le drag
-    }, { passive: false });
-
-    handle.addEventListener('touchend', finish);
-    handle.addEventListener('touchcancel', finish);
-
-    // ----- Fallback souris (desktop) -----
-    handle.addEventListener('mousedown', (e) => {
-      if (e.button !== 0) return;
-      begin(e.clientY);
-      e.preventDefault();
-      const onMove = (ev) => update(ev.clientY);
-      const onUp   = () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp, true);
-        finish();
-      };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp, true);
-    });
   });
 }
-
-
 
 // ===== Boot : créer les 4 grilles =====
 document.addEventListener('DOMContentLoaded', () => {
