@@ -867,5 +867,5 @@ document.addEventListener('DOMContentLoaded', () => {
   wireHiddenFileInput();
   lockHorizontalScroll();
   initSafeAreaWatch();
-  wireBottomBarToggle();
+  setTimeout(wireBottomBarToggle, 300);
 });
