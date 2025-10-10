@@ -689,7 +689,7 @@ function wireBottomBarToggle() {
     setTimeout(syncBottomBarTogglePosition, 180);
   });
 
-  updateTogglePos();
+  // updateTogglePos();
   window.addEventListener('resize', updateTogglePos);
 }
 
