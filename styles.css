@@ -463,3 +463,8 @@ main, .page-wrap {
   -webkit-user-select: none; user-select: none;
 }
 .v-splitter__handle:active { background: rgba(60,60,60,.6); }
+
+/* Le splitter ne capte rien, seule la poignée capte */
+/* Le splitter ne capte rien, seule la poignée capte */
+/* Le splitter ne capte rien, seule la poignée capte */
+/* Le splitter ne capte rien, seule la poignée capte */
