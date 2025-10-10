@@ -332,8 +332,8 @@ main, .page-wrap {
   left: 0;
   right: 0;
   bottom: 0;
-  height: env(safe-area-inset-bottom, 0px);  /* zone système iOS uniquement */
-  background: var(--bg);                     /* même couleur que le fond */
-  z-index: 1002;                             /* sur la bottom bar et le toggle */
-  pointer-events: none;                      /* ne bloque aucun geste système */
+  height: calc(env(safe-area-inset-bottom, 0px) - 2px);  /* zone système iOS uniquement (-2 pour laisser la bordure) */
+  background: var(--bg);                                 /* même couleur que le fond */
+  z-index: 1002;                                         /* sur la bottom bar et le toggle */
+  pointer-events: none;                                  /* ne bloque aucun geste système */
 }
