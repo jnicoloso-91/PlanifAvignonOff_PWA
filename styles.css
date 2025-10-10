@@ -179,33 +179,33 @@ main, .page-wrap {
     --ag-header-height:28px;  
   }
 
-  .ag-theme-quartz.compact-grid .ag-cell,
+  /* .ag-theme-quartz.compact-grid .ag-cell,
   .ag-theme-quartz.compact-grid .ag-cell-wrapper,
   .ag-theme-quartz.compact-grid .ag-cell-value {
     padding-left: 2px !important;
     padding-right: 2px !important;
-  }
+  } */
 
   /* Pinned edges gardent parfois un padding différent */
-  .ag-theme-quartz.compact-grid .ag-cell.ag-cell-first-right-pinned,
+  /* .ag-theme-quartz.compact-grid .ag-cell.ag-cell-first-right-pinned,
   .ag-theme-quartz.compact-grid .ag-cell.ag-cell-last-left-pinned {
     padding-left: 2px !important;
     padding-right: 2px !important;
-  }
+  } */
 
   /* 1) Forcer le padding sur la cellule d’en-tête */
-  .ag-theme-quartz .ag-header-cell,
+  /* .ag-theme-quartz .ag-header-cell,
   .ag-theme-quartz .ag-header-group-cell {
     padding-left: 2px !important;
     padding-right: 2px !important;
-  }
+  } */
 
   /* 2) Et sur le wrapper interne du label (souvent celui qui gagne) */
-  .ag-theme-quartz .ag-header-cell .ag-header-cell-comp-wrapper,
+  /* .ag-theme-quartz .ag-header-cell .ag-header-cell-comp-wrapper,
   .ag-theme-quartz .ag-header-group-cell .ag-header-group-cell-label {
     padding-left: 2px !important;
     padding-right: 2px !important;
-  }
+  } */
 }
 
 /* ===============================
@@ -323,7 +323,7 @@ main, .page-wrap {
 }
 
 .bar-toggle:hover {
-  background: #eaeaea;
+  background: #f7f7f7;
 }
 
 /* ----- Masque de la safe-area iOS sous la bottom bar ----- */
@@ -336,4 +336,12 @@ main, .page-wrap {
   background: var(--bg);                                  /* même couleur que le fond */
   z-index: 1002;                                          /* sur la bottom bar et le toggle */
   pointer-events: none;                                   /* ne bloque aucun geste système */
+}
+
+/* ↓ pour le thème Quartz */
+.ag-theme-quartz .ag-cell,
+.ag-theme-quartz .ag-cell-wrapper,
+.ag-theme-quartz .ag-cell-value {
+  padding-left: 2px !important;   /* ajuste à ton goût */
+  padding-right: 2px !important;
 }
