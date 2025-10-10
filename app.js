@@ -1020,6 +1020,33 @@ function wireBottomBarToggle() {
 }
 
 // ---------- iOS fix: lock scroll horizontal sur la bottom bar ----------
+// function lockHorizontalScroll() {
+//   const scroller = document.querySelector('.bottom-bar__scroller');
+//   if (!scroller) return;
+
+//   let startX = 0, startY = 0, startLeft = 0, lock = null;
+
+//   scroller.addEventListener('touchstart', (e) => {
+//     const t = e.touches[0];
+//     startX = t.clientX;
+//     startY = t.clientY;
+//     startLeft = scroller.scrollLeft;
+//     lock = null; // indéterminé au départ
+//   }, { passive: true });
+
+//   scroller.addEventListener('touchmove', (e) => {
+//     const t = e.touches[0];
+//     const dx = t.clientX - startX;
+//     const dy = t.clientY - startY;
+
+//     if (lock === null) lock = (Math.abs(dx) > Math.abs(dy)) ? 'x' : 'y';
+
+//     if (lock === 'x') {
+//       scroller.scrollLeft = startLeft - dx;
+//       e.preventDefault(); // bloque le scroll vertical de la page
+//     }
+//   }, { passive: false });
+// }
 function lockHorizontalScroll() {
   const scroller = document.querySelector('.bottom-bar__scroller');
   if (!scroller) return;
@@ -1031,7 +1058,7 @@ function lockHorizontalScroll() {
     startX = t.clientX;
     startY = t.clientY;
     startLeft = scroller.scrollLeft;
-    lock = null; // indéterminé au départ
+    lock = null;
   }, { passive: true });
 
   scroller.addEventListener('touchmove', (e) => {
@@ -1043,10 +1070,13 @@ function lockHorizontalScroll() {
 
     if (lock === 'x') {
       scroller.scrollLeft = startLeft - dx;
-      e.preventDefault(); // bloque le scroll vertical de la page
+      // ✅ NE PAS bloquer si le geste n’est pas dans la bottom bar
+      // (ici on est bien dans scroller -> OK)
+      e.preventDefault();
     }
-  }, { passive: false });
+  }, { passive: false }); // on a besoin du preventDefault uniquement ici, pas ailleurs
 }
+
 
 function isStandaloneIOS(){
   const ua = navigator.userAgent || "";
