@@ -14,6 +14,26 @@ html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:1
 #grid { height: calc(100vh - 64px); width: 100%; }
 
 /* ===============================
+   App logo
+   =============================== */
+.app-header {
+  display: flex;
+  padding: 0px 16px;
+}
+
+.app-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 20%; /* ou 0 si tu veux un carré pur */
+}
+@media (max-width: 750px) {
+  .app-logo {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ===============================
    Thème clair Streamlit-like
    =============================== */
 
