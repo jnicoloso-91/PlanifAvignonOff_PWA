@@ -5,7 +5,7 @@
   --accent:#2ea043;
   /* iOS safe areas */
   --safe-gap: 0px;              /* injecté par JS */
-  --bar-height: 50px;           /* hauteur bottom bar (approx) */
+  --bar-height: 60px;           /* hauteur bottom bar (approx) */
   /*--dvh: 100dvh; fallback if JS not run yet */
 }
 
@@ -226,7 +226,7 @@ main, .page-wrap {
   height: var(--bar-height);
 
   left: 0; right: 0; bottom: 0;
-  padding: 8px 12px; 
+  padding: 12px 12px 15px;
   backdrop-filter: blur(8px);               /* nice glass effect */
   border-top: 1px solid #d1d5db;
   display: flex;
