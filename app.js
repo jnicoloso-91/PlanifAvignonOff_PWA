@@ -260,9 +260,9 @@ function wireExpanderSplitters(){
     window.addEventListener('mouseup', end);
 
     // tactile
-    sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
-    window.addEventListener('touchmove', (e)=>{ move(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
-    window.addEventListener('touchend', end);
+    // sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
+    // window.addEventListener('touchmove', (e)=>{ move(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+    // window.addEventListener('touchend', end);
   });
 }
 
