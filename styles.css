@@ -296,7 +296,7 @@ main, .page-wrap {
 /* ----- toggle “languette” juste au-dessus ----- */
 .bar-toggle {
   position: fixed;
-  right: -8px;
+  right: -18px;
   bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height));
   transform: translateX(-50%);
   background: #f7f7f7;
