@@ -506,8 +506,135 @@ function wireExpanderSplitters(){
   });
 }
 
+// function wireExpanderSplitters() {
+//   document.querySelectorAll('.v-splitter').forEach(sp => {
+//     const handle = sp.querySelector('.v-splitter__handle');
+//     if (!handle) return;
+
+//     const topId = sp.getAttribute('data-top');
+//     const bottomId = sp.getAttribute('data-bottom');
+
+//     // 👉 on redimensionne les PANNEAUX (st-expander-body), pas les div#gridX
+//     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
+//     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
+//     if (!paneTop || !paneBot) return;
+
+//     const getMinH = (el, fallback = 140) => {
+//       const v = parseFloat(getComputedStyle(el).minHeight);
+//       return Number.isFinite(v) && v > 0 ? v : fallback;
+//     };
+
+//     let dragging = false;
+//     let startY = 0, hTop = 0, hBot = 0, dyMin = 0, dyMax = 0;
+//     let lastDyApplied = null;
+
+//     const begin = (clientY, e) => {
+//       dragging = true;
+//       isSplitterDragging = true;
+
+//       // Fige les hauteurs courantes en pixels (au cas où c’était en vh/%)
+//       hTop = Math.round(paneTop.getBoundingClientRect().height);
+//       hBot = Math.round(paneBot.getBoundingClientRect().height);
+//       paneTop.style.height = `${hTop}px`;
+//       paneBot.style.height = `${hBot}px`;
+//       paneTop.style.willChange = 'height';
+//       paneBot.style.willChange = 'height';
+
+//       startY = clientY;
+
+//       const minTop = getMinH(paneTop);
+//       const minBot = getMinH(paneBot);
+
+//       // Bornes admissibles du delta
+//       dyMin = minTop - hTop;   // hTop + dy >= minTop
+//       dyMax = hBot   - minBot; // hBot - dy >= minBot
+//       lastDyApplied = null;
+
+//       document.body.style.userSelect = 'none';
+//       document.body.style.cursor = 'row-resize';
+
+//       // iOS: empêcher tout scroll de page dès le départ
+//       e?.preventDefault?.();
+//     };
+
+//     const applyHeights = (dy) => {
+//       paneTop.style.height = `${hTop + dy}px`;
+//       paneBot.style.height = `${hBot - dy}px`;
+//       // recalcul ag-Grid (si les grilles sont dedans)
+//       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
+//     };
+
+//     const update = (clientY, e) => {
+//       if (!dragging) return;
+//       const dyRaw = clientY - startY;
+
+//       // NO-OP hors bornes, mais on empêche quand même le scroll de page
+//       if (dyRaw < dyMin) {
+//         if (lastDyApplied !== dyMin) { applyHeights(dyMin); lastDyApplied = dyMin; }
+//         e?.preventDefault?.();
+//         return;
+//       }
+//       if (dyRaw > dyMax) {
+//         if (lastDyApplied !== dyMax) { applyHeights(dyMax); lastDyApplied = dyMax; }
+//         e?.preventDefault?.();
+//         return;
+//       }
+
+//       if (lastDyApplied === dyRaw) { e?.preventDefault?.(); return; }
+//       applyHeights(dyRaw);
+//       lastDyApplied = dyRaw;
+//       e?.preventDefault?.();
+//     };
+
+//     const finish = () => {
+//       dragging = false;
+//       isSplitterDragging = false;
+//       document.body.style.userSelect = '';
+//       document.body.style.cursor = '';
+//       paneTop.style.willChange = '';
+//       paneBot.style.willChange = '';
+//       try { handle.releasePointerCapture?.(); } catch {}
+//     };
+
+//     // Pointer Events (iOS 13+ ok)
+//     if (window.PointerEvent) {
+//       handle.addEventListener('pointerdown', (e) => {
+//         if (e.pointerType === 'mouse' && e.button !== 0) return;
+//         try { handle.setPointerCapture(e.pointerId); } catch {}
+//         begin(e.clientY, e);
+//       });
+//       handle.addEventListener('pointermove',  (e) => update(e.clientY, e));
+//       handle.addEventListener('pointerup',     finish);
+//       handle.addEventListener('pointercancel', finish);
+//       handle.addEventListener('lostpointercapture', finish);
+//     } else {
+//       // Fallback touch
+//       handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
+//       handle.addEventListener('touchmove',  e => { update(e.touches[0].clientY, e); }, { passive: false });
+//       handle.addEventListener('touchend',   finish);
+//       // Fallback souris
+//       handle.addEventListener('mousedown', (e) => {
+//         if (e.button !== 0) return;
+//         begin(e.clientY, e);
+//         const onMove = ev => update(ev.clientY, ev);
+//         const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
+//         window.addEventListener('mousemove', onMove);
+//         window.addEventListener('mouseup', onUp, true);
+//         e.preventDefault();
+//       });
+//     }
+//   });
+// }
+
+
+let isSplitterDragging = false; // pour geler les recalculs ailleurs
+
+
+
 
 // ===== Boot : créer les 4 grilles =====
+
+
 document.addEventListener('DOMContentLoaded', () => {
   // 1) Programmées
   createGridController({
@@ -1332,6 +1459,7 @@ function getSafeBottom() {
 }
 
 function syncBottomBarTogglePosition() {
+  if (isSplitterDragging) return;
   const bar = document.querySelector('.bottom-bar');
   const tog = document.querySelector('.bottom-toggle');
   if (!bar || !tog) return;
@@ -1348,31 +1476,32 @@ function syncBottomBarTogglePosition() {
    - redimensionnement/orientation,
    - changements de taille de la barre (ouverture/fermeture, contenu qui wrap).
 */
-function initBottomBarAutoLayout() {
-  const bar = document.querySelector('.bottom-bar');
-  if (!bar) return;
+// function initBottomBarAutoLayout() {
+//   const bar = document.querySelector('.bottom-bar');
+//   if (!bar) return;
 
-  // Observe les changements de taille de la barre
-  const ro = new ResizeObserver(() => syncBottomBarTogglePosition());
-  ro.observe(bar);
+//   // Observe les changements de taille de la barre
+//   const ro = new ResizeObserver(() => syncBottomBarTogglePosition());
+//   ro.observe(bar);
 
-  // Orientation / clavier mobile / viewport iOS
-  window.addEventListener('resize', syncBottomBarTogglePosition);
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', syncBottomBarTogglePosition);
-  }
+//   // Orientation / clavier mobile / viewport iOS
+//   window.addEventListener('resize', syncBottomBarTogglePosition);
+//   if (window.visualViewport) {
+//     window.visualViewport.addEventListener('resize', syncBottomBarTogglePosition);
+//   }
 
-  // Premier sync après stabilisation du layout
-  requestAnimationFrame(() => {
-    requestAnimationFrame(syncBottomBarTogglePosition);
-  });
-}
+//   // Premier sync après stabilisation du layout
+//   requestAnimationFrame(() => {
+//     requestAnimationFrame(syncBottomBarTogglePosition);
+//   });
+// }
 
 function setSafeGap(px){
   document.documentElement.style.setProperty('--safe-gap', `${px}px`);
 }
 
 function computeSafeGap(){
+  if (isSplitterDragging) return;
   const vv = window.visualViewport;
   if (!vv) {
     setSafeGap(0);
@@ -1384,6 +1513,7 @@ function computeSafeGap(){
 }
 
 function hardPinBottom(){
+  if (isSplitterDragging) return;
   computeSafeGap();
 }
 
