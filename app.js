@@ -1,5 +1,5 @@
 // app.js (module)
-import { df_getAll, df_getAllOrdered, df_putMany, df_clear } from './db.mjs';
+import { df_getAll, df_getAllOrdered, df_putMany, df_clear, carnet_getAll, carnet_clear, carnet_putMany } from './db.mjs';
 
 
 // ===== Multi-grilles =====
@@ -75,6 +75,16 @@ function buildColumnsCreneaux(){
       }
     },
     { field:'Capacité', headerName:'Capacité (min)', width:100, suppressSizeToFit:true }
+  ];
+}
+
+// Colonnes du carnet (simple et efficace)
+function buildColumnsCarnet(){
+  return [
+    { field:'Nom', headerName:'Nom', minWidth:180, flex:1, editable:true },
+    { field:'Adresse', minWidth:160, flex:1, editable:true },
+    { field:'Tel', minWidth:200, flex:1, editable:true },
+    { field:'Web', minWidth:140, editable:true },
   ];
 }
 
@@ -200,6 +210,22 @@ async function loadProgrammables(){
       if (pa!==pb) return pb-pa;
       // puis par durée croissante
       return (a.__mins||Infinity) - (b.__mins||Infinity);
+    });
+}
+
+// 1) Programmées : Date non nulle
+async function loadCarnet() {
+  const all = await carnet_getAll();
+  return (all || [])
+    .filter(r => r.Nom != null && r.Nom !== '')
+    .sort((a, b) => {
+      const na = (a.Nom || '').toString()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().trim();
+      const nb = (b.Nom || '').toString()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().trim();
+      return na.localeCompare(nb, 'fr', { sensitivity: 'base' });
     });
 }
 
@@ -777,12 +803,20 @@ document.addEventListener('DOMContentLoaded', () => {
     onSelectionChanged: onCreneauxSelectionChanged
   });
 
-  // 4) Programmables (dépend de selectedSlot)
+  // 4) Programmables 
   createGridController({
     gridId: 'grid-programmables',
     elementId: 'gridD',
     loader: loadProgrammables,
     columnsBuilder: buildColumnsCommon
+  });
+
+  // 5) Carnet d’adresses
+  createGridController({
+    gridId: 'grid-carnet',
+    elementId: 'gridE',
+    loader: loadCarnet,
+    columnsBuilder: buildColumnsCarnet
   });
 
   wireExpanderSplitters();
@@ -1428,7 +1462,7 @@ function wireHiddenFileInput(){
         }
       }
 
-      // 4) normalisation colonnes + __uuid + Date->dateint + tri date/debut
+      // 4) normalisation colonnes + __uuid + Date->dateint 
       rows = rows.map((r, i) => {
         const o = { ...r };
 
@@ -1447,8 +1481,8 @@ function wireHiddenFileInput(){
         o.Date = di || null; // stock interne = dateint ou null
 
         // --- Début en minutes pour tri ---
-        const m = /(\d{1,2})h(\d{2})/i.exec(String(o['Début'] ?? o['Debut'] ?? ''));
-        const mins = m ? (parseInt(m[1],10)||0)*60 + (parseInt(m[2],10)||0) : 0;
+        // const m = /(\d{1,2})h(\d{2})/i.exec(String(o['Début'] ?? o['Debut'] ?? ''));
+        // const mins = m ? (parseInt(m[1],10)||0)*60 + (parseInt(m[2],10)||0) : 0;
 
         // __uuid garanti
         if (!o.__uuid) {
@@ -1456,13 +1490,35 @@ function wireHiddenFileInput(){
         }
         return o;
       });
-
+      
       await df_clear();
       await df_putMany(rows);
 
       await refreshAllGrids();
       console.log('✅ Import OK', rows.length, 'lignes');
-    } catch (e) {
+    
+      // 5) Carnet d’adresses (optionnel, 2e onglet)
+      const ca  = wb.Sheets[wb.SheetNames[1]]; // 2e onglet = Carnet
+      if (ca) {
+        let caRows = XLSX.utils.sheet_to_json(ca, { defval: null, raw: true });
+        caRows = normalizeImportedRows(caRows);
+
+        caRows = caRows.map((r, i) => {
+          const o = { ...r };
+          // __uuid garanti
+          if (!o.__uuid) {
+            o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
+          }
+          return o;
+        });
+
+        await carnet_clear();
+        await carnet_putMany(caRows);
+        console.log('✅ Import Carnet OK', caRows.length, 'lignes');
+      }
+
+    }
+    catch (e) {
       console.error('❌ Import Excel KO', e);
       alert('Import échoué : ' + e.message);
     } finally {

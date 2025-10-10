@@ -69,7 +69,7 @@
     <div class="v-splitter__handle" title="Redimensionner"></div>
   </div>
 
-  <!-- EXPANDER 3 : Créneaux disponibles (vide pour l’instant) -->
+  <!-- EXPANDER 3 : Créneaux disponibles -->
   <div class="st-expander" id="exp-creneaux">
     <div class="st-expander-header">
       <span class="chevron"></span>
@@ -85,7 +85,7 @@
     <div class="v-splitter__handle" title="Redimensionner"></div>
   </div>
 
-  <!-- EXPANDER 4 : Activités programmables pour le créneau sélectionné -->
+  <!-- EXPANDER 4 : Activités programmables -->
   <div class="st-expander" id="exp-programmables">
     <div class="st-expander-header">
       <span class="chevron"></span>
@@ -96,7 +96,27 @@
     </div>
   </div>
 
-  <!-- Bottom Bar -->
+  <!-- Séparateur -->
+<div class="v-splitter" data-top="exp-non-prog" data-bottom="exp-contacts">
+  <div class="v-splitter__handle" title="Redimensionner"></div>
+</div>
+
+<!-- EXPANDER 5 : Carnet d’adresses -->
+<div class="st-expander" id="exp-contacts">
+  <div class="st-expander-header">
+    <span class="chevron"></span>
+    <span class="title" id="titleE">Carnet d’adresses</span>
+  </div>
+  <div class="st-expander-body">
+    <div id="gridE" class="ag-theme-quartz compact" style="width:100%;height:30vh;"></div>
+  </div>
+</div>
+
+<!-- Séparateur -->
+<div class="v-splitter" data-top="exp-contacts" data-bottom="exp-creneaux">
+  <div class="v-splitter__handle" title="Redimensionner"></div>
+
+</div><!-- Bottom Bar -->
   <div class="bottom-bar" id="bottomBar" role="toolbar" aria-label="Actions">
     <div class="bottom-bar__scroller" id="bottomBarScroller">
       <button class="bb-btn" data-action="import">Importer</button>
