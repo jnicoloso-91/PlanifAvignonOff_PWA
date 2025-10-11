@@ -9,27 +9,9 @@ let activeGridId = null;
 // Mémorise le créneau sélectionné (grille C)
 let selectedSlot = null;
 
-// util
-const $ = id => document.getElementById(id);
-
-// Helpers heure/durée
-const parseHHhMM = (s) => {
-  const m = /(\d{1,2})h(\d{2})/i.exec(String(s ?? ''));
-  if (!m) return null;
-  const hh = +m[1], mm = +m[2];
-  if (Number.isNaN(hh) || Number.isNaN(mm) || hh>=24 || mm>=60) return null;
-  return hh*60 + mm;
-};
-const parseDureeMin = (s) => parseHHhMM(s); // même format "1h20" -> minutes
-
-function safeSizeToFitFor(id){
-  const g = grids.get(id);
-  if (!g?.api) return;
-  setTimeout(()=>{ try{ g.api.sizeColumnsToFit(); }catch{} },0);
-}
-
-// ===== Colonnes (tu peux factoriser ; j’ajoute un set pour les créneaux) =====
-function buildColumnsCommon(){
+// ===== Colonnes =====
+// Colonnes activités (grilles A, B, D) 
+function buildColumnsActivites(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
     { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
@@ -43,9 +25,9 @@ function buildColumnsCommon(){
         return ma-mb;
       }
     },
+    { field:'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
     { field:'Durée', width, suppressSizeToFit:true },
     { field:'Fin',   width, suppressSizeToFit:true },
-    { field:'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
     { field:'Lieu',  minWidth:160, flex:1 },
     { field:'Relâche', minWidth:60, flex:.5 },
     { field:'Réservé', minWidth:60, flex:.5 },
@@ -54,7 +36,7 @@ function buildColumnsCommon(){
   ];
 }
 
-// Colonnes créneaux (grille C) – placeholder pour l’instant
+// Colonnes créneaux (grille C) 
 function buildColumnsCreneaux(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
@@ -74,11 +56,12 @@ function buildColumnsCreneaux(){
         return ma-mb;
       }
     },
-    { field:'Capacité', headerName:'Capacité (min)', width:100, suppressSizeToFit:true }
+    { field:'Activité avant', headerName:'Activité avant', minWidth:160, flex:1},
+    { field:'Activité après', headerName:'Activité après', minWidth:160, flex:1},
   ];
 }
 
-// Colonnes du carnet (simple et efficace)
+// Colonnes carnet d’adresses (grille E)
 function buildColumnsCarnet(){
   return [
     { field:'Nom', headerName:'Nom', minWidth:180, flex:1, editable:true },
@@ -95,7 +78,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
   if (!el) return null;
 
   const gridOptions = {
-    columnDefs: (columnsBuilder ?? buildColumnsCommon)(),
+    columnDefs: (columnsBuilder ?? buildColumnsActivites)(),
     defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
     rowData: [],
     getRowId: p => p.data?.__uuid ?? p.data?.id ?? JSON.stringify(p.data),
@@ -137,9 +120,6 @@ async function refreshGrid(gridId){
   safeSizeToFitFor(gridId);
 }
 
-/**
- * Recharge TOUTES les grilles enregistrées
- */
 async function refreshAllGrids() {
   const ids = Array.from(grids.keys());
   await Promise.all(ids.map(id => refreshGrid(id)));
@@ -240,419 +220,7 @@ function onCreneauxSelectionChanged(gridId){
   refreshGrid('grid-programmables');
 }
 
-// ===== Séparateurs entre expanders =====
-// function wireExpanderSplitters(){
-//   const splitters = document.querySelectorAll('.v-splitter');
-//   splitters.forEach(sp => {
-//     const topId = sp.getAttribute('data-top');
-//     const bottomId = sp.getAttribute('data-bottom');
-//     const top = document.getElementById(topId);
-//     const bottom = document.getElementById(bottomId);
-//     if (!top || !bottom) return;
-
-//     const topBody = top.querySelector('.st-expander-body > div[id^="grid"]');
-//     const botBody = bottom.querySelector('.st-expander-body > div[id^="grid"]');
-//     if (!topBody || !botBody) return;
-
-//     let startY=0, hTop=0, hBot=0, dragging=false;
-
-//     const start = (y) => {
-//       dragging = true;
-//       startY = y;
-//       hTop = topBody.offsetHeight;
-//       hBot = botBody.offsetHeight;
-//       document.body.style.userSelect = 'none';
-//       document.body.style.cursor = 'row-resize';
-//     };
-//     const move = (y) => {
-//       if (!dragging) return;
-//       const dy = y - startY;
-//       const newTop = Math.max(140, hTop + dy);
-//       const newBot = Math.max(140, hBot - dy);
-//       topBody.style.height = `${newTop}px`;
-//       botBody.style.height = `${newBot}px`;
-//       try { grids.forEach(g => g.api?.onGridSizeChanged?.()); } catch {}
-//       try { grids.forEach(g => g.api?.sizeColumnsToFit?.()); } catch {}
-//     };
-//     const end = () => {
-//       dragging = false;
-//       document.body.style.userSelect = '';
-//       document.body.style.cursor = '';
-//     };
-
-//     // souris
-//     sp.addEventListener('mousedown', (e)=>start(e.clientY));
-//     window.addEventListener('mousemove', (e)=>move(e.clientY));
-//     window.addEventListener('mouseup', end);
-
-//     // tactile
-//     sp.addEventListener('touchstart', (e)=>start(e.touches[0].clientY), {passive:true});
-//     window.addEventListener('touchmove', (e)=>{ move(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
-//     window.addEventListener('touchend', end);
-//   });
-// }
-
-// function wireExpanderSplitters(){
-//   document.querySelectorAll('.v-splitter').forEach(sp => {
-//     const handle = sp.querySelector('.v-splitter__handle');
-//     if (!handle) return;
-
-//     const topId = sp.getAttribute('data-top');
-//     const bottomId = sp.getAttribute('data-bottom');
-//     const topBody = document.querySelector(`#${topId} .st-expander-body > div[id^="grid"]`);
-//     const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
-//     if (!topBody || !botBody) return;
-
-//     let dragging = false, startY = 0, hTop = 0, hBot = 0;
-
-//     const start = (clientY, e) => {
-//       // souris : bouton gauche uniquement
-//       if (e.pointerType === 'mouse' && e.button !== 0) return;
-//       dragging = true;
-//       startY = clientY;
-//       hTop = topBody.offsetHeight;
-//       hBot = botBody.offsetHeight;
-
-//       // capture tous les moves sur la poignée (plus besoin de window listeners)
-//       try { handle.setPointerCapture(e.pointerId); } catch {}
-//       document.body.style.userSelect = 'none';
-//       document.body.style.cursor = 'row-resize';
-//       e.preventDefault(); // empêche le scroll pendant le drag
-//     };
-
-//     const move = (clientY, e) => {
-//       if (!dragging) return;
-//       const dy = clientY - startY;
-//       const newTop = Math.max(140, hTop + dy);
-//       const newBot = Math.max(140, hBot - dy);
-//       topBody.style.height = `${newTop}px`;
-//       botBody.style.height = `${newBot}px`;
-//       // recalcul ag-Grid
-//       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
-//       e.preventDefault();
-//     };
-
-//     const end = () => {
-//       dragging = false;
-//       document.body.style.userSelect = '';
-//       document.body.style.cursor = '';
-//       try { handle.releasePointerCapture?.(); } catch {}
-//     };
-
-//     // 👉 Pointer Events unifiés (iOS/Android/Souris)
-//     handle.addEventListener('pointerdown', e => start(e.clientY, e));
-//     handle.addEventListener('pointermove',  e => move(e.clientY, e));
-//     handle.addEventListener('pointerup',    end);
-//     handle.addEventListener('pointercancel',end);
-//     handle.addEventListener('lostpointercapture', end);
-//   });
-// }
-
-// function wireExpanderSplitters(){
-//   document.querySelectorAll('.v-splitter').forEach(sp => {
-//     const handle = sp.querySelector('.v-splitter__handle');
-//     if (!handle) return;
-
-//     const topId = sp.getAttribute('data-top');
-//     const bottomId = sp.getAttribute('data-bottom');
-//     const topBody = document.querySelector(`#${topId} .st-expander-body > div[id^="grid"]`);
-//     const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
-//     if (!topBody || !botBody) return;
-
-//     let dragging = false, startY=0, hTop=0, hBot=0;
-
-//     const begin = (clientY) => {
-//       dragging = true;
-//       startY = clientY;
-//       hTop = topBody.offsetHeight;
-//       hBot = botBody.offsetHeight;
-//       document.body.style.userSelect = 'none';
-//       document.body.style.cursor = 'row-resize';
-//     };
-
-//     const update = (clientY) => {
-//       if (!dragging) return;
-//       const dy = clientY - startY;
-//       const newTop = Math.max(140, hTop + dy);
-//       const newBot = Math.max(140, hBot - dy);
-//       topBody.style.height = `${newTop}px`;
-//       botBody.style.height = `${newBot}px`;
-//       // recalcul AG Grid
-//       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
-//     };
-
-//     const finish = () => {
-//       dragging = false;
-//       document.body.style.userSelect = '';
-//       document.body.style.cursor = '';
-//       try { handle.releasePointerCapture?.(); } catch {}
-//     };
-
-//     // ----- Pointer Events si dispo (iOS moderne ok) -----
-//     if (window.PointerEvent) {
-//       handle.addEventListener('pointerdown', (e) => {
-//         if (e.pointerType === 'mouse' && e.button !== 0) return;
-//         begin(e.clientY);
-//         try { handle.setPointerCapture(e.pointerId); } catch {}
-//         e.preventDefault(); // empêche le scroll pendant le drag
-//       });
-
-//       handle.addEventListener('pointermove', (e) => {
-//         if (!dragging) return;
-//         update(e.clientY);
-//         e.preventDefault();
-//       });
-
-//       handle.addEventListener('pointerup', finish);
-//       handle.addEventListener('pointercancel', finish);
-//       handle.addEventListener('lostpointercapture', finish);
-//       return; // on a câblé en pointer events, on sort
-//     }
-
-//     // ----- Fallback tactile pur (sans listeners globaux) -----
-//     handle.addEventListener('touchstart', (e) => {
-//       const t = e.touches[0];
-//       begin(t.clientY);
-//       // pas de capture en touch: on reste sur la poignée
-//     }, { passive: true });
-
-//     handle.addEventListener('touchmove', (e) => {
-//       if (!dragging) return;
-//       const t = e.touches[0];
-//       update(t.clientY);
-//       e.preventDefault(); // bloque le scroll de page seulement pendant le drag
-//     }, { passive: false });
-
-//     handle.addEventListener('touchend', finish);
-//     handle.addEventListener('touchcancel', finish);
-
-//     // ----- Fallback souris (desktop) -----
-//     handle.addEventListener('mousedown', (e) => {
-//       if (e.button !== 0) return;
-//       begin(e.clientY);
-//       e.preventDefault();
-//       const onMove = (ev) => update(ev.clientY);
-//       const onUp   = () => {
-//         window.removeEventListener('mousemove', onMove);
-//         window.removeEventListener('mouseup', onUp, true);
-//         finish();
-//       };
-//       window.addEventListener('mousemove', onMove);
-//       window.addEventListener('mouseup', onUp, true);
-//     });
-//   });
-// }
-
-// function wireExpanderSplitters() {
-//   document.querySelectorAll('.v-splitter').forEach(sp => {
-//     const handle = sp.querySelector('.v-splitter__handle');
-//     if (!handle) return;
-
-//     const topId = sp.getAttribute('data-top');
-//     const bottomId = sp.getAttribute('data-bottom');
-
-//     // 👉 on redimensionne les PANNEAUX (st-expander-body), pas les div#gridX
-//     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
-//     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
-//     if (!paneTop || !paneBot) return;
-
-//     const getMinH = (el, fallback = 140) => {
-//       const v = parseFloat(getComputedStyle(el).minHeight);
-//       return Number.isFinite(v) && v > 0 ? v : fallback;
-//     };
-
-//     let dragging = false;
-//     let startY = 0, hTop = 0, hBot = 0, dyMin = 0, dyMax = 0;
-//     let lastDyApplied = null;
-
-//     const begin = (clientY, e) => {
-//       dragging = true;
-//       isSplitterDragging = true;
-
-//       // Fige les hauteurs courantes en pixels (au cas où c’était en vh/%)
-//       hTop = Math.round(paneTop.getBoundingClientRect().height);
-//       hBot = Math.round(paneBot.getBoundingClientRect().height);
-//       paneTop.style.height = `${hTop}px`;
-//       paneBot.style.height = `${hBot}px`;
-//       paneTop.style.willChange = 'height';
-//       paneBot.style.willChange = 'height';
-
-//       startY = clientY;
-
-//       const minTop = getMinH(paneTop);
-//       const minBot = getMinH(paneBot);
-
-//       // Bornes admissibles du delta
-//       dyMin = minTop - hTop;   // hTop + dy >= minTop
-//       dyMax = hBot   - minBot; // hBot - dy >= minBot
-//       lastDyApplied = null;
-
-//       document.body.style.userSelect = 'none';
-//       document.body.style.cursor = 'row-resize';
-
-//       // iOS: empêcher tout scroll de page dès le départ
-//       e?.preventDefault?.();
-//     };
-
-//     const applyHeights = (dy) => {
-//       paneTop.style.height = `${hTop + dy}px`;
-//       paneBot.style.height = `${hBot - dy}px`;
-//       // recalcul ag-Grid (si les grilles sont dedans)
-//       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
-//     };
-
-//     const update = (clientY, e) => {
-//       if (!dragging) return;
-//       const dyRaw = clientY - startY;
-
-//       // NO-OP hors bornes, mais on empêche quand même le scroll de page
-//       if (dyRaw < dyMin) {
-//         if (lastDyApplied !== dyMin) { applyHeights(dyMin); lastDyApplied = dyMin; }
-//         e?.preventDefault?.();
-//         return;
-//       }
-//       if (dyRaw > dyMax) {
-//         if (lastDyApplied !== dyMax) { applyHeights(dyMax); lastDyApplied = dyMax; }
-//         e?.preventDefault?.();
-//         return;
-//       }
-
-//       if (lastDyApplied === dyRaw) { e?.preventDefault?.(); return; }
-//       applyHeights(dyRaw);
-//       lastDyApplied = dyRaw;
-//       e?.preventDefault?.();
-//     };
-
-//     const finish = () => {
-//       dragging = false;
-//       isSplitterDragging = false;
-//       document.body.style.userSelect = '';
-//       document.body.style.cursor = '';
-//       paneTop.style.willChange = '';
-//       paneBot.style.willChange = '';
-//       try { handle.releasePointerCapture?.(); } catch {}
-//     };
-
-//     // Pointer Events (iOS 13+ ok)
-//     if (window.PointerEvent) {
-//       handle.addEventListener('pointerdown', (e) => {
-//         if (e.pointerType === 'mouse' && e.button !== 0) return;
-//         try { handle.setPointerCapture(e.pointerId); } catch {}
-//         begin(e.clientY, e);
-//       });
-//       handle.addEventListener('pointermove',  (e) => update(e.clientY, e));
-//       handle.addEventListener('pointerup',     finish);
-//       handle.addEventListener('pointercancel', finish);
-//       handle.addEventListener('lostpointercapture', finish);
-//     } else {
-//       // Fallback touch
-//       handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
-//       handle.addEventListener('touchmove',  e => { update(e.touches[0].clientY, e); }, { passive: false });
-//       handle.addEventListener('touchend',   finish);
-//       // Fallback souris
-//       handle.addEventListener('mousedown', (e) => {
-//         if (e.button !== 0) return;
-//         begin(e.clientY, e);
-//         const onMove = ev => update(ev.clientY, ev);
-//         const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
-//         window.addEventListener('mousemove', onMove);
-//         window.addEventListener('mouseup', onUp, true);
-//         e.preventDefault();
-//       });
-//     }
-//   });
-// }
-
-// function wireExpanderSplitters(){
-//   document.querySelectorAll('.v-splitter').forEach(sp => {
-//     const handle = sp.querySelector('.v-splitter__handle');
-//     if (!handle) return;
-
-//     const topId = sp.getAttribute('data-top');
-//     const bottomId = sp.getAttribute('data-bottom');
-//     const topBody = document.querySelector(`#${topId} .st-expander-body > div[id^="grid"]`);
-//     const botBody = document.querySelector(`#${bottomId} .st-expander-body > div[id^="grid"]`);
-//     if (!topBody || !botBody) return;
-
-//     // lis min-height depuis le style, sinon fallback (px)
-//     const getMinH = (el, fallback=140) => {
-//       const v = parseFloat(getComputedStyle(el).minHeight);
-//       return Number.isFinite(v) && v>0 ? v : fallback;
-//     };
-
-//     let dragging=false, startY=0, hTop=0, hBot=0, minTop=0, minBot=0, dyMin=0, dyMax=0;
-
-//     const begin = (clientY) => {
-//       dragging = true;
-//       startY = clientY;
-//       hTop   = topBody.offsetHeight;
-//       hBot   = botBody.offsetHeight;
-//       minTop = getMinH(topBody);
-//       minBot = getMinH(botBody);
-
-//       // ==> intervalle autorisé pour dy :
-//       //    hTop + dy >= minTop  ->  dy >= (minTop - hTop)
-//       //    hBot - dy >= minBot  ->  dy <= (hBot - minBot)
-//       dyMin  = minTop - hTop;
-//       dyMax  = hBot   - minBot;
-
-//       document.body.style.userSelect = 'none';
-//       document.body.style.cursor = 'row-resize';
-//     };
-
-//     const update = (clientY) => {
-//       if (!dragging) return;
-//       const dyRaw = clientY - startY;
-//       // *** CLAMP DU DELTA ***
-//       const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));
-
-//       const newTop = hTop + dy;
-//       const newBot = hBot - dy;
-
-//       topBody.style.height = `${newTop}px`;
-//       botBody.style.height = `${newBot}px`;
-
-//       // recalcul AG Grid
-//       grids.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); });
-//     };
-
-//     const finish = () => {
-//       dragging = false;
-//       document.body.style.userSelect = '';
-//       document.body.style.cursor = '';
-//     };
-
-//     // Pointer Events (ou garde ta version actuelle si déjà câblée)
-//     if (window.PointerEvent) {
-//       handle.addEventListener('pointerdown', (e) => {
-//         if (e.pointerType === 'mouse' && e.button !== 0) return;
-//         begin(e.clientY);
-//         try { handle.setPointerCapture(e.pointerId); } catch {}
-//         e.preventDefault();
-//       });
-//       handle.addEventListener('pointermove',  (e) => { if (dragging) { update(e.clientY); e.preventDefault(); } });
-//       handle.addEventListener('pointerup',    finish);
-//       handle.addEventListener('pointercancel',finish);
-//       handle.addEventListener('lostpointercapture', finish);
-//     } else {
-//       // Fallback touch + souris (si besoin)
-//       handle.addEventListener('touchstart', e => begin(e.touches[0].clientY), {passive:true});
-//       handle.addEventListener('touchmove',  e => { update(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
-//       handle.addEventListener('touchend',   finish);
-//       handle.addEventListener('mousedown',  e => {
-//         if (e.button !== 0) return;
-//         begin(e.clientY);
-//         const onMove = ev => update(ev.clientY);
-//         const onUp   = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
-//         window.addEventListener('mousemove', onMove);
-//         window.addEventListener('mouseup', onUp, true);
-//         e.preventDefault();
-//       });
-//     }
-//   });
-// }
-
-
+// ===== Séparateurs =====
 function wireExpanderSplitters() {
   document.querySelectorAll('.v-splitter').forEach(sp => {
     const handle = sp.querySelector('.v-splitter__handle');
@@ -771,19 +339,16 @@ function wireExpanderSplitters() {
   });
 }
 
-
 let isSplitterDragging = false; // pour geler les recalculs ailleurs
 
-
 // ===== Boot : créer les 4 grilles =====
-
-document.addEventListener('DOMContentLoaded', () => {
+function wireGrids() {
   // 1) Programmées
   createGridController({
     gridId: 'grid-programmees',
     elementId: 'gridA',
     loader: loadProgrammees,
-    columnsBuilder: buildColumnsCommon
+    columnsBuilder: buildColumnsActivites
   });
 
   // 2) Non programmées
@@ -791,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gridId: 'grid-non-prog',
     elementId: 'gridB',
     loader: loadNonProgrammees,
-    columnsBuilder: buildColumnsCommon
+    columnsBuilder: buildColumnsActivites
   });
 
   // 3) Créneaux
@@ -808,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gridId: 'grid-programmables',
     elementId: 'gridD',
     loader: loadProgrammables,
-    columnsBuilder: buildColumnsCommon
+    columnsBuilder: buildColumnsActivites
   });
 
   // 5) Carnet d’adresses
@@ -819,11 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
     columnsBuilder: buildColumnsCarnet
   });
 
-  wireExpanderSplitters();
+}
 
-});
-
-function wireAllExpanders() {
+function wireExpanders() {
   document.querySelectorAll('.st-expander').forEach(exp => {
     const header = exp.querySelector('.st-expander-header');
     if (!header) return;
@@ -849,52 +412,32 @@ function wireAllExpanders() {
       }
     });
   });
-}
-// ------- État global -------
-// let gridApi = null;
-// let gridOptions = null;
 
-// ------- Colonnes -------
-function buildColumns() {
-  let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
-  return [
-    {
-      field: 'Date',
-      headerName: 'Date',
-      width: width,
-      suppressSizeToFit: true,
-      // sort: 'asc',
-      valueFormatter: p => dateintToPretty(p.value),
-      valueParser: p => {
-        // l’utilisateur saisit "dd[/mm][/yy]" -> on re-range un dateint
-        const di = prettyToDateint(p.newValue);
-        return di ?? p.oldValue ?? null;
-      },
-      comparator: (a, b) => (safeDateint(a)||0) - (safeDateint(b)||0),
-    },
-    { field: 'Début', 
-      width: width,
-      suppressSizeToFit: true,
-      comparator: (a,b) => {
-        const pa = /(\d{1,2})h(\d{2})/i.exec(String(a||'')); 
-        const pb = /(\d{1,2})h(\d{2})/i.exec(String(b||'')); 
-        const ma = pa ? (+pa[1])*60 + (+pa[2]) : 0;
-        const mb = pb ? (+pb[1])*60 + (+pb[2]) : 0;
-        return ma - mb;
-      }
-    },
-    { field: 'Activité', minWidth: 200, flex: 1, cellRenderer: ActiviteRenderer },
-    { field: 'Durée',   width: width, suppressSizeToFit: true },
-    { field: 'Fin',   width: width, suppressSizeToFit: true },
-    { field: 'Lieu', minWidth: 200,     flex: 1 },
-    { field: 'Relâche', minWidth: 50,  flex: 0.5 },
-    { field: 'Réservé', minWidth: 50,  flex: 0.5 },
-    { field: 'Priorité', minWidth: 50, flex: 0.5 },
-    { field: 'Hyperlien', minWidth: 100, flex: 2 }, 
-  ];  
+  wireGrids();
+  wireExpanderSplitters();
 }
 
 // ------- Helpers -------
+
+// util
+const $ = id => document.getElementById(id);
+
+// Helpers heure/durée
+const parseHHhMM = (s) => {
+  const m = /(\d{1,2})h(\d{2})/i.exec(String(s ?? ''));
+  if (!m) return null;
+  const hh = +m[1], mm = +m[2];
+  if (Number.isNaN(hh) || Number.isNaN(mm) || hh>=24 || mm>=60) return null;
+  return hh*60 + mm;
+};
+const parseDureeMin = (s) => parseHHhMM(s); // même format "1h20" -> minutes
+
+function safeSizeToFitFor(id){
+  const g = grids.get(id);
+  if (!g?.api) return;
+  setTimeout(()=>{ try{ g.api.sizeColumnsToFit(); }catch{} },0);
+}
+
 // Palette pastel (ajuste si tu veux)
 const DAY_COLORS = [
   '#fff2b3',  // jaune sable doux mais lumineux
@@ -1410,6 +953,11 @@ function wireBottomBar() {
   window.addEventListener('focusout', () => {
     bar.style.transform = '';
   });
+
+  wireHiddenFileInput();
+  lockHorizontalScroll();
+  initSafeAreaWatch();
+  setTimeout(wireBottomBarToggle, 300);
 }
 
 // --- Handler du file input caché (import Excel effectif) ---
@@ -1643,31 +1191,6 @@ function syncBottomBarTogglePosition() {
   tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
 }
 
-/* Recalcule après :
-   - chargement,
-   - redimensionnement/orientation,
-   - changements de taille de la barre (ouverture/fermeture, contenu qui wrap).
-*/
-// function initBottomBarAutoLayout() {
-//   const bar = document.querySelector('.bottom-bar');
-//   if (!bar) return;
-
-//   // Observe les changements de taille de la barre
-//   const ro = new ResizeObserver(() => syncBottomBarTogglePosition());
-//   ro.observe(bar);
-
-//   // Orientation / clavier mobile / viewport iOS
-//   window.addEventListener('resize', syncBottomBarTogglePosition);
-//   if (window.visualViewport) {
-//     window.visualViewport.addEventListener('resize', syncBottomBarTogglePosition);
-//   }
-
-//   // Premier sync après stabilisation du layout
-//   requestAnimationFrame(() => {
-//     requestAnimationFrame(syncBottomBarTogglePosition);
-//   });
-// }
-
 function setSafeGap(px){
   document.documentElement.style.setProperty('--safe-gap', `${px}px`);
 }
@@ -1726,10 +1249,6 @@ function initSafeAreaWatch(){
 
 // ------- Boot -------
 document.addEventListener('DOMContentLoaded', () => {
-  wireAllExpanders();
+  wireExpanders();
   wireBottomBar();
-  wireHiddenFileInput();
-  lockHorizontalScroll();
-  initSafeAreaWatch();
-  setTimeout(wireBottomBarToggle, 300);
 });

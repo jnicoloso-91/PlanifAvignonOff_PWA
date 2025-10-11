@@ -206,7 +206,13 @@ main, .page-wrap {
     padding-right: 4px !important;
   }
 
+  .ag-theme-quartz .ag-header-cell .ag-header-cell-comp-wrapper,
+  .ag-theme-quartz .ag-header-group-cell .ag-header-group-cell-label {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
 }
+
 
 /* ===============================
    Bottom bar
