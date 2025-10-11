@@ -386,6 +386,7 @@ function onCreneauxSelectionChanged(gridId){
 
 // ===== Wiring =====
 let isSplitterDragging = false; // pour geler les recalculs ailleurs
+function isFromGrid(e){ return !!e.target?.closest('.ag-root'); }
 
 function wireExpanderSplitters() {
   document.querySelectorAll('.v-splitter').forEach(sp => {
@@ -438,7 +439,9 @@ function wireExpanderSplitters() {
           if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
         }
       } catch {}
-      e?.preventDefault?.();
+      // ❌ ne surtout pas faire e.preventDefault ici
+      // iOS doit pouvoir générer le tap→click pour AG Grid
+      // e?.preventDefault?.();
     }
 
     function finish() {
@@ -463,15 +466,43 @@ function wireExpanderSplitters() {
       document.body.style.cursor = '';
     }
 
-    // Souris
-    handle.addEventListener('mousedown', e => { if (e.button !== 0) return; begin(e.clientY, e); });
-    window.addEventListener('mousemove', e => update(e.clientY, e));
+    // // Souris
+    // handle.addEventListener('mousedown', e => { if (e.button !== 0) return; begin(e.clientY, e); });
+    // window.addEventListener('mousemove', e => update(e.clientY, e));
+    // window.addEventListener('mouseup', finish);
+
+    // // Tactile
+    // handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
+    // window.addEventListener('touchmove', e => { if (!dragging) return; update(e.touches[0].clientY, e); e.preventDefault(); }, { passive: false });
+    // window.addEventListener('touchend', finish);
+    handle.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      // if (isFromGrid(e)) return; // pas nécessaire ici, la cible = poignée
+      begin(e.clientY, e);
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (!dragging) return;                 // 👈 clé: rien si pas en drag
+      update(e.clientY, e);
+      // pas de preventDefault ici (souris)
+    });
+
     window.addEventListener('mouseup', finish);
 
     // Tactile
-    handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
-    window.addEventListener('touchmove', e => { if (!dragging) return; update(e.touches[0].clientY, e); e.preventDefault(); }, { passive: false });
-    window.addEventListener('touchend', finish);
+    handle.addEventListener('touchstart', e => {
+      // if (isFromGrid(e)) return;          // pas nécessaire ici, la cible = poignée
+      begin(e.touches[0].clientY, e);
+    }, { passive: true });
+
+    window.addEventListener('touchmove', e => {
+      if (!dragging) return;                 // 👈 clé: rien si pas en drag
+      // if (isFromGrid(e)) return;          // utile si tu avais un listener global
+      e.preventDefault();                    // 👈 seulement pendant le drag
+      update(e.touches[0].clientY, e);
+    }, { passive: false });
+
+    window.addEventListener('touchend', finish);    
   });
 }
 
