@@ -1,4 +1,6 @@
 :root { 
+  --header-h: 56px;
+  --header-bg:#f9fafb;
   --bg:#f5f5f5; 
   --fg:#111; 
   --muted:#8b949e; 
@@ -16,22 +18,28 @@ html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:1
 /* ===============================
    App logo
    =============================== */
-.app-header {
-  display: flex;
-  padding: 0px 16px;
+   
+/* barre haute fixe */
+.app-header{
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-h);
+  padding: calc(env(safe-area-inset-top, 0px)) 16px 3px;
+  display: flex; align-items: center; gap: .75rem;
+  background: var(--header-bg);
+  z-index: 2000;                          /* au-dessus des grilles/splitters */
 }
 
-.app-logo {
-  width: 64px;
-  height: 64px;
-  border-radius: 20%; /* ou 0 si tu veux un carré pur */
+/* décale le contenu pour ne pas passer sous le header */
+body{
+  padding-top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
 }
-/* @media (max-width: 750px) {
-  .app-logo {
-    width: 32px;
-    height: 32px;
-  }
-} */
+
+/* logo du header (option) */
+.app-logo{
+  width: 58px; height: 58px; flex: 0 0 auto;
+  user-select: none; -webkit-user-drag: none;
+}
 
 /* ===============================
    Thème clair Streamlit-like
@@ -160,29 +168,46 @@ main, .page-wrap {
 }
 
 /* --- Animation fluide des expanders --- */
-.st-expander {
+/* .st-expander {
   transition: background-color 0.25s ease-in-out;
-}
+} */
 
 /* le corps : transition de hauteur + opacité */
-.st-expander .st-expander-body {
+/* .st-expander .st-expander-body {
   transition:
     height 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
     opacity 0.25s ease-in-out;
-  overflow: hidden; /* nécessaire pour le masquage pendant anim */
+  overflow: hidden; 
   opacity: 0;
-}
+} */
 
 /* ouvert : visible, hauteur définie par JS */
-.st-expander.open .st-expander-body {
+/* .st-expander.open .st-expander-body {
   opacity: 1;
-}
+} */
 
 /* pour limiter un éventuel tremblement sur iOS lors du scroll */
-.st-expander .st-expander-body {
+/* .st-expander .st-expander-body {
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
   will-change: height, opacity;
+} */
+
+/* Transition douce sur ouverture/fermeture (height + opacité) */
+.st-expander .st-expander-body{
+  overflow: hidden;
+  transition:
+    height 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
+    opacity 0.25s ease-in-out;
+  opacity: 0;
+  transform: translateZ(0);      /* ok VSCode */
+  will-change: height, opacity;
+}
+.st-expander.open .st-expander-body{ opacity: 1; }
+
+/* Coupe toute transition pendant le drag */
+.st-expander .st-expander-body.no-anim{
+  transition: none !important;
 }
 
 /* ===============================
