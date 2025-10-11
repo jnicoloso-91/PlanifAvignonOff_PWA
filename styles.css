@@ -151,7 +151,9 @@ main, .page-wrap {
   border-radius: 0 0 8px 8px;
 }
 .st-expander.open .st-expander-body {
-  max-height: 80vh;
+  /* max-height: 80vh; */
+  max-height: none !important;   /* override toute ancienne valeur (ex. 80vh) */
+  overflow: visible;
   opacity: 1;
   padding: 1rem;
 }
@@ -216,6 +218,8 @@ main, .page-wrap {
   }
 }
 
+/* la grille occupe 100% de la hauteur du panneau */
+.grid-host { height: 100%; min-height: 0; }
 
 /* ===============================
    Bottom bar
@@ -473,7 +477,24 @@ main, .page-wrap {
 }
 .v-splitter__handle:active { background: rgba(60,60,60,.6); }
 
-/* Le splitter ne capte rien, seule la poignée capte */
-/* Le splitter ne capte rien, seule la poignée capte */
-/* Le splitter ne capte rien, seule la poignée capte */
-/* Le splitter ne capte rien, seule la poignée capte */
+/* 1) le body ne doit pas “manger” la hauteur utile */
+.st-expander-body {
+  padding: 0 !important;         /* <= enlève le 1rem coupable */
+  box-sizing: border-box;
+}
+
+/* (si tu tiens au padding, mets-le autour de la grille via un wrapper) */
+.st-expander-body > .pane-inner {
+  height: 100%;
+  padding: 1rem;                  /* optionnel: remets le padding ici */
+  box-sizing: border-box;
+}
+
+/* 2) la grille doit occuper 100% de la hauteur du pane */
+.st-expander-body > .ag-theme-quartz,
+.st-expander-body > [id^="grid"],
+.ag-theme-quartz.grid-host {
+  height: 100% !important;
+  min-height: 0 !important;
+  display: block;
+}

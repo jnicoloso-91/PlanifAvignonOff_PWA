@@ -9,6 +9,284 @@ let activeGridId = null;
 // Mémorise le créneau sélectionné (grille C)
 let selectedSlot = null;
 
+// ===== Grid Helpers =====
+// Palette pastel (ajuste si tu veux)
+const DAY_COLORS = [
+  '#fff2b3',  // jaune sable doux mais lumineux
+  '#cde9ff',  // bleu clair franc
+  '#d9ebff',  // bleu-gris un peu plus saturé
+  '#e6f5b0',  // vert anis doux
+  '#f6d8ff',  // mauve clair éclatant
+  '#c8f3e0',  // vert d’eau plus vivant
+  '#ffe3c1',  // orange très clair et chaud
+  '#e0d8ff',  // lavande pastel un peu plus soutenu
+];
+
+function colorForDate(dateInt) {
+  if (dateInt == null || Number.isNaN(dateInt)) return null;
+  const i = Math.abs(Number(dateInt)) % DAY_COLORS.length;
+  return DAY_COLORS[i];
+}
+
+// Retourne l'handle grid (map "grids") à partir d'un panneau .st-expander-body
+// function findGridHandleInPane(pane) {
+//   if (!window.grids) return null;
+//   const gridDiv = pane?.querySelector?.('div[id^="grid"]');
+//   if (!gridDiv) return null;
+//   for (const g of grids.values()) if (g.el === gridDiv) return g;
+//   return null;
+// }
+
+// Mesure header/row/rowCount
+// function measureGridMetrics(pane) {
+//   const gridRoot = pane.querySelector('.ag-root, .ag-theme-quartz, div[id^="grid"]');
+//   const header = gridRoot?.querySelector('.ag-header, .ag-header-viewport');
+//   const firstRow = gridRoot?.querySelector('.ag-center-cols-container .ag-row, .ag-center-cols-viewport .ag-row');
+
+//   const headerH = header ? Math.round(header.getBoundingClientRect().height) : 32;
+//   const rowH = firstRow ? Math.round(firstRow.getBoundingClientRect().height)
+//                         : (parseInt(getComputedStyle(gridRoot).getPropertyValue('--ag-row-height')) || 32);
+
+//   let rowCount = 0;
+//   const handle = findGridHandleInPane(pane);
+//   try { rowCount = handle?.api?.getDisplayedRowCount?.() ?? 0; } catch {}
+//   return { headerH, rowH, rowCount };
+// }
+
+// Hauteur utile pour n lignes
+// function usefulHeightFor(pane, n) {
+//   const { headerH, rowH } = measureGridMetrics(pane);
+//   const chrome = 4; // petit jeu anti-scrollbar
+//   return Math.max(0, headerH + rowH * Math.max(0, n) + chrome);
+// }
+
+// Auto-tailler : si rows<=5 -> pile rows ; sinon -> 5 lignes
+// function autoSizePaneToRows(pane) {
+//   const { rowCount } = measureGridMetrics(pane);
+//   const targetRows = Math.min(rowCount, 5);
+//   const h = usefulHeightFor(pane, targetRows);
+//   pane.style.height = `${h}px`;
+//   // Stocke la butée max (= taille tout le contenu)
+//   const hMax = usefulHeightFor(pane, rowCount);
+//   pane.dataset.maxContentHeight = String(hMax);
+// }
+
+// Mesure la hauteur "utile" pour N lignes (header + N * rowHeight + marge scroll)
+// function computeGridUsefulHeight(pane, maxRows = Infinity) {
+//   const gridDiv = pane?.querySelector?.('.ag-root, .ag-theme-quartz, div[id^="grid"]');
+//   if (!gridDiv) return null;
+
+//   const header = gridDiv.querySelector('.ag-header') || gridDiv.querySelector('.ag-header-viewport');
+//   const firstRow = gridDiv.querySelector('.ag-center-cols-container .ag-row, .ag-center-cols-viewport .ag-row');
+
+//   const headerH = header ? Math.round(header.getBoundingClientRect().height) : 32;
+//   const rowH    = firstRow ? Math.round(firstRow.getBoundingClientRect().height) : 32;
+
+//   // nombre de lignes actuellement affichées (après filtre/sort)
+//   let rowCount = 0;
+//   const handle = findGridHandleInPane(pane);
+//   try {
+//     rowCount = handle?.api?.getDisplayedRowCount?.() ?? 0;
+//   } catch {}
+
+//   const n = Math.min(rowCount, maxRows);
+//   const chrome = 4; // petite marge anti-scrollbar
+//   return headerH + rowH * n + chrome; // px
+// }
+
+// // Trouve l'handle de grille (depuis la Map grids) pour un pane .st-expander-body
+// function findGridHandleInPane(pane) {
+//   if (!window.grids) return null;
+//   const gridDiv = pane?.querySelector?.('div[id^="grid"]');
+//   if (!gridDiv) return null;
+//   for (const g of grids.values()) if (g.el === gridDiv) return g;
+//   return null;
+// }
+
+// // Mesures robustes (header/row/rowCount)
+// function measureGridMetrics(pane) {
+//   const gridRoot = pane.querySelector('.ag-root') || pane.querySelector('.ag-theme-quartz') || pane.querySelector('div[id^="grid"]');
+//   const header = gridRoot?.querySelector('.ag-header, .ag-header-viewport');
+//   const anyRow = gridRoot?.querySelector('.ag-center-cols-container .ag-row, .ag-center-cols-viewport .ag-row');
+
+//   const headerH = header ? Math.round(header.getBoundingClientRect().height) : 32;
+//   // tente CSS var ag sinon fallback 32
+//   const cssRowH = parseInt(getComputedStyle(gridRoot).getPropertyValue('--ag-row-height')) || 0;
+//   const rowH = anyRow ? Math.round(anyRow.getBoundingClientRect().height) : (cssRowH || 32);
+
+//   let rowCount = 0;
+//   try { rowCount = findGridHandleInPane(pane)?.api?.getDisplayedRowCount?.() ?? 0; } catch {}
+//   return { headerH, rowH, rowCount };
+// }
+
+// function usefulHeightFor(pane, rows) {
+//   const { headerH, rowH } = measureGridMetrics(pane);
+//   const chrome = 4;
+//   return Math.max(0, headerH + rowH * Math.max(0, rows) + chrome);
+// }
+
+// // planifie après rendu : 2 rAF + microtask pour laisser AG Grid peindre
+// function afterGridPaint(pane, fn) {
+//   requestAnimationFrame(() => requestAnimationFrame(() => queueMicrotask(fn)));
+// }
+
+// // Auto-ajuste : ≤5 lignes → pile ; sinon → 5 lignes. Stocke la butée max (contenu total).
+// function autoSizePaneToRows(pane) {
+//   const { rowCount } = measureGridMetrics(pane);
+//   const targetRows = Math.min(rowCount, 5);
+//   const h = usefulHeightFor(pane, targetRows);
+//   pane.style.height = `${h}px`;
+
+//   // hauteur max = tout le contenu (pour le clamp du splitter)
+//   const maxH = usefulHeightFor(pane, rowCount);
+//   pane.dataset.maxContentHeight = String(maxH);
+// }
+
+function findGridHandleInPane(pane) {
+  if (!window.grids) return null;
+  const gridDiv = pane?.querySelector?.('div[id^="grid"]');
+  if (!gridDiv) return null;
+  for (const g of grids.values()) if (g.el === gridDiv) return g;
+  return null;
+}
+
+function measureGridMetrics(pane) {
+  const gridRoot = pane.querySelector('.ag-root') || pane.querySelector('.ag-theme-quartz') || pane.querySelector('div[id^="grid"]');
+  const header = gridRoot?.querySelector('.ag-header, .ag-header-viewport');
+  const anyRow = gridRoot?.querySelector('.ag-center-cols-container .ag-row, .ag-center-cols-viewport .ag-row');
+
+  const headerH = header ? Math.round(header.getBoundingClientRect().height) : 32;
+  const cssRowH = parseInt(getComputedStyle(gridRoot).getPropertyValue('--ag-row-height')) || 32;
+  const rowH = anyRow ? Math.round(anyRow.getBoundingClientRect().height) : cssRowH;
+
+  let rowCount = 0;
+  try { rowCount = findGridHandleInPane(pane)?.api?.getDisplayedRowCount?.() ?? 0; } catch {}
+  return { headerH, rowH, rowCount };
+}
+
+function usefulHeightFor(pane, rows) {
+  const { headerH, rowH } = measureGridMetrics(pane);
+  const chrome = 4;
+  return Math.max(0, headerH + rowH * Math.max(0, rows) + chrome);
+}
+
+// function afterGridPaint(pane, fn) {
+//   // laisse AG Grid peindre : 2 rAF + microtask
+//   requestAnimationFrame(() => requestAnimationFrame(() => queueMicrotask(fn)));
+// }
+
+// function autoSizePaneToRows(pane) {
+//   const { rowCount } = measureGridMetrics(pane);
+//   const targetRows = Math.min(rowCount, 5);
+//   const h = usefulHeightFor(pane, targetRows);
+//   pane.style.height = `${h}px`;
+//   const maxH = usefulHeightFor(pane, rowCount);
+//   pane.dataset.maxContentHeight = String(maxH || h);
+// }
+
+// Hauteurs de référence (AG Grid Quartz ~ 28–32). Ajuste si besoin.
+// const AG_ROW_H      = 32;  // hauteur d’une ligne
+// const AG_HEADER_H   = 32;  // hauteur d’entête
+// const AG_CHROME_PAD = 4;   // petite marge anti-scrollbar
+
+// function heightForRows(rowCount) {
+//   const n = Math.max(0, rowCount);
+//   return AG_HEADER_H + AG_ROW_H * n + AG_CHROME_PAD; // px
+// }
+
+// /**
+//  * Autosize déterministe : si rows<=5 -> pile ; sinon -> 5 lignes.
+//  * Stocke aussi la butée max (= toute la hauteur contenu = header + N * rowH).
+//  */
+// function autosizePaneFromRowCount(pane, rowCount) {
+//   const targetRows = Math.min(rowCount, 5);
+//   const hTarget = heightForRows(targetRows);
+//   const hMax    = heightForRows(rowCount);
+
+//   pane.style.height = `${hTarget}px`;
+//   pane.dataset.maxContentHeight = String(hMax);
+// }
+
+function autosizeFromGridSafe(handle, pane) {
+  if (!handle?.api || !pane) return;
+  const cnt = handle.api.getDisplayedRowCount?.();
+  // ⚠️ Ignore les états transitoires
+  if (cnt == null || cnt <= 0) return;
+
+  const rowH = handle.api.getSizesForCurrentTheme?.().rowHeight || 32;
+  const headerH = handle.api.getHeaderHeight?.() || 32;
+  const chrome = 4;
+
+  const targetRows = Math.min(cnt, 5);
+  const hTarget = headerH + rowH * targetRows + chrome;
+  const hMax    = headerH + rowH * cnt      + chrome;
+
+  // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
+  const cur = parseFloat(getComputedStyle(pane).height) || 0;
+  if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
+
+  pane.dataset.maxContentHeight = String(hMax);
+  try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
+}
+
+const ROW_H=32, HEADER_H=32, PAD=4;
+const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
+
+function paneOf(exp){ return exp.querySelector('.st-expander-body'); }
+function gridHandleOfPane(pane){
+  if (!window.grids) return null;
+  const gridDiv = pane?.querySelector?.('div[id^="grid"]');
+  for (const g of grids?.values?.() || []) if (g.el === gridDiv) return g;
+  return null;
+}
+
+// clé de stockage par expander
+function paneKey(exp){ return `paneHeight:${exp.id || 'unknown'}`; }
+
+// lit le nb de lignes affichées (fallback: 0)
+function displayedRows(pane){
+  try { return gridHandleOfPane(pane)?.api?.getDisplayedRowCount?.() ?? 0; }
+  catch { return 0; }
+}
+
+function savePaneHeight(exp){
+  const pane = paneOf(exp);
+  if (!pane) return;
+  const h = Math.round(pane.getBoundingClientRect().height);
+  if (h > 0) localStorage.setItem(paneKey(exp), String(h));
+}
+
+function restorePaneHeight(exp){
+  const pane = paneOf(exp);
+  if (!pane) return;
+
+  // hauteur sauvegardée (ignore 0/NaN)
+  let saved = Number(localStorage.getItem(paneKey(exp)));
+  if (!Number.isFinite(saved) || saved <= 1) saved = null;
+
+  // butée max (contenu courant)
+  const cnt = displayedRows(pane);
+  const hMax = Math.max(Number(pane.dataset.maxContentHeight) || 0, hFor(cnt));
+
+  // fallback si pas de saved : auto ≤ 5 lignes
+  const autoH = hFor(Math.min(cnt, 5));
+
+  // target = min(saved || auto, hMax)
+  const target = Math.min(saved ?? autoH, hMax);
+
+  // pose la hauteur (et neutralise tout plafond éventuel)
+  pane.style.setProperty('max-height', 'none', 'important');
+  pane.style.setProperty('min-height', '0px', 'important');
+  pane.style.setProperty('height', `${Math.max(0, Math.round(target))}px`, 'important');
+
+  // notifier ag-Grid
+  try {
+    const g = gridHandleOfPane(pane);
+    g?.api?.onGridSizeChanged?.();
+    g?.api?.sizeColumnsToFit?.();
+  } catch {}
+}
+
 // ===== Colonnes =====
 // Colonnes activités (grilles A, B, D) 
 function buildColumnsActivites(){
@@ -86,8 +364,28 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
     },
-    onFirstDataRendered: () => safeSizeToFitFor(gridId),
-    onModelUpdated: () => safeSizeToFitFor(gridId),
+    // // onFirstDataRendered: () => safeSizeToFitFor(gridId),
+    // onFirstDataRendered: (p) => {
+    //   const pane = p.api?.getGridBodyElement?.()?.closest('.st-expander-body') || p.api?.gridBodyCtrl?.eGridBody?.closest?.('.st-expander-body');
+    //   if (pane) afterGridPaint(pane, () => autoSizePaneToRows(pane));
+    // },
+    // // onModelUpdated: () => safeSizeToFitFor(gridId),
+    // onModelUpdated: (p) => {
+    //   const pane = grids.get(gridId)?.el?.closest('.st-expander-body');
+    //   if (pane) afterGridPaint(pane, () => autoSizePaneToRows(pane));
+    // },
+
+    onModelUpdated: (ev) => {
+      const g = grids.get(gridId);
+      const pane = g?.el?.closest('.st-expander-body');
+      if (pane && g) autosizeFromGridSafe(g, pane); // ne fait rien si cnt <= 0
+    },
+    onFirstDataRendered: (ev) => {
+      const g = grids.get(gridId);
+      const pane = g?.el?.closest('.st-expander-body');
+      if (pane && g) autosizeFromGridSafe(g, pane);
+    },
+
     onCellFocused: () => setActiveGrid(gridId),
     onGridSizeChanged: () => safeSizeToFitFor(gridId),
     getRowStyle: p => {
@@ -112,12 +410,38 @@ function setActiveGrid(gridId){
   grids.forEach(g => g?.el?.classList.toggle('is-active-grid', g.id === gridId));
 }
 
+// async function refreshGrid(gridId){
+//   const g = grids.get(gridId);
+//   if (!g?.api) return;
+//   const rows = await (g.loader ? g.loader() : df_getAllOrdered());
+//   g.api.setGridOption('rowData', rows || []);
+//   safeSizeToFitFor(gridId);
+// }
+
+// const ROW_H=32, HEADER_H=32, PAD=4;
+// const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
+
 async function refreshGrid(gridId){
   const g = grids.get(gridId);
   if (!g?.api) return;
+
   const rows = await (g.loader ? g.loader() : df_getAllOrdered());
   g.api.setGridOption('rowData', rows || []);
-  safeSizeToFitFor(gridId);
+
+  const pane = g.el.closest('.st-expander-body');
+  if (pane) {
+    const cnt = Array.isArray(rows) ? rows.length : 0;
+    const hTarget = hFor(Math.min(cnt, 5));
+    const hMax    = hFor(cnt);
+
+    // 👉 Ne réduit pas si déjà plus grand (évite le “flash” à 37px)
+    const cur = parseFloat(getComputedStyle(pane).height) || 0;
+    if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
+
+    pane.dataset.maxContentHeight = String(hMax);
+
+    try { g.api.onGridSizeChanged(); g.api.sizeColumnsToFit(); } catch {}
+  }
 }
 
 async function refreshAllGrids() {
@@ -151,7 +475,7 @@ async function loadNonProgrammees(){
     });
 }
 
-// 3) Créneaux disponibles : pour l’instant, vide (ou maquette)
+// 3) Créneaux disponibles 
 async function loadCreneaux(){
   // Placeholder : laisse vide. Exemple de format si tu veux tester :
   // return [
@@ -161,7 +485,7 @@ async function loadCreneaux(){
   return [];
 }
 
-// 4) Activités programmables selon `selectedSlot`
+// 4) Activités programmables 
 async function loadProgrammables(){
   if (!selectedSlot) return [];
   const all = await df_getAll();
@@ -193,7 +517,7 @@ async function loadProgrammables(){
     });
 }
 
-// 1) Programmées : Date non nulle
+// 5) Carnet d'adresses
 async function loadCarnet() {
   const all = await carnet_getAll();
   return (all || [])
@@ -220,7 +544,128 @@ function onCreneauxSelectionChanged(gridId){
   refreshGrid('grid-programmables');
 }
 
-// ===== Séparateurs =====
+// ===== Wiring =====
+let isSplitterDragging = false; // pour geler les recalculs ailleurs
+
+// function wireExpanderSplitters() {
+//   document.querySelectorAll('.v-splitter').forEach(sp => {
+//     const handle = sp.querySelector('.v-splitter__handle');
+//     if (!handle) return;
+
+//     const topId = sp.getAttribute('data-top');
+//     const bottomId = sp.getAttribute('data-bottom');
+
+//     // 👉 On redimensionne les PANNEAUX (st-expander-body), pas les div#gridX
+//     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
+//     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
+//     if (!paneTop || !paneBot) return;
+
+//     // helper pour min-height en px (sinon 140)
+//     const getMinH = (el, fallback = 140) => {
+//       const v = parseFloat(getComputedStyle(el).minHeight);
+//       return Number.isFinite(v) && v > 0 ? v : fallback;
+//     };
+
+//     // petit helper pour ne recalculer que la/les grilles concernées
+//     const bumpGridsIn = (pane) => {
+//       // essaie de trouver un conteneur grid à l'intérieur
+//       const gridDiv = pane.querySelector('div[id^="grid"]');
+//       if (!gridDiv) return;
+//       // si tu as la map `grids` (id -> { el, api }), utilise-la
+//       if (typeof grids !== 'undefined' && grids instanceof Map) {
+//         for (const g of grids.values()) {
+//           if (g.el === gridDiv) {
+//             try { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); } catch {}
+//             return;
+//           }
+//         }
+//       }
+//       // fallback: recalcule toutes (moins optimal mais sûr)
+//       try { grids?.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); }); } catch {}
+//     };
+
+//     let dragging = false;
+//     let startY = 0, hTop = 0, minTop = 0, dyMin = 0; // pas de dyMax ici (pas de borne sup)
+
+//     const begin = (clientY, e) => {
+//       dragging = true;
+//       isSplitterDragging = true;
+
+//       // Figer la hauteur actuelle en px (si c'était en vh/%)
+//       hTop   = Math.round(paneTop.getBoundingClientRect().height);
+//       paneTop.style.height = `${hTop}px`;
+//       paneTop.style.willChange = 'height';
+
+//       // la hauteur du bas RESTE telle quelle (on ne la touche pas)
+//       minTop = getMinH(paneTop);
+//       // borne basse du delta : hTop + dy >= minTop -> dy >= (minTop - hTop)
+//       dyMin  = minTop - hTop;
+
+//       startY = clientY;
+
+//       // iOS : on bloque le scroll de page pendant le drag
+//       document.body.style.userSelect = 'none';
+//       document.body.style.cursor = 'row-resize';
+//       e?.preventDefault?.();
+//     };
+
+//     const update = (clientY, e) => {
+//       if (!dragging) return;
+
+//       const dyRaw = clientY - startY;
+//       // clamp du delta seulement sur la borne basse (min haut)
+//       const dy = Math.max(dyMin, dyRaw);
+
+//       // on change UNIQUEMENT la hauteur du panneau du haut
+//       paneTop.style.height = `${hTop + dy}px`;
+
+//       // recalcule la/les grilles affectées
+//       bumpGridsIn(paneTop);
+
+//       // iOS : empêcher le scroll de page pendant le drag
+//       e?.preventDefault?.();
+//     };
+
+//     const finish = () => {
+//       dragging = false;
+//       isSplitterDragging = false;
+//       document.body.style.userSelect = '';
+//       document.body.style.cursor = '';
+//       paneTop.style.willChange = '';
+//       try { handle.releasePointerCapture?.(); } catch {}
+//     };
+
+//     // Pointer Events (unifiés, iOS ok)
+//     if (window.PointerEvent) {
+//       handle.addEventListener('pointerdown', (e) => {
+//         if (e.pointerType === 'mouse' && e.button !== 0) return;
+//         try { handle.setPointerCapture(e.pointerId); } catch {}
+//         begin(e.clientY, e);
+//       });
+//       handle.addEventListener('pointermove',  (e) => update(e.clientY, e));
+//       handle.addEventListener('pointerup',     finish);
+//       handle.addEventListener('pointercancel', finish);
+//       handle.addEventListener('lostpointercapture', finish);
+//     } else {
+//       // Fallback touch
+//       handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
+//       handle.addEventListener('touchmove',  e => { update(e.touches[0].clientY, e); }, { passive: false });
+//       handle.addEventListener('touchend',   finish);
+//       // Fallback souris
+//       handle.addEventListener('mousedown', (e) => {
+//         if (e.button !== 0) return;
+//         begin(e.clientY, e);
+//         const onMove = ev => update(ev.clientY, ev);
+//         const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
+//         window.addEventListener('mousemove', onMove);
+//         window.addEventListener('mouseup', onUp, true);
+//         e.preventDefault();
+//       });
+//     }
+//   });
+// }
+
+
 function wireExpanderSplitters() {
   document.querySelectorAll('.v-splitter').forEach(sp => {
     const handle = sp.querySelector('.v-splitter__handle');
@@ -228,109 +673,70 @@ function wireExpanderSplitters() {
 
     const topId = sp.getAttribute('data-top');
     const bottomId = sp.getAttribute('data-bottom');
-
-    // 👉 On redimensionne les PANNEAUX (st-expander-body), pas les div#gridX
     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
     if (!paneTop || !paneBot) return;
 
-    // helper pour min-height en px (sinon 140)
-    const getMinH = (el, fallback = 140) => {
-      const v = parseFloat(getComputedStyle(el).minHeight);
-      return Number.isFinite(v) && v > 0 ? v : fallback;
-    };
-
-    // petit helper pour ne recalculer que la/les grilles concernées
-    const bumpGridsIn = (pane) => {
-      // essaie de trouver un conteneur grid à l'intérieur
-      const gridDiv = pane.querySelector('div[id^="grid"]');
-      if (!gridDiv) return;
-      // si tu as la map `grids` (id -> { el, api }), utilise-la
-      if (typeof grids !== 'undefined' && grids instanceof Map) {
-        for (const g of grids.values()) {
-          if (g.el === gridDiv) {
-            try { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); } catch {}
-            return;
-          }
-        }
-      }
-      // fallback: recalcule toutes (moins optimal mais sûr)
-      try { grids?.forEach(g => { g.api?.onGridSizeChanged?.(); g.api?.sizeColumnsToFit?.(); }); } catch {}
-    };
-
-    let dragging = false;
-    let startY = 0, hTop = 0, minTop = 0, dyMin = 0; // pas de dyMax ici (pas de borne sup)
+    let dragging=false, startY=0, hTop=0, dyMin=0, dyMax=Infinity;
 
     const begin = (clientY, e) => {
       dragging = true;
-      isSplitterDragging = true;
+      hTop = Math.round(paneTop.getBoundingClientRect().height);
 
-      // Figer la hauteur actuelle en px (si c'était en vh/%)
-      hTop   = Math.round(paneTop.getBoundingClientRect().height);
-      paneTop.style.height = `${hTop}px`;
+      // fige la hauteur courante (et empêche la page de scroller pendant le drag)
+      paneTop.style.setProperty('height', `${hTop}px`, 'important');
       paneTop.style.willChange = 'height';
-
-      // la hauteur du bas RESTE telle quelle (on ne la touche pas)
-      minTop = getMinH(paneTop);
-      // borne basse du delta : hTop + dy >= minTop -> dy >= (minTop - hTop)
-      dyMin  = minTop - hTop;
-
-      startY = clientY;
-
-      // iOS : on bloque le scroll de page pendant le drag
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
+
+      // min : on peut réduire jusqu’à 0
+      dyMin = -hTop;
+
+      // max : contenu total (posé par refreshGrid/onModelUpdated)
+      let maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
+      // Si aucune butée n’est posée (cas extrême), garde au moins hTop
+      if (!Number.isFinite(maxH) || maxH <= 0) maxH = hTop;
+
+      dyMax = Math.max(0, maxH - hTop);
+
+      startY = clientY;
       e?.preventDefault?.();
     };
 
     const update = (clientY, e) => {
       if (!dragging) return;
-
       const dyRaw = clientY - startY;
-      // clamp du delta seulement sur la borne basse (min haut)
-      const dy = Math.max(dyMin, dyRaw);
-
-      // on change UNIQUEMENT la hauteur du panneau du haut
-      paneTop.style.height = `${hTop + dy}px`;
-
-      // recalcule la/les grilles affectées
-      bumpGridsIn(paneTop);
-
-      // iOS : empêcher le scroll de page pendant le drag
+      const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));
+      paneTop.style.setProperty('height', `${hTop + dy}px`, 'important');
+      try { findGridHandleInPane(paneTop)?.api?.onGridSizeChanged?.(); } catch {}
       e?.preventDefault?.();
     };
 
     const finish = () => {
       dragging = false;
-      isSplitterDragging = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
       paneTop.style.willChange = '';
       try { handle.releasePointerCapture?.(); } catch {}
+      const expTop = paneTop.closest('.st-expander');
+      if (expTop) savePaneHeight(expTop);
     };
 
-    // Pointer Events (unifiés, iOS ok)
     if (window.PointerEvent) {
-      handle.addEventListener('pointerdown', (e) => {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        try { handle.setPointerCapture(e.pointerId); } catch {}
-        begin(e.clientY, e);
-      });
+      handle.addEventListener('pointerdown', (e) => { if (e.pointerType==='mouse' && e.button!==0) return; try{handle.setPointerCapture(e.pointerId);}catch{} begin(e.clientY, e); });
       handle.addEventListener('pointermove',  (e) => update(e.clientY, e));
       handle.addEventListener('pointerup',     finish);
       handle.addEventListener('pointercancel', finish);
       handle.addEventListener('lostpointercapture', finish);
     } else {
-      // Fallback touch
       handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
       handle.addEventListener('touchmove',  e => { update(e.touches[0].clientY, e); }, { passive: false });
       handle.addEventListener('touchend',   finish);
-      // Fallback souris
       handle.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         begin(e.clientY, e);
         const onMove = ev => update(ev.clientY, ev);
-        const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
+        const onUp   = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp, true);
         e.preventDefault();
@@ -339,9 +745,7 @@ function wireExpanderSplitters() {
   });
 }
 
-let isSplitterDragging = false; // pour geler les recalculs ailleurs
 
-// ===== Boot : créer les 4 grilles =====
 function wireGrids() {
   // 1) Programmées
   createGridController({
@@ -386,38 +790,90 @@ function wireGrids() {
 
 }
 
-function wireExpanders() {
+// function wireExpanders() {
+//   document.querySelectorAll('.st-expander').forEach(exp => {
+//     const header = exp.querySelector('.st-expander-header');
+//     if (!header) return;
+
+//     header.addEventListener('click', () => {
+//       const open = exp.classList.toggle('open');
+//       header.setAttribute('aria-expanded', String(open));
+
+//       // recalculer la taille des grilles si on ouvre
+//       if (open) {
+//         const gridDiv = exp.querySelector('div[id^="grid"]');
+//         if (gridDiv) {
+//           try {
+//             const id = Array.from(grids.keys()).find(k =>
+//               grids.get(k)?.el === gridDiv
+//             );
+//             if (id) {
+//               grids.get(id)?.api?.onGridSizeChanged?.();
+//               grids.get(id)?.api?.sizeColumnsToFit?.();
+//             }
+//           } catch {}
+//         }
+//       }
+//     });
+//   });
+// }
+
+// function wireExpanders() {
+//   document.querySelectorAll('.st-expander').forEach(exp => {
+//     const header = exp.querySelector('.st-expander-header');
+//     const pane   = exp.querySelector('.st-expander-body');
+//     if (!header || !pane) return;
+
+//     const open = () => {
+//       exp.classList.add('open');
+//       header.setAttribute('aria-expanded', 'true');
+//       // on ne fait plus l’autosize ici : refreshGrid l’a déjà fait (depuis les données)
+//     };
+//     const close = () => {
+//       exp.classList.remove('open');
+//       header.setAttribute('aria-expanded', 'false');
+//       // pane.style.height = '';
+//       pane.style.removeProperty('height');   // autorise fermeture réelle
+//       savePaneHeight(exp);
+//     };
+
+//     header.addEventListener('click', () => exp.classList.contains('open') ? close() : open());
+//     open(); // démarrage ouvert
+//   });
+// }
+
+function wireExpanders(){
   document.querySelectorAll('.st-expander').forEach(exp => {
     const header = exp.querySelector('.st-expander-header');
-    if (!header) return;
+    const pane   = paneOf(exp);
+    if (!header || !pane) return;
+
+    const openExp = () => {
+      exp.classList.add('open');
+      header.setAttribute('aria-expanded', 'true');
+      // restaurer la dernière hauteur (ou auto si pas de sauvegarde)
+      restorePaneHeight(exp);
+    };
+
+    const closeExp = () => {
+      // sauvegarder AVANT de fermer
+      savePaneHeight(exp);
+      exp.classList.remove('open');
+      header.setAttribute('aria-expanded', 'false');
+      // laisser le CSS fermer (max-height:0 sur l’état fermé)
+      pane.style.removeProperty('height');
+    };
 
     header.addEventListener('click', () => {
-      const open = exp.classList.toggle('open');
-      header.setAttribute('aria-expanded', String(open));
-
-      // recalculer la taille des grilles si on ouvre
-      if (open) {
-        const gridDiv = exp.querySelector('div[id^="grid"]');
-        if (gridDiv) {
-          try {
-            const id = Array.from(grids.keys()).find(k =>
-              grids.get(k)?.el === gridDiv
-            );
-            if (id) {
-              grids.get(id)?.api?.onGridSizeChanged?.();
-              grids.get(id)?.api?.sizeColumnsToFit?.();
-            }
-          } catch {}
-        }
-      }
+      if (exp.classList.contains('open')) closeExp(); else openExp();
     });
-  });
 
-  wireGrids();
-  wireExpanderSplitters();
+    // démarrage ouvert → restaure
+    openExp();
+  });
 }
 
-// ------- Helpers -------
+// ------- Misc Helpers -------
 
 // util
 const $ = id => document.getElementById(id);
@@ -436,24 +892,6 @@ function safeSizeToFitFor(id){
   const g = grids.get(id);
   if (!g?.api) return;
   setTimeout(()=>{ try{ g.api.sizeColumnsToFit(); }catch{} },0);
-}
-
-// Palette pastel (ajuste si tu veux)
-const DAY_COLORS = [
-  '#fff2b3',  // jaune sable doux mais lumineux
-  '#cde9ff',  // bleu clair franc
-  '#d9ebff',  // bleu-gris un peu plus saturé
-  '#e6f5b0',  // vert anis doux
-  '#f6d8ff',  // mauve clair éclatant
-  '#c8f3e0',  // vert d’eau plus vivant
-  '#ffe3c1',  // orange très clair et chaud
-  '#e0d8ff',  // lavande pastel un peu plus soutenu
-];
-
-function colorForDate(dateInt) {
-  if (dateInt == null || Number.isNaN(dateInt)) return null;
-  const i = Math.abs(Number(dateInt)) % DAY_COLORS.length;
-  return DAY_COLORS[i];
 }
 
 // Padding 2 chiffres pour jour/mois "1" -> "01"
@@ -1042,7 +1480,6 @@ function wireHiddenFileInput(){
       await df_clear();
       await df_putMany(rows);
 
-      await refreshAllGrids();
       console.log('✅ Import OK', rows.length, 'lignes');
     
       // 5) Carnet d’adresses (optionnel, 2e onglet)
@@ -1064,6 +1501,8 @@ function wireHiddenFileInput(){
         await carnet_putMany(caRows);
         console.log('✅ Import Carnet OK', caRows.length, 'lignes');
       }
+
+      await refreshAllGrids();
 
     }
     catch (e) {
@@ -1249,6 +1688,8 @@ function initSafeAreaWatch(){
 
 // ------- Boot -------
 document.addEventListener('DOMContentLoaded', () => {
+  wireGrids();
   wireExpanders();
+  wireExpanderSplitters();
   wireBottomBar();
 });
