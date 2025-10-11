@@ -247,6 +247,8 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
+    singleClickEdit: true,
+    stopEditingWhenCellsLoseFocus: true,
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);

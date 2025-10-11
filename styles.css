@@ -270,6 +270,9 @@ main, .page-wrap {
   }
 }
 
+.ag-root, .ag-root * { -webkit-user-select: text; user-select: text; }
+[id^="grid"], #grid { touch-action: manipulation; }
+
 /* la grille occupe 100% de la hauteur du panneau */
 .grid-host { height: 100%; min-height: 0; }
 
