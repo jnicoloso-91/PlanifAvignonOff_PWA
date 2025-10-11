@@ -397,7 +397,7 @@ main, .page-wrap {
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(env(safe-area-inset-bottom, 0px) - 1px);  /* zone système iOS uniquement (-5px pour laisser la bordure) */
+  height: calc(env(safe-area-inset-bottom, 0px) - 0px);  /* zone système iOS uniquement (-5px pour laisser la bordure) */
   background: var(--bg);                                  /* même couleur que le fond */
   z-index: 1002;                                          /* sur la bottom bar et le toggle */
   pointer-events: none;                                   /* ne bloque aucun geste système */
@@ -522,7 +522,7 @@ main, .page-wrap {
 .v-splitter { position: relative; height: 12px; pointer-events: none; z-index: 10; }
 .v-splitter__handle {
   position: absolute; left: 50%; transform: translateX(-50%);
-  width: 160px; height: 10px; border-radius: 5px;
+  width: 100px; height: 10px; border-radius: 5px;
   background: rgba(130,130,130,.35);
   cursor: row-resize; pointer-events: auto; touch-action: none;
   -webkit-user-select: none; user-select: none;
