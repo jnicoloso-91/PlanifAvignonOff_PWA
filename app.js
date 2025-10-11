@@ -1,7 +1,7 @@
 // app.js (module)
 import { df_getAll, df_getAllOrdered, df_putMany, df_clear, carnet_getAll, carnet_clear, carnet_putMany } from './db.mjs';
 import { prettyToDateint, dateintToPretty, ymdToDateint, safeDateint } from './utils-date.js';
-import { getCreneaux } from './Activites.js'; 
+import { getCreneaux } from './activites.js'; 
 
 // ===== Multi-grilles =====
 const ROW_H=32, HEADER_H=32, PAD=4;
