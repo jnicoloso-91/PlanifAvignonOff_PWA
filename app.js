@@ -224,6 +224,7 @@ function autosizeFromGridSafe(handle, pane) {
   // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
   const cur = parseFloat(getComputedStyle(pane).height) || 0;
   if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
+  // if (hTarget > cur) setPaneHeightSmooth(pane, hTarget, false);
 
   pane.dataset.maxContentHeight = String(hMax);
   try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
@@ -233,58 +234,140 @@ const ROW_H=32, HEADER_H=32, PAD=4;
 const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
 
 function paneOf(exp){ return exp.querySelector('.st-expander-body'); }
-function gridHandleOfPane(pane){
-  if (!window.grids) return null;
-  const gridDiv = pane?.querySelector?.('div[id^="grid"]');
-  for (const g of grids?.values?.() || []) if (g.el === gridDiv) return g;
-  return null;
-}
+
+// function gridHandleOfPane(pane){
+//   if (!window.grids) return null;
+//   const gridDiv = pane?.querySelector?.('div[id^="grid"]');
+//   for (const g of grids?.values?.() || []) if (g.el === gridDiv) return g;
+//   return null;
+// }
 
 // clé de stockage par expander
-function paneKey(exp){ return `paneHeight:${exp.id || 'unknown'}`; }
+// function paneKey(exp){ return `paneHeight:${exp.id || 'unknown'}`; }
 
 // lit le nb de lignes affichées (fallback: 0)
+// function displayedRows(pane){
+//   try { return gridHandleOfPane(pane)?.api?.getDisplayedRowCount?.() ?? 0; }
+//   catch { return 0; }
+// }
+
+// function savePaneHeight(exp){
+//   const pane = paneOf(exp);
+//   if (!pane) return;
+//   const h = Math.round(pane.getBoundingClientRect().height);
+//   if (h > 0) localStorage.setItem(paneKey(exp), String(h));
+// }
+
+// function restorePaneHeight(exp){
+//   const pane = paneOf(exp);
+//   if (!pane) return;
+
+//   // hauteur sauvegardée (ignore 0/NaN)
+//   let saved = Number(localStorage.getItem(paneKey(exp)));
+//   if (!Number.isFinite(saved) || saved <= 1) saved = null;
+
+//   // butée max (contenu courant)
+//   const cnt = displayedRows(pane);
+//   const hMax = Math.max(Number(pane.dataset.maxContentHeight) || 0, hFor(cnt));
+
+//   // fallback si pas de saved : auto ≤ 5 lignes
+//   const autoH = hFor(Math.min(cnt, 5));
+
+//   // target = min(saved || auto, hMax)
+//   const target = Math.min(saved ?? autoH, hMax);
+
+//   // pose la hauteur (et neutralise tout plafond éventuel)
+//   pane.style.setProperty('max-height', 'none', 'important');
+//   pane.style.setProperty('min-height', '0px', 'important');
+//   // pane.style.setProperty('height', `${Math.max(0, Math.round(target))}px`, 'important');
+//   setPaneHeightSmooth(pane, Math.max(0, Math.round(target)), true);
+
+//   // notifier ag-Grid
+//   try {
+//     const g = gridHandleOfPane(pane);
+//     g?.api?.onGridSizeChanged?.();
+//     g?.api?.sizeColumnsToFit?.();
+//   } catch {}
+// }
+
+// function setPaneHeightSmooth(pane, px, animate=true) {
+//   if (!pane) return;
+//   if (!animate) {
+//     // coupe temporairement la transition pour éviter flash à l'import
+//     pane.style.transition = 'none';
+//     pane.style.setProperty('height', `${px}px`, 'important');
+//     pane.offsetHeight; // force reflow
+//     pane.style.transition = ''; // restore
+//   } else {
+//     pane.style.setProperty('height', `${px}px`, 'important');
+//   }
+// }
+
+// const paneOf = exp => exp.querySelector('.st-expander-body');
+
+function enableTransition(pane){
+  pane.classList.remove('no-anim');
+  if (pane.style.transition === 'none') pane.style.transition = '';
+}
+
+function disableTransition(pane){ pane.classList.add('no-anim'); }
+
+function setH(pane, px){ pane.style.setProperty('height', `${Math.round(px)}px`, 'important'); }
+
 function displayedRows(pane){
-  try { return gridHandleOfPane(pane)?.api?.getDisplayedRowCount?.() ?? 0; }
-  catch { return 0; }
+  try {
+    const gridDiv = pane.querySelector('div[id^="grid"]');
+    for (const g of grids.values()) if (g.el === gridDiv) return g.api.getDisplayedRowCount() || 0;
+  } catch {}
+  return 0;
 }
 
 function savePaneHeight(exp){
-  const pane = paneOf(exp);
-  if (!pane) return;
-  const h = Math.round(pane.getBoundingClientRect().height);
-  if (h > 0) localStorage.setItem(paneKey(exp), String(h));
+  const h = Math.round(paneOf(exp).getBoundingClientRect().height);
+  if (h>0) localStorage.setItem(`paneHeight:${exp.id}`, String(h));
 }
 
-function restorePaneHeight(exp){
+function restoreTargetHeight(exp){
   const pane = paneOf(exp);
-  if (!pane) return;
+  const saved = Number(localStorage.getItem(`paneHeight:${exp.id}`));
+  const cnt   = displayedRows(pane);
+  const auto  = hFor(Math.min(cnt,5));
+  const maxH  = Math.max(Number(pane.dataset.maxContentHeight)||0, hFor(cnt));
+  const target = Math.min(Number.isFinite(saved)&&saved>1 ? saved : auto, maxH);
+  return Math.max(0, Math.round(target));
+}
 
-  // hauteur sauvegardée (ignore 0/NaN)
-  let saved = Number(localStorage.getItem(paneKey(exp)));
-  if (!Number.isFinite(saved) || saved <= 1) saved = null;
+function openExp(exp){
+  const pane = paneOf(exp);
+  exp.classList.add('open');
+  // anim 0 -> target
+  enableTransition(pane);
+  pane.style.setProperty('max-height','none','important');
+  pane.style.setProperty('min-height','0px','important');
 
-  // butée max (contenu courant)
-  const cnt = displayedRows(pane);
-  const hMax = Math.max(Number(pane.dataset.maxContentHeight) || 0, hFor(cnt));
+  setH(pane, 0);           // point de départ
+  pane.offsetHeight;       // reflow
+  const target = restoreTargetHeight(exp);
+  requestAnimationFrame(()=> setH(pane, target));  // déclenche l’easing
+}
 
-  // fallback si pas de saved : auto ≤ 5 lignes
-  const autoH = hFor(Math.min(cnt, 5));
+function closeExp(exp){
+  const pane = paneOf(exp);
+  // mémorise la hauteur actuelle
+  savePaneHeight(exp);
+  enableTransition(pane);
+  const h = Math.round(pane.getBoundingClientRect().height);
+  setH(pane, h);           // point de départ
+  pane.offsetHeight;       // reflow
+  requestAnimationFrame(()=> setH(pane, 0)); // easing vers 0
 
-  // target = min(saved || auto, hMax)
-  const target = Math.min(saved ?? autoH, hMax);
-
-  // pose la hauteur (et neutralise tout plafond éventuel)
-  pane.style.setProperty('max-height', 'none', 'important');
-  pane.style.setProperty('min-height', '0px', 'important');
-  pane.style.setProperty('height', `${Math.max(0, Math.round(target))}px`, 'important');
-
-  // notifier ag-Grid
-  try {
-    const g = gridHandleOfPane(pane);
-    g?.api?.onGridSizeChanged?.();
-    g?.api?.sizeColumnsToFit?.();
-  } catch {}
+  // après l’anim on nettoie, puis retire .open
+  pane.addEventListener('transitionend', function onEnd(e){
+    if (e.propertyName !== 'height') return;
+    pane.removeEventListener('transitionend', onEnd);
+    pane.style.removeProperty('height');
+    exp.classList.remove('open');
+  });
 }
 
 // ===== Colonnes =====
@@ -430,15 +513,14 @@ async function refreshGrid(gridId){
 
   const pane = g.el.closest('.st-expander-body');
   if (pane) {
-    const cnt = Array.isArray(rows) ? rows.length : 0;
-    const hTarget = hFor(Math.min(cnt, 5));
-    const hMax    = hFor(cnt);
-
-    // 👉 Ne réduit pas si déjà plus grand (évite le “flash” à 37px)
-    const cur = parseFloat(getComputedStyle(pane).height) || 0;
-    if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
-
+    const cnt   = Array.isArray(rows) ? rows.length : 0;
+    const hOpen = hFor(Math.min(cnt,5));
+    const hMax  = hFor(cnt);
     pane.dataset.maxContentHeight = String(hMax);
+
+    // pas d’anim lors d’un refresh automatique
+    const cur = parseFloat(getComputedStyle(pane).height)||0;
+    if (hOpen > cur) { disableTransition(pane); setH(pane, hOpen); enableTransition(pane); }
 
     try { g.api.onGridSizeChanged(); g.api.sizeColumnsToFit(); } catch {}
   }
@@ -666,10 +748,189 @@ let isSplitterDragging = false; // pour geler les recalculs ailleurs
 // }
 
 
+// function wireExpanderSplitters() {
+//   document.querySelectorAll('.v-splitter').forEach(sp => {
+//     const handle = sp.querySelector('.v-splitter__handle');
+//     if (!handle) return;
+
+//     const topId = sp.getAttribute('data-top');
+//     const bottomId = sp.getAttribute('data-bottom');
+//     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
+//     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
+//     if (!paneTop || !paneBot) return;
+
+//     let dragging=false, startY=0, hTop=0, dyMin=0, dyMax=Infinity;
+
+//     const begin = (clientY, e) => {
+//       dragging = true;
+//       hTop = Math.round(paneTop.getBoundingClientRect().height);
+
+//       // fige la hauteur courante (et empêche la page de scroller pendant le drag)
+//       paneTop.style.setProperty('height', `${hTop}px`, 'important');
+//       paneTop.style.willChange = 'height';
+//       document.body.style.userSelect = 'none';
+//       document.body.style.cursor = 'row-resize';
+
+//       // min : on peut réduire jusqu’à 0
+//       dyMin = -hTop;
+
+//       // max : contenu total (posé par refreshGrid/onModelUpdated)
+//       let maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
+//       // Si aucune butée n’est posée (cas extrême), garde au moins hTop
+//       if (!Number.isFinite(maxH) || maxH <= 0) maxH = hTop;
+
+//       dyMax = Math.max(0, maxH - hTop);
+
+//       startY = clientY;
+//       e?.preventDefault?.();
+//     };
+
+//     const update = (clientY, e) => {
+//       if (!dragging) return;
+//       const dyRaw = clientY - startY;
+//       const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));
+//       paneTop.style.setProperty('height', `${hTop + dy}px`, 'important');
+//       try { findGridHandleInPane(paneTop)?.api?.onGridSizeChanged?.(); } catch {}
+//       e?.preventDefault?.();
+//     };
+
+//     const finish = () => {
+//       dragging = false;
+//       document.body.style.userSelect = '';
+//       document.body.style.cursor = '';
+//       paneTop.style.willChange = '';
+//       try { handle.releasePointerCapture?.(); } catch {}
+//       const expTop = paneTop.closest('.st-expander');
+//       if (expTop) savePaneHeight(expTop);
+//       // setPaneHeightSmooth(paneTop, hTop + dy, true);
+//     };
+    
+//     if (window.PointerEvent) {
+//       handle.addEventListener('pointerdown', (e) => { if (e.pointerType==='mouse' && e.button!==0) return; try{handle.setPointerCapture(e.pointerId);}catch{} begin(e.clientY, e); });
+//       handle.addEventListener('pointermove',  (e) => update(e.clientY, e));
+//       handle.addEventListener('pointerup',     finish);
+//       handle.addEventListener('pointercancel', finish);
+//       handle.addEventListener('lostpointercapture', finish);
+//     } else {
+//       handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
+//       handle.addEventListener('touchmove',  e => { update(e.touches[0].clientY, e); }, { passive: false });
+//       handle.addEventListener('touchend',   finish);
+//       handle.addEventListener('mousedown', (e) => {
+//         if (e.button !== 0) return;
+//         begin(e.clientY, e);
+//         const onMove = ev => update(ev.clientY, ev);
+//         const onUp   = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
+//         window.addEventListener('mousemove', onMove);
+//         window.addEventListener('mouseup', onUp, true);
+//         e.preventDefault();
+//       });
+//     }
+//   });
+// }
+
+// function wireExpanderSplitters() {
+//   const splitters = document.querySelectorAll('.expander-splitter');
+//   if (!splitters.length) return;
+
+//   let dragging = false;
+//   let startY = 0;
+//   let hTop = 0;
+//   let dyMin = 0;
+//   let dyMax = 0;
+//   let paneTop = null;
+
+//   function begin(clientY, e) {
+//     // panneau du dessus
+//     const sp = e?.currentTarget || e?.target;
+//     const expTop = sp?.previousElementSibling?.closest('.st-expander');
+//     if (!expTop) return;
+
+//     paneTop = expTop.querySelector('.st-expander-body');
+//     if (!paneTop) return;
+
+//     // mesures initiales
+//     hTop = Math.round(paneTop.getBoundingClientRect().height);
+//     startY = clientY;
+
+//     // bornes
+//     dyMin = -hTop; // peut se réduire jusqu’à 0
+//     const maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
+//     dyMax = Math.max(0, maxH - hTop); // butée haute
+
+//     // préparation
+//     disableTransition(paneTop);                     // ❌ aucune anim pendant drag
+//     paneTop.style.willChange = 'height';
+//     document.body.style.userSelect = 'none';
+//     document.body.style.cursor = 'row-resize';
+//     dragging = true;
+
+//     e?.preventDefault?.();
+//   }
+
+//   function update(clientY, e) {
+//     if (!dragging || !paneTop) return;
+
+//     // déplacement brut
+//     const dyRaw = clientY - startY;
+
+//     // clampé entre min et max
+//     const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));
+
+//     // applique la nouvelle hauteur
+//     setH(paneTop, hTop + dy);
+
+//     // met à jour la grille
+//     try {
+//       const g = findGridHandleInPane(paneTop);
+//       g?.api?.onGridSizeChanged?.();
+//     } catch {}
+
+//     e?.preventDefault?.();
+//   }
+
+//   function finish() {
+//     if (!dragging) return;
+//     dragging = false;
+
+//     // hauteur finale réelle
+//     const finalH = Math.round(paneTop.getBoundingClientRect().height);
+
+//     // réactive les transitions pour les prochaines ouvertures/fermetures
+//     enableTransition(paneTop);
+//     setH(paneTop, finalH);
+
+//     // sauvegarde la hauteur dans localStorage
+//     const expTop = paneTop.closest('.st-expander');
+//     if (expTop) savePaneHeight(expTop);
+
+//     // nettoyage
+//     document.body.style.userSelect = '';
+//     document.body.style.cursor = '';
+//     paneTop.style.willChange = '';
+//     paneTop = null;
+//   }
+
+//   // 🔗 branchements
+//   splitters.forEach(sp => {
+//     // souris
+//     sp.addEventListener('mousedown', e => begin(e.clientY, e));
+//     window.addEventListener('mousemove', e => update(e.clientY, e));
+//     window.addEventListener('mouseup', finish);
+
+//     // tactile
+//     sp.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
+//     window.addEventListener('touchmove', e => {
+//       if (!dragging) return;
+//       update(e.touches[0].clientY, e);
+//       e.preventDefault();
+//     }, { passive: false });
+//     window.addEventListener('touchend', finish);
+//   });
+// }
+
 function wireExpanderSplitters() {
   document.querySelectorAll('.v-splitter').forEach(sp => {
-    const handle = sp.querySelector('.v-splitter__handle');
-    if (!handle) return;
+    const handle = sp.querySelector('.v-splitter__handle') || sp;
 
     const topId = sp.getAttribute('data-top');
     const bottomId = sp.getAttribute('data-bottom');
@@ -677,73 +938,84 @@ function wireExpanderSplitters() {
     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
     if (!paneTop || !paneBot) return;
 
-    let dragging=false, startY=0, hTop=0, dyMin=0, dyMax=Infinity;
+    let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
+    let prevTransition = '', prevAnimation = '';
 
-    const begin = (clientY, e) => {
+    const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
+
+    function begin(clientY, e) {
       dragging = true;
+      startY = clientY;
       hTop = Math.round(paneTop.getBoundingClientRect().height);
 
-      // fige la hauteur courante (et empêche la page de scroller pendant le drag)
-      paneTop.style.setProperty('height', `${hTop}px`, 'important');
-      paneTop.style.willChange = 'height';
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'row-resize';
-
-      // min : on peut réduire jusqu’à 0
+      // bornes
       dyMin = -hTop;
-
-      // max : contenu total (posé par refreshGrid/onModelUpdated)
-      let maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
-      // Si aucune butée n’est posée (cas extrême), garde au moins hTop
-      if (!Number.isFinite(maxH) || maxH <= 0) maxH = hTop;
-
+      const maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
       dyMax = Math.max(0, maxH - hTop);
 
-      startY = clientY;
-      e?.preventDefault?.();
-    };
+      // ❌ coupe TOUTE transition/animation (INLINE + !important)
+      prevTransition = paneTop.style.transition || '';
+      prevAnimation  = paneTop.style.animation  || '';
+      paneTop.style.setProperty('transition', 'none', 'important');
+      paneTop.style.setProperty('animation',  'none', 'important');
+      paneTop.style.willChange = 'height';
 
-    const update = (clientY, e) => {
+      setH(paneTop, hTop);
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'row-resize';
+      e?.preventDefault?.();
+    }
+
+    function update(clientY, e) {
       if (!dragging) return;
       const dyRaw = clientY - startY;
-      const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));
-      paneTop.style.setProperty('height', `${hTop + dy}px`, 'important');
-      try { findGridHandleInPane(paneTop)?.api?.onGridSizeChanged?.(); } catch {}
-      e?.preventDefault?.();
-    };
+      const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));   // clamp
+      setH(paneTop, hTop + dy);
 
-    const finish = () => {
+      // notifie la grille du haut
+      try {
+        const gridDiv = paneTop.querySelector('div[id^="grid"]');
+        for (const g of (window.grids?.values?.() || [])) {
+          if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+        }
+      } catch {}
+      e?.preventDefault?.();
+    }
+
+    function finish() {
+      if (!dragging) return;
       dragging = false;
+
+      // restaure transition/animation (enlève l’inline qui forçait 'none')
+      paneTop.style.removeProperty('transition');
+      paneTop.style.removeProperty('animation');
+      if (prevTransition) paneTop.style.transition = prevTransition;
+      if (prevAnimation)  paneTop.style.animation  = prevAnimation;
+      paneTop.style.willChange = '';
+
+      // mémorise la hauteur atteinte
+      const expTop = paneTop.closest('.st-expander');
+      if (expTop) {
+        const h = Math.round(paneTop.getBoundingClientRect().height);
+        if (h > 0) localStorage.setItem(`paneHeight:${expTop.id}`, String(h));
+      }
+
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      paneTop.style.willChange = '';
-      try { handle.releasePointerCapture?.(); } catch {}
-      const expTop = paneTop.closest('.st-expander');
-      if (expTop) savePaneHeight(expTop);
-    };
-
-    if (window.PointerEvent) {
-      handle.addEventListener('pointerdown', (e) => { if (e.pointerType==='mouse' && e.button!==0) return; try{handle.setPointerCapture(e.pointerId);}catch{} begin(e.clientY, e); });
-      handle.addEventListener('pointermove',  (e) => update(e.clientY, e));
-      handle.addEventListener('pointerup',     finish);
-      handle.addEventListener('pointercancel', finish);
-      handle.addEventListener('lostpointercapture', finish);
-    } else {
-      handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
-      handle.addEventListener('touchmove',  e => { update(e.touches[0].clientY, e); }, { passive: false });
-      handle.addEventListener('touchend',   finish);
-      handle.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        begin(e.clientY, e);
-        const onMove = ev => update(ev.clientY, ev);
-        const onUp   = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp, true); finish(); };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp, true);
-        e.preventDefault();
-      });
     }
+
+    // Souris
+    handle.addEventListener('mousedown', e => { if (e.button !== 0) return; begin(e.clientY, e); });
+    window.addEventListener('mousemove', e => update(e.clientY, e));
+    window.addEventListener('mouseup', finish);
+
+    // Tactile
+    handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
+    window.addEventListener('touchmove', e => { if (!dragging) return; update(e.touches[0].clientY, e); e.preventDefault(); }, { passive: false });
+    window.addEventListener('touchend', finish);
   });
 }
+
 
 
 function wireGrids() {
@@ -842,34 +1114,47 @@ function wireGrids() {
 //   });
 // }
 
+// function wireExpanders(){
+//   document.querySelectorAll('.st-expander').forEach(exp => {
+//     const header = exp.querySelector('.st-expander-header');
+//     const pane   = paneOf(exp);
+//     if (!header || !pane) return;
+
+//     const openExp = () => {
+//       exp.classList.add('open');
+//       header.setAttribute('aria-expanded', 'true');
+//       // restaurer la dernière hauteur (ou auto si pas de sauvegarde)
+//       restorePaneHeight(exp);
+//     };
+
+//     const closeExp = () => {
+//       // sauvegarder AVANT de fermer
+//       savePaneHeight(exp);
+//       exp.classList.remove('open');
+//       header.setAttribute('aria-expanded', 'false');
+//       // laisser le CSS fermer (max-height:0 sur l’état fermé)
+//       pane.style.removeProperty('height');
+//     };
+
+//     header.addEventListener('click', () => {
+//       if (exp.classList.contains('open')) closeExp(); else openExp();
+//     });
+
+//     // démarrage ouvert → restaure
+//     openExp();
+//   });
+// }
+
 function wireExpanders(){
-  document.querySelectorAll('.st-expander').forEach(exp => {
+  document.querySelectorAll('.st-expander').forEach(exp=>{
     const header = exp.querySelector('.st-expander-header');
-    const pane   = paneOf(exp);
-    if (!header || !pane) return;
-
-    const openExp = () => {
-      exp.classList.add('open');
-      header.setAttribute('aria-expanded', 'true');
-      // restaurer la dernière hauteur (ou auto si pas de sauvegarde)
-      restorePaneHeight(exp);
-    };
-
-    const closeExp = () => {
-      // sauvegarder AVANT de fermer
-      savePaneHeight(exp);
-      exp.classList.remove('open');
-      header.setAttribute('aria-expanded', 'false');
-      // laisser le CSS fermer (max-height:0 sur l’état fermé)
-      pane.style.removeProperty('height');
-    };
-
-    header.addEventListener('click', () => {
-      if (exp.classList.contains('open')) closeExp(); else openExp();
+    if (!header) return;
+    header.addEventListener('click', ()=>{
+      if (exp.classList.contains('open')) closeExp(exp);
+      else openExp(exp);
     });
-
-    // démarrage ouvert → restaure
-    openExp();
+    // démarrage ouvert avec easing
+    openExp(exp);
   });
 }
 

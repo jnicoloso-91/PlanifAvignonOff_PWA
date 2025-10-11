@@ -141,7 +141,7 @@ main, .page-wrap {
 
 /* Body */
 .st-expander-body {
-  max-height: 0;
+  /* max-height: 0; */
   overflow: hidden;
   opacity: 0;
   padding: 0 1rem;
@@ -150,12 +150,39 @@ main, .page-wrap {
   border-top: 1px solid #e5e7eb;
   border-radius: 0 0 8px 8px;
 }
+
 .st-expander.open .st-expander-body {
   /* max-height: 80vh; */
   max-height: none !important;   /* override toute ancienne valeur (ex. 80vh) */
   overflow: visible;
   opacity: 1;
   padding: 1rem;
+}
+
+/* --- Animation fluide des expanders --- */
+.st-expander {
+  transition: background-color 0.25s ease-in-out;
+}
+
+/* le corps : transition de hauteur + opacité */
+.st-expander .st-expander-body {
+  transition:
+    height 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
+    opacity 0.25s ease-in-out;
+  overflow: hidden; /* nécessaire pour le masquage pendant anim */
+  opacity: 0;
+}
+
+/* ouvert : visible, hauteur définie par JS */
+.st-expander.open .st-expander-body {
+  opacity: 1;
+}
+
+/* pour limiter un éventuel tremblement sur iOS lors du scroll */
+.st-expander .st-expander-body {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: height, opacity;
 }
 
 /* ===============================
@@ -498,3 +525,5 @@ main, .page-wrap {
   min-height: 0 !important;
   display: block;
 }
+
+
