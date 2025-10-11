@@ -1,7 +1,7 @@
 {
-  "name": "Avignon Planif",
-  "short_name": "Avignon",
-  "description": "Planning Avignon – AG Grid + IndexedDB + (optionnel) Pyodide",
+  "name": "PlanifAvignonOff",
+  "short_name": "AvignonOff",
+  "description": "Planificateur pour le festival d'Avignon Off",
   "lang": "fr-FR",
   "start_url": "./index.html",
   "scope": "./",
