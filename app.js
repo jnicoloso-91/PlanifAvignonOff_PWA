@@ -478,7 +478,9 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     onSelectionChanged: onSelectionChanged
       ? () => onSelectionChanged(gridId)
       : undefined,
-    rowSelection: 'single'
+    rowSelection: 'single',
+    suppressDragLeaveHidesColumns: true,
+    suppressMovableColumns: false,
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
