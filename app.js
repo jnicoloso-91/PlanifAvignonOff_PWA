@@ -274,16 +274,16 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
 
-    onCellClicked: (p) => {
-      // iOS/mobile : 2 taps rapides pour éditer
-      maybeStartEditOnDoubleTap(p);
-    },
-    onCellKeyDown: (p) => {
-      // bonus: Enter déclenche l’édition (utile sur desktop)
-      if (p.event?.key === 'Enter' && p.colDef?.editable) {
-        p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
-        p.event.preventDefault?.();
-      }
+    // onCellClicked: (p) => {
+    //   // iOS/mobile : 2 taps rapides pour éditer
+    //   maybeStartEditOnDoubleTap(p);
+    // },
+    // onCellKeyDown: (p) => {
+    //   // bonus: Enter déclenche l’édition (utile sur desktop)
+    //   if (p.event?.key === 'Enter' && p.colDef?.editable) {
+    //     p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
+    //     p.event.preventDefault?.();
+    //   }
     },
   };
 
@@ -1163,6 +1163,6 @@ function initSafeAreaWatch(){
 document.addEventListener('DOMContentLoaded', () => {
   wireGrids();
   wireExpanders();
-  wireExpanderSplitters();
+  // wireExpanderSplitters();
   wireBottomBar();
 });
