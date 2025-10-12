@@ -284,7 +284,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     //     p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
     //     p.event.preventDefault?.();
     //   }
-    },
+    // },
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
