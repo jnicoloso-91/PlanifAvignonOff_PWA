@@ -704,7 +704,7 @@ function buildColumnsCreneaux(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
     { field:'Date', headerName:'Date', width, suppressSizeToFit:true, editable:false,
-      valueFormatter:p=>dateintStrToPretty(p.value),
+      valueFormatter:p=>dateintStrToPretty(p.value), // Dans ActivitesProgrammables Date est en string et non en dateint
       comparator:(a,b)=>(safeDateint(a)||0)-(safeDateint(b)||0)
     },
     { field:'Début', width, suppressSizeToFit:true, editable:false,
@@ -727,7 +727,10 @@ function buildColumnsCreneaux(){
 function buildColumnsActivitesProgrammables() {
   // récupère la définition standard
   const cols = buildColumnsActivites();
-
+  
+  // Dans ActivitesProgrammables Date est en string et non en dateint
+  cols[0].valueFormatter = p=>dateintStrToPretty(p.value);  
+  
   // force toutes les colonnes non éditables
   return cols.map(col => ({
     ...col,

@@ -146,6 +146,7 @@ export function dateintToPretty(di) {
 }
 
 export function ymdToDateint({ y, m, d }) { return y*10000 + m*100 + d; }
+
 export function safeDateint(v) {
   const n = Number(v);
   return Number.isFinite(n) && n >= 10000101 ? n : null;

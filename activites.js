@@ -307,7 +307,7 @@ function creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
     'Activité avant': avant || '',
     'Activité après': apres || '',
     __type_creneau: typeCreneau,           // "Avant" | "Après" | "Journée"
-    __uuid: (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`)
+    __uuid: row.__uuid,
   };
 }
 
@@ -419,7 +419,7 @@ export function getActivitesProgrammables(activites, creneau, traiterPauses = fa
 
     let ligneRef = null;
     try {
-      ligneRef = activitesProgrammees.find(r => r._uuid === creneau._uuid);
+      ligneRef = activitesProgrammees.find(r => r.__uuid === creneau.__uuid);
       if (!ligneRef) throw new Error("index hors limite");
     } catch (err) {
       console.warn("Erreur getActivitesProgrammables :", err);
