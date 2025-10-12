@@ -1127,6 +1127,6 @@ function initSafeAreaWatch(){
 document.addEventListener('DOMContentLoaded', () => {
   wireGrids();
   wireExpanders();
-  wireExpanderSplitters();
+  // wireExpanderSplitters();
   wireBottomBar();
 });
