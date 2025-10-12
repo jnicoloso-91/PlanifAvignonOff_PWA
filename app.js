@@ -144,6 +144,29 @@ function closeExp(exp){
   });
 }
 
+// quelque part au module (une fois)
+const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+// état local pour le double-tap
+let lastTapKey = null;
+let lastTapTime = 0;
+const TAP_DELAY_MS = 350; // fenêtre de double-tap
+
+function maybeStartEditOnDoubleTap(p) {
+  if (!isTouchDevice) return;                 // desktop = double-clic natif
+  if (!p.colDef?.editable) return;            // colonne non éditable → noop
+
+  const key = ${p.rowIndex}|${p.colDef.field};
+  const now = performance.now();
+
+  if (lastTapKey === key && (now - lastTapTime) < TAP_DELAY_MS) {
+    p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
+    lastTapKey = null; lastTapTime = 0;       // reset
+  } else {
+    lastTapKey = key; lastTapTime = now;      // 1er tap : on mémorise
+  }
+}
+
 // ===== Colonnes =====
 // Colonnes activités (grilles A, B, D) 
 function buildColumnsActivites(){
@@ -248,7 +271,20 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
     singleClickEdit: false,
+    suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
+
+    onCellClicked: (p) => {
+      // iOS/mobile : 2 taps rapides pour éditer
+      maybeStartEditOnDoubleTap(p);
+    },
+    onCellKeyDown: (p) => {
+      // bonus: Enter déclenche l’édition (utile sur desktop)
+      if (p.event?.key === 'Enter' && p.colDef?.editable) {
+        p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
+        p.event.preventDefault?.();
+      }
+    },
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
@@ -1127,6 +1163,6 @@ function initSafeAreaWatch(){
 document.addEventListener('DOMContentLoaded', () => {
   wireGrids();
   wireExpanders();
-  // wireExpanderSplitters();
+  wireExpanderSplitters();
   wireBottomBar();
 });
