@@ -1164,5 +1164,5 @@ document.addEventListener('DOMContentLoaded', () => {
   wireGrids();
   wireExpanders();
   // wireExpanderSplitters();
-  wireBottomBar();
+  // wireBottomBar();
 });
