@@ -247,7 +247,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
-    // singleClickEdit: true,
+    singleClickEdit: true,
     stopEditingWhenCellsLoseFocus: true,
   };
 
