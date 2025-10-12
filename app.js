@@ -248,7 +248,6 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
     singleClickEdit: false,
-    suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
   };
 
@@ -1128,6 +1127,6 @@ function initSafeAreaWatch(){
 document.addEventListener('DOMContentLoaded', () => {
   wireGrids();
   wireExpanders();
-  wireExpanderSplitters();
+  // wireExpanderSplitters();
   wireBottomBar();
 });
