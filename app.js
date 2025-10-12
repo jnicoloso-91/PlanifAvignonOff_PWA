@@ -168,119 +168,441 @@ const TAP_DELAY_MS = 350; // fenêtre de double-tap
 // }
 
 // --- Touch editing: double-tap + long-press (iOS friendly) ---
-function enableTouchEdit(api, gridEl, opts = {}) {
+// function enableTouchEdit(api, gridEl, opts = {}) {
+//   if (!api || !gridEl) return;
+
+//   const DOUBLE_TAP_MS  = opts.doubleTapMs  ?? 450;
+//   const DOUBLE_TAP_PX  = opts.doubleTapPx  ?? 12;
+//   const LONG_PRESS_MS  = opts.longPressMs  ?? 500;
+//   const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+//   if (!isTouch) return; // Desktop: laisse le double-clic normal
+
+//   let last = { key: null, t: 0, x: 0, y: 0 };
+//   let pressTimer = null;
+//   let moved = false;
+
+//   // renvoie {rowIndex, colKey, key} depuis un élément du DOM
+//   const cellFromEvent = (evt) => {
+//     const cellEl = evt.target?.closest?.('.ag-cell');
+//     if (!cellEl) return null;
+//     const colKey = cellEl.getAttribute('col-id');               // ag-Grid met col-id
+//     // ag-Grid n’expose pas le rowIndex en data-attr; on le trouve via la position visuelle:
+//     const rowEl = cellEl.closest('.ag-row');
+//     let rowIndex = null;
+//     if (rowEl) {
+//       const ri = rowEl.getAttribute('row-index');               // souvent présent
+//       rowIndex = ri != null ? parseInt(ri, 10) : null;
+//     }
+//     // fallback si row-index manquant: on cherche la cellule active via API (optionnel)
+//     if (rowIndex == null) {
+//       const pt = evt.changedTouches?.[0] || evt.touches?.[0] || evt;
+//       const elAt = document.elementFromPoint(pt.clientX, pt.clientY);
+//       const rowEl2 = elAt?.closest?.('.ag-row');
+//       const ri2 = rowEl2?.getAttribute?.('row-index');
+//       if (ri2 != null) rowIndex = parseInt(ri2, 10);
+//     }
+//     if (rowIndex == null || !colKey) return null;
+//     return { rowIndex, colKey, key: `${rowIndex}|${colKey}` };
+//   };
+
+//   const startEdit = ({ rowIndex, colKey }) => {
+//     api.startEditingCell({ rowIndex, colKey });
+//   };
+
+//   const clearPressTimer = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+
+//   gridEl.addEventListener('touchstart', (e) => {
+//     // ignore si ce n’est pas une cellule
+//     const cell = cellFromEvent(e);
+//     if (!cell) return;
+
+//     moved = false;
+
+//     // planifier long-press
+//     clearPressTimer();
+//     const t0 = performance.now();
+//     const t = e.touches[0];
+//     const x0 = t.clientX, y0 = t.clientY;
+
+//     pressTimer = setTimeout(() => {
+//       if (!moved) startEdit(cell);
+//     }, LONG_PRESS_MS);
+
+//     // stocke pour double-tap
+//     gridEl._lastTouchMeta = { cell, t0, x0, y0 };
+//   }, { passive: true });
+
+//   gridEl.addEventListener('touchmove', (e) => {
+//     const meta = gridEl._lastTouchMeta;
+//     if (!meta) return;
+//     const t = e.touches[0];
+//     const dx = Math.abs(t.clientX - meta.x0);
+//     const dy = Math.abs(t.clientY - meta.y0);
+//     if (dx > DOUBLE_TAP_PX || dy > DOUBLE_TAP_PX) {
+//       moved = true;
+//       clearPressTimer(); // on annule le long-press si on bouge trop
+//     }
+//     // ne pas preventDefault ici, on ne veut pas bloquer le scroll si l’utilisateur scrolle vraiment
+//   }, { passive: true });
+
+//   gridEl.addEventListener('touchend', (e) => {
+//     const meta = gridEl._lastTouchMeta;
+//     if (!meta) return;
+//     clearPressTimer();
+
+//     // si on a bougé, c’était un scroll → pas d’édition
+//     if (moved) { gridEl._lastTouchMeta = null; return; }
+
+//     const cell = cellFromEvent(e);
+//     if (!cell) { gridEl._lastTouchMeta = null; return; }
+
+//     const now = performance.now();
+//     const dt  = now - (last.t || 0);
+//     const tpt = e.changedTouches[0];
+//     const dx  = Math.abs((tpt.clientX) - (last.x || 0));
+//     const dy  = Math.abs((tpt.clientY) - (last.y || 0));
+//     const sameCell = (last.key === cell.key);
+
+//     if (sameCell && dt <= DOUBLE_TAP_MS && dx <= DOUBLE_TAP_PX && dy <= DOUBLE_TAP_PX) {
+//       // double-tap validé
+//       startEdit(cell);
+//       last = { key: null, t: 0, x: 0, y: 0 }; // reset
+//     } else {
+//       // 1er tap : on mémorise et on laisse la sélection normale
+//       last = { key: cell.key, t: now, x: tpt.clientX, y: tpt.clientY };
+//     }
+
+//     gridEl._lastTouchMeta = null;
+//   }, { passive: true });
+
+//   // si l’utilisateur quitte la surface
+//   gridEl.addEventListener('touchcancel', () => {
+//     clearPressTimer();
+//     gridEl._lastTouchMeta = null;
+//   });
+// }
+// export function enableTouchEdit(api, gridEl, opts = {}) {
+//   if (!api || !gridEl) return;
+
+//   // en haut de la fonction
+//   const DEBUG = !!opts.debug;
+//   const FORCE = !!opts.forceTouch;
+//   const log = (...a) => { if (DEBUG) console.debug('[TouchEdit]', ...a); };
+
+//   // ...puis remplace tous les tests "pointerType === 'touch'" par:
+//   const isTouchPtr = (e) => FORCE || e.pointerType === 'touch';
+
+//   // Détection tactile (tu peux forcer en debug)
+//   const isTouchCapable = ('PointerEvent' in window) && ((navigator.maxTouchPoints || 0) > 0 || !!opts.forceTouch);
+//   if (!isTouchCapable) { log('skip (no touch capability)'); return; }
+
+//   const DOUBLE_TAP_MS = opts.doubleTapMs ?? 450;
+//   const DOUBLE_TAP_PX = opts.doubleTapPx ?? 14;
+//   const LONG_PRESS_MS = opts.longPressMs ?? 500;
+
+//   let last = { key: null, t: 0, x: 0, y: 0 };
+//   let pressTimer = null;
+//   let downMeta = null;
+//   let moved = false;
+
+//   const clearPressTimer = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+
+//   // Extrait {rowIndex, colKey, key} depuis l’event
+//   const cellFromEvent = (evt) => {
+//     const el = evt.target?.closest?.('.ag-cell');
+//     if (!el) return null;
+//     const colKey = el.getAttribute('col-id');
+//     const rowEl = el.closest('.ag-row');
+//     const riAttr = rowEl?.getAttribute('row-index');
+//     const rowIndex = riAttr != null ? parseInt(riAttr, 10) : null;
+//     if (rowIndex == null || !colKey) return null;
+//     return { rowIndex, colKey, key: `${rowIndex}|${colKey}` };
+//   };
+
+//   const startEdit = ({ rowIndex, colKey }) => {
+//     log('→ startEditingCell', rowIndex, colKey);
+//     api.startEditingCell({ rowIndex, colKey });
+//   };
+
+//   const onPointerDown = (e) => {
+//     if (!e.isPrimary || e.pointerType !== 'touch') return;
+//     const cell = cellFromEvent(e);
+//     if (!cell) return;
+
+//     moved = false;
+//     downMeta = { cell, x: e.clientX, y: e.clientY, t: performance.now() };
+//     clearPressTimer();
+//     pressTimer = setTimeout(() => { if (!moved) startEdit(cell); }, LONG_PRESS_MS);
+
+//     log('pointerdown', downMeta);
+//   };
+
+//   const onPointerMove = (e) => {
+//     if (!downMeta || !e.isPrimary || e.pointerType !== 'touch') return;
+//     const dx = Math.abs(e.clientX - downMeta.x);
+//     const dy = Math.abs(e.clientY - downMeta.y);
+//     if (dx > DOUBLE_TAP_PX || dy > DOUBLE_TAP_PX) {
+//       moved = true;
+//       clearPressTimer();
+//       log('move cancel (dx,dy)=', dx, dy);
+//     }
+//   };
+
+//   const onPointerUp = (e) => {
+//     if (!downMeta || !e.isPrimary || e.pointerType !== 'touch') { downMeta = null; clearPressTimer(); return; }
+
+//     const cell = cellFromEvent(e);
+//     clearPressTimer();
+
+//     if (moved || !cell) { downMeta = null; log('pointerup ignored (moved or no cell)'); return; }
+
+//     const now = performance.now();
+//     const dt = now - (last.t || 0);
+//     const dx = Math.abs(e.clientX - (last.x || 0));
+//     const dy = Math.abs(e.clientY - (last.y || 0));
+//     const sameCell = last.key === cell.key;
+
+//     log('pointerup', { dt, dx, dy, sameCell });
+
+//     if (sameCell && dt <= DOUBLE_TAP_MS && dx <= DOUBLE_TAP_PX && dy <= DOUBLE_TAP_PX) {
+//       startEdit(cell);
+//       last = { key: null, t: 0, x: 0, y: 0 };
+//     } else {
+//       last = { key: cell.key, t: now, x: e.clientX, y: e.clientY };
+//       log('single tap memorized', last);
+//     }
+
+//     downMeta = null;
+//   };
+
+//   gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
+//   gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
+//   gridEl.addEventListener('pointerup', onPointerUp, { passive: true });
+//   gridEl.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
+
+//   log('listeners attached on', gridEl);
+// }
+// export function enableTouchEdit(api, gridEl, opts = {}) {
+//   if (!api || !gridEl) return;
+
+//   // en haut de la fonction
+//   const DEBUG = !!opts.debug;
+//   const FORCE = !!opts.forceTouch;
+//   const log = (...a) => { if (DEBUG) console.debug('[TouchEdit]', ...a); };
+
+//   // ...puis remplace tous les tests "pointerType === 'touch'" par:
+//   const isTouchPtr = (e) => FORCE || e.pointerType === 'touch';
+
+//   // Détection tactile (tu peux forcer en debug)
+//   const isTouchCapable = ('PointerEvent' in window) && ((navigator.maxTouchPoints || 0) > 0 || !!opts.forceTouch);
+//   if (!isTouchCapable) { log('skip (no touch capability)'); return; }
+
+//   const DOUBLE_TAP_MS = opts.doubleTapMs ?? 450;
+//   const DOUBLE_TAP_PX = opts.doubleTapPx ?? 14;
+//   const LONG_PRESS_MS = opts.longPressMs ?? 500;
+
+//   let last = { key: null, t: 0, x: 0, y: 0 };
+//   let pressTimer = null;
+//   let downMeta = null;
+//   let moved = false;
+
+//   const clearPressTimer = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+
+//   // Extrait {rowIndex, colKey, key} depuis l’event
+//   const cellFromEvent = (evt) => {
+//     const el = evt.target?.closest?.('.ag-cell');
+//     if (!el) return null;
+//     const colKey = el.getAttribute('col-id');
+//     const rowEl = el.closest('.ag-row');
+//     const riAttr = rowEl?.getAttribute('row-index');
+//     const rowIndex = riAttr != null ? parseInt(riAttr, 10) : null;
+//     if (rowIndex == null || !colKey) return null;
+//     return { rowIndex, colKey, key: `${rowIndex}|${colKey}` };
+//   };
+
+//   const startEdit = ({ rowIndex, colKey }) => {
+//     log('→ startEditingCell', rowIndex, colKey);
+//     api.startEditingCell({ rowIndex, colKey });
+//   };
+
+//   const onPointerDown = (e) => {
+//     if (!e.isPrimary || !isTouchPtr(e)) return;
+//     const cell = cellFromEvent(e);
+//     if (!cell) return;
+
+//     moved = false;
+//     downMeta = { cell, x: e.clientX, y: e.clientY, t: performance.now() };
+//     clearPressTimer();
+//     pressTimer = setTimeout(() => { if (!moved) startEdit(cell); }, LONG_PRESS_MS);
+
+//     log('pointerdown', downMeta);
+//   };
+
+//   const onPointerMove = (e) => {
+//     if (!downMeta || !e.isPrimary || e.pointerType !== 'touch') return;
+//     const dx = Math.abs(e.clientX - downMeta.x);
+//     const dy = Math.abs(e.clientY - downMeta.y);
+//     if (dx > DOUBLE_TAP_PX || dy > DOUBLE_TAP_PX) {
+//       moved = true;
+//       clearPressTimer();
+//       log('move cancel (dx,dy)=', dx, dy);
+//     }
+//   };
+
+//   const onPointerUp = (e) => {
+//     if (!downMeta || !e.isPrimary || e.pointerType !== 'touch') { downMeta = null; clearPressTimer(); return; }
+
+//     const cell = cellFromEvent(e);
+//     clearPressTimer();
+
+//     if (moved || !cell) { downMeta = null; log('pointerup ignored (moved or no cell)'); return; }
+
+//     const now = performance.now();
+//     const dt = now - (last.t || 0);
+//     const dx = Math.abs(e.clientX - (last.x || 0));
+//     const dy = Math.abs(e.clientY - (last.y || 0));
+//     const sameCell = last.key === cell.key;
+
+//     log('pointerup', { dt, dx, dy, sameCell });
+
+//     if (sameCell && dt <= DOUBLE_TAP_MS && dx <= DOUBLE_TAP_PX && dy <= DOUBLE_TAP_PX) {
+//       startEdit(cell);
+//       last = { key: null, t: 0, x: 0, y: 0 };
+//     } else {
+//       last = { key: cell.key, t: now, x: e.clientX, y: e.clientY };
+//       log('single tap memorized', last);
+//     }
+
+//     downMeta = null;
+//   };
+
+//   // gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
+//   // gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
+//   // gridEl.addEventListener('pointerup', onPointerUp, { passive: true });
+//   // gridEl.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
+//   // AVANT
+//   gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
+//   gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
+//   gridEl.addEventListener('pointerup', onPointerUp, { passive: true });
+//   gridEl.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
+
+//   // APRÈS (plus robuste)
+//   gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
+//   gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
+
+//   // capter la fin du geste même si on sort de la grille
+//   window.addEventListener('pointerup', onPointerUp, { passive: true });
+//   window.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
+//   log('listeners attached on', gridEl);
+// }
+export function enableTouchEdit(api, gridEl, opts = {}) {
   if (!api || !gridEl) return;
 
-  const DOUBLE_TAP_MS  = opts.doubleTapMs  ?? 450;
-  const DOUBLE_TAP_PX  = opts.doubleTapPx  ?? 12;
-  const LONG_PRESS_MS  = opts.longPressMs  ?? 500;
-  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-  if (!isTouch) return; // Desktop: laisse le double-clic normal
+  const DEBUG = !!opts.debug;
+  const FORCE = !!opts.forceTouch; // 👈
+  const log = (...a) => { if (DEBUG) console.debug('[TouchEdit]', ...a); };
+
+  const DOUBLE_TAP_MS = opts.doubleTapMs ?? 450;
+  const DOUBLE_TAP_PX = opts.doubleTapPx ?? 14;
+  const LONG_PRESS_MS = opts.longPressMs ?? 500;
+
+  // détection tactile : autorise mode forcé pour tests desktop
+  const isTouchCapable = ('PointerEvent' in window) && (((navigator.maxTouchPoints || 0) > 0) || FORCE);
+  if (!isTouchCapable) { log('skip (no touch capability)'); return; }
+
+  const isTouchPtr = (e) => FORCE || e.pointerType === 'touch'; // 👈
 
   let last = { key: null, t: 0, x: 0, y: 0 };
   let pressTimer = null;
+  let downMeta = null;
   let moved = false;
 
-  // renvoie {rowIndex, colKey, key} depuis un élément du DOM
+  const clearPressTimer = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+
   const cellFromEvent = (evt) => {
-    const cellEl = evt.target?.closest?.('.ag-cell');
-    if (!cellEl) return null;
-    const colKey = cellEl.getAttribute('col-id');               // ag-Grid met col-id
-    // ag-Grid n’expose pas le rowIndex en data-attr; on le trouve via la position visuelle:
-    const rowEl = cellEl.closest('.ag-row');
-    let rowIndex = null;
-    if (rowEl) {
-      const ri = rowEl.getAttribute('row-index');               // souvent présent
-      rowIndex = ri != null ? parseInt(ri, 10) : null;
-    }
-    // fallback si row-index manquant: on cherche la cellule active via API (optionnel)
+    const el = evt.target?.closest?.('.ag-cell');
+    if (!el) return null;
+    const colKey = el.getAttribute('col-id');
+    const rowEl = el.closest('.ag-row');
+    let rowIndex = rowEl?.getAttribute?.('row-index');
+    rowIndex = rowIndex != null ? parseInt(rowIndex, 10) : null;
     if (rowIndex == null) {
-      const pt = evt.changedTouches?.[0] || evt.touches?.[0] || evt;
-      const elAt = document.elementFromPoint(pt.clientX, pt.clientY);
-      const rowEl2 = elAt?.closest?.('.ag-row');
-      const ri2 = rowEl2?.getAttribute?.('row-index');
-      if (ri2 != null) rowIndex = parseInt(ri2, 10);
+      const fc = api.getFocusedCell?.();
+      if (fc && fc.column?.getColId?.() === colKey) rowIndex = fc.rowIndex;
     }
     if (rowIndex == null || !colKey) return null;
     return { rowIndex, colKey, key: `${rowIndex}|${colKey}` };
   };
 
   const startEdit = ({ rowIndex, colKey }) => {
+    log('→ startEditingCell', rowIndex, colKey);
     api.startEditingCell({ rowIndex, colKey });
   };
 
-  const clearPressTimer = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
-
-  gridEl.addEventListener('touchstart', (e) => {
-    // ignore si ce n’est pas une cellule
+  const onPointerDown = (e) => {
+    log('enter pointerdown', e.pointerType, e.isPrimary);
+    if (!e.isPrimary || !isTouchPtr(e)) return;
     const cell = cellFromEvent(e);
     if (!cell) return;
 
     moved = false;
-
-    // planifier long-press
+    downMeta = { cell, x: e.clientX, y: e.clientY, t: performance.now() };
     clearPressTimer();
-    const t0 = performance.now();
-    const t = e.touches[0];
-    const x0 = t.clientX, y0 = t.clientY;
+    pressTimer = setTimeout(() => { if (!moved) startEdit(cell); }, LONG_PRESS_MS);
 
-    pressTimer = setTimeout(() => {
-      if (!moved) startEdit(cell);
-    }, LONG_PRESS_MS);
+    log('pointerdown', downMeta);
+  };
 
-    // stocke pour double-tap
-    gridEl._lastTouchMeta = { cell, t0, x0, y0 };
-  }, { passive: true });
-
-  gridEl.addEventListener('touchmove', (e) => {
-    const meta = gridEl._lastTouchMeta;
-    if (!meta) return;
-    const t = e.touches[0];
-    const dx = Math.abs(t.clientX - meta.x0);
-    const dy = Math.abs(t.clientY - meta.y0);
+  const onPointerMove = (e) => {
+    if (!downMeta) return;
+    if (!e.isPrimary || !isTouchPtr(e)) return;
+    const dx = Math.abs(e.clientX - downMeta.x);
+    const dy = Math.abs(e.clientY - downMeta.y);
     if (dx > DOUBLE_TAP_PX || dy > DOUBLE_TAP_PX) {
       moved = true;
-      clearPressTimer(); // on annule le long-press si on bouge trop
+      clearPressTimer();
+      log('move cancel (dx,dy)=', dx, dy);
     }
-    // ne pas preventDefault ici, on ne veut pas bloquer le scroll si l’utilisateur scrolle vraiment
-  }, { passive: true });
+  };
 
-  gridEl.addEventListener('touchend', (e) => {
-    const meta = gridEl._lastTouchMeta;
-    if (!meta) return;
-    clearPressTimer();
-
-    // si on a bougé, c’était un scroll → pas d’édition
-    if (moved) { gridEl._lastTouchMeta = null; return; }
+  const onPointerUp = (e) => {
+    log('enter pointerup', e.pointerType, e.isPrimary); // 👈 voir si on rentre
+    if (!downMeta) return;
+    if (!e.isPrimary || !isTouchPtr(e)) { downMeta = null; clearPressTimer(); return; }
 
     const cell = cellFromEvent(e);
-    if (!cell) { gridEl._lastTouchMeta = null; return; }
+    clearPressTimer();
+
+    if (moved || !cell) { downMeta = null; log('pointerup ignored (moved or no cell)'); return; }
 
     const now = performance.now();
-    const dt  = now - (last.t || 0);
-    const tpt = e.changedTouches[0];
-    const dx  = Math.abs((tpt.clientX) - (last.x || 0));
-    const dy  = Math.abs((tpt.clientY) - (last.y || 0));
-    const sameCell = (last.key === cell.key);
+    const dt = now - (last.t || 0);
+    const dx = Math.abs(e.clientX - (last.x || 0));
+    const dy = Math.abs(e.clientY - (last.y || 0));
+    const sameCell = last.key === cell.key;
+
+    log('pointerup', { dt, dx, dy, sameCell });
 
     if (sameCell && dt <= DOUBLE_TAP_MS && dx <= DOUBLE_TAP_PX && dy <= DOUBLE_TAP_PX) {
-      // double-tap validé
       startEdit(cell);
-      last = { key: null, t: 0, x: 0, y: 0 }; // reset
+      last = { key: null, t: 0, x: 0, y: 0 };
     } else {
-      // 1er tap : on mémorise et on laisse la sélection normale
-      last = { key: cell.key, t: now, x: tpt.clientX, y: tpt.clientY };
+      last = { key: cell.key, t: now, x: e.clientX, y: e.clientY };
+      log('single tap memorized', last);
     }
 
-    gridEl._lastTouchMeta = null;
-  }, { passive: true });
+    downMeta = null;
+  };
 
-  // si l’utilisateur quitte la surface
-  gridEl.addEventListener('touchcancel', () => {
-    clearPressTimer();
-    gridEl._lastTouchMeta = null;
-  });
+  // écoute locale + fin de geste globale
+  gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
+  gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
+  window.addEventListener('pointerup', onPointerUp, { passive: true });
+  window.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
+
+  log('listeners attached on', gridEl);
 }
+
 
 // ===== Colonnes =====
 // Colonnes activités (grilles A, B, D) 
@@ -360,8 +682,8 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     onGridReady: async (p) => {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
-      const root = document.querySelector('#grid-programmees .ag-root');
-      enableTouchEdit(p.api, root);
+      const root = el.querySelector('.ag-root') || el;
+      enableTouchEdit(p.api, root, {debug: true /*, forceTouch: true*/});
     },
 
     onModelUpdated: (ev) => {
@@ -558,44 +880,113 @@ function wireExpanderSplitters() {
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
+    // function begin(clientY, e) {
+    //   dragging = true;
+    //   startY = clientY;
+    //   hTop = Math.round(paneTop.getBoundingClientRect().height);
+
+    //   // bornes
+    //   dyMin = -hTop;
+    //   const maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
+    //   dyMax = Math.max(0, maxH - hTop);
+
+    //   // ❌ coupe TOUTE transition/animation (INLINE + !important)
+    //   prevTransition = paneTop.style.transition || '';
+    //   prevAnimation  = paneTop.style.animation  || '';
+    //   paneTop.style.setProperty('transition', 'none', 'important');
+    //   paneTop.style.setProperty('animation',  'none', 'important');
+    //   paneTop.style.willChange = 'height';
+
+    //   setH(paneTop, hTop);
+    //   document.body.style.userSelect = 'none';
+    //   document.body.style.cursor = 'row-resize';
+    //   e?.preventDefault?.();
+    // }
+
+    // function update(clientY, e) {
+    //   if (!dragging) return;
+    //   const dyRaw = clientY - startY;
+    //   const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));   // clamp
+    //   setH(paneTop, hTop + dy);
+
+    //   // notifie la grille du haut
+    //   try {
+    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+    //     for (const g of (window.grids?.values?.() || [])) {
+    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+    //     }
+    //   } catch {}
+    //   // ❌ ne surtout pas faire e.preventDefault ici
+    //   // iOS doit pouvoir générer le tap→click pour AG Grid
+    //   // e?.preventDefault?.();
+    // }
+
+    // function finish() {
+    //   if (!dragging) return;
+    //   dragging = false;
+
+    //   // restaure transition/animation (enlève l’inline qui forçait 'none')
+    //   paneTop.style.removeProperty('transition');
+    //   paneTop.style.removeProperty('animation');
+    //   if (prevTransition) paneTop.style.transition = prevTransition;
+    //   if (prevAnimation)  paneTop.style.animation  = prevAnimation;
+    //   paneTop.style.willChange = '';
+
+    //   // mémorise la hauteur atteinte
+    //   const expTop = paneTop.closest('.st-expander');
+    //   if (expTop) {
+    //     const h = Math.round(paneTop.getBoundingClientRect().height);
+    //     if (h > 0) localStorage.setItem(`paneHeight:${expTop.id}`, String(h));
+    //   }
+
+    //   document.body.style.userSelect = '';
+    //   document.body.style.cursor = '';
+    // }
+
     function begin(clientY, e) {
       dragging = true;
       startY = clientY;
+
+      // hauteur actuelle du pane du haut
       hTop = Math.round(paneTop.getBoundingClientRect().height);
 
-      // bornes
-      dyMin = -hTop;
+      // bornes de déplacement (tu peux adapter min/max dynamiquement)
+      dyMin = -hTop; // ne pas remonter sous 0
       const maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
       dyMax = Math.max(0, maxH - hTop);
 
-      // ❌ coupe TOUTE transition/animation (INLINE + !important)
+      // couper toute animation pendant le drag (inline + important)
       prevTransition = paneTop.style.transition || '';
       prevAnimation  = paneTop.style.animation  || '';
       paneTop.style.setProperty('transition', 'none', 'important');
       paneTop.style.setProperty('animation',  'none', 'important');
       paneTop.style.willChange = 'height';
 
+      // verrou visuel
       setH(paneTop, hTop);
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
-      e?.preventDefault?.();
+
+      // ⚠️ surtout PAS de preventDefault ici (laisser naître le tap→click iOS)
+      // e?.preventDefault?.();
     }
 
     function update(clientY, e) {
       if (!dragging) return;
+
       const dyRaw = clientY - startY;
-      const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));   // clamp
+      const dy = Math.max(dyMin, Math.min(dyMax, dyRaw)); // clamp
       setH(paneTop, hTop + dy);
 
-      // notifie la grille du haut
+      // notifier la grille du haut pour recalcul
       try {
         const gridDiv = paneTop.querySelector('div[id^="grid"]');
         for (const g of (window.grids?.values?.() || [])) {
           if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
         }
       } catch {}
-      // ❌ ne surtout pas faire e.preventDefault ici
-      // iOS doit pouvoir générer le tap→click pour AG Grid
+
+      // ❌ ne pas faire preventDefault ici non plus
       // e?.preventDefault?.();
     }
 
@@ -603,14 +994,14 @@ function wireExpanderSplitters() {
       if (!dragging) return;
       dragging = false;
 
-      // restaure transition/animation (enlève l’inline qui forçait 'none')
+      // restaurer animations
       paneTop.style.removeProperty('transition');
       paneTop.style.removeProperty('animation');
       if (prevTransition) paneTop.style.transition = prevTransition;
       if (prevAnimation)  paneTop.style.animation  = prevAnimation;
       paneTop.style.willChange = '';
 
-      // mémorise la hauteur atteinte
+      // mémoriser la hauteur
       const expTop = paneTop.closest('.st-expander');
       if (expTop) {
         const h = Math.round(paneTop.getBoundingClientRect().height);
@@ -620,6 +1011,7 @@ function wireExpanderSplitters() {
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     }
+
 
     // // Souris
     // handle.addEventListener('mousedown', e => { if (e.button !== 0) return; begin(e.clientY, e); });
@@ -644,20 +1036,35 @@ function wireExpanderSplitters() {
 
     window.addEventListener('mouseup', finish);
 
-    // Tactile
-    handle.addEventListener('touchstart', e => {
-      // if (isFromGrid(e)) return;          // pas nécessaire ici, la cible = poignée
-      begin(e.touches[0].clientY, e);
+    // // Tactile
+    // handle.addEventListener('touchstart', e => {
+    //   // if (isFromGrid(e)) return;          // pas nécessaire ici, la cible = poignée
+    //   begin(e.touches[0].clientY, e);
+    // }, { passive: true });
+
+    // window.addEventListener('touchmove', e => {
+    //   if (!dragging) return;                 // 👈 clé: rien si pas en drag
+    //   // if (isFromGrid(e)) return;          // utile si tu avais un listener global
+    //   e.preventDefault();                    // 👈 seulement pendant le drag
+    //   update(e.touches[0].clientY, e);
+    // }, { passive: false });
+
+    // window.addEventListener('touchend', finish);    
+    // Tactile (splitter)
+    handle.addEventListener('touchstart', (e) => {
+      // pas de preventDefault ici
+      begin(e.touches[0].clientY, e);     // doit mettre dragging=true
     }, { passive: true });
 
-    window.addEventListener('touchmove', e => {
-      if (!dragging) return;                 // 👈 clé: rien si pas en drag
-      // if (isFromGrid(e)) return;          // utile si tu avais un listener global
-      e.preventDefault();                    // 👈 seulement pendant le drag
+    window.addEventListener('touchmove', (e) => {
+      if (!dragging) return;              // rien si pas en drag
+      e.preventDefault();                 // ✅ seulement pendant le drag → bloque le scroll
       update(e.touches[0].clientY, e);
     }, { passive: false });
 
-    window.addEventListener('touchend', finish);    
+    window.addEventListener('touchend', () => {
+      finish();                           // doit mettre dragging=false
+    }, { passive: true });
   });
 }
 
@@ -705,16 +1112,61 @@ function wireGrids() {
 
 }
 
+// function wireExpanders(){
+//   document.querySelectorAll('.st-expander').forEach(exp=>{
+//     const header = exp.querySelector('.st-expander-header');
+//     if (!header) return;
+//     header.addEventListener('click', ()=>{
+//       if (exp.classList.contains('open')) closeExp(exp);
+//       else openExp(exp);
+//     });
+//     // démarrage ouvert avec easing
+//     openExp(exp);
+//   });
+// }
 function wireExpanders(){
-  document.querySelectorAll('.st-expander').forEach(exp=>{
+  document.querySelectorAll('.st-expander').forEach((exp) => {
     const header = exp.querySelector('.st-expander-header');
-    if (!header) return;
-    header.addEventListener('click', ()=>{
-      if (exp.classList.contains('open')) closeExp(exp);
-      else openExp(exp);
+    const body   = exp.querySelector('.st-expander-body');
+    if (!header || !body) return;
+
+    // accessibilité : le header devient un bouton
+    header.setAttribute('role', 'button');
+    header.tabIndex = 0;
+
+    const isAction = (e) => !!e.target.closest('.exp-actions, .exp-btn');
+
+    const toggle = () => {
+      const open = !exp.classList.contains('open');
+      if (open) openExp(exp);
+      else closeExp(exp);
+      header.setAttribute('aria-expanded', String(open));
+    };
+
+    // clic : ne toggle pas quand on clique dans la zone d’icônes
+    header.addEventListener('click', (e) => {
+      if (isAction(e)) return;
+      toggle();
     });
-    // démarrage ouvert avec easing
+
+    // clavier : Enter / Espace
+    header.addEventListener('keydown', (e) => {
+      if (isAction(e)) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggle();
+      }
+    });
+
+    // tactile : pas de preventDefault -> laisse iOS générer le "click"
+    header.addEventListener('touchstart', (e) => {
+      if (isAction(e)) return;
+      // rien ici (pas de preventDefault)
+    }, { passive: true });
+
+    // démarrage ouvert (avec ton easing existant)
     openExp(exp);
+    header.setAttribute('aria-expanded', 'true');
   });
 }
 
