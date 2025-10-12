@@ -156,7 +156,7 @@ function maybeStartEditOnDoubleTap(p) {
   if (!isTouchDevice) return;                 // desktop = double-clic natif
   if (!p.colDef?.editable) return;            // colonne non éditable → noop
 
-  const key = ${p.rowIndex}|${p.colDef.field};
+  const key = `${p.rowIndex}|${p.colDef.field}`;
   const now = performance.now();
 
   if (lastTapKey === key && (now - lastTapTime) < TAP_DELAY_MS) {
