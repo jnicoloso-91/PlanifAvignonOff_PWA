@@ -247,7 +247,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
-    // singleClickEdit: true,
+    singleClickEdit: true,
     stopEditingWhenCellsLoseFocus: true,
   };
 
@@ -830,7 +830,7 @@ function wireBottomBar() {
   });
 
   wireHiddenFileInput();
-  lockHorizontalScroll();
+  // lockHorizontalScroll();
   initSafeAreaWatch();
   setTimeout(wireBottomBarToggle, 300);
 }
