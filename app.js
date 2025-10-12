@@ -603,6 +603,72 @@ export function enableTouchEdit(api, gridEl, opts = {}) {
   log('listeners attached on', gridEl);
 }
 
+function computeMinPaneHeight(pane) {
+  // header
+  const headerEl = pane.querySelector('.ag-header');
+  const headerH = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) : 0;
+
+  // hauteur d’une ligne (via CSS var AG Grid, fallback 28px)
+  const root = pane.querySelector('.ag-root') || pane;
+  const cs = getComputedStyle(root);
+  const rowH = parseInt(cs.getPropertyValue('--ag-row-height'), 10) || 28;
+
+  // petit padding de respiration (optionnel)
+  const pad = 4;
+
+  // mini = header + 1 ligne (même si vide, on réserve la place)
+  return headerH + rowH + pad;
+}
+
+function computeContentHeight(pane) {
+  // racine AG Grid
+  const root = pane.querySelector('.ag-root') || pane;
+  const cs = getComputedStyle(root);
+
+  // hauteur ligne & header (avec fallback)
+  const rowH = parseInt(cs.getPropertyValue('--ag-row-height'), 10) || 28;
+  const headerEl = pane.querySelector('.ag-header');
+  const headerH = headerEl
+    ? Math.ceil(headerEl.getBoundingClientRect().height)
+    : (parseInt(cs.getPropertyValue('--ag-header-height'), 10) || 28);
+
+  // nb de lignes affichées via l'API de la grille
+  let displayedRows = 0;
+  try {
+    const gridDiv = pane.querySelector('div[id^="grid"]');
+    for (const g of (window.grids?.values?.() || [])) {
+      if (g.el === gridDiv) { displayedRows = g.api.getDisplayedRowCount?.() || 0; break; }
+    }
+  } catch {}
+
+  const rowsWanted = (displayedRows > 0) ? displayedRows : 2; // ✅ 2 lignes si vide (overlay visible)
+  const pad = 0; // ajuste si tu as un padding interne sur le pane
+
+  return headerH + rowsWanted * rowH + pad;
+}
+
+function calcMaxHForPane(pane) {
+  const root = pane.querySelector('.ag-root') || pane;
+  const cs   = getComputedStyle(root);
+
+  const rowH    = parseInt(cs.getPropertyValue('--ag-row-height'), 10) || 28;
+  const headerH = (() => {
+    const hEl = pane.querySelector('.ag-header');
+    if (hEl) return Math.ceil(hEl.getBoundingClientRect().height);
+    const varH = parseInt(cs.getPropertyValue('--ag-header-height'), 10);
+    return Number.isFinite(varH) ? varH : 28;
+  })();
+
+  // nb rows via l’API de la grille hébergée dans ce pane
+  const host = pane.querySelector('[id^="grid"]');
+  const api  = host?.__agApi;
+  const rc   = api?.getDisplayedRowCount?.() ?? 0;
+
+  // ✅ règle : si >0 → nbRows ; si 0 → 1.5 rows (pour l’overlay)
+  const rowsWanted = rc > 0 ? rc : 0;
+
+  return headerH + rowsWanted * rowH;
+}
 
 // ===== Colonnes =====
 // Colonnes activités (grilles A, B, D) 
@@ -724,9 +790,11 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
         p.event.preventDefault?.();
       }
     },
+    suppressNoRowsOverlay: true,
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
+  el.__agApi = api; // ⟵ pour retrouver l’API depuis le pane
   const handle = { id: gridId, el, api, loader, columnsBuilder };
   grids.set(gridId, handle);
   if (!activeGridId) setActiveGrid(gridId);
@@ -944,16 +1012,21 @@ function wireExpanderSplitters() {
     // }
 
     function begin(clientY, e) {
+      const expTop = paneTop.closest('.st-expander');
+      if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
+      
       dragging = true;
       startY = clientY;
 
       // hauteur actuelle du pane du haut
       hTop = Math.round(paneTop.getBoundingClientRect().height);
 
-      // bornes de déplacement (tu peux adapter min/max dynamiquement)
-      dyMin = -hTop; // ne pas remonter sous 0
-      const maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
-      dyMax = Math.max(0, maxH - hTop);
+      // limite haute : on peut tout cacher (header compris)
+      dyMin = -hTop;
+
+      // limite basse : contenu (nb rows) ou 1.5 si vide
+      const maxH = calcMaxHForPane(paneTop);
+      dyMax = Math.max(0, Math.round(maxH - hTop));
 
       // couper toute animation pendant le drag (inline + important)
       prevTransition = paneTop.style.transition || '';
@@ -989,6 +1062,47 @@ function wireExpanderSplitters() {
       // ❌ ne pas faire preventDefault ici non plus
       // e?.preventDefault?.();
     }
+
+    let minH = 0, maxH = 0;
+
+    // function begin(clientY, e) {
+    //   dragging = true;
+    //   startY = clientY;
+
+    //   // hauteur actuelle
+    //   hTop = Math.round(paneTop.getBoundingClientRect().height);
+
+    //   // ✅ bornes : 0 (peut tout cacher, header compris) … contenu (header + rowsWanted)
+    //   minH = 0;
+    //   maxH = computeContentHeight(paneTop);
+
+    //   // coupe les transitions pendant le drag
+    //   prevTransition = paneTop.style.transition || '';
+    //   prevAnimation  = paneTop.style.animation  || '';
+    //   paneTop.style.setProperty('transition', 'none', 'important');
+    //   paneTop.style.setProperty('animation',  'none', 'important');
+    //   paneTop.style.willChange = 'height';
+
+    //   setH(paneTop, hTop);
+    //   document.body.style.userSelect = 'none';
+    //   document.body.style.cursor = 'row-resize';
+    // }
+
+    // function update(clientY, e) {
+    //   if (!dragging) return;
+    //   const dy = clientY - startY;
+    //   const targetH = Math.max(minH, Math.min(hTop + dy, maxH)); // ✅ 0 … contenu
+    //   setH(paneTop, targetH);
+
+    //   // notifie la grille du haut
+    //   try {
+    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+    //     for (const g of (window.grids?.values?.() || [])) {
+    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+    //     }
+    //   } catch {}
+    // }
+
 
     function finish() {
       if (!dragging) return;
