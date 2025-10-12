@@ -1,7 +1,7 @@
 // app.js (module)
 import { df_getAll, df_getAllOrdered, df_putMany, df_clear, carnet_getAll, carnet_clear, carnet_putMany } from './db.mjs';
 import { prettyToDateint, dateintToPretty, ymdToDateint, safeDateint } from './utils-date.js';
-import { getCreneaux } from './activites.js'; 
+import { initialiserPeriodeProgrammation, getCreneaux, getActivitesProgrammables } from './activites.js'; 
 
 // ===== Multi-grilles =====
 const ROW_H=32, HEADER_H=32, PAD=4;
@@ -703,25 +703,36 @@ const dateintStrToPretty = (d) => dateintToPretty(Number(d));
 function buildColumnsCreneaux(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
-    { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
+    { field:'Date', headerName:'Date', width, suppressSizeToFit:true, editable:false,
       valueFormatter:p=>dateintStrToPretty(p.value),
       comparator:(a,b)=>(safeDateint(a)||0)-(safeDateint(b)||0)
     },
-    { field:'Début', width, suppressSizeToFit:true,
+    { field:'Début', width, suppressSizeToFit:true, editable:false,
       comparator:(a,b)=>{
         const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
         return ma-mb;
       }
     },
-    { field:'Fin', width, suppressSizeToFit:true,
+    { field:'Fin', width, suppressSizeToFit:true, editable:false,
       comparator:(a,b)=>{
         const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
         return ma-mb;
       }
     },
-    { field:'Activité avant', headerName:'Activité avant', minWidth:160, flex:1},
-    { field:'Activité après', headerName:'Activité après', minWidth:160, flex:1},
+    { field:'Activité avant', headerName:'Activité avant', minWidth:160, flex:1, editable:false,},
+    { field:'Activité après', headerName:'Activité après', minWidth:160, flex:1, editable:false,},
   ];
+}
+
+function buildColumnsActivitesProgrammables() {
+  // récupère la définition standard
+  const cols = buildColumnsActivites();
+
+  // force toutes les colonnes non éditables
+  return cols.map(col => ({
+    ...col,
+    editable: false
+  }));
 }
 
 // Colonnes carnet d’adresses (grille E)
@@ -860,46 +871,46 @@ async function loadNonProgrammees(){
 }
 
 async function loadCreneaux() {
-  const toutes = await df_getAll();                      
-  const prog   = (await df_getAllOrdered()).filter(r => Number.isFinite(r.Date));
-  // prog est supposé trié Date/Debut_dt; sinon trie-le !
+  const activites = await df_getAllOrdered();                      
+  const activitesProgrammees   = activites.filter(r => Number.isFinite(r.Date));
+  const periodeProgrammation = initialiserPeriodeProgrammation(activites)
 
-  // période optionnelle (si tu l’as en state)
-  const periode = { periodeDebut: 20251021, periodeFin: 20251024 }; // exemple
-
-  return getCreneaux(toutes, prog, false, periode);
+  return getCreneaux(activites, activitesProgrammees, false, periodeProgrammation);
 }
 
 // 4) Activités programmables 
 async function loadProgrammables(){
   if (!selectedSlot) return [];
-  const all = await df_getAll();
+  // const all = await df_getAll();
 
-  // Contraintes minimales (à affiner plus tard) :
-  // - activité sans Date (non programmée)
-  // - durée <= capacité du créneau
-  // NB: on ignore les conflits salle/relâche/etc. pour l’instant.
-  const cap = Number(selectedSlot?.Capacité) || (() => {
-    const s = parseHHhMM(selectedSlot?.Début);
-    const e = parseHHhMM(selectedSlot?.Fin);
-    return (s!=null && e!=null && e>s) ? (e-s) : Infinity;
-  })();
+  // // Contraintes minimales (à affiner plus tard) :
+  // // - activité sans Date (non programmée)
+  // // - durée <= capacité du créneau
+  // // NB: on ignore les conflits salle/relâche/etc. pour l’instant.
+  // const cap = Number(selectedSlot?.Capacité) || (() => {
+  //   const s = parseHHhMM(selectedSlot?.Début);
+  //   const e = parseHHhMM(selectedSlot?.Fin);
+  //   return (s!=null && e!=null && e>s) ? (e-s) : Infinity;
+  // })();
 
-  return (all||[])
-    .filter(r => r.Date == null || r.Date === '')
-    .map(r => {
-      const mins = parseDureeMin(r['Durée']) ?? Infinity;
-      return { ...r, __fit: mins <= cap ? 1 : 0, __mins: mins };
-    })
-    .sort((a,b)=>{
-      // Favoriser ceux qui rentrent dans le créneau
-      if (a.__fit !== b.__fit) return b.__fit - a.__fit;
-      // puis par priorité si tu veux (optionnel)
-      const pa = Number(a['Priorité'])||0, pb = Number(b['Priorité'])||0;
-      if (pa!==pb) return pb-pa;
-      // puis par durée croissante
-      return (a.__mins||Infinity) - (b.__mins||Infinity);
-    });
+  // return (all||[])
+  //   .filter(r => r.Date == null || r.Date === '')
+  //   .map(r => {
+  //     const mins = parseDureeMin(r['Durée']) ?? Infinity;
+  //     return { ...r, __fit: mins <= cap ? 1 : 0, __mins: mins };
+  //   })
+  //   .sort((a,b)=>{
+  //     // Favoriser ceux qui rentrent dans le créneau
+  //     if (a.__fit !== b.__fit) return b.__fit - a.__fit;
+  //     // puis par priorité si tu veux (optionnel)
+  //     const pa = Number(a['Priorité'])||0, pb = Number(b['Priorité'])||0;
+  //     if (pa!==pb) return pb-pa;
+  //     // puis par durée croissante
+  //     return (a.__mins||Infinity) - (b.__mins||Infinity);
+  //   });
+
+  const activites = await df_getAllOrdered();                      
+  return getActivitesProgrammables(activites, selectedSlot);
 }
 
 // 5) Carnet d'adresses
@@ -1014,7 +1025,7 @@ function wireExpanderSplitters() {
     function begin(clientY, e) {
       const expTop = paneTop.closest('.st-expander');
       if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
-      
+
       dragging = true;
       startY = clientY;
 
@@ -1213,7 +1224,7 @@ function wireGrids() {
     gridId: 'grid-programmables',
     elementId: 'gridD',
     loader: loadProgrammables,
-    columnsBuilder: buildColumnsActivites
+    columnsBuilder: buildColumnsActivitesProgrammables
   });
 
   // 5) Carnet d’adresses

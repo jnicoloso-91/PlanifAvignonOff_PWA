@@ -62,12 +62,6 @@ export function absMinute(dateint, minutesSinceMidnight) {
   return (Number(dateint) || 0) * 1440 + (Number(minutesSinceMidnight) || 0);
 }
 
-// Considère qu’une ligne "non programmée" n’a pas de Date exploitable
-export function isUnscheduled(row) {
-  const d = row?.Date;
-  return d == null || d === '' || Number.isNaN(+d);
-}
-
 // Petit util générique
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -157,4 +151,14 @@ export function safeDateint(v) {
   return Number.isFinite(n) && n >= 10000101 ? n : null;
 }
 
+export function dateintToDate(di) {
+  const n = Number(di);
+  if (!Number.isFinite(n) || n < 10000101) return null;
+  const y = Math.floor(n / 10000);
+  const m = Math.floor((n % 10000) / 100);
+  const d = n % 100;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  // garde en local time si tu préfères : new Date(y, m-1, d)
+  return dt;
+}
 
