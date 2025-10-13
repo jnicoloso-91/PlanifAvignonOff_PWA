@@ -163,3 +163,21 @@ export function dateintToDate(di) {
   return dt;
 }
 
+// parse "20250712" ou "12/07[/2025]" -> 20250712
+export function toDateint(v) {
+  if (v == null) return null;
+  if (typeof v === 'number') return v;
+  const s = String(v).trim();
+  if (/^\d{8}$/.test(s)) return parseInt(s, 10);
+  // si tu as déjà prettyToDateint, utilise-la :
+  if (typeof window.prettyToDateint === 'function') return window.prettyToDateint(s);
+  // fallback "jj/mm[/aa|aaaa]"
+  const p = s.split(/[\/.-]/).map(x => x.trim());
+  if (!p.length) return null;
+  const d = +p[0], m = +(p[1] || (new Date().getMonth()+1));
+  let y = +(p[2] || new Date().getFullYear());
+  if (y < 100) y += 2000;
+  if (!d || !m || !y) return null;
+  return y*10000 + m*100 + d;
+}
+

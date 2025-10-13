@@ -1,6 +1,6 @@
 // app.js (module)
 import { df_getAll, df_getAllOrdered, df_putMany, df_clear, carnet_getAll, carnet_clear, carnet_putMany } from './db.mjs';
-import { prettyToDateint, dateintToPretty, ymdToDateint, safeDateint } from './utils-date.js';
+import { prettyToDateint, dateintToPretty, ymdToDateint, safeDateint, toDateint } from './utils-date.js';
 import { initialiserPeriodeProgrammation, getCreneaux, getActivitesProgrammables } from './activites.js'; 
 
 // ===== Multi-grilles =====
@@ -805,6 +805,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
       }
     },
     suppressNoRowsOverlay: true,
+    suppressRowClickSelection: false,
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
@@ -820,26 +821,119 @@ function setActiveGrid(gridId){
   grids.forEach(g => g?.el?.classList.toggle('is-active-grid', g.id === gridId));
 }
 
-async function refreshGrid(gridId){
-  const g = grids.get(gridId);
-  if (!g?.api) return;
+// async function refreshGrid(gridId){
+//   const g = grids.get(gridId);
+//   if (!g?.api) return;
 
-  const rows = await (g.loader ? g.loader() : df_getAllOrdered());
-  g.api.setGridOption('rowData', rows || []);
+//   const rows = await (g.loader ? g.loader() : df_getAllOrdered());
+//   g.api.setGridOption('rowData', rows || []);
 
-  const pane = g.el.closest('.st-expander-body');
-  if (pane) {
-    const cnt   = Array.isArray(rows) ? rows.length : 0;
-    const hOpen = hFor(Math.min(cnt,5));
-    const hMax  = hFor(cnt);
-    pane.dataset.maxContentHeight = String(hMax);
+//  // 🧭 Fallback : si rien n’est sélectionné, sélectionner la première ligne
+//   const sel = g.api.getSelectedNodes?.() || [];
+//   if ((!sel || sel.length === 0) && rows && rows.length > 0) {
+//     requestAnimationFrame(() => {
+//       try {
+//         g.api.ensureIndexVisible?.(0, 'top');   // scroll en haut
+//         g.api.selectIndex?.(0, true, true);     // sélection unique
+//       } catch (e) {
+//         console.warn(`[refreshGrid:${gridId}] fallback sélection échouée`, e);
+//       }
+//     });
+//   }
 
-    // pas d’anim lors d’un refresh automatique
-    const cur = parseFloat(getComputedStyle(pane).height)||0;
-    if (hOpen > cur) { disableTransition(pane); setH(pane, hOpen); enableTransition(pane); }
+//   const pane = g.el.closest('.st-expander-body');
+//   if (pane) {
+//     const cnt   = Array.isArray(rows) ? rows.length : 0;
+//     const hOpen = hFor(Math.min(cnt,5));
+//     const hMax  = hFor(cnt);
+//     pane.dataset.maxContentHeight = String(hMax);
 
-    try { g.api.onGridSizeChanged(); g.api.sizeColumnsToFit(); } catch {}
-  }
+//     // pas d’anim lors d’un refresh automatique
+//     const cur = parseFloat(getComputedStyle(pane).height)||0;
+//     if (hOpen > cur) { disableTransition(pane); setH(pane, hOpen); enableTransition(pane); }
+
+//     try { g.api.onGridSizeChanged(); g.api.sizeColumnsToFit(); } catch {}
+//   }
+// }
+
+// async function refreshGrid(gridId) {
+//   const h = grids.get(gridId);
+//   if (!h) return;
+
+//   // Recharge les données via le loader de la grille
+//   const rows = await h.loader?.();
+//   h.api.setGridOption?.('rowData', rows || []);
+
+//   // 🧭 Fallback : si rien n’est sélectionné, sélectionner la première ligne
+//   const sel = h.api.getSelectedNodes?.() || [];
+//   if ((!sel || sel.length === 0) && rows && rows.length > 0) {
+//     requestAnimationFrame(() => {
+//       try {
+//         h.api.ensureIndexVisible?.(0, 'top');   // scroll en haut
+//         h.api.selectIndex?.(0, true, true);     // sélection unique
+//       } catch (e) {
+//         console.warn(`[refreshGrid:${gridId}] fallback sélection échouée`, e);
+//       }
+//     });
+//   }
+
+//   // 🔄 Resize et repaint
+//   safeGridResize(h.api);
+//   try {
+//     autoSizePanelFromRowCount?.(h.el.closest('.st-expander-body'), h.api);
+//   } catch {}
+// }
+
+async function refreshGrid(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return;
+
+  const api = h.api;
+
+  // 0) mémorise la sélection actuelle (par __uuid)
+  let prevUuid = null;
+  try {
+    const prevSel = api.getSelectedRows?.() || [];
+    prevUuid = prevSel[0]?.__uuid ?? null;
+  } catch {}
+
+  // 1) recharge les données
+  const rows = await h.loader?.();
+  api.setGridOption?.('rowData', rows || []);
+
+  // 2) après peinture → reselect ou fallback 1ère ligne
+  const selectAfterPaint = () => {
+    // si déjà sélectionné (AG Grid peut préserver via getRowId) -> ne rien faire
+    const already = api.getSelectedNodes?.();
+    if (already && already.length > 0) return finish();
+
+    let node = null;
+
+    // essaie de reselectionner l'ancienne ligne par __uuid
+    if (prevUuid) {
+      api.forEachNode?.(n => { if (!node && n.data?.__uuid === prevUuid) node = n; });
+    }
+
+    // fallback : sélectionner la 1ʳᵉ ligne si aucune
+    if (!node) {
+      const count = api.getDisplayedRowCount?.() ?? 0;
+      if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
+    }
+
+    node?.setSelected?.(true, true); // (select, clearOther)
+
+    finish();
+  };
+
+  const finish = () => {
+    // resize / repaint safe (v29+)
+    api.refreshCells?.({ force: true });
+    api.dispatchEvent?.({ type: 'gridSizeChanged' });
+    try { autoSizePanelFromRowCount?.(h.el.closest('.st-expander-body'), api); } catch {}
+  };
+
+  // laisse AG Grid peindre les nouvelles rows
+  requestAnimationFrame(() => requestAnimationFrame(selectAfterPaint));
 }
 
 async function refreshAllGrids() {
@@ -1207,7 +1301,7 @@ function wireGrids() {
 
   // 2) Non programmées
   createGridController({
-    gridId: 'grid-non-prog',
+    gridId: 'grid-non-programmees',
     elementId: 'gridB',
     loader: loadNonProgrammees,
     columnsBuilder: buildColumnsActivites
@@ -1239,6 +1333,83 @@ function wireGrids() {
   });
 
 }
+
+// récupère la row sélectionnée (ou la focussée) dans une ag-Grid
+function getSelectedRowSafe(api) {
+  if (!api) return null;
+  const sel = api.getSelectedRows?.() || [];
+  if (sel.length) return sel[0];
+  const fc = api.getFocusedCell?.();
+  const r = fc ? api.getDisplayedRowAtIndex?.(fc.rowIndex) : null;
+  return r?.data || null;
+}
+
+async function programmerSelection() {
+  // 1) sélection dans la grille des programmables
+  const gProg = grids.get('grid-programmables');
+  if (!gProg) { alert('Grille “programmables” introuvable.'); return; }
+
+  const sel = getSelectedRowSafe(gProg.api);
+  if (!sel) { alert('Sélectionne d’abord une activité.'); return; }
+
+  const uuid = sel.__uuid;
+  const dateInt = toDateint(sel.Date);
+  if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
+
+  // 2) charger tout df, modifier la ligne par __uuid, réécrire
+  const df = await df_getAll() || [];
+  const idx = df.findIndex(r => r.__uuid === uuid);
+  if (idx < 0) { alert('Activité introuvable dans les données.'); return; }
+
+  const next = df.slice();
+  next[idx] = { ...(next[idx] || {}), Date: dateInt };
+  await df_putMany(next); // (ton db.mjs n’a pas d’update unitaire, on réécrit la table)
+
+  // 3) rafraîchir grilles 
+  await refreshAllGrids();
+}
+
+function addHeaderActionsProgrammables() {
+  const exp = document.querySelector('#exp-programmables');
+  if (!exp) return;
+  const header = exp.querySelector('.st-expander-header');
+  if (!header) return;
+
+  // assure un span titre
+  if (!header.querySelector('.st-expander-title')) {
+    const t = header.querySelector('.title') || header.firstElementChild;
+    if (t) t.classList.add('st-expander-title');
+  }
+
+  // déjà présent ?
+  if (header.querySelector('.header-actions')) return;
+
+  const actions = document.createElement('div');
+  actions.className = 'header-actions';
+  actions.setAttribute('data-no-toggle', ''); // pour le guard dans wireExpanders
+
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'Programmer';
+  btn.title = 'Programmer l’activité sélectionnée';
+
+  // 🔒 Empêche de déclencher le toggle de l’expander
+  const swallow = (e) => { e.stopPropagation(); };
+  btn.addEventListener('mousedown', swallow);
+  btn.addEventListener('mouseup', swallow);
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // const g = grids?.get('grid-programmables');
+    // const sel = g?.api?.getSelectedRows?.() || [];
+    // if (!sel.length) { alert("Sélectionne d’abord une activité."); return; }
+    // console.log('Programmer', sel[0]);
+    programmerSelection();
+  });
+
+  actions.appendChild(btn);
+  header.appendChild(actions);
+}
+
 
 // function wireExpanders(){
 //   document.querySelectorAll('.st-expander').forEach(exp=>{
@@ -1273,6 +1444,9 @@ function wireExpanders(){
 
     // clic : ne toggle pas quand on clique dans la zone d’icônes
     header.addEventListener('click', (e) => {
+      // ⛔️ ne pas toggler si clic dans la zone actions ou éléments marqués
+      if (e.target.closest('.header-actions,[data-no-toggle]')) return;
+
       if (isAction(e)) return;
       toggle();
     });
@@ -1860,6 +2034,7 @@ function initSafeAreaWatch(){
 document.addEventListener('DOMContentLoaded', () => {
   wireGrids();
   wireExpanders();
+  addHeaderActionsProgrammables();
   wireExpanderSplitters();
   wireBottomBar();
 });
