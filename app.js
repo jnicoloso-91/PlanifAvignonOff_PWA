@@ -20,6 +20,10 @@ const TODAY = new Date();
 const CUR_Y = TODAY.getFullYear();
 const CUR_M = TODAY.getMonth() + 1;
 
+const PHANTOM_WITH_OFFSET = false;      // effet fantôme avec ou sans offset 
+const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la trajectoire de l'effet fantôme
+const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
+
 const DEBUG = true;
 const dlog = (...args)=>DEBUG && console.log('[FLIGHT]', ...args);
 
@@ -1065,12 +1069,25 @@ function flashArrival(gridId, node) {
 // ghost simple (lisible)
 function makeRowGhostFromRect(rect, label='') {
   if (!rect) return null;
+
+  // const ghost = document.createElement('div');
+  // ghost.className = 'row-flight';
+  // ghost.style.left   = rect.left+'px';
+  // ghost.style.top    = rect.top+'px';
+  // ghost.style.width  = Math.max(rect.width, 260)+'px';
+  // ghost.style.height = rect.height+'px';
+  const w = Math.max(rect.width, 260);        // on élargit pour la lisibilité
+  const h = rect.height;
+  const cx = rect.left + rect.width / 2;      // centre X de la source
+  const cy = rect.top  + rect.height / 2;     // centre Y de la source
+
   const ghost = document.createElement('div');
   ghost.className = 'row-flight';
-  ghost.style.left   = rect.left+'px';
-  ghost.style.top    = rect.top+'px';
-  ghost.style.width  = Math.max(rect.width, 260)+'px';
-  ghost.style.height = rect.height+'px';
+  ghost.style.left   = (cx - w/2) + 'px';     // ← CENTRE !
+  ghost.style.top    = (cy - h/2) + 'px';     // ← CENTRE !
+  ghost.style.width  = w + 'px';
+  ghost.style.height = h + 'px';
+
   const inner = document.createElement('div');
   inner.style.display='flex';
   inner.style.alignItems='center';
@@ -1079,11 +1096,12 @@ function makeRowGhostFromRect(rect, label='') {
   inner.style.font='14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto';
   inner.textContent = label;
   ghost.appendChild(inner);
+
   document.body.appendChild(ghost);
   return ghost;
 }
 
-function animateGhostArc(ghost, fromRect, toRect, { duration=680, lift=-160 }={}) {
+function animateGhostArc(ghost, fromRect, toRect, { duration=PHANTOM_DEFAULT_DURATION, lift=PHANTOM_DEFAULT_OFFSET }={}) {
   if (!ghost || !fromRect || !toRect) return Promise.resolve();
   const dx = (toRect.left+toRect.width/2)  - (fromRect.left+fromRect.width/2);
   const dy = (toRect.top +toRect.height/2) - (fromRect.top +fromRect.height/2);
@@ -1098,6 +1116,40 @@ function animateGhostArc(ghost, fromRect, toRect, { duration=680, lift=-160 }={}
       ],
       { duration, easing:'cubic-bezier(.22,.8,.2,1)', fill:'forwards' }
     ).onfinish = ()=>{ ghost.remove(); res(); };
+  });
+}
+
+// Ghost strictement identique à la source (pas d’élargissement, pas de padding)
+function makeRowGhostExact(rect) {
+  if (!rect) return null;
+  const ghost = document.createElement('div');
+  ghost.className = 'row-flight';
+  ghost.style.left   = rect.left + 'px';
+  ghost.style.top    = rect.top  + 'px';
+  ghost.style.width  = rect.width + 'px';
+  ghost.style.height = rect.height + 'px';
+
+  // pas de padding ni texte (éviter biais visuel)
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
+// Translation simple vers le coin haut-gauche de la destination
+function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
+  if (!ghost || !fromRect || !toRect) return Promise.resolve();
+  const dx = toRect.left - fromRect.left;
+  const dy = toRect.top  - fromRect.top;
+
+  return new Promise(res => {
+    const anim = ghost.animate(
+      [
+        { transform: 'translate3d(0,0,0)', opacity: .98 },
+        { transform: `translate3d(${dx}px, ${dy}px, 0)`, opacity: .12 },
+      ],
+      { duration, easing: 'cubic-bezier(.25,.8,.25,1)', fill: 'forwards' }
+    );
+    anim.onfinish = () => { ghost.remove(); res(); };
+    anim.oncancel = ()  => { ghost.remove(); res(); };
   });
 }
 
@@ -2010,8 +2062,13 @@ async function doProgrammerActiviteSelectionnee() {
     // 3) animer vers la VRAIE ligne si possible, sinon flash-only
     if (fromRect && dst.rowEl) {
       const toRect = dst.rowEl.getBoundingClientRect();
-      const ghost  = makeRowGhostFromRect(fromRect, ghostLabel);
-      await animateGhostArc(ghost, fromRect, toRect, { duration: 700, lift: -180 });
+      if (PHANTOM_WITH_OFFSET) {
+        const ghost  = makeRowGhostFromRect(fromRect, ghostLabel);
+        await animateGhostArc(ghost, fromRect, toRect, { duration: 700, lift: -180 });
+      } else {
+        const ghost  = makeRowGhostExact(fromRect);
+        await animateGhostToTopLeft(ghost, fromRect, toRect, { duration: 700});
+      }
     }
     // quoi qu’il arrive : sélection & flash final (perceptible)
     if (dst.node) {
@@ -2332,7 +2389,7 @@ function computeSafeGap() {
   const MAX_GAP = 180;
   gap = Math.max(0, Math.min(MAX_GAP, gap));
 
-  setSafeGap(gap);
+  setSafeGap(0); //setSafeGap(gap); pas besoin de déplacer la bottom bar au dessus du clavier sur mobile
 }
 
 
