@@ -409,7 +409,8 @@ main, .page-wrap {
   background: var(--bg);
   position: fixed;
 
-  bottom: max(var(--safe-gap), env(safe-area-inset-bottom)); 
+  /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
+  bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px));
   height: var(--bar-height);
 
   left: 0; right: 0; /* bottom: 0; */

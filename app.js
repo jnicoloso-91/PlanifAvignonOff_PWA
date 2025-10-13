@@ -2350,17 +2350,17 @@ function setSafeGap(px){
   document.documentElement.style.setProperty('--safe-gap', `${px}px`);
 }
 
-function computeSafeGap(){
-  if (isSplitterDragging) return;
-  const vv = window.visualViewport;
-  if (!vv) {
-    setSafeGap(0);
-    return;
-  }
-  // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
-  const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  setSafeGap(gap); // pas besoin de déplacer la bottom bar au dessus du clavier sur mobile
-}
+// function computeSafeGap(){
+//   if (isSplitterDragging) return;
+//   const vv = window.visualViewport;
+//   if (!vv) {
+//     setSafeGap(0);
+//     return;
+//   }
+//   // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
+//   const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+//   setSafeGap(gap); // pas besoin de déplacer la bottom bar au dessus du clavier sur mobile
+// }
 
 // function computeSafeGap() {
 //   if (isSplitterDragging) return;
@@ -2391,6 +2391,40 @@ function computeSafeGap(){
 
 //   setSafeGap(gap); 
 // }
+
+function computeSafeGap() {
+  if (isSplitterDragging) return;
+
+  const vv = window.visualViewport;
+  let gap = 0;
+
+  if (vv) {
+    // Espace masqué en bas du viewport
+    const raw = Math.round(window.innerHeight - (vv.height + vv.offsetTop));
+
+    const KEYBOARD_THRESHOLD = 140;                 // ↓↓↓ si > 140 → clavier
+    const keyboardLikely = (window.innerHeight - vv.height) > KEYBOARD_THRESHOLD;
+    const pullDown = vv.offsetTop < 0;              // “stretch” iOS en tirant vers le bas
+
+    if (!keyboardLikely && !pullDown) {
+      // ✅ Cas "barre Safari" : applique un gap modéré (0..120px)
+      const CHROME_MAX = 120;
+      gap = Math.max(0, Math.min(CHROME_MAX, raw));
+    } else {
+      // ❌ On ignore clavier et pull-down pour ton besoin
+      gap = 0;
+    }
+  }
+
+  // (optionnel) garder une petite hystérésis en haut de page pour éviter des micro-sauts
+  const atTop = (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
+  const prev = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-gap'), 10) || 0;
+  if (atTop && gap > prev) {
+    gap = prev; // ne pas augmenter en “tirant” tout en haut
+  }
+
+  setSafeGap(gap);
+}
 
 
 function hardPinBottom(){
