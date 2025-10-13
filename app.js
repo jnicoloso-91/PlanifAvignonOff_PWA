@@ -2359,7 +2359,7 @@ function computeSafeGap(){
   }
   // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
   const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-  setSafeGap(0); //setSafeGap(gap); pas besoin de déplacer la bottom bar au dessus du clavier sur mobile
+  setSafeGap(gap); // pas besoin de déplacer la bottom bar au dessus du clavier sur mobile
 }
 
 // function computeSafeGap() {
