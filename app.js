@@ -2350,47 +2350,47 @@ function setSafeGap(px){
   document.documentElement.style.setProperty('--safe-gap', `${px}px`);
 }
 
-// function computeSafeGap(){
-//   if (isSplitterDragging) return;
-//   const vv = window.visualViewport;
-//   if (!vv) {
-//     setSafeGap(0);
-//     return;
-//   }
-//   // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
-//   const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-//   setSafeGap(gap);
-// }
-
-function computeSafeGap() {
+function computeSafeGap(){
   if (isSplitterDragging) return;
-
   const vv = window.visualViewport;
-  let gap = 0;
-
-  if (vv) {
-    // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
-    gap = Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)));
+  if (!vv) {
+    setSafeGap(0);
+    return;
   }
-
-  // ⛔ borne anti-envol: en haut de page, on n'autorise PAS d'augmentation
-  const atTop = (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
-
-  const prev = parseInt(
-    getComputedStyle(document.documentElement).getPropertyValue('--safe-gap'),
-    10
-  ) || 0;
-
-  if (atTop && gap > prev) {
-    gap = prev; // on gèle vers le haut quand on “tire” en haut de page
-  }
-
-  // (optionnel) clamp raisonnable
-  const MAX_GAP = 180;
-  gap = Math.max(0, Math.min(MAX_GAP, gap));
-
+  // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
+  const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
   setSafeGap(0); //setSafeGap(gap); pas besoin de déplacer la bottom bar au dessus du clavier sur mobile
 }
+
+// function computeSafeGap() {
+//   if (isSplitterDragging) return;
+
+//   const vv = window.visualViewport;
+//   let gap = 0;
+
+//   if (vv) {
+//     // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
+//     gap = Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)));
+//   }
+
+//   // ⛔ borne anti-envol: en haut de page, on n'autorise PAS d'augmentation
+//   const atTop = (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
+
+//   const prev = parseInt(
+//     getComputedStyle(document.documentElement).getPropertyValue('--safe-gap'),
+//     10
+//   ) || 0;
+
+//   if (atTop && gap > prev) {
+//     gap = prev; // on gèle vers le haut quand on “tire” en haut de page
+//   }
+
+//   // (optionnel) clamp raisonnable
+//   const MAX_GAP = 180;
+//   gap = Math.max(0, Math.min(MAX_GAP, gap));
+
+//   setSafeGap(gap); 
+// }
 
 
 function hardPinBottom(){
