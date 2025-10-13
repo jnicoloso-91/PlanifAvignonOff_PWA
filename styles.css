@@ -696,3 +696,94 @@ main, .page-wrap {
   outline: none !important;
   box-shadow: none !important;
 } */
+
+/* ===============================
+   Boutons de la bottom bar
+   =============================== */
+
+/* .bb-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #111;
+  padding: 4px 8px;
+  border-radius: 8px;
+  min-width: 72px;
+  cursor: pointer;
+  transition: transform .1s ease, background .15s ease;
+  -webkit-tap-highlight-color: transparent;
+} */
+
+/* ---- Normaliser les boutons iOS ---- */
+.bb-icon-btn {
+  -webkit-appearance: none; /* iOS: enlève le style natif */
+  appearance: none;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  outline: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  min-width: 72px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #111;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .1s ease, background .15s ease;
+}
+
+.bb-icon-btn .bb-icon {
+  width: 20px;
+  height: 20px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  margin-bottom: 3px;
+  opacity: .9;
+}
+
+.bb-icon-btn .bb-label {
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: .8;
+}
+
+/* hover / click feedback */
+.bb-icon-btn:hover {
+  background: rgba(0,0,0,.06);
+}
+.bb-icon-btn:active {
+  transform: scale(0.92);
+  background: rgba(0,0,0,.1);
+}
+
+/* Taille et rendu des SVG (cohérents partout) */
+.bb-icon {
+  width: 20px;            /* ajuste ici si “énormes” sur iOS (ex: 18px) */
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;      /* plus fin que 2 pour iOS */
+  vector-effect: non-scaling-stroke; /* épaisseur stable */
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: inline-block;
+  margin-bottom: 3px;
+  opacity: .9;
+}
+
+/* Label discret */
+.bb-label {
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: .8;
+}
+
+/* Feedback */
+.bb-icon-btn:hover  { background: rgba(0,0,0,.06); }
+.bb-icon-btn:active { transform: scale(0.92); background: rgba(0,0,0,.1); }
