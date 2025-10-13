@@ -2081,6 +2081,7 @@ async function doProgrammerActiviteSelectionnee() {
 
 // ------- Bottom Bar -------
 function wireBottomBar() {
+  
   const bar = document.getElementById('bottomBar');
   const scroller = document.getElementById('bottomBarScroller');
   if (!bar || !scroller) return;
@@ -2140,6 +2141,158 @@ function wireBottomBar() {
   lockHorizontalScroll();
   initSafeAreaWatch();
   setTimeout(wireBottomBarToggle, 300);
+  wireMenuFile();
+}
+
+// function wireMenuFile() {
+//   document.getElementById('btn-file').addEventListener('click', e => {
+//     const menu = document.createElement('div');
+//     menu.className = 'file-menu';
+//     menu.innerHTML = `
+//       <button data-action="new">Nouveau</button>
+//       <button data-action="open">Ouvrir</button>
+//       <button data-action="save">Sauvegarder</button>
+//     `;
+//     Object.assign(menu.style, {
+//       position: 'fixed',
+//       bottom: '60px',
+//       left: e.clientX + 'px',
+//       background: '#fff',
+//       border: '1px solid #ccc',
+//       borderRadius: '6px',
+//       boxShadow: '0 2px 10px rgba(0,0,0,.15)',
+//       zIndex: 9999,
+//     });
+//     document.body.appendChild(menu);
+//     menu.querySelectorAll('button').forEach(b => {
+//       b.style.display = 'block';
+//       b.style.width = '120px';
+//       b.style.padding = '6px 8px';
+//       b.style.textAlign = 'left';
+//       b.style.background = 'transparent';
+//       b.style.border = 'none';
+//       b.addEventListener('click', ev => {
+//         console.log('Action:', ev.target.dataset.action);
+//         menu.remove();
+//       });
+//     });
+//     document.addEventListener('click', () => menu.remove(), { once: true });
+//   });
+// }
+
+function wireMenuFile() {
+  const btn = document.getElementById('btn-file');
+  if (!btn) { console.warn('[FileMenu] btn-file introuvable'); return; }
+
+  let openMenu = null;
+
+  const closeMenu = () => {
+    if (!openMenu) return;
+    openMenu.remove();
+    openMenu = null;
+    document.removeEventListener('keydown', onKeyDown);
+  };
+  const onKeyDown = (e) => { if (e.key === 'Escape') closeMenu(); };
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (openMenu) { closeMenu(); return; }
+
+    // 1) créer le menu (invisible le temps de le positionner)
+    const menu = document.createElement('div');
+    menu.className = 'file-menu';
+    menu.innerHTML = `
+      <button data-action="new">Nouveau</button>
+      <button data-action="open">Ouvrir</button>
+      <button data-action="save">Sauvegarder</button>
+    `;
+    Object.assign(menu.style, {
+      position: 'fixed',
+      zIndex: 2000,
+      background: '#fff',
+      border: '1px solid #ccc',
+      borderRadius: '8px',
+      boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+      padding: '4px',
+      visibility: 'hidden',   // ← on mesure d’abord
+      opacity: '0',
+    });
+    document.body.appendChild(menu);
+
+    // style des items
+    menu.querySelectorAll('button').forEach(b => {
+      Object.assign(b.style, {
+        display: 'block',
+        width: '100%',
+        padding: '8px 10px',
+        textAlign: 'left',
+        background: 'transparent',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer'
+      });
+      b.addEventListener('mouseenter', () => b.style.background = '#f3f4f6');
+      b.addEventListener('mouseleave', () => b.style.background = 'transparent');
+      b.addEventListener('click', (ev) => {
+        const act = ev.currentTarget.dataset.action;
+        closeMenu();
+        if (act === 'new')  console.log('[File] Nouveau');
+        if (act === 'open') doImport();
+        if (act === 'save') console.log('[File] Sauvegarder');
+      });
+    });
+
+    // 2) positionner AU-DESSUS du bouton (ou en dessous si pas de place)
+    positionMenuOverBtn(btn, menu);
+
+    // 3) montrer avec une petite anim
+    menu.style.visibility = 'visible';
+    menu.animate([
+      { opacity: 0, transform: 'translateY(6px)' },
+      { opacity: 1, transform: 'translateY(0)' }
+    ], { duration: 140, easing: 'ease-out', fill: 'forwards' });
+
+    openMenu = menu;
+
+    // fermer si clic ailleurs (différé pour ne pas capter ce même clic)
+    setTimeout(() => {
+      const onDocClick = (ev) => {
+        if (menu.contains(ev.target) || ev.target === btn) return;
+        document.removeEventListener('click', onDocClick);
+        closeMenu();
+      };
+      document.addEventListener('click', onDocClick);
+    }, 0);
+
+    document.addEventListener('keydown', onKeyDown);
+  });
+}
+
+// centre horizontalement au-dessus du bouton (fallback en dessous si pas la place)
+function positionMenuOverBtn(btn, menu) {
+  const GAP = 8;
+  const rBtn = btn.getBoundingClientRect();
+  const vw = (window.visualViewport?.width)  || window.innerWidth;
+  const vh = (window.visualViewport?.height) || window.innerHeight;
+
+  // mesurer le menu (maintenant qu'il est dans le DOM)
+  const rMenu = menu.getBoundingClientRect();
+  let left = Math.round(rBtn.left + rBtn.width/2 - rMenu.width/2);
+  left = Math.max(8, Math.min(left, vw - rMenu.width - 8)); // clamp horizontale
+
+  // préférence : au-dessus
+  let top = Math.round(rBtn.top - GAP - rMenu.height);
+  if (top < 8) {
+    // pas la place au-dessus → en dessous
+    top = Math.round(rBtn.bottom + GAP);
+    // clamp en bas si nécessaire
+    if (top + rMenu.height > vh - 8) {
+      top = Math.max(8, vh - 8 - rMenu.height);
+    }
+  }
+
+  menu.style.left = left + 'px';
+  menu.style.top  = top  + 'px';
 }
 
 // --- Handler du file input caché (import Excel effectif) ---
