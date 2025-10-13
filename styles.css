@@ -15,6 +15,10 @@
 html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
 #grid { height: calc(100vh - 64px); width: 100%; }
 
+body {
+  padding-top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
+}
+
 /* ===============================
    App logo
    =============================== */
@@ -31,10 +35,6 @@ html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:1
 }
 
 /* décale le contenu pour ne pas passer sous le header */
-body{
-  padding-top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
-}
-
 /* logo du header (option) */
 .app-logo{
   width: 58px; height: 58px; flex: 0 0 auto;
@@ -630,10 +630,6 @@ main, .page-wrap {
   /* invisible mais cliquable */
 }
 
-/* focus/drag feedback */
-.v-splitter__handle:active { background: rgba(60,60,60,.6); }
-
-
 .v-splitter { position: relative; height: 12px; pointer-events: none; z-index: 10; }
 .v-splitter__handle {
   position: absolute; left: 50%; transform: translateX(-50%);
@@ -642,7 +638,9 @@ main, .page-wrap {
   cursor: row-resize; pointer-events: auto; touch-action: none;
   -webkit-user-select: none; user-select: none;
 }
+/* focus/drag feedback */
 .v-splitter__handle:active { background: rgba(60,60,60,.6); }
+
 
 /* ===============================
    Configuration de la sélection grilles
@@ -787,3 +785,9 @@ main, .page-wrap {
 /* Feedback */
 .bb-icon-btn:hover  { background: rgba(0,0,0,.06); }
 .bb-icon-btn:active { transform: scale(0.92); background: rgba(0,0,0,.1); }
+
+
+.page-end-spacer {
+  height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px);
+  flex: 0 0 auto;
+}
