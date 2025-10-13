@@ -181,3 +181,21 @@ export function toDateint(v) {
   return y*10000 + m*100 + d;
 }
 
+export const parseHHhMM = (s) => {
+  const m = /(\d{1,2})h(\d{2})/i.exec(String(s ?? ''));
+  if (!m) return null;
+  const hh = +m[1], mm = +m[2];
+  if (Number.isNaN(hh) || Number.isNaN(mm) || hh>=24 || mm>=60) return null;
+  return hh*60 + mm;
+};
+
+// Excel (Windows) : 1899-12-30 base
+export function excelSerialToYMD(serial) {
+  if (typeof serial !== 'number' || !isFinite(serial)) return null;
+  const ms = (serial - 0) * 86400000; // jours -> ms
+  const base = Date.UTC(1899, 11, 30); // 1899-12-30
+  const d = new Date(base + ms);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
+}
+
+

@@ -1,17 +1,53 @@
 // app.js (module)
 import { df_getAll, df_getAllOrdered, df_putMany, df_clear, carnet_getAll, carnet_clear, carnet_putMany } from './db.mjs';
-import { prettyToDateint, dateintToPretty, ymdToDateint, safeDateint, toDateint } from './utils-date.js';
+import { parseHHhMM, excelSerialToYMD, prettyToDateint, dateintToPretty, ymdToDateint, safeDateint, toDateint } from './utils-date.js';
 import { initialiserPeriodeProgrammation, getCreneaux, getActivitesProgrammables } from './activites.js'; 
 
 // ===== Multi-grilles =====
-const ROW_H=32, HEADER_H=32, PAD=4;
-const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
-
 const grids = new Map();           // id -> { api, el, loader }
 let activeGridId = null;
 
 // Mémorise le créneau sélectionné (grille C)
 let selectedSlot = null;
+
+// Etat local pour le double-tap
+let lastTapKey = null;
+let lastTapTime = 0;
+const TAP_DELAY_MS = 350; // fenêtre de double-tap
+const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+const TODAY = new Date();
+const CUR_Y = TODAY.getFullYear();
+const CUR_M = TODAY.getMonth() + 1;
+
+const DEBUG = true;
+const dlog = (...args)=>DEBUG && console.log('[FLIGHT]', ...args);
+
+// ------- Misc Helpers -------
+
+const ROW_H=32, HEADER_H=32, PAD=4;
+const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
+
+const $ = id => document.getElementById(id);
+
+function safeSizeToFitFor(id){
+  const g = grids.get(id);
+  if (!g?.api) return;
+  setTimeout(()=>{ try{ g.api.sizeColumnsToFit(); }catch{} },0);
+}
+
+function normalizeImportedRows(rows) {
+  return (rows || []).map((r, i) => {
+    const o = { ...r };
+    let id = o.__uuid;
+    const bad = id == null || id === '' || (typeof id === 'number' && Number.isNaN(id));
+    if (bad) {
+      id = (crypto?.randomUUID?.()) || `${Date.now()}-${i}-${Math.random().toString(16).slice(2)}`;
+    }
+    o.__uuid = String(id);
+    return o;
+  });
+}
 
 // ===== Grid Helpers =====
 // Palette pastel (ajuste si tu veux)
@@ -54,29 +90,6 @@ function measureGridMetrics(pane) {
   return { headerH, rowH, rowCount };
 }
 
-function autosizeFromGridSafe(handle, pane) {
-  if (!handle?.api || !pane) return;
-  const cnt = handle.api.getDisplayedRowCount?.();
-  // ⚠️ Ignore les états transitoires
-  if (cnt == null || cnt <= 0) return;
-
-  const rowH = handle.api.getSizesForCurrentTheme?.().rowHeight || 32;
-  const headerH = handle.api.getHeaderHeight?.() || 32;
-  const chrome = 4;
-
-  const targetRows = Math.min(cnt, 5);
-  const hTarget = headerH + rowH * targetRows + chrome;
-  const hMax    = headerH + rowH * cnt      + chrome;
-
-  // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
-  const cur = parseFloat(getComputedStyle(pane).height) || 0;
-  if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
-  // if (hTarget > cur) setPaneHeightSmooth(pane, hTarget, false);
-
-  pane.dataset.maxContentHeight = String(hMax);
-  try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
-}
-
 function paneOf(exp){ return exp.querySelector('.st-expander-body'); }
 
 function enableTransition(pane){
@@ -111,390 +124,6 @@ function restoreTargetHeight(exp){
   return Math.max(0, Math.round(target));
 }
 
-function openExp(exp){
-  const pane = paneOf(exp);
-  exp.classList.add('open');
-  // anim 0 -> target
-  enableTransition(pane);
-  pane.style.setProperty('max-height','none','important');
-  pane.style.setProperty('min-height','0px','important');
-
-  setH(pane, 0);           // point de départ
-  pane.offsetHeight;       // reflow
-  const target = restoreTargetHeight(exp);
-  requestAnimationFrame(()=> setH(pane, target));  // déclenche l’easing
-}
-
-function closeExp(exp){
-  const pane = paneOf(exp);
-  // mémorise la hauteur actuelle
-  savePaneHeight(exp);
-  enableTransition(pane);
-  const h = Math.round(pane.getBoundingClientRect().height);
-  setH(pane, h);           // point de départ
-  pane.offsetHeight;       // reflow
-  requestAnimationFrame(()=> setH(pane, 0)); // easing vers 0
-
-  // après l’anim on nettoie, puis retire .open
-  pane.addEventListener('transitionend', function onEnd(e){
-    if (e.propertyName !== 'height') return;
-    pane.removeEventListener('transitionend', onEnd);
-    pane.style.removeProperty('height');
-    exp.classList.remove('open');
-  });
-}
-
-// quelque part au module (une fois)
-const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-
-// état local pour le double-tap
-let lastTapKey = null;
-let lastTapTime = 0;
-const TAP_DELAY_MS = 350; // fenêtre de double-tap
-
-// function maybeStartEditOnDoubleTap(p) {
-//   if (!isTouchDevice) return;                 // desktop = double-clic natif
-//   if (!p.colDef?.editable) return;            // colonne non éditable → noop
-
-//   const key = `${p.rowIndex}|${p.colDef.field}`;
-//   const now = performance.now();
-
-//   if (lastTapKey === key && (now - lastTapTime) < TAP_DELAY_MS) {
-//     p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
-//     lastTapKey = null; lastTapTime = 0;       // reset
-//   } else {
-//     lastTapKey = key; lastTapTime = now;      // 1er tap : on mémorise
-//   }
-// }
-
-// --- Touch editing: double-tap + long-press (iOS friendly) ---
-// function enableTouchEdit(api, gridEl, opts = {}) {
-//   if (!api || !gridEl) return;
-
-//   const DOUBLE_TAP_MS  = opts.doubleTapMs  ?? 450;
-//   const DOUBLE_TAP_PX  = opts.doubleTapPx  ?? 12;
-//   const LONG_PRESS_MS  = opts.longPressMs  ?? 500;
-//   const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-//   if (!isTouch) return; // Desktop: laisse le double-clic normal
-
-//   let last = { key: null, t: 0, x: 0, y: 0 };
-//   let pressTimer = null;
-//   let moved = false;
-
-//   // renvoie {rowIndex, colKey, key} depuis un élément du DOM
-//   const cellFromEvent = (evt) => {
-//     const cellEl = evt.target?.closest?.('.ag-cell');
-//     if (!cellEl) return null;
-//     const colKey = cellEl.getAttribute('col-id');               // ag-Grid met col-id
-//     // ag-Grid n’expose pas le rowIndex en data-attr; on le trouve via la position visuelle:
-//     const rowEl = cellEl.closest('.ag-row');
-//     let rowIndex = null;
-//     if (rowEl) {
-//       const ri = rowEl.getAttribute('row-index');               // souvent présent
-//       rowIndex = ri != null ? parseInt(ri, 10) : null;
-//     }
-//     // fallback si row-index manquant: on cherche la cellule active via API (optionnel)
-//     if (rowIndex == null) {
-//       const pt = evt.changedTouches?.[0] || evt.touches?.[0] || evt;
-//       const elAt = document.elementFromPoint(pt.clientX, pt.clientY);
-//       const rowEl2 = elAt?.closest?.('.ag-row');
-//       const ri2 = rowEl2?.getAttribute?.('row-index');
-//       if (ri2 != null) rowIndex = parseInt(ri2, 10);
-//     }
-//     if (rowIndex == null || !colKey) return null;
-//     return { rowIndex, colKey, key: `${rowIndex}|${colKey}` };
-//   };
-
-//   const startEdit = ({ rowIndex, colKey }) => {
-//     api.startEditingCell({ rowIndex, colKey });
-//   };
-
-//   const clearPressTimer = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
-
-//   gridEl.addEventListener('touchstart', (e) => {
-//     // ignore si ce n’est pas une cellule
-//     const cell = cellFromEvent(e);
-//     if (!cell) return;
-
-//     moved = false;
-
-//     // planifier long-press
-//     clearPressTimer();
-//     const t0 = performance.now();
-//     const t = e.touches[0];
-//     const x0 = t.clientX, y0 = t.clientY;
-
-//     pressTimer = setTimeout(() => {
-//       if (!moved) startEdit(cell);
-//     }, LONG_PRESS_MS);
-
-//     // stocke pour double-tap
-//     gridEl._lastTouchMeta = { cell, t0, x0, y0 };
-//   }, { passive: true });
-
-//   gridEl.addEventListener('touchmove', (e) => {
-//     const meta = gridEl._lastTouchMeta;
-//     if (!meta) return;
-//     const t = e.touches[0];
-//     const dx = Math.abs(t.clientX - meta.x0);
-//     const dy = Math.abs(t.clientY - meta.y0);
-//     if (dx > DOUBLE_TAP_PX || dy > DOUBLE_TAP_PX) {
-//       moved = true;
-//       clearPressTimer(); // on annule le long-press si on bouge trop
-//     }
-//     // ne pas preventDefault ici, on ne veut pas bloquer le scroll si l’utilisateur scrolle vraiment
-//   }, { passive: true });
-
-//   gridEl.addEventListener('touchend', (e) => {
-//     const meta = gridEl._lastTouchMeta;
-//     if (!meta) return;
-//     clearPressTimer();
-
-//     // si on a bougé, c’était un scroll → pas d’édition
-//     if (moved) { gridEl._lastTouchMeta = null; return; }
-
-//     const cell = cellFromEvent(e);
-//     if (!cell) { gridEl._lastTouchMeta = null; return; }
-
-//     const now = performance.now();
-//     const dt  = now - (last.t || 0);
-//     const tpt = e.changedTouches[0];
-//     const dx  = Math.abs((tpt.clientX) - (last.x || 0));
-//     const dy  = Math.abs((tpt.clientY) - (last.y || 0));
-//     const sameCell = (last.key === cell.key);
-
-//     if (sameCell && dt <= DOUBLE_TAP_MS && dx <= DOUBLE_TAP_PX && dy <= DOUBLE_TAP_PX) {
-//       // double-tap validé
-//       startEdit(cell);
-//       last = { key: null, t: 0, x: 0, y: 0 }; // reset
-//     } else {
-//       // 1er tap : on mémorise et on laisse la sélection normale
-//       last = { key: cell.key, t: now, x: tpt.clientX, y: tpt.clientY };
-//     }
-
-//     gridEl._lastTouchMeta = null;
-//   }, { passive: true });
-
-//   // si l’utilisateur quitte la surface
-//   gridEl.addEventListener('touchcancel', () => {
-//     clearPressTimer();
-//     gridEl._lastTouchMeta = null;
-//   });
-// }
-// export function enableTouchEdit(api, gridEl, opts = {}) {
-//   if (!api || !gridEl) return;
-
-//   // en haut de la fonction
-//   const DEBUG = !!opts.debug;
-//   const FORCE = !!opts.forceTouch;
-//   const log = (...a) => { if (DEBUG) console.debug('[TouchEdit]', ...a); };
-
-//   // ...puis remplace tous les tests "pointerType === 'touch'" par:
-//   const isTouchPtr = (e) => FORCE || e.pointerType === 'touch';
-
-//   // Détection tactile (tu peux forcer en debug)
-//   const isTouchCapable = ('PointerEvent' in window) && ((navigator.maxTouchPoints || 0) > 0 || !!opts.forceTouch);
-//   if (!isTouchCapable) { log('skip (no touch capability)'); return; }
-
-//   const DOUBLE_TAP_MS = opts.doubleTapMs ?? 450;
-//   const DOUBLE_TAP_PX = opts.doubleTapPx ?? 14;
-//   const LONG_PRESS_MS = opts.longPressMs ?? 500;
-
-//   let last = { key: null, t: 0, x: 0, y: 0 };
-//   let pressTimer = null;
-//   let downMeta = null;
-//   let moved = false;
-
-//   const clearPressTimer = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
-
-//   // Extrait {rowIndex, colKey, key} depuis l’event
-//   const cellFromEvent = (evt) => {
-//     const el = evt.target?.closest?.('.ag-cell');
-//     if (!el) return null;
-//     const colKey = el.getAttribute('col-id');
-//     const rowEl = el.closest('.ag-row');
-//     const riAttr = rowEl?.getAttribute('row-index');
-//     const rowIndex = riAttr != null ? parseInt(riAttr, 10) : null;
-//     if (rowIndex == null || !colKey) return null;
-//     return { rowIndex, colKey, key: `${rowIndex}|${colKey}` };
-//   };
-
-//   const startEdit = ({ rowIndex, colKey }) => {
-//     log('→ startEditingCell', rowIndex, colKey);
-//     api.startEditingCell({ rowIndex, colKey });
-//   };
-
-//   const onPointerDown = (e) => {
-//     if (!e.isPrimary || e.pointerType !== 'touch') return;
-//     const cell = cellFromEvent(e);
-//     if (!cell) return;
-
-//     moved = false;
-//     downMeta = { cell, x: e.clientX, y: e.clientY, t: performance.now() };
-//     clearPressTimer();
-//     pressTimer = setTimeout(() => { if (!moved) startEdit(cell); }, LONG_PRESS_MS);
-
-//     log('pointerdown', downMeta);
-//   };
-
-//   const onPointerMove = (e) => {
-//     if (!downMeta || !e.isPrimary || e.pointerType !== 'touch') return;
-//     const dx = Math.abs(e.clientX - downMeta.x);
-//     const dy = Math.abs(e.clientY - downMeta.y);
-//     if (dx > DOUBLE_TAP_PX || dy > DOUBLE_TAP_PX) {
-//       moved = true;
-//       clearPressTimer();
-//       log('move cancel (dx,dy)=', dx, dy);
-//     }
-//   };
-
-//   const onPointerUp = (e) => {
-//     if (!downMeta || !e.isPrimary || e.pointerType !== 'touch') { downMeta = null; clearPressTimer(); return; }
-
-//     const cell = cellFromEvent(e);
-//     clearPressTimer();
-
-//     if (moved || !cell) { downMeta = null; log('pointerup ignored (moved or no cell)'); return; }
-
-//     const now = performance.now();
-//     const dt = now - (last.t || 0);
-//     const dx = Math.abs(e.clientX - (last.x || 0));
-//     const dy = Math.abs(e.clientY - (last.y || 0));
-//     const sameCell = last.key === cell.key;
-
-//     log('pointerup', { dt, dx, dy, sameCell });
-
-//     if (sameCell && dt <= DOUBLE_TAP_MS && dx <= DOUBLE_TAP_PX && dy <= DOUBLE_TAP_PX) {
-//       startEdit(cell);
-//       last = { key: null, t: 0, x: 0, y: 0 };
-//     } else {
-//       last = { key: cell.key, t: now, x: e.clientX, y: e.clientY };
-//       log('single tap memorized', last);
-//     }
-
-//     downMeta = null;
-//   };
-
-//   gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
-//   gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
-//   gridEl.addEventListener('pointerup', onPointerUp, { passive: true });
-//   gridEl.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
-
-//   log('listeners attached on', gridEl);
-// }
-// export function enableTouchEdit(api, gridEl, opts = {}) {
-//   if (!api || !gridEl) return;
-
-//   // en haut de la fonction
-//   const DEBUG = !!opts.debug;
-//   const FORCE = !!opts.forceTouch;
-//   const log = (...a) => { if (DEBUG) console.debug('[TouchEdit]', ...a); };
-
-//   // ...puis remplace tous les tests "pointerType === 'touch'" par:
-//   const isTouchPtr = (e) => FORCE || e.pointerType === 'touch';
-
-//   // Détection tactile (tu peux forcer en debug)
-//   const isTouchCapable = ('PointerEvent' in window) && ((navigator.maxTouchPoints || 0) > 0 || !!opts.forceTouch);
-//   if (!isTouchCapable) { log('skip (no touch capability)'); return; }
-
-//   const DOUBLE_TAP_MS = opts.doubleTapMs ?? 450;
-//   const DOUBLE_TAP_PX = opts.doubleTapPx ?? 14;
-//   const LONG_PRESS_MS = opts.longPressMs ?? 500;
-
-//   let last = { key: null, t: 0, x: 0, y: 0 };
-//   let pressTimer = null;
-//   let downMeta = null;
-//   let moved = false;
-
-//   const clearPressTimer = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
-
-//   // Extrait {rowIndex, colKey, key} depuis l’event
-//   const cellFromEvent = (evt) => {
-//     const el = evt.target?.closest?.('.ag-cell');
-//     if (!el) return null;
-//     const colKey = el.getAttribute('col-id');
-//     const rowEl = el.closest('.ag-row');
-//     const riAttr = rowEl?.getAttribute('row-index');
-//     const rowIndex = riAttr != null ? parseInt(riAttr, 10) : null;
-//     if (rowIndex == null || !colKey) return null;
-//     return { rowIndex, colKey, key: `${rowIndex}|${colKey}` };
-//   };
-
-//   const startEdit = ({ rowIndex, colKey }) => {
-//     log('→ startEditingCell', rowIndex, colKey);
-//     api.startEditingCell({ rowIndex, colKey });
-//   };
-
-//   const onPointerDown = (e) => {
-//     if (!e.isPrimary || !isTouchPtr(e)) return;
-//     const cell = cellFromEvent(e);
-//     if (!cell) return;
-
-//     moved = false;
-//     downMeta = { cell, x: e.clientX, y: e.clientY, t: performance.now() };
-//     clearPressTimer();
-//     pressTimer = setTimeout(() => { if (!moved) startEdit(cell); }, LONG_PRESS_MS);
-
-//     log('pointerdown', downMeta);
-//   };
-
-//   const onPointerMove = (e) => {
-//     if (!downMeta || !e.isPrimary || e.pointerType !== 'touch') return;
-//     const dx = Math.abs(e.clientX - downMeta.x);
-//     const dy = Math.abs(e.clientY - downMeta.y);
-//     if (dx > DOUBLE_TAP_PX || dy > DOUBLE_TAP_PX) {
-//       moved = true;
-//       clearPressTimer();
-//       log('move cancel (dx,dy)=', dx, dy);
-//     }
-//   };
-
-//   const onPointerUp = (e) => {
-//     if (!downMeta || !e.isPrimary || e.pointerType !== 'touch') { downMeta = null; clearPressTimer(); return; }
-
-//     const cell = cellFromEvent(e);
-//     clearPressTimer();
-
-//     if (moved || !cell) { downMeta = null; log('pointerup ignored (moved or no cell)'); return; }
-
-//     const now = performance.now();
-//     const dt = now - (last.t || 0);
-//     const dx = Math.abs(e.clientX - (last.x || 0));
-//     const dy = Math.abs(e.clientY - (last.y || 0));
-//     const sameCell = last.key === cell.key;
-
-//     log('pointerup', { dt, dx, dy, sameCell });
-
-//     if (sameCell && dt <= DOUBLE_TAP_MS && dx <= DOUBLE_TAP_PX && dy <= DOUBLE_TAP_PX) {
-//       startEdit(cell);
-//       last = { key: null, t: 0, x: 0, y: 0 };
-//     } else {
-//       last = { key: cell.key, t: now, x: e.clientX, y: e.clientY };
-//       log('single tap memorized', last);
-//     }
-
-//     downMeta = null;
-//   };
-
-//   // gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
-//   // gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
-//   // gridEl.addEventListener('pointerup', onPointerUp, { passive: true });
-//   // gridEl.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
-//   // AVANT
-//   gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
-//   gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
-//   gridEl.addEventListener('pointerup', onPointerUp, { passive: true });
-//   gridEl.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
-
-//   // APRÈS (plus robuste)
-//   gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
-//   gridEl.addEventListener('pointermove', onPointerMove, { passive: true });
-
-//   // capter la fin du geste même si on sort de la grille
-//   window.addEventListener('pointerup', onPointerUp, { passive: true });
-//   window.addEventListener('pointercancel', () => { clearPressTimer(); downMeta = null; }, { passive: true });
-//   log('listeners attached on', gridEl);
-// }
 export function enableTouchEdit(api, gridEl, opts = {}) {
   if (!api || !gridEl) return;
 
@@ -670,6 +299,900 @@ function calcMaxHForPane(pane) {
   return headerH + rowsWanted * rowH;
 }
 
+function autosizeFromGridSafe(handle, pane) {
+  if (!handle?.api || !pane) return;
+  const cnt = handle.api.getDisplayedRowCount?.();
+  // ⚠️ Ignore les états transitoires
+  if (cnt == null || cnt <= 0) return;
+
+  const rowH = handle.api.getSizesForCurrentTheme?.().rowHeight || 32;
+  const headerH = handle.api.getHeaderHeight?.() || 32;
+  const chrome = 4;
+
+  const targetRows = Math.min(cnt, 5);
+  const hTarget = headerH + rowH * targetRows + chrome;
+  const hMax    = headerH + rowH * cnt      + chrome;
+
+  // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
+  const cur = parseFloat(getComputedStyle(pane).height) || 0;
+  if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
+  // if (hTarget > cur) setPaneHeightSmooth(pane, hTarget, false);
+
+  pane.dataset.maxContentHeight = String(hMax);
+  try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
+}
+
+// récupère la row sélectionnée (ou la focussée) dans une ag-Grid
+function getSelectedRowSafe(api) {
+  if (!api) return null;
+  const sel = api.getSelectedRows?.() || [];
+  if (sel.length) return sel[0];
+  const fc = api.getFocusedCell?.();
+  const r = fc ? api.getDisplayedRowAtIndex?.(fc.rowIndex) : null;
+  return r?.data || null;
+}
+
+// --- calcul de la hauteur idéale pour ≤ 5 lignes ---
+function desiredPaneHeightForRows(gridEl, api, { maxRows = 5 } = {}) {
+  if (!gridEl) return null;
+
+  // header
+  const headerEl = gridEl.querySelector('.ag-header');
+  const hHeader =
+    headerEl?.getBoundingClientRect()?.height ||
+    api?.getHeaderHeight?.() ||
+    36;
+
+  // hauteur d’une ligne (via CSS var si dispo)
+  let rowH = 28;
+  try {
+    const css = getComputedStyle(gridEl);
+    const v = css.getPropertyValue('--ag-row-height');
+    if (v) rowH = parseFloat(v) || rowH;
+  } catch {}
+
+  // nombre de lignes affichées
+  const displayed = api?.getDisplayedRowCount?.() ?? 0;
+
+  // nb à prendre en compte : min(displayed, 5) ; si vide et tu veux ~1,5 ligne visible, mets 1.5
+  const n = Math.min(displayed, maxRows);
+
+  // padding interne du pane si tu en as (ajuste si nécessaire)
+  const paddingPane = 16;
+
+  const desired = Math.round(hHeader + (rowH * n) + paddingPane);
+  return Math.max(desired, hHeader + 8);
+}
+
+// function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
+//   if (!pane || !gridEl) return;
+
+//   const exp = pane.closest('.st-expander');
+//   const isOpen = exp?.classList?.contains?.('open');
+
+//   // calcule la hauteur souhaitée (≤ 5 rows)
+//   const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
+//   if (h == null) return;
+
+//   // Toujours tenir à jour la borne max pour le splitter
+//   pane.dataset.maxContentHeight = String(h);
+
+//   // Respecte un redimensionnement manuel
+//   const userSized = pane.dataset.userSized === '1';
+
+//   if (!isOpen) {
+//     // ❗️Expander fermé → ne PAS appliquer la height
+//     // si pas userSized, on mémorise pour la prochaine ouverture
+//     if (!userSized) pane.dataset.pendingAutoHeight = String(h);
+//     return;
+//   }
+
+//   // Expander ouvert : appliquer seulement si pas userSized
+//   if (!userSized) {
+//     pane.style.height = `${h}px`;
+//     delete pane.dataset.pendingAutoHeight;
+//   }
+// }
+
+// function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
+//   if (!pane || !gridEl) return;
+
+//   const exp = pane.closest('.st-expander');
+//   const isOpen = exp?.classList?.contains?.('open');
+
+//   // calcule la hauteur souhaitée (≤ 5 rows)
+//   const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
+//   if (h == null) return;
+
+//   // toujours tenir à jour la borne max pour le splitter
+//   pane.dataset.maxContentHeight = String(h);
+
+//   // respecte un redimensionnement manuel
+//   const userSized = pane.dataset.userSized === '1';
+
+//   if (!isOpen) {
+//     // expander fermé → ne pas appliquer, juste mémoriser pour la prochaine ouverture
+//     if (!userSized) pane.dataset.pendingAutoHeight = String(h);
+//     return;
+//   }
+
+//   // expander ouvert : appliquer seulement si pas userSized
+//   if (!userSized) {
+//     pane.style.height = `${h}px`;
+//     delete pane.dataset.pendingAutoHeight;
+//   }
+// }
+
+// function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
+//   if (!pane || !gridEl) return;
+
+//   const exp = pane.closest('.st-expander');
+//   const isOpen = exp?.classList?.contains?.('open');
+
+//   const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
+//   if (h == null) return;
+
+//   // borne pour le splitter
+//   pane.dataset.maxContentHeight = String(h);
+
+//   const userSized = pane.dataset.userSized === '1';
+
+//   if (!isOpen) {
+//     if (!userSized) pane.dataset.pendingAutoHeight = String(h);
+//     return; // 🔒 surtout ne pas écrire de height inline en fermé
+//   }
+
+//   if (!userSized) {
+//     pane.style.height = `${h}px`;
+//     delete pane.dataset.pendingAutoHeight;
+//   }
+// }
+
+function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
+  if (!pane || !gridEl) return;
+
+  const exp = pane.closest('.st-expander');
+  const isOpen = exp?.classList?.contains?.('open');
+  const isClosing = exp?.classList?.contains?.('is-closing');
+
+  const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
+  if (h == null) return;
+
+  pane.dataset.maxContentHeight = String(h);
+
+  const userSized = pane.dataset.userSized === '1';
+
+  // si fermé ou en train de se fermer → mémorise seulement
+  if (!isOpen || isClosing) {
+    if (!userSized) pane.dataset.pendingAutoHeight = String(h);
+    return;
+  }
+
+  // ouvert : applique seulement si pas userSized
+  if (!userSized) {
+    pane.style.height = `${h}px`;
+    delete pane.dataset.pendingAutoHeight;
+  }
+}
+
+// function openExp(exp){
+//   const pane = paneOf(exp);
+//   exp.classList.add('open');
+//   // anim 0 -> target
+//   enableTransition(pane);
+//   pane.style.setProperty('max-height','none','important');
+//   pane.style.setProperty('min-height','0px','important');
+
+//   setH(pane, 0);           // point de départ
+//   pane.offsetHeight;       // reflow
+//   const target = restoreTargetHeight(exp);
+//   requestAnimationFrame(()=> setH(pane, target));  // déclenche l’easing
+// }
+
+// function openExp(exp) {
+//   if (!exp) return;
+//   exp.classList.add('open');
+
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (!pane) return;
+
+//   const userSized = pane.dataset.userSized === '1';
+//   const savedKey  = `paneHeight:${exp.id}`;
+//   const saved     = localStorage.getItem(savedKey);
+//   const pending   = pane.dataset.pendingAutoHeight;
+
+//   let targetH = null;
+
+//   if (userSized && saved) {
+//     // l’utilisateur avait dimensionné → on respecte son dernier choix
+//     targetH = parseInt(saved, 10);
+//   } else if (pending) {
+//     // auto-taille calculée pendant que c’était fermé → on l’applique
+//     targetH = parseInt(pending, 10);
+//   }
+
+//   if (Number.isFinite(targetH) && targetH > 0) {
+//     pane.style.height = `${targetH}px`;
+//   }
+//   // on “consomme” le pending
+//   delete pane.dataset.pendingAutoHeight;
+// }
+
+// function openExp(exp) {
+//   if (!exp) return;
+//   exp.classList.add('open');
+
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (!pane) return;
+
+//   const saved = localStorage.getItem(`paneHeight:${exp.id}`);
+//   const pending = pane.dataset.pendingAutoHeight;
+//   const targetH = pending || saved;
+
+//   if (targetH) {
+//     pane.style.transition = 'height 0.25s ease';
+//     pane.style.height = `${parseInt(targetH, 10)}px`;
+//     delete pane.dataset.pendingAutoHeight;
+//   }
+// }
+
+// function openExp(exp) {
+//   if (!exp) return;
+//   exp.classList.add('open');
+
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (!pane) return;
+
+//   const saved   = localStorage.getItem(`paneHeight:${exp.id}`);
+//   const pending = pane.dataset.pendingAutoHeight;
+//   const target  = parseInt(pending || saved || '', 10);
+
+//   if (Number.isFinite(target) && target > 0) {
+//     // petite transition douce si tu veux
+//     pane.style.transition = 'height 0.25s ease';
+//     // force un reflow avant d'appliquer (pour que la transition parte bien)
+//     requestAnimationFrame(() => { pane.style.height = `${target}px`; });
+//   }
+//   delete pane.dataset.pendingAutoHeight;
+// }
+
+// function closeExp(exp){
+//   const pane = paneOf(exp);
+//   // mémorise la hauteur actuelle
+//   savePaneHeight(exp);
+//   enableTransition(pane);
+//   const h = Math.round(pane.getBoundingClientRect().height);
+//   setH(pane, h);           // point de départ
+//   pane.offsetHeight;       // reflow
+//   requestAnimationFrame(()=> setH(pane, 0)); // easing vers 0
+
+//   // après l’anim on nettoie, puis retire .open
+//   pane.addEventListener('transitionend', function onEnd(e){
+//     if (e.propertyName !== 'height') return;
+//     pane.removeEventListener('transitionend', onEnd);
+//     pane.style.removeProperty('height');
+//     exp.classList.remove('open');
+//   });
+// }
+
+// function closeExp(exp) {
+//   if (!exp) return;
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (pane) {
+//     const h = Math.round(pane.getBoundingClientRect().height);
+//     if (h > 0) localStorage.setItem(`paneHeight:${exp.id}`, String(h));
+//   }
+//   exp.classList.remove('open');
+// }
+
+// function closeExp(exp) {
+//   if (!exp) return;
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (pane) {
+//     // 🔹 mémorise la hauteur courante pour réouverture ultérieure
+//     const h = Math.round(pane.getBoundingClientRect().height);
+//     if (h > 0) localStorage.setItem(`paneHeight:${exp.id}`, String(h));
+
+//     // 🔹 réinitialise visuellement le body
+//     //    -> on passe la height à 0 (ou min), transition douce
+//     pane.style.transition = 'height 0.25s ease';
+//     pane.style.height = '0px';
+
+//     // 🔹 pour bien forcer la fermeture du layout
+//     pane.dataset.pendingAutoHeight = String(h); // garde la valeur pour reopen
+//   }
+//   exp.classList.remove('open');
+// }
+
+function openExp(exp) {
+  if (!exp) return;
+  const pane = exp.querySelector('.st-expander-body');
+  if (!pane) { exp.classList.add('open'); return; }
+
+  // si déjà open et pas en fermeture, ne rien faire
+  if (exp.classList.contains('open') && !exp.classList.contains('is-closing')) return;
+
+  exp.classList.remove('is-closing');
+  exp.classList.add('open');
+
+  const saved   = localStorage.getItem(`paneHeight:${exp.id}`);
+  const pending = pane.dataset.pendingAutoHeight;
+  const target  = parseInt(pending || saved || '', 10);
+
+  // point de départ = 0
+  pane.style.height = '0px';
+
+  // applique la cible au frame suivant pour déclencher la transition
+  requestAnimationFrame(() => {
+    const h = Number.isFinite(target) && target > 0 ? target : pane.scrollHeight;
+    pane.style.height = `${h}px`;
+
+    // nettoyage en fin de transition : enlève la height inline pour laisser l'auto-size reprendre la main
+    const onEnd = (ev) => {
+      if (ev.propertyName !== 'height') return;
+      pane.removeEventListener('transitionend', onEnd);
+      delete pane.dataset.pendingAutoHeight;
+      // si tu veux laisser le pane “fixe”, garde la height ; sinon, enlève-la :
+      // pane.style.removeProperty('height');
+    };
+    pane.addEventListener('transitionend', onEnd, { once: true });
+  });
+}
+
+// function closeExp(exp) {
+//   if (!exp) return;
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (pane) {
+//     const h = Math.round(pane.getBoundingClientRect().height);
+//     if (h > 0) {
+//       localStorage.setItem(`paneHeight:${exp.id}`, String(h));
+//       pane.dataset.pendingAutoHeight = String(h); // mémo pour la prochaine ouverture
+//     }
+//     // IMPORTANT : ne laisse pas une height inline qui pourrait être “réanimée”
+//     pane.style.removeProperty('height');
+//   }
+//   exp.classList.remove('open');
+// }
+
+function closeExp(exp) {
+  if (!exp) return;
+  const pane = exp.querySelector('.st-expander-body');
+  if (!pane) { exp.classList.remove('open'); return; }
+
+  // si déjà en fermeture, ignore
+  if (exp.classList.contains('is-closing')) return;
+
+  // mémorise la hauteur actuelle pour réouverture / autosize ultérieure
+  const curH = Math.max(0, Math.round(pane.getBoundingClientRect().height));
+  if (curH > 0) {
+    localStorage.setItem(`paneHeight:${exp.id}`, String(curH));
+    pane.dataset.pendingAutoHeight = String(curH);
+  }
+
+  // prépare la fermeture animée : set la height actuelle -> force reflow -> 0
+  pane.style.height = `${curH}px`;
+  // force reflow pour que la transition reparte de curH
+  // eslint-disable-next-line no-unused-expressions
+  pane.offsetHeight;
+
+  exp.classList.add('is-closing');
+  pane.style.height = '0px';
+
+  const onEnd = (ev) => {
+    if (ev.propertyName !== 'height') return;
+    pane.removeEventListener('transitionend', onEnd);
+
+    // état final fermé
+    exp.classList.remove('open');
+    exp.classList.remove('is-closing');
+
+    // IMPORTANT : aucune height inline qui pourrait re-gonfler en fermé
+    pane.style.removeProperty('height');
+  };
+  pane.addEventListener('transitionend', onEnd, { once: true });
+}
+
+
+// function openExpanderById(expId) {
+//   const exp = document.getElementById(expId);
+//   if (exp && !exp.classList.contains('open')) openExp(exp); // utilise ta fonction existante
+// }
+
+// Sélectionne par __uuid et rend visible
+function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {}) {
+  const h = grids.get(gridId);
+  if (!h || !uuid) return false;
+  const api = h.api;
+  let node = null;
+
+  api.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
+  if (!node) return false;
+
+  node.setSelected?.(true, true);
+  api.ensureNodeVisible?.(node, align);
+
+  if (flash) {
+    const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
+    rowEl?.animate(
+      [{ background: 'rgba(255,230,0,.5)' }, { background: 'transparent' }],
+      { duration: 450, easing: 'ease-out' }
+    );
+  }
+  return true;
+}
+
+// // trouve le node AG Grid + l'élément DOM .ag-row pour un __uuid
+// function getRowNodeAndElByUuid(gridId, uuid) {
+//   const h = grids.get(gridId);
+//   if (!h || !uuid) return { api: null, node: null, rowEl: null };
+
+//   const api = h.api;
+//   let node = null;
+//   api.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
+//   if (!node) return { api, node: null, rowEl: null };
+
+//   const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
+//   return { api, node, rowEl };
+// }
+
+// // crée un clone visuel (canvas DOM) de la ligne source
+// function makeRowGhost(fromEl) {
+//   if (!fromEl) return null;
+//   const rect = fromEl.getBoundingClientRect();
+//   const ghost = document.createElement('div');
+//   ghost.className = 'row-flight';
+//   ghost.style.left = rect.left + 'px';
+//   ghost.style.top = rect.top + 'px';
+//   ghost.style.width = rect.width + 'px';
+//   ghost.style.height = rect.height + 'px';
+
+//   // clone simple : on copie juste le texte des cellules
+//   const rowClone = document.createElement('div');
+//   rowClone.style.display = 'grid';
+//   rowClone.style.gridTemplateColumns = `repeat(${fromEl.querySelectorAll('.ag-cell').length || 1}, 1fr)`;
+//   rowClone.style.font = getComputedStyle(fromEl).font;
+//   rowClone.style.padding = '2px 6px';
+
+//   fromEl.querySelectorAll('.ag-cell').forEach(cell => {
+//     const d = document.createElement('div');
+//     d.textContent = cell.textContent || '';
+//     d.style.padding = '4px 6px';
+//     rowClone.appendChild(d);
+//   });
+
+//   ghost.appendChild(rowClone);
+//   document.body.appendChild(ghost);
+//   return ghost;
+// }
+
+// // anime le ghost de A → B (DOMRect)
+// function animateGhost(ghost, fromRect, toRect, { duration=550 } = {}) {
+//   if (!ghost || !fromRect || !toRect) return Promise.resolve();
+//   const dx = (toRect.left + toRect.width/2)  - (fromRect.left + fromRect.width/2);
+//   const dy = (toRect.top  + toRect.height/2) - (fromRect.top  + fromRect.height/2);
+//   const scale = Math.max(0.85, Math.min(1.05, toRect.height / Math.max(1, fromRect.height)));
+
+//   return new Promise(res => {
+//     ghost.animate(
+//       [
+//         { transform: 'translate(0,0) scale(1)',   opacity: .95 },
+//         { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0.15 }
+//       ],
+//       { duration, easing: 'cubic-bezier(.22,.8,.2,1)', fill: 'forwards' }
+//     ).onfinish = () => { ghost.remove(); res(); };
+//   });
+// }
+
+// // flash visuel de la ligne d'arrivée
+// function flashArrival(gridId, node) {
+//   const h = grids.get(gridId);
+//   if (!h || !node) return;
+//   const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
+//   rowEl?.classList.add('flash-arrival');
+//   setTimeout(()=> rowEl?.classList.remove('flash-arrival'), 480);
+// }
+
+// // Trouve node & .ag-row par __uuid
+// function getRowNodeAndElByUuid(gridId, uuid) {
+//   const h = grids.get(gridId);
+//   if (!h || !uuid) return { api: null, node: null, rowEl: null, el: h?.el || null };
+//   const api = h.api;
+//   let node = null;
+//   api.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
+//   const rowEl = node ? h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`) : null;
+//   return { api, node, rowEl, el: h.el };
+// }
+
+// CSS.escape polyfill safe
+const cssEscape = (window.CSS && CSS.escape) ? CSS.escape
+  : (s) => String(s).replace(/["\\#:.%]/g, '\\$&');
+
+async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paints = 2, debug = false } = {}) {
+  const h = grids.get(gridId);
+  if (!h || !uuid) return { api: null, node: null, rowEl: null, el: h?.el || null };
+
+  const api = h.api;
+  let node = null;
+  api.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
+  if (!node) {
+    if (debug) console.warn('[rowByUuid] node introuvable pour', uuid);
+    return { api, node: null, rowEl: null, el: h.el };
+  }
+
+  // si demandé, assure la visibilité avant de chercher le DOM
+  if (ensureVisible) {
+    api.ensureNodeVisible?.(node, 'middle');
+    // laisse AG Grid peindre (1-2 frames suffisent)
+    await new Promise(r => {
+      const step = () => (paints-- > 0) ? requestAnimationFrame(step) : r();
+      requestAnimationFrame(step);
+    });
+  }
+
+  // Recherche robustes dans les 3 containers
+  const root = h.el;
+  const containers = [
+    root.querySelector('.ag-center-cols-container'),
+    root.querySelector('.ag-pinned-left-cols-container'),
+    root.querySelector('.ag-pinned-right-cols-container'),
+    root // fallback global
+  ].filter(Boolean);
+
+  // 1) par row-id (id du RowNode = ton __uuid si getRowId est en place)
+  const id = node.id ?? node.data?.__uuid;
+  let rowEl = null;
+  if (id) {
+    const selId = `.ag-row[row-id="${cssEscape(id)}"]`;
+    for (const c of containers) {
+      rowEl = c.querySelector(selId);
+      if (rowEl) break;
+    }
+  }
+
+  // 2) fallback par row-index (0-based)
+  if (!rowEl && Number.isFinite(node.rowIndex)) {
+    const selIdx = `.ag-row[row-index="${node.rowIndex}"]`;
+    for (const c of containers) {
+      rowEl = c.querySelector(selIdx);
+      if (rowEl) break;
+    }
+  }
+
+  // 3) fallback par aria-rowindex (1-based)
+  if (!rowEl && Number.isFinite(node.rowIndex)) {
+    const selAria = `.ag-row[aria-rowindex="${node.rowIndex + 1}"]`;
+    for (const c of containers) {
+      rowEl = c.querySelector(selAria);
+      if (rowEl) break;
+    }
+  }
+
+  if (!rowEl && debug) {
+    const all = root.querySelectorAll('.ag-row');
+    console.warn('[rowByUuid] rowEl introuvable — rows visibles=', all.length, {
+      tried: { id, rowIndex: node.rowIndex },
+      containers: containers.map(c => c.className || c.id || c.tagName),
+      sample: all[0]?.outerHTML?.slice(0, 160) + '...',
+    });
+  }
+
+  return { api, node, rowEl, el: root };
+}
+
+// // crée un “ghost” à partir d’un DOMRect + texte (sans dépendre du DOM source encore présent)
+// function makeRowGhostFromRect(rect, sampleText='') {
+//   if (!rect) return null;
+//   const ghost = document.createElement('div');
+//   ghost.className = 'row-flight';
+//   ghost.style.left = rect.left + 'px';
+//   ghost.style.top = rect.top + 'px';
+//   ghost.style.width = rect.width + 'px';
+//   ghost.style.height = rect.height + 'px';
+
+//   const inner = document.createElement('div');
+//   inner.style.display = 'flex';
+//   inner.style.alignItems = 'center';
+//   inner.style.gap = '8px';
+//   inner.style.height = '100%';
+//   inner.style.padding = '4px 10px';
+//   inner.style.font = '14px/1.2 system-ui, -apple-system, "Segoe UI", Roboto';
+//   inner.textContent = sampleText || '';
+//   ghost.appendChild(inner);
+
+//   document.body.appendChild(ghost);
+//   return ghost;
+// }
+
+// function makeRowGhostFromRect(rect, sampleText='') {
+//   if (!rect) return null;
+//   const ghost = document.createElement('div');
+//   ghost.className = 'row-flight';
+//   // élargir légèrement pour visibilité
+//   const w = Math.max(rect.width, 260);
+
+//   ghost.style.left = rect.left + 'px';
+//   ghost.style.top = rect.top + 'px';
+//   ghost.style.width = w + 'px';
+//   ghost.style.height = rect.height + 'px';
+
+//   const inner = document.createElement('div');
+//   inner.style.display = 'flex';
+//   inner.style.alignItems = 'center';
+//   inner.style.gap = '8px';
+//   inner.style.height = '100%';
+//   inner.style.padding = '4px 10px';
+//   inner.style.font = '14px/1.2 system-ui, -apple-system, "Segoe UI", Roboto';
+//   inner.textContent = sampleText || '';
+//   ghost.appendChild(inner);
+
+//   document.body.appendChild(ghost);
+//   return ghost;
+// }
+
+function animateGhost(ghost, fromRect, toRect, { duration=560 } = {}) {
+  if (!ghost || !fromRect || !toRect) return Promise.resolve();
+  const dx = (toRect.left + toRect.width/2)  - (fromRect.left + fromRect.width/2);
+  const dy = (toRect.top  + toRect.height/2) - (fromRect.top  + fromRect.height/2);
+  const scale = Math.max(0.85, Math.min(1.05, toRect.height / Math.max(1, fromRect.height)));
+  return new Promise(res => {
+    const anim = ghost.animate(
+      [
+        { transform: 'translate(0,0) scale(1)', opacity: .95 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: .1 }
+      ],
+      { duration, easing: 'cubic-bezier(.22,.8,.2,1)', fill: 'forwards' }
+    );
+    anim.onfinish = () => { ghost.remove(); res(); };
+    anim.oncancel  = () => { ghost.remove(); res(); };
+  });
+}
+
+// function animateGhostArc(ghost, fromRect, toRect, { duration=700, lift= -180 } = {}) {
+//   if (!ghost || !fromRect || !toRect) return Promise.resolve();
+
+//   const dx = (toRect.left + toRect.width/2)  - (fromRect.left + fromRect.width/2);
+//   const dy = (toRect.top  + toRect.height/2) - (fromRect.top  + fromRect.height/2);
+
+//   // si delta trop petit → donne un mouvement “lisible”
+//   const small = Math.hypot(dx, dy) < 40;
+//   const L = small ? -200 : lift;
+
+//   // scale léger pour dynamiser
+//   const scaleEnd = 0.9;
+
+//   return new Promise(res => {
+//     const anim = ghost.animate(
+//       [
+//         { transform: 'translate3d(0,0,0) scale(1)',   opacity: .96 },
+//         { transform: `translate3d(${dx*0.75}px, ${dy*0.5 + L}px, 0) scale(1.02)`, opacity: .9 },
+//         { transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scaleEnd})`,        opacity: .15 }
+//       ],
+//       { duration, easing: 'cubic-bezier(.22,.8,.2,1)', fill: 'forwards' }
+//     );
+//     anim.onfinish = () => { ghost.remove(); res(); };
+//     anim.oncancel  = ()  => { ghost.remove(); res(); };
+//   });
+// }
+
+function getHeaderTargetRect(expId) {
+  const header = document.querySelector(`#${expId} .st-expander-header`);
+  if (!header) return null;
+  const r = header.getBoundingClientRect();
+  // viser un point un peu au-dessus, centré, pour un mouvement visible
+  return {
+    left: r.left + r.width/2 - 40,
+    top:  r.top  - 24,
+    width: 80,
+    height: 20
+  };
+}
+
+// function flashArrival(gridId, node) {
+//   const h = grids.get(gridId);
+//   if (!h || !node) return;
+//   const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
+//   if (!rowEl) return;
+//   rowEl.classList.add('flash-arrival');
+//   setTimeout(()=> rowEl.classList.remove('flash-arrival'), 480);
+// }
+
+// attendre qu'AG Grid ait peint
+function nextPaint(times=2) {
+  return new Promise(r => {
+    const step = () => (times-- > 0) ? requestAnimationFrame(step) : r();
+    requestAnimationFrame(step);
+  });
+}
+
+// Ouvre l’expander par id (utilise ta openExp si dispo)
+function openExpanderById(expId){
+  const exp = document.getElementById(expId);
+  if (!exp) return;
+  if (!exp.classList.contains('open')) {
+    if (typeof openExp === 'function') openExp(exp);
+    else exp.classList.add('open');
+  }
+}
+
+// sélectionne + rend visible + retourne DOM de la ligne si possible
+async function ensureRowVisibleAndGetEl(gridId, uuid) {
+  const h = grids.get(gridId);
+  if (!h) return { api:null, node:null, rowEl:null };
+
+  const api = h.api;
+  let node = null;
+  api.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
+  if (!node) return { api, node:null, rowEl:null };
+
+  // sélection d’abord (feedback immédiat)
+  node.setSelected?.(true, true);
+  api.ensureNodeVisible?.(node, 'middle');
+  await nextPaint(1);
+
+  // essaye de récupérer l’élément DOM
+  const rowEl =
+    h.el.querySelector(`.ag-row[row-id="${node.id}"]`) ||
+    h.el.querySelector(`.ag-row[row-index="${node.rowIndex}"]`) ||
+    h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`) ||
+    null;
+
+  // si pas encore dans le DOM, re-ensure & repaint
+  if (!rowEl) {
+    api.ensureNodeVisible?.(node, 'middle');
+    await nextPaint(2);
+  }
+
+  const rowEl2 =
+    h.el.querySelector(`.ag-row[row-id="${node.id}"]`) ||
+    h.el.querySelector(`.ag-row[row-index="${node.rowIndex}"]`) ||
+    h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`) ||
+    null;
+
+  return { api, node, rowEl: rowEl2 };
+}
+
+// mini flash propre
+function flashArrival(gridId, node) {
+  const h = grids.get(gridId);
+  if (!h || !node) return;
+  const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`)
+             || h.el.querySelector(`.ag-row[row-index="${node.rowIndex}"]`);
+  if (!rowEl) return;
+  rowEl.classList.add('flash-arrival');
+  setTimeout(()=> rowEl.classList.remove('flash-arrival'), 480);
+}
+
+// ghost simple (lisible)
+function makeRowGhostFromRect(rect, label='') {
+  if (!rect) return null;
+  const ghost = document.createElement('div');
+  ghost.className = 'row-flight';
+  ghost.style.left   = rect.left+'px';
+  ghost.style.top    = rect.top+'px';
+  ghost.style.width  = Math.max(rect.width, 260)+'px';
+  ghost.style.height = rect.height+'px';
+  const inner = document.createElement('div');
+  inner.style.display='flex';
+  inner.style.alignItems='center';
+  inner.style.height='100%';
+  inner.style.padding='4px 10px';
+  inner.style.font='14px/1.2 system-ui,-apple-system,"Segoe UI",Roboto';
+  inner.textContent = label;
+  ghost.appendChild(inner);
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
+function animateGhostArc(ghost, fromRect, toRect, { duration=680, lift=-160 }={}) {
+  if (!ghost || !fromRect || !toRect) return Promise.resolve();
+  const dx = (toRect.left+toRect.width/2)  - (fromRect.left+fromRect.width/2);
+  const dy = (toRect.top +toRect.height/2) - (fromRect.top +fromRect.height/2);
+  const short = Math.hypot(dx,dy) < 40;
+  const L = short ? -200 : lift;
+  return new Promise(res=>{
+    ghost.animate(
+      [
+        { transform:'translate3d(0,0,0) scale(1)',          opacity:.96 },
+        { transform:`translate3d(${dx*0.75}px,${dy*0.5+L}px,0) scale(1.02)`, opacity:.9 },
+        { transform:`translate3d(${dx}px,${dy}px,0) scale(.9)`,             opacity:.15 },
+      ],
+      { duration, easing:'cubic-bezier(.22,.8,.2,1)', fill:'forwards' }
+    ).onfinish = ()=>{ ghost.remove(); res(); };
+  });
+}
+
+// function addHeaderActionsProgrammables() {
+//   const exp = document.querySelector('#exp-programmables');
+//   if (!exp) return;
+//   const header = exp.querySelector('.st-expander-header');
+//   if (!header) return;
+
+//   // assure un span titre
+//   if (!header.querySelector('.st-expander-title')) {
+//     const t = header.querySelector('.title') || header.firstElementChild;
+//     if (t) t.classList.add('st-expander-title');
+//   }
+
+//   // déjà présent ?
+//   if (header.querySelector('.header-actions')) return;
+
+//   const actions = document.createElement('div');
+//   actions.className = 'header-actions';
+//   actions.setAttribute('data-no-toggle', ''); // pour le guard dans wireExpanders
+
+//   const btn = document.createElement('button');
+//   btn.className = 'btn';
+//   btn.textContent = 'Programmer';
+//   btn.title = 'Programmer l’activité sélectionnée';
+
+//   // 🔒 Empêche de déclencher le toggle de l’expander
+//   const swallow = (e) => { e.stopPropagation(); };
+//   btn.addEventListener('mousedown', swallow);
+//   btn.addEventListener('mouseup', swallow);
+//   btn.addEventListener('click', (e) => {
+//     e.stopPropagation();
+//     doProgrammerActiviteSelectionnee();
+//   });
+
+//   actions.appendChild(btn);
+//   header.appendChild(actions);
+// }
+
+function addProgrammerButton(expanderId, onClick) {
+  const exp = document.getElementById(expanderId);
+  if (!exp) return;
+  const header = exp.querySelector('.st-expander-header');
+  if (!header) return;
+
+  // évite les doublons
+  let actions = header.querySelector('.exp-header-actions');
+  if (!actions) {
+    actions = document.createElement('div');
+    actions.className = 'exp-header-actions';
+    header.appendChild(actions);
+  }
+  if (actions.querySelector('.btn-programmer')) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'exp-header-btn btn-programmer';
+  btn.title = 'Programmer l’activité sélectionnée';
+  btn.innerHTML = `
+    <span class="exp-icon" aria-hidden="true">
+      <!-- Icône calendrier fin, noir -->
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4.5" width="18" height="16" rx="2" ry="2"></rect>
+        <line x1="16" y1="3.5" x2="16" y2="7"></line>
+        <line x1="8"  y1="3.5" x2="8"  y2="7"></line>
+        <line x1="3"  y1="9"   x2="21" y2="9"></line>
+        <!-- petit carré de date pour le look -->
+        <rect x="7.5" y="12" width="4" height="3.8" rx="0.6" ry="0.6"></rect>
+      </svg>
+    </span>
+    <span class="exp-label">Programmer</span>
+  `;
+
+  // stopPropagation : ne pas toggler l’expander
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    // flash visuel court
+    btn.classList.add('clicked');
+    setTimeout(() => btn.classList.remove('clicked'), 180);
+
+    // callback métier (si fourni)
+    try {
+      await onClick?.();
+    } catch (err) {
+      console.error('Programmer action error:', err);
+    }
+  });
+
+  actions.appendChild(btn);
+}
+
+function addButtons() {
+  addProgrammerButton('exp-programmables', async () => {await doProgrammerActiviteSelectionnee();});
+}
+
 // ===== Colonnes =====
 // Colonnes activités (grilles A, B, D) 
 function buildColumnsActivites(){
@@ -793,10 +1316,6 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
 
-    // onCellClicked: (p) => {
-    //   // iOS/mobile : 2 taps rapides pour éditer
-    //   maybeStartEditOnDoubleTap(p);
-    // },
     onCellKeyDown: (p) => {
       // bonus: Enter déclenche l’édition (utile sur desktop)
       if (p.event?.key === 'Enter' && p.colDef?.editable) {
@@ -821,67 +1340,56 @@ function setActiveGrid(gridId){
   grids.forEach(g => g?.el?.classList.toggle('is-active-grid', g.id === gridId));
 }
 
-// async function refreshGrid(gridId){
-//   const g = grids.get(gridId);
-//   if (!g?.api) return;
-
-//   const rows = await (g.loader ? g.loader() : df_getAllOrdered());
-//   g.api.setGridOption('rowData', rows || []);
-
-//  // 🧭 Fallback : si rien n’est sélectionné, sélectionner la première ligne
-//   const sel = g.api.getSelectedNodes?.() || [];
-//   if ((!sel || sel.length === 0) && rows && rows.length > 0) {
-//     requestAnimationFrame(() => {
-//       try {
-//         g.api.ensureIndexVisible?.(0, 'top');   // scroll en haut
-//         g.api.selectIndex?.(0, true, true);     // sélection unique
-//       } catch (e) {
-//         console.warn(`[refreshGrid:${gridId}] fallback sélection échouée`, e);
-//       }
-//     });
-//   }
-
-//   const pane = g.el.closest('.st-expander-body');
-//   if (pane) {
-//     const cnt   = Array.isArray(rows) ? rows.length : 0;
-//     const hOpen = hFor(Math.min(cnt,5));
-//     const hMax  = hFor(cnt);
-//     pane.dataset.maxContentHeight = String(hMax);
-
-//     // pas d’anim lors d’un refresh automatique
-//     const cur = parseFloat(getComputedStyle(pane).height)||0;
-//     if (hOpen > cur) { disableTransition(pane); setH(pane, hOpen); enableTransition(pane); }
-
-//     try { g.api.onGridSizeChanged(); g.api.sizeColumnsToFit(); } catch {}
-//   }
-// }
-
 // async function refreshGrid(gridId) {
 //   const h = grids.get(gridId);
 //   if (!h) return;
 
-//   // Recharge les données via le loader de la grille
-//   const rows = await h.loader?.();
-//   h.api.setGridOption?.('rowData', rows || []);
+//   const api = h.api;
 
-//   // 🧭 Fallback : si rien n’est sélectionné, sélectionner la première ligne
-//   const sel = h.api.getSelectedNodes?.() || [];
-//   if ((!sel || sel.length === 0) && rows && rows.length > 0) {
-//     requestAnimationFrame(() => {
-//       try {
-//         h.api.ensureIndexVisible?.(0, 'top');   // scroll en haut
-//         h.api.selectIndex?.(0, true, true);     // sélection unique
-//       } catch (e) {
-//         console.warn(`[refreshGrid:${gridId}] fallback sélection échouée`, e);
-//       }
-//     });
-//   }
-
-//   // 🔄 Resize et repaint
-//   safeGridResize(h.api);
+//   // 0) mémorise la sélection actuelle (par __uuid)
+//   let prevUuid = null;
 //   try {
-//     autoSizePanelFromRowCount?.(h.el.closest('.st-expander-body'), h.api);
+//     const prevSel = api.getSelectedRows?.() || [];
+//     prevUuid = prevSel[0]?.__uuid ?? null;
 //   } catch {}
+
+//   // 1) recharge les données
+//   const rows = await h.loader?.();
+//   api.setGridOption?.('rowData', rows || []);
+
+//   // 2) après peinture → reselect ou fallback 1ère ligne
+//   const selectAfterPaint = () => {
+//     // si déjà sélectionné (AG Grid peut préserver via getRowId) -> ne rien faire
+//     const already = api.getSelectedNodes?.();
+//     if (already && already.length > 0) return finish();
+
+//     let node = null;
+
+//     // essaie de reselectionner l'ancienne ligne par __uuid
+//     if (prevUuid) {
+//       api.forEachNode?.(n => { if (!node && n.data?.__uuid === prevUuid) node = n; });
+//     }
+
+//     // fallback : sélectionner la 1ʳᵉ ligne si aucune
+//     if (!node) {
+//       const count = api.getDisplayedRowCount?.() ?? 0;
+//       if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
+//     }
+
+//     node?.setSelected?.(true, true); // (select, clearOther)
+
+//     finish();
+//   };
+
+//   const finish = () => {
+//     // resize / repaint safe (v29+)
+//     api.refreshCells?.({ force: true });
+//     api.dispatchEvent?.({ type: 'gridSizeChanged' });
+//     try { autoSizePanelFromRowCount?.(h.el.closest('.st-expander-body'), api); } catch {}
+//   };
+
+//   // laisse AG Grid peindre les nouvelles rows
+//   requestAnimationFrame(() => requestAnimationFrame(selectAfterPaint));
 // }
 
 async function refreshGrid(gridId) {
@@ -901,9 +1409,19 @@ async function refreshGrid(gridId) {
   const rows = await h.loader?.();
   api.setGridOption?.('rowData', rows || []);
 
-  // 2) après peinture → reselect ou fallback 1ère ligne
+  // 2) après peinture → reselect ou fallback 1ère ligne, puis resize + autosize pane
+  const finish = () => {
+    // repaint + grid size (AG Grid v29+)
+    api.refreshCells?.({ force: true });
+    api.dispatchEvent?.({ type: 'gridSizeChanged' });
+
+    // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
+    const pane = h.el.closest('.st-expander-body');
+    autoSizePanelFromRowCount(pane, h.el, api);
+  };
+
   const selectAfterPaint = () => {
-    // si déjà sélectionné (AG Grid peut préserver via getRowId) -> ne rien faire
+    // si déjà sélectionné (préservé via getRowId) -> ne rien faire
     const already = api.getSelectedNodes?.();
     if (already && already.length > 0) return finish();
 
@@ -921,15 +1439,7 @@ async function refreshGrid(gridId) {
     }
 
     node?.setSelected?.(true, true); // (select, clearOther)
-
     finish();
-  };
-
-  const finish = () => {
-    // resize / repaint safe (v29+)
-    api.refreshCells?.({ force: true });
-    api.dispatchEvent?.({ type: 'gridSizeChanged' });
-    try { autoSizePanelFromRowCount?.(h.el.closest('.st-expander-body'), api); } catch {}
   };
 
   // laisse AG Grid peindre les nouvelles rows
@@ -978,34 +1488,6 @@ async function loadCreneaux() {
 // 4) Activités programmables 
 async function loadProgrammables(){
   if (!selectedSlot) return [];
-  // const all = await df_getAll();
-
-  // // Contraintes minimales (à affiner plus tard) :
-  // // - activité sans Date (non programmée)
-  // // - durée <= capacité du créneau
-  // // NB: on ignore les conflits salle/relâche/etc. pour l’instant.
-  // const cap = Number(selectedSlot?.Capacité) || (() => {
-  //   const s = parseHHhMM(selectedSlot?.Début);
-  //   const e = parseHHhMM(selectedSlot?.Fin);
-  //   return (s!=null && e!=null && e>s) ? (e-s) : Infinity;
-  // })();
-
-  // return (all||[])
-  //   .filter(r => r.Date == null || r.Date === '')
-  //   .map(r => {
-  //     const mins = parseDureeMin(r['Durée']) ?? Infinity;
-  //     return { ...r, __fit: mins <= cap ? 1 : 0, __mins: mins };
-  //   })
-  //   .sort((a,b)=>{
-  //     // Favoriser ceux qui rentrent dans le créneau
-  //     if (a.__fit !== b.__fit) return b.__fit - a.__fit;
-  //     // puis par priorité si tu veux (optionnel)
-  //     const pa = Number(a['Priorité'])||0, pb = Number(b['Priorité'])||0;
-  //     if (pa!==pb) return pb-pa;
-  //     // puis par durée croissante
-  //     return (a.__mins||Infinity) - (b.__mins||Infinity);
-  //   });
-
   const activites = await df_getAllOrdered();                      
   return getActivitesProgrammables(activites, selectedSlot);
 }
@@ -1055,69 +1537,6 @@ function wireExpanderSplitters() {
     let prevTransition = '', prevAnimation = '';
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
-
-    // function begin(clientY, e) {
-    //   dragging = true;
-    //   startY = clientY;
-    //   hTop = Math.round(paneTop.getBoundingClientRect().height);
-
-    //   // bornes
-    //   dyMin = -hTop;
-    //   const maxH = Number(paneTop.dataset.maxContentHeight) || hTop;
-    //   dyMax = Math.max(0, maxH - hTop);
-
-    //   // ❌ coupe TOUTE transition/animation (INLINE + !important)
-    //   prevTransition = paneTop.style.transition || '';
-    //   prevAnimation  = paneTop.style.animation  || '';
-    //   paneTop.style.setProperty('transition', 'none', 'important');
-    //   paneTop.style.setProperty('animation',  'none', 'important');
-    //   paneTop.style.willChange = 'height';
-
-    //   setH(paneTop, hTop);
-    //   document.body.style.userSelect = 'none';
-    //   document.body.style.cursor = 'row-resize';
-    //   e?.preventDefault?.();
-    // }
-
-    // function update(clientY, e) {
-    //   if (!dragging) return;
-    //   const dyRaw = clientY - startY;
-    //   const dy = Math.max(dyMin, Math.min(dyMax, dyRaw));   // clamp
-    //   setH(paneTop, hTop + dy);
-
-    //   // notifie la grille du haut
-    //   try {
-    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
-    //     for (const g of (window.grids?.values?.() || [])) {
-    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-    //     }
-    //   } catch {}
-    //   // ❌ ne surtout pas faire e.preventDefault ici
-    //   // iOS doit pouvoir générer le tap→click pour AG Grid
-    //   // e?.preventDefault?.();
-    // }
-
-    // function finish() {
-    //   if (!dragging) return;
-    //   dragging = false;
-
-    //   // restaure transition/animation (enlève l’inline qui forçait 'none')
-    //   paneTop.style.removeProperty('transition');
-    //   paneTop.style.removeProperty('animation');
-    //   if (prevTransition) paneTop.style.transition = prevTransition;
-    //   if (prevAnimation)  paneTop.style.animation  = prevAnimation;
-    //   paneTop.style.willChange = '';
-
-    //   // mémorise la hauteur atteinte
-    //   const expTop = paneTop.closest('.st-expander');
-    //   if (expTop) {
-    //     const h = Math.round(paneTop.getBoundingClientRect().height);
-    //     if (h > 0) localStorage.setItem(`paneHeight:${expTop.id}`, String(h));
-    //   }
-
-    //   document.body.style.userSelect = '';
-    //   document.body.style.cursor = '';
-    // }
 
     function begin(clientY, e) {
       const expTop = paneTop.closest('.st-expander');
@@ -1173,45 +1592,6 @@ function wireExpanderSplitters() {
 
     let minH = 0, maxH = 0;
 
-    // function begin(clientY, e) {
-    //   dragging = true;
-    //   startY = clientY;
-
-    //   // hauteur actuelle
-    //   hTop = Math.round(paneTop.getBoundingClientRect().height);
-
-    //   // ✅ bornes : 0 (peut tout cacher, header compris) … contenu (header + rowsWanted)
-    //   minH = 0;
-    //   maxH = computeContentHeight(paneTop);
-
-    //   // coupe les transitions pendant le drag
-    //   prevTransition = paneTop.style.transition || '';
-    //   prevAnimation  = paneTop.style.animation  || '';
-    //   paneTop.style.setProperty('transition', 'none', 'important');
-    //   paneTop.style.setProperty('animation',  'none', 'important');
-    //   paneTop.style.willChange = 'height';
-
-    //   setH(paneTop, hTop);
-    //   document.body.style.userSelect = 'none';
-    //   document.body.style.cursor = 'row-resize';
-    // }
-
-    // function update(clientY, e) {
-    //   if (!dragging) return;
-    //   const dy = clientY - startY;
-    //   const targetH = Math.max(minH, Math.min(hTop + dy, maxH)); // ✅ 0 … contenu
-    //   setH(paneTop, targetH);
-
-    //   // notifie la grille du haut
-    //   try {
-    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
-    //     for (const g of (window.grids?.values?.() || [])) {
-    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-    //     }
-    //   } catch {}
-    // }
-
-
     function finish() {
       if (!dragging) return;
       dragging = false;
@@ -1234,16 +1614,6 @@ function wireExpanderSplitters() {
       document.body.style.cursor = '';
     }
 
-
-    // // Souris
-    // handle.addEventListener('mousedown', e => { if (e.button !== 0) return; begin(e.clientY, e); });
-    // window.addEventListener('mousemove', e => update(e.clientY, e));
-    // window.addEventListener('mouseup', finish);
-
-    // // Tactile
-    // handle.addEventListener('touchstart', e => begin(e.touches[0].clientY, e), { passive: true });
-    // window.addEventListener('touchmove', e => { if (!dragging) return; update(e.touches[0].clientY, e); e.preventDefault(); }, { passive: false });
-    // window.addEventListener('touchend', finish);
     handle.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
       // if (isFromGrid(e)) return; // pas nécessaire ici, la cible = poignée
@@ -1258,20 +1628,6 @@ function wireExpanderSplitters() {
 
     window.addEventListener('mouseup', finish);
 
-    // // Tactile
-    // handle.addEventListener('touchstart', e => {
-    //   // if (isFromGrid(e)) return;          // pas nécessaire ici, la cible = poignée
-    //   begin(e.touches[0].clientY, e);
-    // }, { passive: true });
-
-    // window.addEventListener('touchmove', e => {
-    //   if (!dragging) return;                 // 👈 clé: rien si pas en drag
-    //   // if (isFromGrid(e)) return;          // utile si tu avais un listener global
-    //   e.preventDefault();                    // 👈 seulement pendant le drag
-    //   update(e.touches[0].clientY, e);
-    // }, { passive: false });
-
-    // window.addEventListener('touchend', finish);    
     // Tactile (splitter)
     handle.addEventListener('touchstart', (e) => {
       // pas de preventDefault ici
@@ -1334,95 +1690,6 @@ function wireGrids() {
 
 }
 
-// récupère la row sélectionnée (ou la focussée) dans une ag-Grid
-function getSelectedRowSafe(api) {
-  if (!api) return null;
-  const sel = api.getSelectedRows?.() || [];
-  if (sel.length) return sel[0];
-  const fc = api.getFocusedCell?.();
-  const r = fc ? api.getDisplayedRowAtIndex?.(fc.rowIndex) : null;
-  return r?.data || null;
-}
-
-async function programmerSelection() {
-  // 1) sélection dans la grille des programmables
-  const gProg = grids.get('grid-programmables');
-  if (!gProg) { alert('Grille “programmables” introuvable.'); return; }
-
-  const sel = getSelectedRowSafe(gProg.api);
-  if (!sel) { alert('Sélectionne d’abord une activité.'); return; }
-
-  const uuid = sel.__uuid;
-  const dateInt = toDateint(sel.Date);
-  if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
-
-  // 2) charger tout df, modifier la ligne par __uuid, réécrire
-  const df = await df_getAll() || [];
-  const idx = df.findIndex(r => r.__uuid === uuid);
-  if (idx < 0) { alert('Activité introuvable dans les données.'); return; }
-
-  const next = df.slice();
-  next[idx] = { ...(next[idx] || {}), Date: dateInt };
-  await df_putMany(next); // (ton db.mjs n’a pas d’update unitaire, on réécrit la table)
-
-  // 3) rafraîchir grilles 
-  await refreshAllGrids();
-}
-
-function addHeaderActionsProgrammables() {
-  const exp = document.querySelector('#exp-programmables');
-  if (!exp) return;
-  const header = exp.querySelector('.st-expander-header');
-  if (!header) return;
-
-  // assure un span titre
-  if (!header.querySelector('.st-expander-title')) {
-    const t = header.querySelector('.title') || header.firstElementChild;
-    if (t) t.classList.add('st-expander-title');
-  }
-
-  // déjà présent ?
-  if (header.querySelector('.header-actions')) return;
-
-  const actions = document.createElement('div');
-  actions.className = 'header-actions';
-  actions.setAttribute('data-no-toggle', ''); // pour le guard dans wireExpanders
-
-  const btn = document.createElement('button');
-  btn.className = 'btn';
-  btn.textContent = 'Programmer';
-  btn.title = 'Programmer l’activité sélectionnée';
-
-  // 🔒 Empêche de déclencher le toggle de l’expander
-  const swallow = (e) => { e.stopPropagation(); };
-  btn.addEventListener('mousedown', swallow);
-  btn.addEventListener('mouseup', swallow);
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    // const g = grids?.get('grid-programmables');
-    // const sel = g?.api?.getSelectedRows?.() || [];
-    // if (!sel.length) { alert("Sélectionne d’abord une activité."); return; }
-    // console.log('Programmer', sel[0]);
-    programmerSelection();
-  });
-
-  actions.appendChild(btn);
-  header.appendChild(actions);
-}
-
-
-// function wireExpanders(){
-//   document.querySelectorAll('.st-expander').forEach(exp=>{
-//     const header = exp.querySelector('.st-expander-header');
-//     if (!header) return;
-//     header.addEventListener('click', ()=>{
-//       if (exp.classList.contains('open')) closeExp(exp);
-//       else openExp(exp);
-//     });
-//     // démarrage ouvert avec easing
-//     openExp(exp);
-//   });
-// }
 function wireExpanders(){
   document.querySelectorAll('.st-expander').forEach((exp) => {
     const header = exp.querySelector('.st-expander-header');
@@ -1469,54 +1736,6 @@ function wireExpanders(){
     // démarrage ouvert (avec ton easing existant)
     openExp(exp);
     header.setAttribute('aria-expanded', 'true');
-  });
-}
-
-// ------- Misc Helpers -------
-
-// util
-const $ = id => document.getElementById(id);
-
-// Helpers heure/durée
-const parseHHhMM = (s) => {
-  const m = /(\d{1,2})h(\d{2})/i.exec(String(s ?? ''));
-  if (!m) return null;
-  const hh = +m[1], mm = +m[2];
-  if (Number.isNaN(hh) || Number.isNaN(mm) || hh>=24 || mm>=60) return null;
-  return hh*60 + mm;
-};
-const parseDureeMin = (s) => parseHHhMM(s); // même format "1h20" -> minutes
-
-// ===== Date helpers: Excel/pretty <-> dateint (yyyymmdd) =====
-const TODAY = new Date();
-const CUR_Y = TODAY.getFullYear();
-const CUR_M = TODAY.getMonth() + 1;
-
-// Excel (Windows) : 1899-12-30 base
-function excelSerialToYMD(serial) {
-  if (typeof serial !== 'number' || !isFinite(serial)) return null;
-  const ms = (serial - 0) * 86400000; // jours -> ms
-  const base = Date.UTC(1899, 11, 30); // 1899-12-30
-  const d = new Date(base + ms);
-  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
-}
-
-function safeSizeToFitFor(id){
-  const g = grids.get(id);
-  if (!g?.api) return;
-  setTimeout(()=>{ try{ g.api.sizeColumnsToFit(); }catch{} },0);
-}
-
-function normalizeImportedRows(rows) {
-  return (rows || []).map((r, i) => {
-    const o = { ...r };
-    let id = o.__uuid;
-    const bad = id == null || id === '' || (typeof id === 'number' && Number.isNaN(id));
-    if (bad) {
-      id = (crypto?.randomUUID?.()) || `${Date.now()}-${i}-${Math.random().toString(16).slice(2)}`;
-    }
-    o.__uuid = String(id);
-    return o;
   });
 }
 
@@ -1572,6 +1791,8 @@ ActiviteRenderer.prototype.getGui = function(){ return this.eGui; };
 ActiviteRenderer.prototype.refresh = function(){ return false; };
 
 // ------- Actions -------
+
+// Import Excel
 async function doImport() {
   // déclenche l’input caché
   const fi = $('fileInput');
@@ -1641,6 +1862,18 @@ async function doAdd() {
   await refreshGrid();
 }
 
+// Init Pyodide (singleton)
+let pyodideReady = null;
+async function getPyodideOnce() {
+  if (!pyodideReady) {
+    pyodideReady = (async () => {
+      const pyodide = await loadPyodide(); // script déjà inclus dans index.html
+      return pyodide;
+    })();
+  }
+  return pyodideReady;
+}
+
 // Test Python 
 async function doPythonTest() {
   try {
@@ -1667,16 +1900,126 @@ async function doPythonTest() {
   }
 }
 
-// Init Pyodide (singleton)
-let pyodideReady = null;
-async function getPyodideOnce() {
-  if (!pyodideReady) {
-    pyodideReady = (async () => {
-      const pyodide = await loadPyodide(); // script déjà inclus dans index.html
-      return pyodide;
-    })();
+async function doProgrammerActiviteSelectionnee() {
+  // 1) sélection dans la grille des programmables
+  const gProg = grids.get('grid-programmables');
+  if (!gProg) { alert('Grille “programmables” introuvable.'); return; }
+
+  const sel = getSelectedRowSafe(gProg.api);
+  // if (!sel) { alert('Sélectionne d’abord une activité.'); return; }
+
+  const uuid = sel.__uuid;
+  const dateInt = toDateint(sel.Date);
+  if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
+
+  // Capture source AVANT refresh pour préparation animation fantôme
+  // const srcSnap = await getRowNodeAndElByUuid('grid-programmables', uuid);
+  // const fromRect = srcSnap.rowEl?.getBoundingClientRect() || null;
+  // const ghostLabel = (srcSnap.node?.data?.Activité || srcSnap.node?.data?.Activite || '').trim();
+  // dlog('capture source', { hasRowEl: !!srcSnap.rowEl, fromRect });
+  const srcH = grids.get('grid-programmables');
+  let fromRect = null, ghostLabel = '';
+  if (srcH) {
+    const sel = srcH.api.getSelectedRows?.() || [];
+    const s = sel[0];
+    if (s) {
+      const { node, rowEl } = await ensureRowVisibleAndGetEl('grid-programmables', s.__uuid);
+      fromRect = rowEl?.getBoundingClientRect() || null;
+      ghostLabel = (s.Activité || s.Activite || '').trim();
+    }
   }
-  return pyodideReady;
+
+  // 2) charger tout df, modifier la ligne par __uuid, réécrire
+  const df = await df_getAll() || [];
+  const idx = df.findIndex(r => r.__uuid === uuid);
+  if (idx < 0) { alert('Activité introuvable dans les données.'); return; }
+
+  const next = df.slice();
+  next[idx] = { ...(next[idx] || {}), Date: dateInt };
+
+  await df_putMany(next); // (ton db.mjs n’a pas d’update unitaire, on réécrit la table)
+
+  // 3) ouvrir l’expander “programmées” puis sélectionner & scroller la ligne
+  openExpanderById('exp-programmees');
+
+  // 4) attendre la peinture avant de sélectionner (double rAF)
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const ok = selectRowByUuid('grid-programmees', uuid, { align: 'middle', flash: true });
+    if (!ok) {
+      // fallback : sélection de la 1ère ligne si l’UUID n’est pas (encore) visible
+      const h = grids.get('grid-programmees');
+      const count = h?.api?.getDisplayedRowCount?.() ?? 0;
+      if (count > 0) {
+        const node = h.api.getDisplayedRowAtIndex(0);
+        node?.setSelected?.(true, true);
+        h.api.ensureIndexVisible?.(0, 'top');
+      }
+    }
+  }));
+
+  // 5) rafraîchir grilles 
+  await refreshAllGrids();
+
+  // 6) ANIMATION fantôme de la ligne (si on a capturé une source)
+  const doPhantom = true; // debug Phantom
+  if (doPhantom) {
+    // openExpanderById('exp-programmees');
+    // await nextPaint(2);
+
+    // // Destination : essaie de retrouver la row, sinon header d’expander
+    // let { api: apiDst, node: nodeDst, rowEl: toEl } =
+    //   getRowNodeAndElByUuid('grid-programmees', uuid);
+
+    // if (nodeDst && apiDst && !toEl) {
+    //   // hors-viewport : la rendre visible, puis re-mesurer
+    //   apiDst.ensureNodeVisible?.(nodeDst, 'middle');
+    //   await nextPaint(1);
+    //   ({ api: apiDst, node: nodeDst, rowEl: toEl } =
+    //     getRowNodeAndElByUuid('grid-programmees', uuid));
+    // }
+
+    // let toRect = null;
+    // if (toEl) {
+    //   toRect = toEl.getBoundingClientRect();
+    // } else {
+    //   const header = document.querySelector('#exp-programmees .st-expander-header');
+    //   toRect = header?.getBoundingClientRect() || { left: innerWidth/2, top: 64, width: 1, height: 1 };
+    // }
+    // dlog('destination', { hasNode: !!nodeDst, hasToEl: !!toEl, toRect });
+
+    // // Si on a une source → animer
+    // if (fromRect) {
+    //   const ghost = makeRowGhostFromRect(fromRect, ghostLabel);
+    //   dlog('ghost created?', !!ghost);
+    //   await animateGhostArc(ghost, fromRect, toRect, { duration: 620 });
+    //   dlog('ghost done');
+    // }
+
+    // // Sélection finale + flash
+    // if (nodeDst) {
+    //   nodeDst.setSelected?.(true, true);
+    //   apiDst.ensureNodeVisible?.(nodeDst, 'middle');
+    //   flashArrival('grid-programmees', nodeDst);
+    // }
+
+    // 2) ouvrir l’expander cible et rendre la row visible
+    openExpanderById('exp-programmees');
+    await nextPaint(2);
+    const dst = await ensureRowVisibleAndGetEl('grid-programmees', uuid);
+
+    // 3) animer vers la VRAIE ligne si possible, sinon flash-only
+    if (fromRect && dst.rowEl) {
+      const toRect = dst.rowEl.getBoundingClientRect();
+      const ghost  = makeRowGhostFromRect(fromRect, ghostLabel);
+      await animateGhostArc(ghost, fromRect, toRect, { duration: 700, lift: -180 });
+    }
+    // quoi qu’il arrive : sélection & flash final (perceptible)
+    if (dst.node) {
+      dst.node.setSelected?.(true, true);
+      dst.api.ensureNodeVisible?.(dst.node, 'middle');
+      flashArrival('grid-programmees', dst.node);
+    }
+  }
 }
 
 // ------- Bottom Bar -------
@@ -1890,34 +2233,6 @@ function wireBottomBarToggle() {
   window.addEventListener('resize', updateTogglePos);
 }
 
-// ---------- iOS fix: lock scroll horizontal sur la bottom bar ----------
-// function lockHorizontalScroll() {
-//   const scroller = document.querySelector('.bottom-bar__scroller');
-//   if (!scroller) return;
-
-//   let startX = 0, startY = 0, startLeft = 0, lock = null;
-
-//   scroller.addEventListener('touchstart', (e) => {
-//     const t = e.touches[0];
-//     startX = t.clientX;
-//     startY = t.clientY;
-//     startLeft = scroller.scrollLeft;
-//     lock = null; // indéterminé au départ
-//   }, { passive: true });
-
-//   scroller.addEventListener('touchmove', (e) => {
-//     const t = e.touches[0];
-//     const dx = t.clientX - startX;
-//     const dy = t.clientY - startY;
-
-//     if (lock === null) lock = (Math.abs(dx) > Math.abs(dy)) ? 'x' : 'y';
-
-//     if (lock === 'x') {
-//       scroller.scrollLeft = startLeft - dx;
-//       e.preventDefault(); // bloque le scroll vertical de la page
-//     }
-//   }, { passive: false });
-// }
 function lockHorizontalScroll() {
   const scroller = document.querySelector('.bottom-bar__scroller');
   if (!scroller) return;
@@ -2034,7 +2349,7 @@ function initSafeAreaWatch(){
 document.addEventListener('DOMContentLoaded', () => {
   wireGrids();
   wireExpanders();
-  addHeaderActionsProgrammables();
   wireExpanderSplitters();
   wireBottomBar();
+  addButtons();
 });

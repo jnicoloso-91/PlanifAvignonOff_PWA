@@ -95,6 +95,25 @@ main, .page-wrap {
   padding: 0 16px;
 }
 
+.header-actions {
+  margin-left: auto;         /* colle le bloc d’actions à droite */
+  display: flex;
+  gap: .4rem;
+  align-items: center;
+}
+
+.header-actions .btn {
+  border: none;
+  background: #0078d7;
+  color: #fff;
+  padding: .25rem .6rem;
+  border-radius: 4px;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: background .2s;
+}
+.header-actions .btn:hover { background: #005fa3; }
+
 /* ===============================
    Expanders custom
    =============================== */
@@ -114,7 +133,7 @@ main, .page-wrap {
   display: flex;
   align-items: center;
   gap: .6rem;
-  padding: .9rem 1.1rem;
+  padding: .4rem 1.1rem;
   cursor: pointer;
   user-select: none;
   font-weight: 600;
@@ -156,8 +175,8 @@ main, .page-wrap {
 
 .st-expander-header button {
   border: none;
-  background: #0078d7;
-  color: white;
+  background: transparent;
+  color: black;
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
   font-size: 0.85rem;
@@ -166,7 +185,7 @@ main, .page-wrap {
 }
 
 .st-expander-header button:hover {
-  background: #005fa3;
+  background: #f3f4f6;
 }
 
 .st-expander-title {
@@ -174,61 +193,118 @@ main, .page-wrap {
   min-width: 0;
 }
 
-.header-actions {
-  margin-left: auto;         /* colle le bloc d’actions à droite */
-  display: flex;
-  gap: .4rem;
-  align-items: center;
+.st-expander-header .title {
+  line-height: 35px;   /* force une hauteur de ligne confortable */
 }
 
-.header-actions .btn {
-  border: none;
-  background: #0078d7;
-  color: #fff;
-  padding: .25rem .6rem;
-  border-radius: 4px;
-  font-size: .85rem;
-  cursor: pointer;
-  transition: background .2s;
-}
-.header-actions .btn:hover { background: #005fa3; }
+/* ===============================
+   Expander body 
+   =============================== */
 
-/* Body */
-.st-expander-body {
-  /* max-height: 0; */
-  overflow: hidden;
-  opacity: 0;
-  padding: 0 1rem;
-  background: #fff;
-  transition: max-height .28s ease, opacity .18s ease, padding .18s ease;
-  border-top: 1px solid #e5e7eb;
-  border-radius: 0 0 8px 8px;
-}
-
-.st-expander.open .st-expander-body {
-  /* max-height: 80vh; */
-  max-height: none !important;   /* override toute ancienne valeur (ex. 80vh) */
-  overflow: visible;
-  opacity: 1;
-  padding: 1rem;
-}
-
-/* Transition douce sur ouverture/fermeture (height + opacité) */
-.st-expander .st-expander-body{
-  overflow: hidden;
+/* Base : animé et prêt à être piloté par JS (height en inline) */
+.st-expander .st-expander-body {
+  box-sizing: border-box;
+  padding: 0;                    /* pas de padding ici (utiliser .pane-inner si besoin) */
+  overflow: hidden;              /* évite les débordements pendant l'anim */
+  opacity: 0;                    /* fermé par défaut (visuellement) */
   transition:
-    height 0.35s cubic-bezier(0.4, 0.0, 0.2, 1),
-    opacity 0.25s ease-in-out;
-  opacity: 0;
-  transform: translateZ(0);      /* ok VSCode */
-  will-change: height, opacity;
+    height 0.30s cubic-bezier(0.25, 0.1, 0.25, 1),
+    opacity 0.25s ease;
+  will-change: height, opacity;  /* perf */
 }
-.st-expander.open .st-expander-body{ opacity: 1; }
 
-/* Coupe toute transition pendant le drag */
-.st-expander .st-expander-body.no-anim{
+/* État ouvert : l'opacité passe à 1. 
+   La height reste gérée par JS (inline style.height) */
+.st-expander.open .st-expander-body {
+  opacity: 1;
+}
+
+/* État fermé : aplati de force (prioritaire sur toute height inline) */
+.st-expander:not(.open) .st-expander-body {
+  height: 0 !important;
+  max-height: 0 !important;      /* ceinture et bretelles */
+  overflow: hidden !important;
+  padding-top: 0 !important;     /* pas d'effet de coussin */
+  padding-bottom: 0 !important;
+  opacity: 0;                    /* pour une fermeture douce */
+}
+
+/* Pendant les drags des splitters : pas d'anim */
+.st-expander .st-expander-body.no-anim {
   transition: none !important;
 }
+
+/* (optionnel) Wrapper interne si tu veux un padding visuel autour du contenu */
+.st-expander-body > .pane-inner {
+  height: 100%;
+  padding: 1rem;                 /* mets ton padding ici si besoin */
+  box-sizing: border-box;
+}
+
+/* Les hôtes de grille doivent remplir tout le body */
+.st-expander-body > .ag-theme-quartz,
+.st-expander-body > [id^="grid"],
+.ag-theme-quartz.grid-host {
+  height: 100% !important;
+  min-height: 0 !important;
+  display: block;
+}
+
+/* ===============================
+   Expander btn (boutons dans header)
+   =============================== */
+
+/* conteneur des actions à droite du header */
+.exp-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding-right: .5rem;
+}
+
+/* bouton compact vertical, fond transparent */
+.exp-header-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #111;                /* noir */
+  display: flex;
+  align-items: center;        /* centre verticalement l’icône et le texte */
+  justify-content: center;
+  border-radius: 8px;
+  user-select: none;
+  transition: background-color .15s ease, transform .08s ease;
+}
+.exp-header-btn:focus { outline: none; }
+.exp-header-btn:hover { background: rgba(0,0,0,.06); }
+
+/* icône calendrier (taille discrète) */
+.exp-header-btn .exp-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+}
+
+/* label sous l’icône, très discret */
+.exp-header-btn .exp-label {
+  font-size: .62rem;
+  line-height: 1;
+  opacity: .8;
+}
+
+/* flash/highlight au clic */
+.exp-header-btn.clicked {
+  background: rgba(0,0,0,.18);
+  transform: scale(.95);
+}
+
+/* iOS: pas de halo violet */
+.exp-header-btn { -webkit-tap-highlight-color: transparent; }
 
 /* ===============================
    Ag Grid 
@@ -295,6 +371,29 @@ main, .page-wrap {
 
 /* la grille occupe 100% de la hauteur du panneau */
 .grid-host { height: 100%; min-height: 0; }
+
+/* fantôme qui vole */
+.row-flight {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 8px 30px rgba(0,0,0,.18);
+  border-radius: 6px;
+  overflow: hidden;
+  opacity: 0.95;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+/* flash discret à l'arrivée */
+@keyframes row-flash {
+  0%   { background: rgba(255,230,0,.55); }
+  100% { background: transparent; }
+}
+.ag-row.flash-arrival .ag-cell {
+  animation: row-flash 480ms ease-out;
+}
 
 /* ===============================
    Bottom bar
@@ -465,14 +564,6 @@ main, .page-wrap {
   -webkit-overflow-scrolling: touch !important;
 }
 
-/* IMPORTANT : ne pas empêcher le scroll à cause du parent */
-.st-expander-body {
-  overflow: visible;         /* le scroll se fait dans la grille, pas ici */
-}
-.st-expander.open .st-expander-body {
-  overflow: visible;
-}
-
 /* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
 
@@ -551,30 +642,6 @@ main, .page-wrap {
   -webkit-user-select: none; user-select: none;
 }
 .v-splitter__handle:active { background: rgba(60,60,60,.6); }
-
-/* 1) le body ne doit pas “manger” la hauteur utile */
-.st-expander-body {
-  padding: 0 !important;         /* <= enlève le 1rem coupable */
-  box-sizing: border-box;
-}
-
-/* (si tu tiens au padding, mets-le autour de la grille via un wrapper) */
-.st-expander-body > .pane-inner {
-  height: 100%;
-  padding: 1rem;                  /* optionnel: remets le padding ici */
-  box-sizing: border-box;
-}
-
-/* 2) la grille doit occuper 100% de la hauteur du pane */
-.st-expander-body > .ag-theme-quartz,
-.st-expander-body > [id^="grid"],
-.ag-theme-quartz.grid-host {
-  height: 100% !important;
-  min-height: 0 !important;
-  display: block;
-}
-
-
 
 /* ===============================
    Configuration de la sélection grilles
