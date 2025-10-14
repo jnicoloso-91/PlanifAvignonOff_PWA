@@ -827,49 +827,75 @@ main, .page-wrap {
 /* ===============================
    File upload sheet (mobile)
    =============================== */
+/* ===== Bottom Sheet (style ChatGPT-like) ===== */
 .file-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  transition: opacity .25s ease;
-  opacity: 0;
+  position: fixed; inset: 0; z-index: 3000;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  opacity: 0; transition: opacity .22s ease;
 }
 .file-sheet.visible { opacity: 1; }
 
 .file-sheet__backdrop {
-  flex: 1;
-  background: rgba(0,0,0,.4);
-  backdrop-filter: blur(3px);
+  flex: 1; background: rgba(0,0,0,.42); backdrop-filter: blur(2px);
 }
 
 .file-sheet__panel {
   background: #fff;
-  border-radius: 12px 12px 0 0;
-  padding: 12px 16px 20px;
+  border-radius: 16px 16px 0 0;
+  padding: 10px 12px 14px;
   transform: translateY(100%);
-  transition: transform .25s cubic-bezier(.25,.8,.25,1);
-}
-.file-sheet.visible .file-sheet__panel {
-  transform: translateY(0);
+  transition: transform .25s cubic-bezier(.22,.8,.24,1);
+  box-shadow: 0 -10px 40px rgba(0,0,0,.18);
+  will-change: transform;
 }
 
-.file-sheet__panel h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 600;
+/* poignée en haut (drag handle) */
+.file-sheet__handle {
+  display: block; margin: 6px auto 12px;
+  width: 44px; height: 4px; border-radius: 999px;
+  background: rgba(0,0,0,.18);
 }
-.file-sheet__panel button {
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  padding: 10px;
-  font-size: 15px;
-  border-radius: 6px;
+
+/* Titre section (option) */
+.file-sheet__title {
+  font-size: 15px; font-weight: 600; margin: 0 8px 8px;
+  color: #111;
 }
-.file-sheet__panel button:hover {
-  background: #f3f4f6;
+
+/* Items “à la ChatGPT” */
+.file-sheet__list { margin: 0; padding: 4px; list-style: none; }
+.file-sheet__item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px; border-radius: 10px;
+  cursor: pointer; user-select: none;
+  transition: background .12s ease, transform .06s ease;
+}
+.file-sheet__item:active { transform: translateY(1px) scale(.995); }
+.file-sheet__item:hover { background: #f5f7fa; }
+
+.file-sheet__icon {
+  width: 20px; height: 20px; flex: 0 0 auto; color: #111;
+}
+.file-sheet__text { display: flex; flex-direction: column; min-width: 0; }
+.file-sheet__titleText { font-weight: 700; color: #111; font-size: 15px; }
+.file-sheet__subtitle { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+/* Bouton “Fermer” à la fin */
+.file-sheet__footer {
+  margin-top: 6px; padding: 8px 4px 2px;
+  display: flex; justify-content: center;
+}
+.file-sheet__close {
+  background: transparent; border: none; color: #111; opacity: .7;
+  font-size: 14px; padding: 8px 10px; border-radius: 8px;
+}
+.file-sheet__close:hover { background: #f5f7fa; opacity: 1; }
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .file-sheet__panel { background: #16181c; box-shadow: 0 -10px 40px rgba(0,0,0,.6); }
+  .file-sheet__handle { background: rgba(255,255,255,.2); }
+  .file-sheet_title, .file-sheettitleText, .file-sheet_close { color: #e6edf3; }
+  .file-sheet__subtitle { color: #9aa4ad; }
+  .file-sheet__item:hover { background: rgba(255,255,255,.06); }
 }

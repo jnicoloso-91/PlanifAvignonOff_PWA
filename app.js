@@ -2318,8 +2318,49 @@ function openFileMenu(anchorBtn, opts = {}) {
 }
 
 // File sheet appelée par le bouton "Fichier" sur mobile
+// function openFileSheet() {
+//   // Si déjà ouverte, fermer
+//   const existing = document.querySelector('.file-sheet');
+//   if (existing) { existing.remove(); return; }
+
+//   const sheet = document.createElement('div');
+//   sheet.className = 'file-sheet';
+//   sheet.innerHTML = `
+//     <div class="file-sheet__backdrop"></div>
+//     <div class="file-sheet__panel">
+//       <h3>Fichier</h3>
+//       <button data-action="new">Nouveau</button>
+//       <button data-action="open">Ouvrir</button>
+//       <button data-action="save">Sauvegarder</button>
+//       <button class="cancel">Fermer</button>
+//     </div>
+//   `;
+//   document.body.appendChild(sheet);
+
+//   // Animation d'apparition
+//   requestAnimationFrame(() => sheet.classList.add('visible'));
+
+//   // Fermer sur clic backdrop ou "Fermer"
+//   sheet.querySelector('.file-sheet__backdrop').onclick =
+//   sheet.querySelector('.cancel').onclick = () => {
+//     sheet.classList.remove('visible');
+//     setTimeout(() => sheet.remove(), 280);
+//   };
+
+//   // Actions
+//   sheet.querySelectorAll('button[data-action]').forEach(b => {
+//     b.onclick = e => {
+//       const act = e.target.dataset.action;
+//       sheet.classList.remove('visible');
+//       setTimeout(() => sheet.remove(), 280);
+//       if (act === 'new') console.log('Nouveau');
+//       if (act === 'open') doImport();
+//       if (act === 'save') console.log('Sauvegarder');
+//     };
+//   });
+// }
 function openFileSheet() {
-  // Si déjà ouverte, fermer
+  // Si déjà ouverte → fermer
   const existing = document.querySelector('.file-sheet');
   if (existing) { existing.remove(); return; }
 
@@ -2327,37 +2368,109 @@ function openFileSheet() {
   sheet.className = 'file-sheet';
   sheet.innerHTML = `
     <div class="file-sheet__backdrop"></div>
-    <div class="file-sheet__panel">
-      <h3>Fichier</h3>
-      <button data-action="new">Nouveau</button>
-      <button data-action="open">Ouvrir</button>
-      <button data-action="save">Sauvegarder</button>
-      <button class="cancel">Fermer</button>
+    <div class="file-sheet__panel" role="dialog" aria-modal="true">
+      <span class="file-sheet__handle" aria-hidden="true"></span>
+      <h3 class="file-sheet__title">Fichier</h3>
+      <ul class="file-sheet__list">
+        <li class="file-sheet__item" data-action="new">
+          <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          <div class="file-sheet__text">
+            <span class="file-sheet__titleText">Nouveau</span>
+            <span class="file-sheet__subtitle">Réinitialiser le planning</span>
+          </div>
+        </li>
+        <li class="file-sheet__item" data-action="open">
+          <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h7l3 3h6v13H4z"/>
+          </svg>
+          <div class="file-sheet__text">
+            <span class="file-sheet__titleText">Ouvrir</span>
+            <span class="file-sheet__subtitle">Importer un fichier Excel</span>
+          </div>
+        </li>
+        <li class="file-sheet__item" data-action="save">
+          <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/>
+            <path d="M17 21v-8H7v8M7 5v4h8"/>
+          </svg>
+          <div class="file-sheet__text">
+            <span class="file-sheet__titleText">Sauvegarder</span>
+            <span class="file-sheet__subtitle">Exporter vers Excel</span>
+          </div>
+        </li>
+      </ul>
+      <div class="file-sheet__footer">
+        <button class="file-sheet__close">Fermer</button>
+      </div>
     </div>
   `;
   document.body.appendChild(sheet);
 
-  // Animation d'apparition
+  const panel   = sheet.querySelector('.file-sheet__panel');
+  const backdrop= sheet.querySelector('.file-sheet__backdrop');
+  const handle  = sheet.querySelector('.file-sheet__handle');
+
+  // Apparition
   requestAnimationFrame(() => sheet.classList.add('visible'));
 
-  // Fermer sur clic backdrop ou "Fermer"
-  sheet.querySelector('.file-sheet__backdrop').onclick =
-  sheet.querySelector('.cancel').onclick = () => {
+  // Fermer helper
+  const close = () => {
     sheet.classList.remove('visible');
-    setTimeout(() => sheet.remove(), 280);
+    panel.style.transform = translateY(100%);
+    setTimeout(() => sheet.remove(), 260);
   };
 
-  // Actions
-  sheet.querySelectorAll('button[data-action]').forEach(b => {
-    b.onclick = e => {
-      const act = e.target.dataset.action;
-      sheet.classList.remove('visible');
-      setTimeout(() => sheet.remove(), 280);
-      if (act === 'new') console.log('Nouveau');
-      if (act === 'open') doImport();
-      if (act === 'save') console.log('Sauvegarder');
-    };
+  // Clicks
+  backdrop.addEventListener('click', close);
+  sheet.querySelector('.file-sheet__close').addEventListener('click', close);
+  sheet.querySelectorAll('.file-sheet__item').forEach(li => {
+    li.addEventListener('click', () => {
+      const act = li.dataset.action;
+      close();
+      if (act === 'new')  console.log('[File] Nouveau');
+      if (act === 'open') doImport?.();
+      if (act === 'save') doExport?.();
+    });
   });
+
+  // ----- Swipe-down to close (drag handle) -----
+  let startY = 0, dragging = false, baseY = 0;
+
+  const begin = (y) => {
+    dragging = true;
+    startY = y;
+    // position de départ (0)
+    baseY = 0;
+    panel.style.transition = 'none';
+  };
+  const move = (y) => {
+    if (!dragging) return;
+    const dy = Math.max(0, y - startY);
+    panel.style.transform = translateY(${dy}px);
+  };
+  const end = (y) => {
+    if (!dragging) return;
+    dragging = false;
+    const dy = Math.max(0, y - startY);
+    const shouldClose = dy > 80; // seuil de fermeture
+    panel.style.transition = 'transform .22s cubic-bezier(.22,.8,.24,1)';
+    if (shouldClose) { close(); }
+    else { panel.style.transform = 'translateY(0)'; }
+  };
+
+  // Touch + Mouse (sur la poignée ET le panel haut)
+  const startEvt = (e) => begin(e.touches ? e.touches[0].clientY : e.clientY);
+  const moveEvt  = (e) => { e.preventDefault?.(); move(e.touches ? e.touches[0].clientY : e.clientY); };
+  const endEvt   = (e) => end(e.changedTouches ? e.changedTouches[0].clientY : e.clientY);
+
+  handle.addEventListener('touchstart', startEvt, { passive: true });
+  handle.addEventListener('mousedown',  startEvt);
+  window.addEventListener('touchmove',  moveEvt,  { passive: false });
+  window.addEventListener('mousemove',  moveEvt);
+  window.addEventListener('touchend',   endEvt);
+  window.addEventListener('mouseup',    endEvt);
 }
 
 // Centre horizontalement au-dessus du bouton (fallback en dessous si pas la place)
