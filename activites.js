@@ -10,10 +10,12 @@ import {
 function existActivitesProgrammables(/*jour, traiter_pauses*/) { return true; }
 
 /**
- * Renvoie la liste (triée) des activités programmées :
+ * Renvoie la liste des activités programmées à partir d'un tableau d'activités :
  * celles qui ont une Date valide, et des champs Début, Durée, Activité non vides.
+ * On suppose qu'il s'agit bien d'un tableau d'activités contenant les champs nécessaires 
+ * et trié selon Date et Début.
  *
- * @param {Array<object>} df  - tableau d’activités (équivalent du DataFrame)
+ * @param {Array<object>} df  - tableau d’activités (équivalent d'un DataFrame)
  * @returns {Array<object>}   - activités programmées triées
  */
 export function getActivitesProgrammees(df) {
@@ -28,27 +30,30 @@ export function getActivitesProgrammees(df) {
 
   const filtered = df.filter(r =>
     estFloatValide(r.Date) &&
-    isNotNull(r.Debut || r['Début']) &&
-    isNotNull(r.Duree || r['Durée']) &&
-    isNotNull(r.Activite || r['Activité'])
+    isNotNull(r.Debut) &&
+    isNotNull(r.Duree) &&
+    isNotNull(r.Activite)
   );
 
-  // Tri par Date (numérique) puis par Debut_dt ou Debut (HHhMM)
-  filtered.sort((a, b) => {
-    const da = Number(a.Date) || 0;
-    const db = Number(b.Date) || 0;
-    if (da !== db) return da - db;
+  return filtered;
+}
 
-    // Si tu as une propriété Debut_dt (Date JS)
-    if (a.Debut_dt && b.Debut_dt) return a.Debut_dt - b.Debut_dt;
+/**
+ * Renvoie la liste des activités non programmées à partir d'un tableau d'activités :
+ * celles sans Date, mais avec Debut, Duree et Activite définies.
+ * On suppose qu'il s'agit bien d'un tableau d'activités contenant les champs nécessaires 
+ * et trié selon Date et Début.
+ * @param {Array<Object>} df - tableau d'activités
+ * @returns {Array<Object>} nouveau tableau trié
+ */
+export function getActivitesNonProgrammees(df = []) {
+  if (!Array.isArray(df)) return [];
 
-    // Sinon on retombe sur le texte "HHhMM"
-    const parseTime = s => {
-      const m = /(\d{1,2})h(\d{2})/i.exec(String(s || ''));
-      return m ? (+m[1]) * 60 + (+m[2]) : 0;
-    };
-    return parseTime(a.Debut || a['Début']) - parseTime(b.Debut || b['Début']);
-  });
+  const filtered = df.filter(r =>
+      (r.Date == null || r.Date === '') &&   // Date manquante
+      r.Debut != null && r.Duree != null && r.Activite != null &&
+      r.Debut !== '' && r.Duree !== '' && r.Activite !== ''
+    )
 
   return filtered;
 }
@@ -340,7 +345,7 @@ export function getCreneaux(activites, activitesProgrammees, traiter_pauses = fa
   }
 
   if ((activitesProgrammees?.length || 0) > 0) {
-    let jourCourant = activitesProgrammees[0].Date;
+    // let jourCourant = activitesProgrammees[0].Date;
 
     for (let i = 0; i < activitesProgrammees.length; i++) {
       const row = activitesProgrammees[i];
@@ -348,11 +353,11 @@ export function getCreneaux(activites, activitesProgrammees, traiter_pauses = fa
       const heureDebut = Number.isFinite(d) ? d : null;
       const heureFin   = (Number.isFinite(d) && Number.isFinite(du)) ? d + du : null;
 
-      // changement de jour → reset des bornes anti-doublons
-      if (row.Date !== jourCourant) {
-        bornes = [];
-        jourCourant = row.Date;
-      }
+      // // changement de jour → reset des bornes anti-doublons
+      // if (row.Date !== jourCourant) {
+      //   bornes = [];
+      //   jourCourant = row.Date;
+      // }
 
       // ---- Créneau AVANT ----
       if (heureDebut != null) {
@@ -361,7 +366,7 @@ export function getCreneaux(activites, activitesProgrammees, traiter_pauses = fa
           const [bMin, bMax, prev] = getCreneauBoundsAvant(activitesProgrammees, row);
           // Valide et pas doublon ?
           if (bMin < bMax) {
-            const key = `${bMin}-${bMax}`;
+            const key = `${row.Date}-${bMin}-${bMax}`;
             if (!bornes.includes(key)) {
               bornes.push(key);
               creneaux.push(
@@ -378,7 +383,7 @@ export function getCreneaux(activites, activitesProgrammees, traiter_pauses = fa
           const [bMin, bMax, next] = getCreneauBoundsApres(activitesProgrammees, row);
           const max = (bMax == null ? MAX_DAY : bMax);
           if (bMin < max) {
-            const key = `${bMin}-${max}`;
+            const key = `${row.Date}-${bMin}-${max}`;
             if (!bornes.includes(key)) {
               bornes.push(key);
               creneaux.push(
@@ -420,7 +425,7 @@ export function getActivitesProgrammables(activites, creneau, traiterPauses = fa
     let ligneRef = null;
     try {
       ligneRef = activitesProgrammees.find(r => r.__uuid === creneau.__uuid);
-      if (!ligneRef) throw new Error("index hors limite");
+      if (!ligneRef) throw new Error("uuid de creneau introuvable dans activités programmées");
     } catch (err) {
       console.warn("Erreur getActivitesProgrammables :", err);
       return proposables;
@@ -452,3 +457,78 @@ export function getActivitesProgrammables(activites, creneau, traiterPauses = fa
 
   return proposables;
 }
+
+/**
+ * Tri par Date (YYYYMMDD) puis Début ("HHhMM") d'un tableau d'activités.
+ * - Les lignes SANS Date vont à la fin, triées entre elles par Début.
+ * - Ne modifie PAS le tableau d'origine.
+ *
+ * @param {Array<Object>} rows
+ * @param {Object} [opts]
+ * @param {boolean} [opts.desc=false] - sens du tri pour les lignes AVEC date
+ * @param {string}  [opts.dateKey='Date']
+ * @param {string}  [opts.timeKey='Début']  // <-- accent
+ * @returns {Array<Object>}
+ */
+export function sortDf(rows, opts = {}) {
+  const {
+    desc = false,
+    dateKey = 'Date',
+    timeKey = 'Debut',
+  } = opts;
+
+  const dir = desc ? -1 : 1;
+
+  const parseDateInt = (d) => {
+    if (d == null || d === '') return null;
+    const n = Number(d);
+    return Number.isFinite(n) ? n : null; // attend YYYYMMDD
+  };
+
+  const parseTimeHhMM = (t) => {
+    if (t == null || t === '') return null;
+    const m = String(t).trim().match(/^(\d{1,2})h(\d{2})$/i);
+    if (!m) return null;
+    const hh = Number(m[1]), mm = Number(m[2]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh >= 24 || mm >= 60) return null;
+    return hh * 60 + mm; // minutes depuis 00:00
+  };
+
+  const indexed = rows.map((r, i) => ({
+    r,
+    i,
+    d: parseDateInt(r[dateKey]),
+    m: parseTimeHhMM(r[timeKey]),
+  }));
+
+  indexed.sort((A, B) => {
+    const aNoDate = A.d == null;
+    const bNoDate = B.d == null;
+
+    // 0) Sans date : toujours APRES ceux avec date
+    if (aNoDate && !bNoDate) return 1;
+    if (!aNoDate && bNoDate) return -1;
+
+    if (!aNoDate && !bNoDate) {
+      // 1) Les deux ont une date -> comparer Date
+      if (A.d !== B.d) return (A.d - B.d) * dir;
+
+      // 2) Puis l'heure (nulls après)
+      const aNull = A.m == null, bNull = B.m == null;
+      if (aNull && bNull) return A.i - B.i;   // stabilité
+      if (aNull) return 1;
+      if (bNull) return -1;
+      return (A.m - B.m) * dir;
+    }
+
+    // 3) Les deux sont sans date -> trier par Début (nulls après)
+    const aNull = A.m == null, bNull = B.m == null;
+    if (aNull && bNull) return A.i - B.i;
+    if (aNull) return 1;
+    if (bNull) return -1;
+    return A.m - B.m;
+  });
+
+  return indexed.map(x => x.r);
+}
+

@@ -1,9 +1,13 @@
-const CACHE = "avignon-cache-v1";
+const CACHE = "avignon-cache-v2";
 const OFFLINE_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./context.js",
+  "./activites.js",
+  "./carnet.js",
+  "./utils-date.js",
   "./ag-grid-community.min.js",
   "./ag-grid.css",
   "./lib/idb.mjs",

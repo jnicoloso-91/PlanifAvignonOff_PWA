@@ -786,7 +786,22 @@ main, .page-wrap {
 .bb-icon-btn:hover  { background: rgba(0,0,0,.06); }
 .bb-icon-btn:active { transform: scale(0.92); background: rgba(0,0,0,.1); }
 
+/* état désactivé des boutons de la bottom bar */
+.bb-icon-btn:disabled {
+  opacity: .38;
+  pointer-events: none;     /* plus de survol/clic */
+  filter: grayscale(1);
+  transform: none !important; /* évite les petits effets d’appui */
+}
 
+/* option : neutraliser le hover quand disabled (au cas où) */
+.bb-icon-btn:disabled:hover {
+  background: transparent;
+}
+
+/* ===============================
+   Spacer en bas de page pour éviter que le contenu soit caché par la bottom bar
+   =============================== */
 .page-end-spacer {
   height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px);
   flex: 0 0 auto;

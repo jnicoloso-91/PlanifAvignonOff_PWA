@@ -1,7 +1,21 @@
 // app.js (module)
-import { df_getAll, df_getAllOrdered, df_putMany, df_clear, carnet_getAll, carnet_clear, carnet_putMany } from './db.mjs';
-import { parseHHhMM, excelSerialToYMD, prettyToDateint, dateintToPretty, ymdToDateint, safeDateint, toDateint } from './utils-date.js';
-import { initialiserPeriodeProgrammation, getCreneaux, getActivitesProgrammables } from './activites.js'; 
+import { 
+  parseHHhMM, 
+  excelSerialToYMD, 
+  prettyToDateint, 
+  dateintToPretty, 
+  ymdToDateint, 
+  safeDateint, 
+  toDateint } from './utils-date.js';
+import { 
+  initialiserPeriodeProgrammation, 
+  getCreneaux, 
+  getActivitesProgrammees, 
+  getActivitesNonProgrammees, 
+  getActivitesProgrammables, 
+  sortDf } from './activites.js'; 
+import { sortCarnet } from './carnet.js'; 
+import { AppContext } from './context.mjs';
 
 // ===== Multi-grilles =====
 const grids = new Map();           // id -> { api, el, loader }
@@ -50,6 +64,74 @@ function normalizeImportedRows(rows) {
     }
     o.__uuid = String(id);
     return o;
+  });
+}
+
+// ===== Normalisation des clés de colonnes Excel -> JS ASCII =====
+
+// Désaccentue + nettoie (lowercase)
+function normalizeHeaderRaw(s) {
+  return String(s ?? '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève accents
+    .trim()
+    .toLowerCase();
+}
+
+// "mot mot" -> "MotMot" (PascalCase)
+function toPascal(s) {
+  return s
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map(word => word ? word[0].toUpperCase() + word.slice(1) : '')
+    .join('');
+}
+
+// Dictionnaire de canons (sur base normalisée lower/ASCII)
+const CANON = {
+  // colonnes usuelles
+  'date': 'Date',
+  'debut': 'Debut',
+  'duree': 'Duree',
+  'activite': 'Activite',
+  'lieu': 'Lieu',
+  'hyperlien': 'Hyperlien',
+  'relache': 'Relache',
+  'relache(s)': 'Relache',
+  'reserve': 'Reserve',
+  'priorite': 'Priorite',
+  // tolérances diverses
+  'debut (hh:mm)': 'Debut',
+  'duree (hh:mm)': 'Duree',
+};
+
+// Normalise un nom de colonne en canon JS (ASCII, sans espace)
+function normalizeHeaderToCanon(header) {
+  if (!header) return '';
+  const raw = normalizeHeaderRaw(header);        // "début" -> "debut"
+  if (raw in CANON) return CANON[raw];           // mapping connu -> "Debut"
+  return toPascal(raw);                          // sinon "ma colonne" -> "MaColonne"
+}
+
+// Transforme toutes les lignes d'un tableau d'activités en renommant les propriétés (enlève accents, espaces, garde canons connus + PascalCase)
+function normalizeRowsKeys(rows = [], { keepOriginal = false } = {}) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(src => {
+    const out = {};
+    for (const [key, val] of Object.entries(src || {})) {
+      // on laisse tranquilles les clés techniques "__uuid" etc.
+      if (key && key.startsWith?.('__')) { out[key] = val; continue; }
+
+      const canon = normalizeHeaderToCanon(key);
+      if (!canon) continue; // ignore colonnes vides
+
+      // si keepOriginal, on garde aussi l'ancienne clé
+      if (keepOriginal) out[key] = val;
+
+      // pose/écrase la version canonique
+      out[canon] = val;
+    }
+    return out;
   });
 }
 
@@ -1183,7 +1265,7 @@ function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
 //   btn.addEventListener('mouseup', swallow);
 //   btn.addEventListener('click', (e) => {
 //     e.stopPropagation();
-//     doProgrammerActiviteSelectionnee();
+//     doProgrammerActivite();
 //   });
 
 //   actions.appendChild(btn);
@@ -1242,7 +1324,7 @@ function addProgrammerButton(expanderId, onClick) {
 }
 
 function addButtons() {
-  addProgrammerButton('exp-programmables', async () => {await doProgrammerActiviteSelectionnee();});
+  addProgrammerButton('exp-programmables', async () => {await doProgrammerActivite();});
 }
 
 // ===== Colonnes =====
@@ -1255,19 +1337,19 @@ function buildColumnsActivites(){
       valueParser:p=>prettyToDateint(p.newValue) ?? p.oldValue ?? null,
       comparator:(a,b)=>(safeDateint(a)||0)-(safeDateint(b)||0)
     },
-    { field:'Début', width, suppressSizeToFit:true,
+    { field:'Debut', headerName: 'Début', width, suppressSizeToFit:true,
       comparator:(a,b)=>{
         const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
         return ma-mb;
       }
     },
-    { field:'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
-    { field:'Durée', width, suppressSizeToFit:true },
+    { field:'Activite', headerName: 'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
+    { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true },
     { field:'Fin',   width, suppressSizeToFit:true },
     { field:'Lieu',  minWidth:160, flex:1 },
-    { field:'Relâche', minWidth:60, flex:.5 },
-    { field:'Réservé', minWidth:60, flex:.5 },
-    { field:'Priorité',minWidth:60, flex:.5 },
+    { field:'Relache', headerName: 'Relâche', minWidth:60, flex:.5 },
+    { field:'Reserve', headerName: 'Réservé', minWidth:60, flex:.5 },
+    { field:'Priorite', headerName: 'Priorité',minWidth:60, flex:.5 },
     { field:'Hyperlien', minWidth:120, flex:2 }
   ];
 }
@@ -1503,61 +1585,49 @@ async function refreshAllGrids() {
   await Promise.all(ids.map(id => refreshGrid(id)));
 }
 
+let refreshPending = false;
+
+async function scheduleGlobalRefresh() {
+  if (refreshPending) return;
+  refreshPending = true;
+  requestAnimationFrame(async () => {
+    refreshPending = false;
+    await refreshAllGrids();
+  });
+}
+
 // ===== Loaders pour chaque grille =====
 
 // 1) Programmées : Date non nulle
 async function loadProgrammees(){
-  const all = await df_getAll();
-  return (all||[])
-    .filter(r => r.Date != null && r.Date !== '')
-    .sort((a,b)=>{
-      const da = Number(a.Date)||0, db = Number(b.Date)||0;
-      if (da!==db) return da-db;
-      const ma = parseHHhMM(a['Début'])??Infinity, mb = parseHHhMM(b['Début'])??Infinity;
-      return ma-mb;
-    });
+  const activites = ctx.df;                      
+  return getActivitesProgrammees(activites);
 }
 
 // 2) Non programmées : Date vide/null
 async function loadNonProgrammees(){
-  const all = await df_getAll();
-  return (all||[])
-    .filter(r => r.Date == null || r.Date === '')
-    .sort((a,b)=>{
-      const ma = parseHHhMM(a['Début'])??Infinity, mb = parseHHhMM(b['Début'])??Infinity;
-      return ma-mb;
-    });
+  const activites = ctx.df;                      
+  return getActivitesNonProgrammees(activites);
 }
 
 async function loadCreneaux() {
-  const activites = await df_getAllOrdered();                      
-  const activitesProgrammees   = activites.filter(r => Number.isFinite(r.Date));
+  const activites = ctx.df;                      
+  const activitesProgrammees = getActivitesProgrammees(activites);
   const periodeProgrammation = initialiserPeriodeProgrammation(activites)
-
   return getCreneaux(activites, activitesProgrammees, false, periodeProgrammation);
 }
 
 // 4) Activités programmables 
 async function loadProgrammables(){
   if (!selectedSlot) return [];
-  const activites = await df_getAllOrdered();                      
+  const activites = ctx.df;                      
   return getActivitesProgrammables(activites, selectedSlot);
 }
 
 // 5) Carnet d'adresses
 async function loadCarnet() {
-  const all = await carnet_getAll();
-  return (all || [])
-    .filter(r => r.Nom != null && r.Nom !== '')
-    .sort((a, b) => {
-      const na = (a.Nom || '').toString()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase().trim();
-      const nb = (b.Nom || '').toString()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase().trim();
-      return na.localeCompare(nb, 'fr', { sensitivity: 'base' });
-    });
+  const carnet = ctx.carnet;
+  return carnet;
 }
 
 // ===== Sélection sur la grille des créneaux =====
@@ -1854,7 +1924,7 @@ async function doImport() {
 // Export Excel
 async function doExport() {
   try {
-    const rows = await df_getAll();
+    const rows = ctx.df;
     // copie “pretty” pour Excel
     const pretty = (rows || []).map(r => ({
       ...r,
@@ -1910,55 +1980,54 @@ async function doAdd() {
     { __uuid: crypto.randomUUID?.() || `${Date.now()}-b`,
       Date: 20250722, Début:'15h00', Durée:'1h10', Activité:"Activité 2", Lieu:"La Scala", Relâche:"", Réservé:"", Priorité:""  },
   ];
-  await df_putMany(sample);
-  await refreshGrid();
+  ctx.mutateDf(rows => [...rows, ...sample]);
 }
 
-// Init Pyodide (singleton)
-let pyodideReady = null;
-async function getPyodideOnce() {
-  if (!pyodideReady) {
-    pyodideReady = (async () => {
-      const pyodide = await loadPyodide(); // script déjà inclus dans index.html
-      return pyodide;
-    })();
-  }
-  return pyodideReady;
-}
+// // Init Pyodide (singleton)
+// let pyodideReady = null;
+// async function getPyodideOnce() {
+//   if (!pyodideReady) {
+//     pyodideReady = (async () => {
+//       const pyodide = await loadPyodide(); // script déjà inclus dans index.html
+//       return pyodide;
+//     })();
+//   }
+//   return pyodideReady;
+// }
 
-// Test Python 
-async function doPythonTest() {
-  try {
-    const t0 = performance.now();
-    const pyodide = await getPyodideOnce();
-    const t1 = performance.now();
+// // Test Python 
+// async function doPythonTest() {
+//   try {
+//     const t0 = performance.now();
+//     const pyodide = await getPyodideOnce();
+//     const t1 = performance.now();
 
-    const code = `
-      def pretty_duration(hhmm: str) -> str:
-          try:
-              hh, mm = hhmm.lower().split('h')
-              return f"{int(hh):02d}:{int(mm):02d}"
-          except Exception:
-              return hhmm
+//     const code = `
+//       def pretty_duration(hhmm: str) -> str:
+//           try:
+//               hh, mm = hhmm.lower().split('h')
+//               return f"{int(hh):02d}:{int(mm):02d}"
+//           except Exception:
+//               return hhmm
 
-      pretty_duration("1h20")
-      `;
-    const out = await pyodide.runPythonAsync(code);
-    const t2 = performance.now();
-    alert(`Pyodide OK : ${out}\nInit: ${(t1-t0).toFixed(1)} ms, Exec: ${(t2-t1).toFixed(1)} ms`);
-  } catch (e) {
-    console.error(e);
-    alert('Pyodide KO');
-  }
-}
+//       pretty_duration("1h20")
+//       `;
+//     const out = await pyodide.runPythonAsync(code);
+//     const t2 = performance.now();
+//     alert(`Pyodide OK : ${out}\nInit: ${(t1-t0).toFixed(1)} ms, Exec: ${(t2-t1).toFixed(1)} ms`);
+//   } catch (e) {
+//     console.error(e);
+//     alert('Pyodide KO');
+//   }
+// }
 
-async function doProgrammerActiviteSelectionnee() {
+async function doProgrammerActivite() {
   // 1) sélection dans la grille des programmables
   const gProg = grids.get('grid-programmables');
   if (!gProg) { alert('Grille “programmables” introuvable.'); return; }
 
   const sel = getSelectedRowSafe(gProg.api);
-  // if (!sel) { alert('Sélectionne d’abord une activité.'); return; }
+  if (!sel) return; 
 
   const uuid = sel.__uuid;
   const dateInt = toDateint(sel.Date);
@@ -1981,16 +2050,22 @@ async function doProgrammerActiviteSelectionnee() {
     }
   }
 
-  // 2) charger tout df, modifier la ligne par __uuid, réécrire
-  const df = await df_getAll() || [];
-  const idx = df.findIndex(r => r.__uuid === uuid);
-  if (idx < 0) { alert('Activité introuvable dans les données.'); return; }
+  // 1) pré-check (lecture instantanée en RAM)
+  const exists = (ctx.df || []).some(r => r.__uuid === uuid);
+  if (!exists) { 
+    alert('Activité introuvable dans les données.');
+    return;                      // ⟵ on sort comme avant
+  }
 
-  const next = df.slice();
-  next[idx] = { ...(next[idx] || {}), Date: dateInt };
-
-  await df_putMany(next); // (ton db.mjs n’a pas d’update unitaire, on réécrit la table)
-
+  // 2) mutation immuable
+  ctx.mutateDf(rows => {
+    let next = rows.slice();
+    const i = next.findIndex(r => r.__uuid === uuid);
+    if (i >= 0) next[i] = { ...next[i], Date: dateInt };
+    next = sortDf(next);
+    return next;
+  });
+  
   // 3) ouvrir l’expander “programmées” puis sélectionner & scroller la ligne
   openExpanderById('exp-programmees');
 
@@ -2010,7 +2085,7 @@ async function doProgrammerActiviteSelectionnee() {
   }));
 
   // 5) rafraîchir grilles 
-  await refreshAllGrids();
+  // await refreshAllGrids(); (fait par mutation)
 
   // 6) ANIMATION fantôme de la ligne (si on a capturé une source)
   const doPhantom = true; // debug Phantom
@@ -2086,27 +2161,40 @@ function wireBottomBar() {
   const scroller = document.getElementById('bottomBarScroller');
   if (!bar || !scroller) return;
 
-  // Click actions
-  scroller.addEventListener('click', (e) => {
-    const btn = e.target.closest('.bb-btn');
+  // petit flash visuel
+  const pulse = (btn) => {
     if (!btn) return;
-    const act = btn.dataset.action;
+    btn.classList.add('bb-clicked');
+    setTimeout(() => btn.classList.remove('bb-clicked'), 140);
+  };
 
-    // optional visual toggle
-    scroller.querySelectorAll('.bb-btn').forEach(b => b.classList.remove('is-active'));
-    btn.classList.add('is-active');
-    setTimeout(() => btn.classList.remove('is-active'), 200);
+  // --- Fichier (menu) ---
+  $('btn-file')?.addEventListener('click', (e) => {
+    pulse(e.currentTarget);
+    openFileMenu(e.currentTarget);
+  });
 
-    // Route actions (adapt to your handlers)
-    switch (act) {
-      case 'import':      doImport(); break;
-      case 'export':      doExport(); break;
-      case 'reload':      doReload(); break;
-      case 'undo':        /* your undo() */        console.log('undo'); break;
-      case 'redo':        /* your redo() */        console.log('redo'); break;
-      case 'add':         doAdd(); break;
-      case 'python test': doPythonTest(); break;
-    }
+  // --- Undo / Redo ---
+  $('btn-undo')?.addEventListener('click', async (e) => {
+    pulse(e.currentTarget);
+    try { await ctx.undo(); } catch {}
+  });
+  $('btn-redo')?.addEventListener('click', async (e) => {
+    pulse(e.currentTarget);
+    try { await ctx.redo(); } catch {}
+  });
+
+  // --- Ajouter ---
+  $('btn-add')?.addEventListener('click', (e) => {
+    pulse(e.currentTarget);
+    ctx.mutateDf(rows => [
+      ...rows,
+      {
+        __uuid: crypto.randomUUID?.() || String(Date.now()),
+        Date: null, Debut: null, Duree: null,
+        Activite: 'Nouvelle activité', Lieu: '', Relache: '', Reserve: '', Priorite: ''
+      }
+    ]);
   });
 
   // Drag-to-scroll with mouse (desktop)
@@ -2141,48 +2229,24 @@ function wireBottomBar() {
   lockHorizontalScroll();
   initSafeAreaWatch();
   setTimeout(wireBottomBarToggle, 300);
-  wireMenuFile();
+  // wireFileMenu();
 }
 
-// function wireMenuFile() {
-//   document.getElementById('btn-file').addEventListener('click', e => {
-//     const menu = document.createElement('div');
-//     menu.className = 'file-menu';
-//     menu.innerHTML = `
-//       <button data-action="new">Nouveau</button>
-//       <button data-action="open">Ouvrir</button>
-//       <button data-action="save">Sauvegarder</button>
-//     `;
-//     Object.assign(menu.style, {
-//       position: 'fixed',
-//       bottom: '60px',
-//       left: e.clientX + 'px',
-//       background: '#fff',
-//       border: '1px solid #ccc',
-//       borderRadius: '6px',
-//       boxShadow: '0 2px 10px rgba(0,0,0,.15)',
-//       zIndex: 9999,
-//     });
-//     document.body.appendChild(menu);
-//     menu.querySelectorAll('button').forEach(b => {
-//       b.style.display = 'block';
-//       b.style.width = '120px';
-//       b.style.padding = '6px 8px';
-//       b.style.textAlign = 'left';
-//       b.style.background = 'transparent';
-//       b.style.border = 'none';
-//       b.addEventListener('click', ev => {
-//         console.log('Action:', ev.target.dataset.action);
-//         menu.remove();
-//       });
-//     });
-//     document.addEventListener('click', () => menu.remove(), { once: true });
-//   });
-// }
+// Menu contextuel au-dessus du bouton "Fichier"
+function openFileMenu(anchorBtn, opts = {}) {
+  const btn = anchorBtn;
+  if (!btn || !(btn instanceof HTMLElement)) {
+    console.warn('[FileMenu] anchor invalide');
+    return;
+  }
 
-function wireMenuFile() {
-  const btn = document.getElementById('btn-file');
-  if (!btn) { console.warn('[FileMenu] btn-file introuvable'); return; }
+  // Si un menu est déjà ouvert → fermer si clic sur le même bouton
+  const existing = document.querySelector('.file-menu');
+  if (existing) {
+    const wasForSameBtn = existing.dataset.anchorId === btn.id;
+    existing.remove();
+    if (wasForSameBtn) return; // toggle: referme seulement
+  }
 
   let openMenu = null;
 
@@ -2194,81 +2258,99 @@ function wireMenuFile() {
   };
   const onKeyDown = (e) => { if (e.key === 'Escape') closeMenu(); };
 
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (openMenu) { closeMenu(); return; }
+  // 1) créer le menu (invisible le temps de le positionner)
+  const menu = document.createElement('div');
+  menu.className = 'file-menu';
+  menu.dataset.anchorId = btn.id || ''; // pour savoir qui l’a ouvert
+  menu.innerHTML = `
+    <button data-action="new">Nouveau</button>
+    <button data-action="open">Ouvrir</button>
+    <button data-action="save">Sauvegarder</button>
+  `;
+  Object.assign(menu.style, {
+    position: 'fixed',
+    zIndex: 2000,
+    background: '#fff',
+    border: '1px solid #ccc',
+    borderRadius: '8px',
+    boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+    padding: '4px',
+    visibility: 'hidden',
+    opacity: '0',
+  });
+  document.body.appendChild(menu);
 
-    // 1) créer le menu (invisible le temps de le positionner)
-    const menu = document.createElement('div');
-    menu.className = 'file-menu';
-    menu.innerHTML = `
-      <button data-action="new">Nouveau</button>
-      <button data-action="open">Ouvrir</button>
-      <button data-action="save">Sauvegarder</button>
-    `;
-    Object.assign(menu.style, {
-      position: 'fixed',
-      zIndex: 2000,
-      background: '#fff',
-      border: '1px solid #ccc',
-      borderRadius: '8px',
-      boxShadow: '0 8px 24px rgba(0,0,0,.12)',
-      padding: '4px',
-      visibility: 'hidden',   // ← on mesure d’abord
-      opacity: '0',
+  // style des items
+  menu.querySelectorAll('button').forEach(b => {
+    Object.assign(b.style, {
+      display: 'block',
+      width: '100%',
+      padding: '8px 10px',
+      textAlign: 'left',
+      background: 'transparent',
+      border: 'none',
+      borderRadius: '6px',
+      cursor: 'pointer'
     });
-    document.body.appendChild(menu);
-
-    // style des items
-    menu.querySelectorAll('button').forEach(b => {
-      Object.assign(b.style, {
-        display: 'block',
-        width: '100%',
-        padding: '8px 10px',
-        textAlign: 'left',
-        background: 'transparent',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: 'pointer'
-      });
-      b.addEventListener('mouseenter', () => b.style.background = '#f3f4f6');
-      b.addEventListener('mouseleave', () => b.style.background = 'transparent');
-      b.addEventListener('click', (ev) => {
-        const act = ev.currentTarget.dataset.action;
-        closeMenu();
-        if (act === 'new')  console.log('[File] Nouveau');
-        if (act === 'open') doImport();
-        if (act === 'save') console.log('[File] Sauvegarder');
-      });
+    b.addEventListener('mouseenter', () => b.style.background = '#f3f4f6');
+    b.addEventListener('mouseleave', () => b.style.background = 'transparent');
+    b.addEventListener('click', async (ev) => {
+      const act = ev.currentTarget.dataset.action;
+      closeMenu();
+      if (act === 'new')  {
+        if (typeof opts.onNew === 'function') return opts.onNew();
+        console.log('[File] Nouveau');
+      }
+      if (act === 'open') {
+        if (typeof opts.onOpen === 'function') return opts.onOpen();
+        if (typeof doImport === 'function') doImport();
+      }
+      if (act === 'save') {
+        if (typeof opts.onSave === 'function') return opts.onSave();
+        console.log('[File] Sauvegarder');
+      }
     });
+  });
 
-    // 2) positionner AU-DESSUS du bouton (ou en dessous si pas de place)
+  // 2) positionner AU-DESSUS du bouton (ou en dessous si pas de place)
+  try {
     positionMenuOverBtn(btn, menu);
+  } catch {
+    const r = btn.getBoundingClientRect();
+    Object.assign(menu.style, {
+      left: `${Math.round(r.left)}px`,
+      top: `${Math.round(r.top - 120)}px`,
+    });
+  }
 
-    // 3) montrer avec une petite anim
-    menu.style.visibility = 'visible';
-    menu.animate([
+  // 3) montrer avec une petite anim
+  menu.style.visibility = 'visible';
+  menu.animate(
+    [
       { opacity: 0, transform: 'translateY(6px)' },
       { opacity: 1, transform: 'translateY(0)' }
-    ], { duration: 140, easing: 'ease-out', fill: 'forwards' });
+    ],
+    { duration: 140, easing: 'ease-out', fill: 'forwards' }
+  );
 
-    openMenu = menu;
+  openMenu = menu;
 
-    // fermer si clic ailleurs (différé pour ne pas capter ce même clic)
-    setTimeout(() => {
-      const onDocClick = (ev) => {
-        if (menu.contains(ev.target) || ev.target === btn) return;
-        document.removeEventListener('click', onDocClick);
-        closeMenu();
-      };
-      document.addEventListener('click', onDocClick);
-    }, 0);
+  // fermer si clic ailleurs (différé pour ne pas capter ce même clic)
+  setTimeout(() => {
+    const onDocClick = (ev) => {
+      if (menu.contains(ev.target)) return;
+      // ⇩ ferme aussi si on reclique sur le bouton ancre ⇩
+      if (ev.target === btn) { closeMenu(); return; }
+      document.removeEventListener('click', onDocClick);
+      closeMenu();
+    };
+    document.addEventListener('click', onDocClick);
+  }, 0);
 
-    document.addEventListener('keydown', onKeyDown);
-  });
+  document.addEventListener('keydown', onKeyDown);
 }
 
-// centre horizontalement au-dessus du bouton (fallback en dessous si pas la place)
+// Centre horizontalement au-dessus du bouton (fallback en dessous si pas la place)
 function positionMenuOverBtn(btn, menu) {
   const GAP = 8;
   const rBtn = btn.getBoundingClientRect();
@@ -2299,6 +2381,7 @@ function positionMenuOverBtn(btn, menu) {
 function wireHiddenFileInput(){
   const fi = $('fileInput');
   if (!fi) return;
+
   fi.addEventListener('change', async (ev)=>{
     const f = ev.target.files?.[0];
     if (!f) return;
@@ -2308,30 +2391,39 @@ function wireHiddenFileInput(){
       const ws  = wb.Sheets[wb.SheetNames[0]];
 
       // 1) JSON “classique” (valeurs) — garde toutes les colonnes
-      let rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+      let dfRows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+      dfRows = normalizeRowsKeys(dfRows);
 
-      // 2) Carte d’en-têtes (détection robuste de "Activité" et "Hyperlien")
+      // // 2) Carte d’en-têtes (détection robuste de "Activité" et "Hyperlien")
+      // const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      // const norm = (s) => (s ?? '')
+      //   .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      //   .trim().toLowerCase();
+
+      // // headers: map nomNormalisé -> index de colonne (c)
+      // const headers = {};
+      // for (let c = range.s.c; c <= range.e.c; c++) {
+      //   const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
+      //   const cell = ws[addr];
+      //   const txt  = (cell && String(cell.v)) || '';
+      //   const key  = norm(txt);
+      //   if (key) headers[key] = c;
+      // }
+
+      // const colActivite = headers['activite'];   // normalizeRowsKeys garantit un nom normalisé
+
+      // 0) range de la feuille
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-      const norm = (s) => (s ?? '')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-        .trim().toLowerCase();
 
-      // headers: map nomNormalisé -> index de colonne (c)
-      const headers = {};
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
-        const cell = ws[addr];
-        const txt  = (cell && String(cell.v)) || '';
-        const key  = norm(txt);
-        if (key) headers[key] = c;
-      }
+      // 1) Récupère la ligne d'entêtes brute (array)
+      const headerRow = (XLSX.utils.sheet_to_json(ws, { header: 1, range: range.s.r })[0] || []);
 
-      const colActivite = headers['activite'] ?? headers['activité']; // tolère les deux
-      const colHyperlienHeader = headers['hyperlien']; // si une colonne existe déjà
+      // 2) Trouve l'index de la colonne "Activite" en normalisant l'entête
+      const colActivite = headerRow.findIndex(h => normalizeHeaderToCanon(h) === 'Activite');
 
       // 3) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
       if (typeof colActivite === 'number') {
-        for (let i = 0; i < rows.length; i++) {
+        for (let i = 0; i < dfRows.length; i++) {
           const r = i + 1; // +1 car row 0 = ligne 2 en Excel (entête sur r0)
           const addr = XLSX.utils.encode_cell({ r: range.s.r + 1 + i, c: colActivite });
           const cell = ws[addr];
@@ -2339,14 +2431,14 @@ function wireHiddenFileInput(){
 
           // S’il y a déjà une colonne "Hyperlien" dans Excel, on la garde prioritaire,
           // sinon on remplit depuis le lien de la cellule Activité.
-          if (!rows[i].Hyperlien && link) {
-            rows[i].Hyperlien = link;
+          if (!dfRows[i].Hyperlien && link) {
+            dfRows[i].Hyperlien = link;
           }
         }
       }
 
       // 4) normalisation colonnes + __uuid + Date->dateint 
-      rows = rows.map((r, i) => {
+      dfRows = dfRows.map((r, i) => {
         const o = { ...r };
 
         // --- Date -> dateint ---
@@ -2363,10 +2455,6 @@ function wireHiddenFileInput(){
         }
         o.Date = di || null; // stock interne = dateint ou null
 
-        // --- Début en minutes pour tri ---
-        // const m = /(\d{1,2})h(\d{2})/i.exec(String(o['Début'] ?? o['Debut'] ?? ''));
-        // const mins = m ? (parseInt(m[1],10)||0)*60 + (parseInt(m[2],10)||0) : 0;
-
         // __uuid garanti
         if (!o.__uuid) {
           o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
@@ -2374,15 +2462,15 @@ function wireHiddenFileInput(){
         return o;
       });
       
-      await df_clear();
-      await df_putMany(rows);
+      dfRows = sortDf(dfRows);
 
-      console.log('✅ Import OK', rows.length, 'lignes');
+      console.log('✅ Import df OK', dfRows.length, 'lignes');
     
       // 5) Carnet d’adresses (optionnel, 2e onglet)
+      let caRows = [];
       const ca  = wb.Sheets[wb.SheetNames[1]]; // 2e onglet = Carnet
       if (ca) {
-        let caRows = XLSX.utils.sheet_to_json(ca, { defval: null, raw: true });
+        caRows = XLSX.utils.sheet_to_json(ca, { defval: null, raw: true });
         caRows = normalizeImportedRows(caRows);
 
         caRows = caRows.map((r, i) => {
@@ -2394,13 +2482,19 @@ function wireHiddenFileInput(){
           return o;
         });
 
-        await carnet_clear();
-        await carnet_putMany(caRows);
-        console.log('✅ Import Carnet OK', caRows.length, 'lignes');
+        caRows = (caRows||[]).filter(r => r.Nom != null && r.Nom !== '');
+        caRows = sortCarnet(caRows);
+
+        console.log('✅ Import ca OK', caRows.length, 'lignes');
       }
 
-      await refreshAllGrids();
-
+      ctx.beginAction('import');
+      try {
+        ctx.setDf(dfRows);     
+        ctx.setCarnet(caRows);      
+      } finally {
+        ctx.endAction();                   
+      }
     }
     catch (e) {
       console.error('❌ Import Excel KO', e);
@@ -2620,11 +2714,37 @@ function initSafeAreaWatch(){
   window.addEventListener('pageshow', () => setTimeout(hardPinBottom, 200));
 }
 
+function wireContext() {
+  ctx.on('df:changed',        () => scheduleGlobalRefresh());
+  ctx.on('carnet:changed',    () => scheduleGlobalRefresh());
+  ctx.on('history:change', (st) => {
+    document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
+    document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
+  });
+
+  // état initial des boutons Undo/Redo
+  const st = ctx.historyState ? ctx.historyState() : { canUndo: false, canRedo: false };
+  document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
+  document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
+}
+
 // ------- Boot -------
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('⏳ DOM prêt, initialisation du contexte...');
+
+  // 1️⃣ Contexte métier (singleton)
+  window.ctx = await AppContext.ready();
+
+  // 2️⃣ Branchements UI
+  wireContext();
+  wireBottomBar();
   wireGrids();
   wireExpanders();
   wireExpanderSplitters();
-  wireBottomBar();
   addButtons();
+
+  // 3️⃣ Premier rendu
+  await refreshAllGrids();
+
+  console.log('✅ Application initialisée');
 });

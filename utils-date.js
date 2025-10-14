@@ -198,4 +198,3 @@ export function excelSerialToYMD(serial) {
   return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
 }
 
-
