@@ -2418,7 +2418,7 @@ function openFileSheet() {
   // Fermer helper
   const close = () => {
     sheet.classList.remove('visible');
-    panel.style.transform = translateY(100%);
+    panel.style.transform = `translateY(100%)`;
     setTimeout(() => sheet.remove(), 260);
   };
 
@@ -2448,7 +2448,7 @@ function openFileSheet() {
   const move = (y) => {
     if (!dragging) return;
     const dy = Math.max(0, y - startY);
-    panel.style.transform = translateY(${dy}px);
+    panel.style.transform = `translateY(${dy}px)`;
   };
   const end = (y) => {
     if (!dragging) return;
