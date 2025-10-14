@@ -665,10 +665,11 @@ main, .page-wrap {
   box-shadow: inset 3px 0 0 var(--sel-accent);
 }
 
-/* Cellule focus (clavier / double-tap) plus nette */
-.ag-theme-quartz .ag-cell-focus {
-  outline: 2px solid var(--sel-accent);
-  outline-offset: -2px;              /* reste dedans */
+/* Supprime le cadre de focus sur la cellule active */
+.ag-theme-quartz .ag-cell-focus,
+.ag-theme-quartz .ag-cell-inline-editing {
+  outline: none !important;
+  box-shadow: none !important;              
 }
 
 /* Petite amélioration visuelle au survol */
@@ -688,12 +689,6 @@ main, .page-wrap {
     --ag-selected-row-background-color: rgba(0,120,215,.18);
   }
 }
-
-/* Supprime le cadre de focus sur la cellule active */
-/* .ag-theme-quartz .ag-cell-focus {
-  outline: none !important;
-  box-shadow: none !important;
-} */
 
 /* ===============================
    Boutons de la bottom bar
@@ -806,3 +801,24 @@ main, .page-wrap {
   height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px);
   flex: 0 0 auto;
 }
+
+/* Kill the blue focus ring in Quartz */
+.ag-theme-quartz {
+  /* Quartz uses these for the focus outline */
+  --ag-focus-width: 0px;
+  --ag-focus-color: transparent;
+  --ag-cell-focus-border: none;
+}
+
+/* Belt & suspenders: nuke any remaining outline/box-shadow */
+.ag-theme-quartz .ag-cell-focus,
+.ag-theme-quartz .ag-cell:focus,
+.ag-theme-quartz .ag-cell:focus-within,
+.ag-theme-quartz .ag-cell.ag-cell-inline-editing {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* iOS tap highlight */
+.ag-theme-quartz { -webkit-tap-highlight-color: transparent; }
