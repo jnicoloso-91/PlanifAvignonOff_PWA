@@ -2485,7 +2485,7 @@ function openFileSheet() {
   const sheet = document.createElement('div');
   sheet.className = 'file-sheet';
   sheet.innerHTML = `
-    <div class="file-sheet__backdrop" style="position:absolute;inset:0;z-index:0;background:rgba(0,0,0,.42);backdrop-filter:blur(2px);"></div>
+    <div class="file-sheet__backdrop" style="position:absolute;inset:0;z-index:0;background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);"></div>
     <div class="file-sheet__panel" role="dialog" aria-modal="true" style="z-index:1">
       <span class="file-sheet__handle" aria-hidden="true"></span>
       <div class="file-sheet__content">

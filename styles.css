@@ -836,7 +836,7 @@ main, .page-wrap {
 .file-sheet.visible { opacity: 1; }
 
 .file-sheet__backdrop {
-  flex: 1; background: rgba(0,0,0,.42); backdrop-filter: blur(2px);
+  flex: 1; background: rgba(0,0,0,.42); backdrop-filter: blur(1px);
 }
 
 .file-sheet__panel {
