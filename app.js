@@ -2034,10 +2034,6 @@ async function doProgrammerActivite() {
   if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
 
   // Capture source AVANT refresh pour préparation animation fantôme
-  // const srcSnap = await getRowNodeAndElByUuid('grid-programmables', uuid);
-  // const fromRect = srcSnap.rowEl?.getBoundingClientRect() || null;
-  // const ghostLabel = (srcSnap.node?.data?.Activité || srcSnap.node?.data?.Activite || '').trim();
-  // dlog('capture source', { hasRowEl: !!srcSnap.rowEl, fromRect });
   const srcH = grids.get('grid-programmables');
   let fromRect = null, ghostLabel = '';
   if (srcH) {
@@ -2090,51 +2086,13 @@ async function doProgrammerActivite() {
   // 6) ANIMATION fantôme de la ligne (si on a capturé une source)
   const doPhantom = true; // debug Phantom
   if (doPhantom) {
-    // openExpanderById('exp-programmees');
-    // await nextPaint(2);
 
-    // // Destination : essaie de retrouver la row, sinon header d’expander
-    // let { api: apiDst, node: nodeDst, rowEl: toEl } =
-    //   getRowNodeAndElByUuid('grid-programmees', uuid);
-
-    // if (nodeDst && apiDst && !toEl) {
-    //   // hors-viewport : la rendre visible, puis re-mesurer
-    //   apiDst.ensureNodeVisible?.(nodeDst, 'middle');
-    //   await nextPaint(1);
-    //   ({ api: apiDst, node: nodeDst, rowEl: toEl } =
-    //     getRowNodeAndElByUuid('grid-programmees', uuid));
-    // }
-
-    // let toRect = null;
-    // if (toEl) {
-    //   toRect = toEl.getBoundingClientRect();
-    // } else {
-    //   const header = document.querySelector('#exp-programmees .st-expander-header');
-    //   toRect = header?.getBoundingClientRect() || { left: innerWidth/2, top: 64, width: 1, height: 1 };
-    // }
-    // dlog('destination', { hasNode: !!nodeDst, hasToEl: !!toEl, toRect });
-
-    // // Si on a une source → animer
-    // if (fromRect) {
-    //   const ghost = makeRowGhostFromRect(fromRect, ghostLabel);
-    //   dlog('ghost created?', !!ghost);
-    //   await animateGhostArc(ghost, fromRect, toRect, { duration: 620 });
-    //   dlog('ghost done');
-    // }
-
-    // // Sélection finale + flash
-    // if (nodeDst) {
-    //   nodeDst.setSelected?.(true, true);
-    //   apiDst.ensureNodeVisible?.(nodeDst, 'middle');
-    //   flashArrival('grid-programmees', nodeDst);
-    // }
-
-    // 2) ouvrir l’expander cible et rendre la row visible
+    // 1) ouvrir l’expander cible et rendre la row visible
     openExpanderById('exp-programmees');
     await nextPaint(2);
     const dst = await ensureRowVisibleAndGetEl('grid-programmees', uuid);
 
-    // 3) animer vers la VRAIE ligne si possible, sinon flash-only
+    // 2) animer vers la VRAIE ligne si possible, sinon flash-only
     if (fromRect && dst.rowEl) {
       const toRect = dst.rowEl.getBoundingClientRect();
       if (PHANTOM_WITH_OFFSET) {
@@ -2145,7 +2103,7 @@ async function doProgrammerActivite() {
         await animateGhostToTopLeft(ghost, fromRect, toRect, { duration: 700});
       }
     }
-    // quoi qu’il arrive : sélection & flash final (perceptible)
+    // 3) quoi qu’il arrive : sélection & flash final (perceptible)
     if (dst.node) {
       dst.node.setSelected?.(true, true);
       dst.api.ensureNodeVisible?.(dst.node, 'middle');
@@ -2171,7 +2129,7 @@ function wireBottomBar() {
   // --- Fichier (menu) ---
   $('btn-file')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
-    openFileMenu(e.currentTarget);
+    openFileMenuOrSheet(e.currentTarget);
   });
 
   // --- Undo / Redo ---
@@ -2230,6 +2188,15 @@ function wireBottomBar() {
   initSafeAreaWatch();
   setTimeout(wireBottomBarToggle, 300);
   // wireFileMenu();
+}
+
+// Appelle le menu contextuel ou la bottom sheet selon la taille d’écran
+function openFileMenuOrSheet(anchorBtn) {
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    openFileSheet(); // version mobile
+  } else {
+    openFileMenu(anchorBtn);  // version desktop
+  }
 }
 
 // Menu contextuel au-dessus du bouton "Fichier"
@@ -2348,6 +2315,49 @@ function openFileMenu(anchorBtn, opts = {}) {
   }, 0);
 
   document.addEventListener('keydown', onKeyDown);
+}
+
+// File sheet appelée par le bouton "Fichier" sur mobile
+function openFileSheet() {
+  // Si déjà ouverte, fermer
+  const existing = document.querySelector('.file-sheet');
+  if (existing) { existing.remove(); return; }
+
+  const sheet = document.createElement('div');
+  sheet.className = 'file-sheet';
+  sheet.innerHTML = `
+    <div class="file-sheet__backdrop"></div>
+    <div class="file-sheet__panel">
+      <h3>Fichier</h3>
+      <button data-action="new">Nouveau</button>
+      <button data-action="open">Ouvrir</button>
+      <button data-action="save">Sauvegarder</button>
+      <button class="cancel">Fermer</button>
+    </div>
+  `;
+  document.body.appendChild(sheet);
+
+  // Animation d'apparition
+  requestAnimationFrame(() => sheet.classList.add('visible'));
+
+  // Fermer sur clic backdrop ou "Fermer"
+  sheet.querySelector('.file-sheet__backdrop').onclick =
+  sheet.querySelector('.cancel').onclick = () => {
+    sheet.classList.remove('visible');
+    setTimeout(() => sheet.remove(), 280);
+  };
+
+  // Actions
+  sheet.querySelectorAll('button[data-action]').forEach(b => {
+    b.onclick = e => {
+      const act = e.target.dataset.action;
+      sheet.classList.remove('visible');
+      setTimeout(() => sheet.remove(), 280);
+      if (act === 'new') console.log('Nouveau');
+      if (act === 'open') doImport();
+      if (act === 'save') console.log('Sauvegarder');
+    };
+  });
 }
 
 // Centre horizontalement au-dessus du bouton (fallback en dessous si pas la place)
@@ -2672,7 +2682,6 @@ function computeSafeGap() {
 
   setSafeGap(gap);
 }
-
 
 function hardPinBottom(){
   if (isSplitterDragging) return;

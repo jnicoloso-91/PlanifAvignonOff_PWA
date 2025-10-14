@@ -822,3 +822,54 @@ main, .page-wrap {
 
 /* iOS tap highlight */
 .ag-theme-quartz { -webkit-tap-highlight-color: transparent; }
+
+
+/* ===============================
+   File upload sheet (mobile)
+   =============================== */
+.file-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: opacity .25s ease;
+  opacity: 0;
+}
+.file-sheet.visible { opacity: 1; }
+
+.file-sheet__backdrop {
+  flex: 1;
+  background: rgba(0,0,0,.4);
+  backdrop-filter: blur(3px);
+}
+
+.file-sheet__panel {
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+  padding: 12px 16px 20px;
+  transform: translateY(100%);
+  transition: transform .25s cubic-bezier(.25,.8,.25,1);
+}
+.file-sheet.visible .file-sheet__panel {
+  transform: translateY(0);
+}
+
+.file-sheet__panel h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.file-sheet__panel button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 10px;
+  font-size: 15px;
+  border-radius: 6px;
+}
+.file-sheet__panel button:hover {
+  background: #f3f4f6;
+}
