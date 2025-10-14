@@ -2129,7 +2129,7 @@ function wireBottomBar() {
   // --- Fichier (menu) ---
   $('btn-file')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
-    openFileMenuOrSheet(e.currentTarget);
+    openFileSheet(); //openFileMenuOrSheet(e.currentTarget);
   });
 
   // --- Undo / Redo ---
@@ -2413,7 +2413,13 @@ function openFileSheet() {
   const handle  = sheet.querySelector('.file-sheet__handle');
 
   // Apparition
-  requestAnimationFrame(() => sheet.classList.add('visible'));
+  // requestAnimationFrame(() => sheet.classList.add('visible'));
+  requestAnimationFrame(() => {
+    sheet.classList.add('visible');              // déclenche la transition CSS
+    // Fallback iOS / CSS non appliqué : force la position visible
+    const panel = sheet.querySelector('.file-sheet__panel');
+    panel && (panel.style.transform = 'translateY(0)');
+  });
 
   // Fermer helper
   const close = () => {
