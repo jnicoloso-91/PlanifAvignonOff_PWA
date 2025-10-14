@@ -899,3 +899,32 @@ main, .page-wrap {
   .file-sheet__subtitle { color: #9aa4ad; }
   .file-sheet__item:hover { background: rgba(255,255,255,.06); }
 }
+
+
+/* Panel */
+.file-sheet__panel {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1;
+  background: #fff; border-radius: 16px 16px 0 0;
+  padding: 10px 12px 12px;
+  box-shadow: 0 -10px 40px rgba(0,0,0,.18);
+  transform: translateY(100%);
+  transition: transform .25s cubic-bezier(.22,.8,.24,1);
+  will-change: transform;
+}
+
+/* zone scrollable interne (important pour iOS) */
+.file-sheet__content {
+  max-height: 66vh;               /* ajuste si besoin */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* poignée et titre restent non-scrollables en haut */
+.file-sheet__handle { display:block; margin:6px auto 10px; width:44px; height:4px; border-radius:999px; background:rgba(0,0,0,.18); }
+.file-sheet__title  { font-weight:600; margin:0 8px 8px; }
+
+/* quand on drag → pas d’animation CSS parasite */
+.file-sheet.dragging .file-sheet__panel { transition: none !important; }
+
+/* petit confort : pas de sélection pendant le drag */
+.file-sheet.dragging { user-select: none; }

@@ -2359,78 +2359,186 @@ function openFileMenu(anchorBtn, opts = {}) {
 //     };
 //   });
 // }
+// function openFileSheet() {
+//   // Si déjà ouverte → fermer
+//   const existing = document.querySelector('.file-sheet');
+//   if (existing) { existing.remove(); return; }
+
+//   const sheet = document.createElement('div');
+//   sheet.className = 'file-sheet';
+//   sheet.innerHTML = `
+//     <div class="file-sheet__backdrop"></div>
+//     <div class="file-sheet__panel" role="dialog" aria-modal="true">
+//       <span class="file-sheet__handle" aria-hidden="true"></span>
+//       <h3 class="file-sheet__title">Fichier</h3>
+//       <ul class="file-sheet__list">
+//         <li class="file-sheet__item" data-action="new">
+//           <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+//             <path d="M12 5v14M5 12h14"/>
+//           </svg>
+//           <div class="file-sheet__text">
+//             <span class="file-sheet__titleText">Nouveau</span>
+//             <span class="file-sheet__subtitle">Réinitialiser le planning</span>
+//           </div>
+//         </li>
+//         <li class="file-sheet__item" data-action="open">
+//           <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+//             <path d="M4 4h7l3 3h6v13H4z"/>
+//           </svg>
+//           <div class="file-sheet__text">
+//             <span class="file-sheet__titleText">Ouvrir</span>
+//             <span class="file-sheet__subtitle">Importer un fichier Excel</span>
+//           </div>
+//         </li>
+//         <li class="file-sheet__item" data-action="save">
+//           <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+//             <path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/>
+//             <path d="M17 21v-8H7v8M7 5v4h8"/>
+//           </svg>
+//           <div class="file-sheet__text">
+//             <span class="file-sheet__titleText">Sauvegarder</span>
+//             <span class="file-sheet__subtitle">Exporter vers Excel</span>
+//           </div>
+//         </li>
+//       </ul>
+//       <div class="file-sheet__footer">
+//         <button class="file-sheet__close">Fermer</button>
+//       </div>
+//     </div>
+//   `;
+//   document.body.appendChild(sheet);
+
+//   const panel   = sheet.querySelector('.file-sheet__panel');
+//   const backdrop= sheet.querySelector('.file-sheet__backdrop');
+//   const handle  = sheet.querySelector('.file-sheet__handle');
+
+//   // Apparition
+//   // requestAnimationFrame(() => sheet.classList.add('visible'));
+//   requestAnimationFrame(() => {
+//     sheet.classList.add('visible');              // déclenche la transition CSS
+//     // Fallback iOS / CSS non appliqué : force la position visible
+//     const panel = sheet.querySelector('.file-sheet__panel');
+//     panel && (panel.style.transform = 'translateY(0)');
+//   });
+
+//   // Fermer helper
+//   const close = () => {
+//     sheet.classList.remove('visible');
+//     panel.style.transform = `translateY(100%)`;
+//     setTimeout(() => sheet.remove(), 260);
+//   };
+
+//   // Clicks
+//   backdrop.addEventListener('click', close);
+//   sheet.querySelector('.file-sheet__close').addEventListener('click', close);
+//   sheet.querySelectorAll('.file-sheet__item').forEach(li => {
+//     li.addEventListener('click', () => {
+//       const act = li.dataset.action;
+//       close();
+//       if (act === 'new')  console.log('[File] Nouveau');
+//       if (act === 'open') doImport?.();
+//       if (act === 'save') doExport?.();
+//     });
+//   });
+
+//   // ----- Swipe-down to close (drag handle) -----
+//   let startY = 0, dragging = false, baseY = 0;
+
+//   const begin = (y) => {
+//     dragging = true;
+//     startY = y;
+//     // position de départ (0)
+//     baseY = 0;
+//     panel.style.transition = 'none';
+//   };
+//   const move = (y) => {
+//     if (!dragging) return;
+//     const dy = Math.max(0, y - startY);
+//     panel.style.transform = `translateY(${dy}px)`;
+//   };
+//   const end = (y) => {
+//     if (!dragging) return;
+//     dragging = false;
+//     const dy = Math.max(0, y - startY);
+//     const shouldClose = dy > 80; // seuil de fermeture
+//     panel.style.transition = 'transform .22s cubic-bezier(.22,.8,.24,1)';
+//     if (shouldClose) { close(); }
+//     else { panel.style.transform = 'translateY(0)'; }
+//   };
+
+//   // Touch + Mouse (sur la poignée ET le panel haut)
+//   const startEvt = (e) => begin(e.touches ? e.touches[0].clientY : e.clientY);
+//   const moveEvt  = (e) => { e.preventDefault?.(); move(e.touches ? e.touches[0].clientY : e.clientY); };
+//   const endEvt   = (e) => end(e.changedTouches ? e.changedTouches[0].clientY : e.clientY);
+
+//   handle.addEventListener('touchstart', startEvt, { passive: true });
+//   handle.addEventListener('mousedown',  startEvt);
+//   window.addEventListener('touchmove',  moveEvt,  { passive: false });
+//   window.addEventListener('mousemove',  moveEvt);
+//   window.addEventListener('touchend',   endEvt);
+//   window.addEventListener('mouseup',    endEvt);
+// }
 function openFileSheet() {
-  // Si déjà ouverte → fermer
   const existing = document.querySelector('.file-sheet');
   if (existing) { existing.remove(); return; }
 
   const sheet = document.createElement('div');
   sheet.className = 'file-sheet';
   sheet.innerHTML = `
-    <div class="file-sheet__backdrop"></div>
-    <div class="file-sheet__panel" role="dialog" aria-modal="true">
+    <div class="file-sheet__backdrop" style="position:absolute;inset:0;z-index:0;background:rgba(0,0,0,.42);backdrop-filter:blur(2px);"></div>
+    <div class="file-sheet__panel" role="dialog" aria-modal="true" style="z-index:1">
       <span class="file-sheet__handle" aria-hidden="true"></span>
-      <h3 class="file-sheet__title">Fichier</h3>
-      <ul class="file-sheet__list">
-        <li class="file-sheet__item" data-action="new">
-          <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
-          <div class="file-sheet__text">
-            <span class="file-sheet__titleText">Nouveau</span>
-            <span class="file-sheet__subtitle">Réinitialiser le planning</span>
-          </div>
-        </li>
-        <li class="file-sheet__item" data-action="open">
-          <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M4 4h7l3 3h6v13H4z"/>
-          </svg>
-          <div class="file-sheet__text">
-            <span class="file-sheet__titleText">Ouvrir</span>
-            <span class="file-sheet__subtitle">Importer un fichier Excel</span>
-          </div>
-        </li>
-        <li class="file-sheet__item" data-action="save">
-          <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/>
-            <path d="M17 21v-8H7v8M7 5v4h8"/>
-          </svg>
-          <div class="file-sheet__text">
-            <span class="file-sheet__titleText">Sauvegarder</span>
-            <span class="file-sheet__subtitle">Exporter vers Excel</span>
-          </div>
-        </li>
-      </ul>
-      <div class="file-sheet__footer">
-        <button class="file-sheet__close">Fermer</button>
+      <div class="file-sheet__content">
+        <ul class="file-sheet__list" style="list-style:none;margin:0;padding:4px;">
+          <li class="file-sheet__item" data-action="new">
+            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            <div class="file-sheet__text">
+              <span class="file-sheet__titleText">Nouveau</span>
+              <span class="file-sheet__subtitle">Réinitialiser le planning</span>
+            </div>
+          </li>
+          <li class="file-sheet__item" data-action="open">
+            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+            <div class="file-sheet__text">
+              <span class="file-sheet__titleText">Ouvrir</span>
+              <span class="file-sheet__subtitle">Importer un fichier Excel</span>
+            </div>
+          </li>
+          <li class="file-sheet__item" data-action="save">
+            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
+            <div class="file-sheet__text">
+              <span class="file-sheet__titleText">Sauvegarder</span>
+              <span class="file-sheet__subtitle">Exporter vers Excel</span>
+            </div>
+          </li>
+        </ul>
+        <div class="file-sheet__footer" style="display:flex;justify-content:center;padding:8px 4px 2px;">
+        </div>
       </div>
     </div>
   `;
   document.body.appendChild(sheet);
 
-  const panel   = sheet.querySelector('.file-sheet__panel');
-  const backdrop= sheet.querySelector('.file-sheet__backdrop');
-  const handle  = sheet.querySelector('.file-sheet__handle');
+  const panel    = sheet.querySelector('.file-sheet__panel');
+  const backdrop = sheet.querySelector('.file-sheet__backdrop');
+  const content  = sheet.querySelector('.file-sheet__content');
 
   // Apparition
-  // requestAnimationFrame(() => sheet.classList.add('visible'));
   requestAnimationFrame(() => {
-    sheet.classList.add('visible');              // déclenche la transition CSS
-    // Fallback iOS / CSS non appliqué : force la position visible
-    const panel = sheet.querySelector('.file-sheet__panel');
-    panel && (panel.style.transform = 'translateY(0)');
+    sheet.classList.add('visible');
+    panel.style.transform = 'translateY(0)';
   });
 
-  // Fermer helper
+  // Fermer
   const close = () => {
     sheet.classList.remove('visible');
-    panel.style.transform = `translateY(100%)`;
-    setTimeout(() => sheet.remove(), 260);
+    panel.style.transform = 'translateY(100%)';
+    setTimeout(() => sheet.remove(), 250);
   };
 
-  // Clicks
+  // Boutons
   backdrop.addEventListener('click', close);
-  sheet.querySelector('.file-sheet__close').addEventListener('click', close);
+  sheet.querySelector('.file-sheet__close')?.addEventListener('click', close);
   sheet.querySelectorAll('.file-sheet__item').forEach(li => {
     li.addEventListener('click', () => {
       const act = li.dataset.action;
@@ -2441,43 +2549,93 @@ function openFileSheet() {
     });
   });
 
-  // ----- Swipe-down to close (drag handle) -----
-  let startY = 0, dragging = false, baseY = 0;
+  // ====== GESTURE: swipe down partout (prioritaire) ======
+  let dragging = false;
+  let startY = 0;
+  let lastY = 0;
+  let startedInScrollable = false;
+  let suppressClick = false;        // évite click fantôme après drag
+  const THRESHOLD_PX = 10;          // distance pour considérer un vrai drag
+  const CLOSE_PX     = 90;          // distance pour fermer
 
-  const begin = (y) => {
+  // Helper: trouve si la cible est dans un scrollable (content)
+  const isInScrollable = (el) => el && (el === content || content.contains(el));
+
+  // Start drag si:
+  //  - poignée/titre (toujours)
+  //  - OU dans le contenu ET content.scrollTop === 0 ET mouvement vers le bas
+  const onPointerDown = (e) => {
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    startY = lastY = y;
+    startedInScrollable = isInScrollable(e.target);
     dragging = true;
-    startY = y;
-    // position de départ (0)
-    baseY = 0;
-    panel.style.transition = 'none';
+    sheet.classList.add('dragging');
+    suppressClick = false;
+
+    // Pour iOS: on captera touchmove
+    // (pas de preventDefault ici, on attend de savoir si ça devient un drag)
   };
-  const move = (y) => {
+
+  const onPointerMove = (e) => {
     if (!dragging) return;
-    const dy = Math.max(0, y - startY);
-    panel.style.transform = `translateY(${dy}px)`;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const dy = y - startY;
+    lastY = y;
+
+    // Cas contenu scrollable : si on n’est pas tout en haut → laisser scroller, pas drag
+    if (startedInScrollable) {
+      const atTop = (content.scrollTop <= 0);
+      if (!atTop && dy > 0) {
+        // on laisse scroller, on annule le drag
+        dragging = false;
+        sheet.classList.remove('dragging');
+        return;
+      }
+    }
+
+    // Devient un drag dès qu’on dépasse le seuil vers le bas
+    if (dy > THRESHOLD_PX) {
+      e.preventDefault?.(); // bloque le scroll de page iOS
+      panel.style.transform = `translateY(${dy}px)`;
+      suppressClick = true; // on a réellement draggué → on ne veut pas déclencher de clic
+    }
   };
-  const end = (y) => {
+
+  const onPointerUp = () => {
     if (!dragging) return;
     dragging = false;
-    const dy = Math.max(0, y - startY);
-    const shouldClose = dy > 80; // seuil de fermeture
+    sheet.classList.remove('dragging');
+
+    const dy = lastY - startY;
+    if (dy > CLOSE_PX) {
+      close();
+      return;
+    }
+    // sinon, revenir en place
     panel.style.transition = 'transform .22s cubic-bezier(.22,.8,.24,1)';
-    if (shouldClose) { close(); }
-    else { panel.style.transform = 'translateY(0)'; }
+    panel.style.transform = 'translateY(0)';
+    setTimeout(() => panel.style.transition = '', 240);
   };
 
-  // Touch + Mouse (sur la poignée ET le panel haut)
-  const startEvt = (e) => begin(e.touches ? e.touches[0].clientY : e.clientY);
-  const moveEvt  = (e) => { e.preventDefault?.(); move(e.touches ? e.touches[0].clientY : e.clientY); };
-  const endEvt   = (e) => end(e.changedTouches ? e.changedTouches[0].clientY : e.clientY);
+  // Écouteurs (panel capte tout; move/up sur window)
+  // NB: pas de touch-action:none sur panel pour laisser le scroll à l’intérieur
+  panel.addEventListener('touchstart', onPointerDown, { passive: true });
+  panel.addEventListener('mousedown',  onPointerDown);
+  window.addEventListener('touchmove', onPointerMove, { passive: false }); // iOS: on veut pouvoir preventDefault
+  window.addEventListener('mousemove', onPointerMove);
+  window.addEventListener('touchend',  onPointerUp);
+  window.addEventListener('mouseup',   onPointerUp);
 
-  handle.addEventListener('touchstart', startEvt, { passive: true });
-  handle.addEventListener('mousedown',  startEvt);
-  window.addEventListener('touchmove',  moveEvt,  { passive: false });
-  window.addEventListener('mousemove',  moveEvt);
-  window.addEventListener('touchend',   endEvt);
-  window.addEventListener('mouseup',    endEvt);
+  // Évite le "tap" après un drag (click fantôme) dans le panel
+  panel.addEventListener('click', (e) => {
+    if (suppressClick) {
+      e.stopPropagation();
+      e.preventDefault();
+      suppressClick = false;
+    }
+  }, true);
 }
+
 
 // Centre horizontalement au-dessus du bouton (fallback en dessous si pas la place)
 function positionMenuOverBtn(btn, menu) {
