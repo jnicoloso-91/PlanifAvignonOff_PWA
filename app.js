@@ -6,16 +6,13 @@ import {
   dateintToPretty, 
   ymdToDateint, 
   safeDateint, 
-  toDateint } from './utils-date.js';
-import { 
-  initialiserPeriodeProgrammation, 
-  getCreneaux, 
-  getActivitesProgrammees, 
-  getActivitesNonProgrammees, 
-  getActivitesProgrammables, 
-  sortDf } from './activites.js'; 
+  toDateint,
+} from './utils-date.js';
+import { createActivitesAPI, sortDf } from './activites.js'; 
 import { sortCarnet } from './carnet.js'; 
 import { AppContext } from './context.mjs';
+
+let activitesAPI = null;
 
 // ===== Multi-grilles =====
 const grids = new Map();           // id -> { api, el, loader }
@@ -450,90 +447,6 @@ function desiredPaneHeightForRows(gridEl, api, { maxRows = 5 } = {}) {
   return Math.max(desired, hHeader + 8);
 }
 
-// function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
-//   if (!pane || !gridEl) return;
-
-//   const exp = pane.closest('.st-expander');
-//   const isOpen = exp?.classList?.contains?.('open');
-
-//   // calcule la hauteur souhaitée (≤ 5 rows)
-//   const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
-//   if (h == null) return;
-
-//   // Toujours tenir à jour la borne max pour le splitter
-//   pane.dataset.maxContentHeight = String(h);
-
-//   // Respecte un redimensionnement manuel
-//   const userSized = pane.dataset.userSized === '1';
-
-//   if (!isOpen) {
-//     // ❗️Expander fermé → ne PAS appliquer la height
-//     // si pas userSized, on mémorise pour la prochaine ouverture
-//     if (!userSized) pane.dataset.pendingAutoHeight = String(h);
-//     return;
-//   }
-
-//   // Expander ouvert : appliquer seulement si pas userSized
-//   if (!userSized) {
-//     pane.style.height = `${h}px`;
-//     delete pane.dataset.pendingAutoHeight;
-//   }
-// }
-
-// function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
-//   if (!pane || !gridEl) return;
-
-//   const exp = pane.closest('.st-expander');
-//   const isOpen = exp?.classList?.contains?.('open');
-
-//   // calcule la hauteur souhaitée (≤ 5 rows)
-//   const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
-//   if (h == null) return;
-
-//   // toujours tenir à jour la borne max pour le splitter
-//   pane.dataset.maxContentHeight = String(h);
-
-//   // respecte un redimensionnement manuel
-//   const userSized = pane.dataset.userSized === '1';
-
-//   if (!isOpen) {
-//     // expander fermé → ne pas appliquer, juste mémoriser pour la prochaine ouverture
-//     if (!userSized) pane.dataset.pendingAutoHeight = String(h);
-//     return;
-//   }
-
-//   // expander ouvert : appliquer seulement si pas userSized
-//   if (!userSized) {
-//     pane.style.height = `${h}px`;
-//     delete pane.dataset.pendingAutoHeight;
-//   }
-// }
-
-// function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
-//   if (!pane || !gridEl) return;
-
-//   const exp = pane.closest('.st-expander');
-//   const isOpen = exp?.classList?.contains?.('open');
-
-//   const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
-//   if (h == null) return;
-
-//   // borne pour le splitter
-//   pane.dataset.maxContentHeight = String(h);
-
-//   const userSized = pane.dataset.userSized === '1';
-
-//   if (!isOpen) {
-//     if (!userSized) pane.dataset.pendingAutoHeight = String(h);
-//     return; // 🔒 surtout ne pas écrire de height inline en fermé
-//   }
-
-//   if (!userSized) {
-//     pane.style.height = `${h}px`;
-//     delete pane.dataset.pendingAutoHeight;
-//   }
-// }
-
 function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
   if (!pane || !gridEl) return;
 
@@ -560,135 +473,6 @@ function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
     delete pane.dataset.pendingAutoHeight;
   }
 }
-
-// function openExp(exp){
-//   const pane = paneOf(exp);
-//   exp.classList.add('open');
-//   // anim 0 -> target
-//   enableTransition(pane);
-//   pane.style.setProperty('max-height','none','important');
-//   pane.style.setProperty('min-height','0px','important');
-
-//   setH(pane, 0);           // point de départ
-//   pane.offsetHeight;       // reflow
-//   const target = restoreTargetHeight(exp);
-//   requestAnimationFrame(()=> setH(pane, target));  // déclenche l’easing
-// }
-
-// function openExp(exp) {
-//   if (!exp) return;
-//   exp.classList.add('open');
-
-//   const pane = exp.querySelector('.st-expander-body');
-//   if (!pane) return;
-
-//   const userSized = pane.dataset.userSized === '1';
-//   const savedKey  = `paneHeight:${exp.id}`;
-//   const saved     = localStorage.getItem(savedKey);
-//   const pending   = pane.dataset.pendingAutoHeight;
-
-//   let targetH = null;
-
-//   if (userSized && saved) {
-//     // l’utilisateur avait dimensionné → on respecte son dernier choix
-//     targetH = parseInt(saved, 10);
-//   } else if (pending) {
-//     // auto-taille calculée pendant que c’était fermé → on l’applique
-//     targetH = parseInt(pending, 10);
-//   }
-
-//   if (Number.isFinite(targetH) && targetH > 0) {
-//     pane.style.height = `${targetH}px`;
-//   }
-//   // on “consomme” le pending
-//   delete pane.dataset.pendingAutoHeight;
-// }
-
-// function openExp(exp) {
-//   if (!exp) return;
-//   exp.classList.add('open');
-
-//   const pane = exp.querySelector('.st-expander-body');
-//   if (!pane) return;
-
-//   const saved = localStorage.getItem(`paneHeight:${exp.id}`);
-//   const pending = pane.dataset.pendingAutoHeight;
-//   const targetH = pending || saved;
-
-//   if (targetH) {
-//     pane.style.transition = 'height 0.25s ease';
-//     pane.style.height = `${parseInt(targetH, 10)}px`;
-//     delete pane.dataset.pendingAutoHeight;
-//   }
-// }
-
-// function openExp(exp) {
-//   if (!exp) return;
-//   exp.classList.add('open');
-
-//   const pane = exp.querySelector('.st-expander-body');
-//   if (!pane) return;
-
-//   const saved   = localStorage.getItem(`paneHeight:${exp.id}`);
-//   const pending = pane.dataset.pendingAutoHeight;
-//   const target  = parseInt(pending || saved || '', 10);
-
-//   if (Number.isFinite(target) && target > 0) {
-//     // petite transition douce si tu veux
-//     pane.style.transition = 'height 0.25s ease';
-//     // force un reflow avant d'appliquer (pour que la transition parte bien)
-//     requestAnimationFrame(() => { pane.style.height = `${target}px`; });
-//   }
-//   delete pane.dataset.pendingAutoHeight;
-// }
-
-// function closeExp(exp){
-//   const pane = paneOf(exp);
-//   // mémorise la hauteur actuelle
-//   savePaneHeight(exp);
-//   enableTransition(pane);
-//   const h = Math.round(pane.getBoundingClientRect().height);
-//   setH(pane, h);           // point de départ
-//   pane.offsetHeight;       // reflow
-//   requestAnimationFrame(()=> setH(pane, 0)); // easing vers 0
-
-//   // après l’anim on nettoie, puis retire .open
-//   pane.addEventListener('transitionend', function onEnd(e){
-//     if (e.propertyName !== 'height') return;
-//     pane.removeEventListener('transitionend', onEnd);
-//     pane.style.removeProperty('height');
-//     exp.classList.remove('open');
-//   });
-// }
-
-// function closeExp(exp) {
-//   if (!exp) return;
-//   const pane = exp.querySelector('.st-expander-body');
-//   if (pane) {
-//     const h = Math.round(pane.getBoundingClientRect().height);
-//     if (h > 0) localStorage.setItem(`paneHeight:${exp.id}`, String(h));
-//   }
-//   exp.classList.remove('open');
-// }
-
-// function closeExp(exp) {
-//   if (!exp) return;
-//   const pane = exp.querySelector('.st-expander-body');
-//   if (pane) {
-//     // 🔹 mémorise la hauteur courante pour réouverture ultérieure
-//     const h = Math.round(pane.getBoundingClientRect().height);
-//     if (h > 0) localStorage.setItem(`paneHeight:${exp.id}`, String(h));
-
-//     // 🔹 réinitialise visuellement le body
-//     //    -> on passe la height à 0 (ou min), transition douce
-//     pane.style.transition = 'height 0.25s ease';
-//     pane.style.height = '0px';
-
-//     // 🔹 pour bien forcer la fermeture du layout
-//     pane.dataset.pendingAutoHeight = String(h); // garde la valeur pour reopen
-//   }
-//   exp.classList.remove('open');
-// }
 
 function openExp(exp) {
   if (!exp) return;
@@ -724,21 +508,6 @@ function openExp(exp) {
     pane.addEventListener('transitionend', onEnd, { once: true });
   });
 }
-
-// function closeExp(exp) {
-//   if (!exp) return;
-//   const pane = exp.querySelector('.st-expander-body');
-//   if (pane) {
-//     const h = Math.round(pane.getBoundingClientRect().height);
-//     if (h > 0) {
-//       localStorage.setItem(`paneHeight:${exp.id}`, String(h));
-//       pane.dataset.pendingAutoHeight = String(h); // mémo pour la prochaine ouverture
-//     }
-//     // IMPORTANT : ne laisse pas une height inline qui pourrait être “réanimée”
-//     pane.style.removeProperty('height');
-//   }
-//   exp.classList.remove('open');
-// }
 
 function closeExp(exp) {
   if (!exp) return;
@@ -778,12 +547,6 @@ function closeExp(exp) {
   pane.addEventListener('transitionend', onEnd, { once: true });
 }
 
-
-// function openExpanderById(expId) {
-//   const exp = document.getElementById(expId);
-//   if (exp && !exp.classList.contains('open')) openExp(exp); // utilise ta fonction existante
-// }
-
 // Sélectionne par __uuid et rend visible
 function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {}) {
   const h = grids.get(gridId);
@@ -806,88 +569,6 @@ function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {}) {
   }
   return true;
 }
-
-// // trouve le node AG Grid + l'élément DOM .ag-row pour un __uuid
-// function getRowNodeAndElByUuid(gridId, uuid) {
-//   const h = grids.get(gridId);
-//   if (!h || !uuid) return { api: null, node: null, rowEl: null };
-
-//   const api = h.api;
-//   let node = null;
-//   api.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
-//   if (!node) return { api, node: null, rowEl: null };
-
-//   const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
-//   return { api, node, rowEl };
-// }
-
-// // crée un clone visuel (canvas DOM) de la ligne source
-// function makeRowGhost(fromEl) {
-//   if (!fromEl) return null;
-//   const rect = fromEl.getBoundingClientRect();
-//   const ghost = document.createElement('div');
-//   ghost.className = 'row-flight';
-//   ghost.style.left = rect.left + 'px';
-//   ghost.style.top = rect.top + 'px';
-//   ghost.style.width = rect.width + 'px';
-//   ghost.style.height = rect.height + 'px';
-
-//   // clone simple : on copie juste le texte des cellules
-//   const rowClone = document.createElement('div');
-//   rowClone.style.display = 'grid';
-//   rowClone.style.gridTemplateColumns = `repeat(${fromEl.querySelectorAll('.ag-cell').length || 1}, 1fr)`;
-//   rowClone.style.font = getComputedStyle(fromEl).font;
-//   rowClone.style.padding = '2px 6px';
-
-//   fromEl.querySelectorAll('.ag-cell').forEach(cell => {
-//     const d = document.createElement('div');
-//     d.textContent = cell.textContent || '';
-//     d.style.padding = '4px 6px';
-//     rowClone.appendChild(d);
-//   });
-
-//   ghost.appendChild(rowClone);
-//   document.body.appendChild(ghost);
-//   return ghost;
-// }
-
-// // anime le ghost de A → B (DOMRect)
-// function animateGhost(ghost, fromRect, toRect, { duration=550 } = {}) {
-//   if (!ghost || !fromRect || !toRect) return Promise.resolve();
-//   const dx = (toRect.left + toRect.width/2)  - (fromRect.left + fromRect.width/2);
-//   const dy = (toRect.top  + toRect.height/2) - (fromRect.top  + fromRect.height/2);
-//   const scale = Math.max(0.85, Math.min(1.05, toRect.height / Math.max(1, fromRect.height)));
-
-//   return new Promise(res => {
-//     ghost.animate(
-//       [
-//         { transform: 'translate(0,0) scale(1)',   opacity: .95 },
-//         { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0.15 }
-//       ],
-//       { duration, easing: 'cubic-bezier(.22,.8,.2,1)', fill: 'forwards' }
-//     ).onfinish = () => { ghost.remove(); res(); };
-//   });
-// }
-
-// // flash visuel de la ligne d'arrivée
-// function flashArrival(gridId, node) {
-//   const h = grids.get(gridId);
-//   if (!h || !node) return;
-//   const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
-//   rowEl?.classList.add('flash-arrival');
-//   setTimeout(()=> rowEl?.classList.remove('flash-arrival'), 480);
-// }
-
-// // Trouve node & .ag-row par __uuid
-// function getRowNodeAndElByUuid(gridId, uuid) {
-//   const h = grids.get(gridId);
-//   if (!h || !uuid) return { api: null, node: null, rowEl: null, el: h?.el || null };
-//   const api = h.api;
-//   let node = null;
-//   api.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
-//   const rowEl = node ? h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`) : null;
-//   return { api, node, rowEl, el: h.el };
-// }
 
 // CSS.escape polyfill safe
 const cssEscape = (window.CSS && CSS.escape) ? CSS.escape
@@ -965,55 +646,6 @@ async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paint
   return { api, node, rowEl, el: root };
 }
 
-// // crée un “ghost” à partir d’un DOMRect + texte (sans dépendre du DOM source encore présent)
-// function makeRowGhostFromRect(rect, sampleText='') {
-//   if (!rect) return null;
-//   const ghost = document.createElement('div');
-//   ghost.className = 'row-flight';
-//   ghost.style.left = rect.left + 'px';
-//   ghost.style.top = rect.top + 'px';
-//   ghost.style.width = rect.width + 'px';
-//   ghost.style.height = rect.height + 'px';
-
-//   const inner = document.createElement('div');
-//   inner.style.display = 'flex';
-//   inner.style.alignItems = 'center';
-//   inner.style.gap = '8px';
-//   inner.style.height = '100%';
-//   inner.style.padding = '4px 10px';
-//   inner.style.font = '14px/1.2 system-ui, -apple-system, "Segoe UI", Roboto';
-//   inner.textContent = sampleText || '';
-//   ghost.appendChild(inner);
-
-//   document.body.appendChild(ghost);
-//   return ghost;
-// }
-
-// function makeRowGhostFromRect(rect, sampleText='') {
-//   if (!rect) return null;
-//   const ghost = document.createElement('div');
-//   ghost.className = 'row-flight';
-//   // élargir légèrement pour visibilité
-//   const w = Math.max(rect.width, 260);
-
-//   ghost.style.left = rect.left + 'px';
-//   ghost.style.top = rect.top + 'px';
-//   ghost.style.width = w + 'px';
-//   ghost.style.height = rect.height + 'px';
-
-//   const inner = document.createElement('div');
-//   inner.style.display = 'flex';
-//   inner.style.alignItems = 'center';
-//   inner.style.gap = '8px';
-//   inner.style.height = '100%';
-//   inner.style.padding = '4px 10px';
-//   inner.style.font = '14px/1.2 system-ui, -apple-system, "Segoe UI", Roboto';
-//   inner.textContent = sampleText || '';
-//   ghost.appendChild(inner);
-
-//   document.body.appendChild(ghost);
-//   return ghost;
-// }
 
 function animateGhost(ghost, fromRect, toRect, { duration=560 } = {}) {
   if (!ghost || !fromRect || !toRect) return Promise.resolve();
@@ -1033,33 +665,6 @@ function animateGhost(ghost, fromRect, toRect, { duration=560 } = {}) {
   });
 }
 
-// function animateGhostArc(ghost, fromRect, toRect, { duration=700, lift= -180 } = {}) {
-//   if (!ghost || !fromRect || !toRect) return Promise.resolve();
-
-//   const dx = (toRect.left + toRect.width/2)  - (fromRect.left + fromRect.width/2);
-//   const dy = (toRect.top  + toRect.height/2) - (fromRect.top  + fromRect.height/2);
-
-//   // si delta trop petit → donne un mouvement “lisible”
-//   const small = Math.hypot(dx, dy) < 40;
-//   const L = small ? -200 : lift;
-
-//   // scale léger pour dynamiser
-//   const scaleEnd = 0.9;
-
-//   return new Promise(res => {
-//     const anim = ghost.animate(
-//       [
-//         { transform: 'translate3d(0,0,0) scale(1)',   opacity: .96 },
-//         { transform: `translate3d(${dx*0.75}px, ${dy*0.5 + L}px, 0) scale(1.02)`, opacity: .9 },
-//         { transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scaleEnd})`,        opacity: .15 }
-//       ],
-//       { duration, easing: 'cubic-bezier(.22,.8,.2,1)', fill: 'forwards' }
-//     );
-//     anim.onfinish = () => { ghost.remove(); res(); };
-//     anim.oncancel  = ()  => { ghost.remove(); res(); };
-//   });
-// }
-
 function getHeaderTargetRect(expId) {
   const header = document.querySelector(`#${expId} .st-expander-header`);
   if (!header) return null;
@@ -1072,15 +677,6 @@ function getHeaderTargetRect(expId) {
     height: 20
   };
 }
-
-// function flashArrival(gridId, node) {
-//   const h = grids.get(gridId);
-//   if (!h || !node) return;
-//   const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
-//   if (!rowEl) return;
-//   rowEl.classList.add('flash-arrival');
-//   setTimeout(()=> rowEl.classList.remove('flash-arrival'), 480);
-// }
 
 // attendre qu'AG Grid ait peint
 function nextPaint(times=2) {
@@ -1328,7 +924,7 @@ function addButtons() {
 }
 
 // ===== Colonnes =====
-// Colonnes activités (grilles A, B, D) 
+// Colonnes des grilles d'activités programmées et non programmées
 function buildColumnsActivites(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
@@ -1354,9 +950,57 @@ function buildColumnsActivites(){
   ];
 }
 
+// Colonnes de la grille des activités programmées
+function buildColumnsActivitesProgrammees() {
+  const cols = buildColumnsActivites();
+  cols[0] = {
+    ...cols[0],
+    editable: true,
+    valueFormatter: p => dateintToPretty(p.value),
+    valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
+    valueSetter: p => {
+      if (p.newValue == null) return false;
+      if (p.data.Date === p.newValue) return false;
+      p.data.Date = prettyToDateint(p.newValue) ?? p.oldValue ?? null; // ← écriture
+      return true;                            // ← crucial
+    },
+    cellEditor: 'agSelectCellEditor',
+    cellEditorParams: (p) => {
+      const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
+      return { values: values.map(String) };   // 👈 must be an array
+    }
+  };
+
+  return cols
+}
+
+// Colonnes de la grille des activités non programmées
+function buildColumnsActivitesNonProgrammees() {
+  const cols = buildColumnsActivites();
+  cols[0] = {
+    ...cols[0],
+    editable: true,
+    valueFormatter: p => dateintToPretty(p.value),
+    valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
+    valueSetter: p => {
+      if (p.newValue == null) return false;
+      if (p.data.Date === p.newValue) return false;
+      p.data.Date = prettyToDateint(p.newValue) ?? p.oldValue ?? null; // ← écriture
+      return true;                            // ← crucial
+    },
+    cellEditor: 'agSelectCellEditor',
+    cellEditorParams: (p) => {
+      const values = activitesAPI.getOptionsDateForActiviteNonProgrammee(p.data) || [];
+      return { values: values.map(String) };   // 👈 must be an array
+    }
+  };
+
+  return cols
+}
+
 const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 
-// Colonnes créneaux (grille C) 
+// Colonnes de la grille des créneaux disponibles
 function buildColumnsCreneaux(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
@@ -1381,6 +1025,7 @@ function buildColumnsCreneaux(){
   ];
 }
 
+// Colonnes de la grille des activités programmables
 function buildColumnsActivitesProgrammables() {
   // récupère la définition standard
   const cols = buildColumnsActivites();
@@ -1395,7 +1040,7 @@ function buildColumnsActivitesProgrammables() {
   }));
 }
 
-// Colonnes carnet d’adresses (grille E)
+// Colonnes de la grille du carnet d’adresses
 function buildColumnsCarnet(){
   return [
     { field:'Nom', headerName:'Nom', minWidth:180, flex:1, editable:true },
@@ -1412,17 +1057,16 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
   if (!el) return null;
 
   const gridOptions = {
-    columnDefs: (columnsBuilder ?? buildColumnsActivites)(),
+    columnDefs: columnsBuilder(), //(columnsBuilder ?? buildColumnsActivites)(),
     defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
     rowData: [],
-    getRowId: p => p.data?.__uuid ?? p.data?.id ?? JSON.stringify(p.data),
+    getRowId: p => p.data?.__uuid,
     onGridReady: async (p) => {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: true /*, forceTouch: true*/});
     },
-
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);
       const pane = g?.el?.closest('.st-expander-body');
@@ -1433,7 +1077,6 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
       const pane = g?.el?.closest('.st-expander-body');
       if (pane && g) autosizeFromGridSafe(g, pane);
     },
-
     onCellFocused: () => setActiveGrid(gridId),
     onGridSizeChanged: () => safeSizeToFitFor(gridId),
     getRowStyle: p => {
@@ -1443,6 +1086,19 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     onSelectionChanged: onSelectionChanged
       ? () => onSelectionChanged(gridId)
       : undefined,
+    onCellValueChanged: (p) => {
+      const uuid = p.node.id
+      const field = p.colDef.field;
+      let df = ctx.getDf().slice(); // copie actuelle du DataFrame
+      
+      // Trouver l'index de cette ligne dans le df (selon son identifiant unique __uuid)
+      const idx = df.findIndex(r => r.__uuid === uuid);
+      if (idx !== -1) {
+        df[idx] = { ...df[idx], ...p.data }; // remplace la row (copie pour éviter mutabilité)
+        df = sortDf(df);
+        ctx.setDf(df);        // actualise le contexte (marque dirty + saveDebounced)
+      }
+    },
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
@@ -1469,63 +1125,13 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
   return handle;
 }
 
+// Rend active une grille donnée
 function setActiveGrid(gridId){
   activeGridId = gridId;
   grids.forEach(g => g?.el?.classList.toggle('is-active-grid', g.id === gridId));
 }
 
-// async function refreshGrid(gridId) {
-//   const h = grids.get(gridId);
-//   if (!h) return;
-
-//   const api = h.api;
-
-//   // 0) mémorise la sélection actuelle (par __uuid)
-//   let prevUuid = null;
-//   try {
-//     const prevSel = api.getSelectedRows?.() || [];
-//     prevUuid = prevSel[0]?.__uuid ?? null;
-//   } catch {}
-
-//   // 1) recharge les données
-//   const rows = await h.loader?.();
-//   api.setGridOption?.('rowData', rows || []);
-
-//   // 2) après peinture → reselect ou fallback 1ère ligne
-//   const selectAfterPaint = () => {
-//     // si déjà sélectionné (AG Grid peut préserver via getRowId) -> ne rien faire
-//     const already = api.getSelectedNodes?.();
-//     if (already && already.length > 0) return finish();
-
-//     let node = null;
-
-//     // essaie de reselectionner l'ancienne ligne par __uuid
-//     if (prevUuid) {
-//       api.forEachNode?.(n => { if (!node && n.data?.__uuid === prevUuid) node = n; });
-//     }
-
-//     // fallback : sélectionner la 1ʳᵉ ligne si aucune
-//     if (!node) {
-//       const count = api.getDisplayedRowCount?.() ?? 0;
-//       if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
-//     }
-
-//     node?.setSelected?.(true, true); // (select, clearOther)
-
-//     finish();
-//   };
-
-//   const finish = () => {
-//     // resize / repaint safe (v29+)
-//     api.refreshCells?.({ force: true });
-//     api.dispatchEvent?.({ type: 'gridSizeChanged' });
-//     try { autoSizePanelFromRowCount?.(h.el.closest('.st-expander-body'), api); } catch {}
-//   };
-
-//   // laisse AG Grid peindre les nouvelles rows
-//   requestAnimationFrame(() => requestAnimationFrame(selectAfterPaint));
-// }
-
+// Rafraichit une grille
 async function refreshGrid(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
@@ -1580,13 +1186,28 @@ async function refreshGrid(gridId) {
   requestAnimationFrame(() => requestAnimationFrame(selectAfterPaint));
 }
 
+// Rafraichit toutes les grilles
 async function refreshAllGrids() {
   const ids = Array.from(grids.keys());
   await Promise.all(ids.map(id => refreshGrid(id)));
 }
 
-let refreshPending = false;
+// Rafraichit toutes les grilles d'activités (à utiliser par la callback de changement de contexte sur df)
+async function refreshActivitesGrids() {
+  refreshGrid('grid-programmees');
+  refreshGrid('grid-non-programmees');
+  refreshGrid('grid-creneaux');
+  // refreshGrid('grid-programmables'); => Pas celle-là car elle se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
+}
 
+// Rafraichit la grille du carnet d'adresses (à utiliser par la callback de changement de contexte sur carnet)
+async function refreshCarnetGrid() {
+  refreshGrid('grid-carnet');
+}
+
+// Coalessance évitant les rafraîchissements multiples dans la même frame dus à des mutations multiples de contexte dans une fonction 
+// (à utiliser éventuellement dans les onChange de AppContext à la place de refreshAllGrids)
+let refreshPending = false;
 async function scheduleGlobalRefresh() {
   if (refreshPending) return;
   refreshPending = true;
@@ -1598,36 +1219,42 @@ async function scheduleGlobalRefresh() {
 
 // ===== Loaders pour chaque grille =====
 
-// 1) Programmées : Date non nulle
+// Activités Programmées : Date non nulle
 async function loadProgrammees(){
   const activites = ctx.df;                      
-  return getActivitesProgrammees(activites);
+  // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
+  return activitesAPI.getActivitesProgrammees(activites).map(r => ({...r}));
 }
 
-// 2) Non programmées : Date vide/null
+// Activités non programmées : Date vide/null
 async function loadNonProgrammees(){
   const activites = ctx.df;                      
-  return getActivitesNonProgrammees(activites);
+  // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
+  return activitesAPI.getActivitesNonProgrammees(activites).map(r => ({...r}));
 }
 
+// Créneaux disponibles
 async function loadCreneaux() {
   const activites = ctx.df;                      
-  const activitesProgrammees = getActivitesProgrammees(activites);
-  const periodeProgrammation = initialiserPeriodeProgrammation(activites)
-  return getCreneaux(activites, activitesProgrammees, false, periodeProgrammation);
+  const activitesProgrammees = activitesAPI.getActivitesProgrammees(activites);
+  const periodeProgrammation = activitesAPI.initialiserPeriodeProgrammation(activites)
+  // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
+  return activitesAPI.getCreneaux(activites, activitesProgrammees, false, periodeProgrammation).map(r => ({...r}));
 }
 
-// 4) Activités programmables 
+// Activités programmables 
 async function loadProgrammables(){
   if (!selectedSlot) return [];
   const activites = ctx.df;                      
-  return getActivitesProgrammables(activites, selectedSlot);
+  // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
+  return activitesAPI.getActivitesProgrammables(activites, selectedSlot).map(r => ({...r}));
 }
 
-// 5) Carnet d'adresses
+// Carnet d'adresses
 async function loadCarnet() {
   const carnet = ctx.carnet;
-  return carnet;
+  // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
+  return carnet.map(r => ({...r}));
 }
 
 // ===== Sélection sur la grille des créneaux =====
@@ -1769,23 +1396,23 @@ function wireExpanderSplitters() {
 }
 
 function wireGrids() {
-  // 1) Programmées
+  // 1) Activités Programmées
   createGridController({
     gridId: 'grid-programmees',
     elementId: 'gridA',
     loader: loadProgrammees,
-    columnsBuilder: buildColumnsActivites
+    columnsBuilder: buildColumnsActivitesProgrammees
   });
 
-  // 2) Non programmées
+  // 2) Activités non programmées
   createGridController({
     gridId: 'grid-non-programmees',
     elementId: 'gridB',
     loader: loadNonProgrammees,
-    columnsBuilder: buildColumnsActivites
+    columnsBuilder: buildColumnsActivitesNonProgrammees
   });
 
-  // 3) Créneaux
+  // 3) Créneaux disponibles
   createGridController({
     gridId: 'grid-creneaux',
     elementId: 'gridC',
@@ -1794,7 +1421,7 @@ function wireGrids() {
     onSelectionChanged: onCreneauxSelectionChanged
   });
 
-  // 4) Programmables 
+  // 4) Activités programmables 
   createGridController({
     gridId: 'grid-programmables',
     elementId: 'gridD',
@@ -1914,15 +1541,21 @@ ActiviteRenderer.prototype.refresh = function(){ return false; };
 
 // ------- Actions -------
 
+// Reset du contexte
+async function doNouveauContexte() {
+  ctx.setDf([]);
+  ctx.setCarnet([]);
+}
+
 // Import Excel
-async function doImport() {
+async function doImportExcel() {
   // déclenche l’input caché
   const fi = $('fileInput');
   if (fi) fi.click();
 }
 
 // Export Excel
-async function doExport() {
+async function doExportExcel() {
   try {
     const rows = ctx.df;
     // copie “pretty” pour Excel
@@ -1966,61 +1599,28 @@ async function doExport() {
   }
 }
 
-// Recharger
-async function doReload(){
-  if (activeGridId) await refreshGrid(activeGridId);
-  else await refreshAllGrids();
+async function doUndo() {
+  try { await ctx.undo(); } catch {};
 }
 
-// Ajouter 
-async function doAdd() {
-  const sample = [
-    { __uuid: crypto.randomUUID?.() || `${Date.now()}-a`,
-      Date: 20250721, Début:'13h20', Durée:'1h20', Activité:"Activité 1", Lieu:"Roi René", Relâche:"", Réservé:"", Priorité:"" },
-    { __uuid: crypto.randomUUID?.() || `${Date.now()}-b`,
-      Date: 20250722, Début:'15h00', Durée:'1h10', Activité:"Activité 2", Lieu:"La Scala", Relâche:"", Réservé:"", Priorité:""  },
-  ];
-  ctx.mutateDf(rows => [...rows, ...sample]);
+async function doRedo() {
+  try { await ctx.redo(); } catch {};
 }
 
-// // Init Pyodide (singleton)
-// let pyodideReady = null;
-// async function getPyodideOnce() {
-//   if (!pyodideReady) {
-//     pyodideReady = (async () => {
-//       const pyodide = await loadPyodide(); // script déjà inclus dans index.html
-//       return pyodide;
-//     })();
-//   }
-//   return pyodideReady;
-// }
+// Ajout d'une activité
+async function doAjoutActivite() {
+  const nom = activitesAPI.getNomNouvelleActivite(ctx.df);
+  const nouvelleActivite =     {
+      __uuid: crypto.randomUUID?.() || String(Date.now()),
+      Date: null, Debut: "09h00", Duree: "1h00",
+      Activite: nom, Lieu: null, Relache: null, Reserve: null, Priorite: null, 
+      Hyperlien: `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nom.trim().replace(/\s+/g, '+')}`,
+    }
 
-// // Test Python 
-// async function doPythonTest() {
-//   try {
-//     const t0 = performance.now();
-//     const pyodide = await getPyodideOnce();
-//     const t1 = performance.now();
+  ctx.mutateDf(rows => sortDf([...rows, nouvelleActivite]));
+}
 
-//     const code = `
-//       def pretty_duration(hhmm: str) -> str:
-//           try:
-//               hh, mm = hhmm.lower().split('h')
-//               return f"{int(hh):02d}:{int(mm):02d}"
-//           except Exception:
-//               return hhmm
-
-//       pretty_duration("1h20")
-//       `;
-//     const out = await pyodide.runPythonAsync(code);
-//     const t2 = performance.now();
-//     alert(`Pyodide OK : ${out}\nInit: ${(t1-t0).toFixed(1)} ms, Exec: ${(t2-t1).toFixed(1)} ms`);
-//   } catch (e) {
-//     console.error(e);
-//     alert('Pyodide KO');
-//   }
-// }
-
+// Programmation de l'activité sélectionnée dans la grille des activités programmables
 async function doProgrammerActivite() {
   // 1) sélection dans la grille des programmables
   const gProg = grids.get('grid-programmables');
@@ -2112,6 +1712,12 @@ async function doProgrammerActivite() {
   }
 }
 
+// Rechargement des grilles depuis contexte
+async function doRechargerGrilles() {
+  if (activeGridId) await refreshGrid(activeGridId);
+  else await refreshAllGrids();
+}
+
 // ------- Bottom Bar -------
 function wireBottomBar() {
   
@@ -2129,30 +1735,23 @@ function wireBottomBar() {
   // --- Fichier (menu) ---
   $('btn-file')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
-    openFileSheet(); //openFileMenuOrSheet(e.currentTarget);
+    openFileMenuOrSheet(e.currentTarget);
   });
 
   // --- Undo / Redo ---
   $('btn-undo')?.addEventListener('click', async (e) => {
     pulse(e.currentTarget);
-    try { await ctx.undo(); } catch {}
+    doUndo();
   });
   $('btn-redo')?.addEventListener('click', async (e) => {
     pulse(e.currentTarget);
-    try { await ctx.redo(); } catch {}
+    doRedo();
   });
 
   // --- Ajouter ---
   $('btn-add')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
-    ctx.mutateDf(rows => [
-      ...rows,
-      {
-        __uuid: crypto.randomUUID?.() || String(Date.now()),
-        Date: null, Debut: null, Duree: null,
-        Activite: 'Nouvelle activité', Lieu: '', Relache: '', Reserve: '', Priorite: ''
-      }
-    ]);
+    doAjoutActivite();
   });
 
   // Drag-to-scroll with mouse (desktop)
@@ -2230,9 +1829,9 @@ function openFileMenu(anchorBtn, opts = {}) {
   menu.className = 'file-menu';
   menu.dataset.anchorId = btn.id || ''; // pour savoir qui l’a ouvert
   menu.innerHTML = `
-    <button data-action="new">Nouveau</button>
-    <button data-action="open">Ouvrir</button>
-    <button data-action="save">Sauvegarder</button>
+    <button data-action="new">Nouveau planning</button>
+    <button data-action="open">Importer planning depuis Excel</button>
+    <button data-action="save">Exporter planning vers Excel</button>
   `;
   Object.assign(menu.style, {
     position: 'fixed',
@@ -2266,15 +1865,15 @@ function openFileMenu(anchorBtn, opts = {}) {
       closeMenu();
       if (act === 'new')  {
         if (typeof opts.onNew === 'function') return opts.onNew();
-        console.log('[File] Nouveau');
+        if (typeof doNouveauContexte === 'function') doNouveauContexte();
       }
       if (act === 'open') {
         if (typeof opts.onOpen === 'function') return opts.onOpen();
-        if (typeof doImport === 'function') doImport();
+        if (typeof doImportExcel === 'function') doImportExcel();
       }
       if (act === 'save') {
         if (typeof opts.onSave === 'function') return opts.onSave();
-        console.log('[File] Sauvegarder');
+        if (typeof doExportExcel === 'function') doExportExcel();
       }
     });
   });
@@ -2318,166 +1917,6 @@ function openFileMenu(anchorBtn, opts = {}) {
 }
 
 // File sheet appelée par le bouton "Fichier" sur mobile
-// function openFileSheet() {
-//   // Si déjà ouverte, fermer
-//   const existing = document.querySelector('.file-sheet');
-//   if (existing) { existing.remove(); return; }
-
-//   const sheet = document.createElement('div');
-//   sheet.className = 'file-sheet';
-//   sheet.innerHTML = `
-//     <div class="file-sheet__backdrop"></div>
-//     <div class="file-sheet__panel">
-//       <h3>Fichier</h3>
-//       <button data-action="new">Nouveau</button>
-//       <button data-action="open">Ouvrir</button>
-//       <button data-action="save">Sauvegarder</button>
-//       <button class="cancel">Fermer</button>
-//     </div>
-//   `;
-//   document.body.appendChild(sheet);
-
-//   // Animation d'apparition
-//   requestAnimationFrame(() => sheet.classList.add('visible'));
-
-//   // Fermer sur clic backdrop ou "Fermer"
-//   sheet.querySelector('.file-sheet__backdrop').onclick =
-//   sheet.querySelector('.cancel').onclick = () => {
-//     sheet.classList.remove('visible');
-//     setTimeout(() => sheet.remove(), 280);
-//   };
-
-//   // Actions
-//   sheet.querySelectorAll('button[data-action]').forEach(b => {
-//     b.onclick = e => {
-//       const act = e.target.dataset.action;
-//       sheet.classList.remove('visible');
-//       setTimeout(() => sheet.remove(), 280);
-//       if (act === 'new') console.log('Nouveau');
-//       if (act === 'open') doImport();
-//       if (act === 'save') console.log('Sauvegarder');
-//     };
-//   });
-// }
-// function openFileSheet() {
-//   // Si déjà ouverte → fermer
-//   const existing = document.querySelector('.file-sheet');
-//   if (existing) { existing.remove(); return; }
-
-//   const sheet = document.createElement('div');
-//   sheet.className = 'file-sheet';
-//   sheet.innerHTML = `
-//     <div class="file-sheet__backdrop"></div>
-//     <div class="file-sheet__panel" role="dialog" aria-modal="true">
-//       <span class="file-sheet__handle" aria-hidden="true"></span>
-//       <h3 class="file-sheet__title">Fichier</h3>
-//       <ul class="file-sheet__list">
-//         <li class="file-sheet__item" data-action="new">
-//           <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-//             <path d="M12 5v14M5 12h14"/>
-//           </svg>
-//           <div class="file-sheet__text">
-//             <span class="file-sheet__titleText">Nouveau</span>
-//             <span class="file-sheet__subtitle">Réinitialiser le planning</span>
-//           </div>
-//         </li>
-//         <li class="file-sheet__item" data-action="open">
-//           <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-//             <path d="M4 4h7l3 3h6v13H4z"/>
-//           </svg>
-//           <div class="file-sheet__text">
-//             <span class="file-sheet__titleText">Ouvrir</span>
-//             <span class="file-sheet__subtitle">Importer un fichier Excel</span>
-//           </div>
-//         </li>
-//         <li class="file-sheet__item" data-action="save">
-//           <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-//             <path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/>
-//             <path d="M17 21v-8H7v8M7 5v4h8"/>
-//           </svg>
-//           <div class="file-sheet__text">
-//             <span class="file-sheet__titleText">Sauvegarder</span>
-//             <span class="file-sheet__subtitle">Exporter vers Excel</span>
-//           </div>
-//         </li>
-//       </ul>
-//       <div class="file-sheet__footer">
-//         <button class="file-sheet__close">Fermer</button>
-//       </div>
-//     </div>
-//   `;
-//   document.body.appendChild(sheet);
-
-//   const panel   = sheet.querySelector('.file-sheet__panel');
-//   const backdrop= sheet.querySelector('.file-sheet__backdrop');
-//   const handle  = sheet.querySelector('.file-sheet__handle');
-
-//   // Apparition
-//   // requestAnimationFrame(() => sheet.classList.add('visible'));
-//   requestAnimationFrame(() => {
-//     sheet.classList.add('visible');              // déclenche la transition CSS
-//     // Fallback iOS / CSS non appliqué : force la position visible
-//     const panel = sheet.querySelector('.file-sheet__panel');
-//     panel && (panel.style.transform = 'translateY(0)');
-//   });
-
-//   // Fermer helper
-//   const close = () => {
-//     sheet.classList.remove('visible');
-//     panel.style.transform = `translateY(100%)`;
-//     setTimeout(() => sheet.remove(), 260);
-//   };
-
-//   // Clicks
-//   backdrop.addEventListener('click', close);
-//   sheet.querySelector('.file-sheet__close').addEventListener('click', close);
-//   sheet.querySelectorAll('.file-sheet__item').forEach(li => {
-//     li.addEventListener('click', () => {
-//       const act = li.dataset.action;
-//       close();
-//       if (act === 'new')  console.log('[File] Nouveau');
-//       if (act === 'open') doImport?.();
-//       if (act === 'save') doExport?.();
-//     });
-//   });
-
-//   // ----- Swipe-down to close (drag handle) -----
-//   let startY = 0, dragging = false, baseY = 0;
-
-//   const begin = (y) => {
-//     dragging = true;
-//     startY = y;
-//     // position de départ (0)
-//     baseY = 0;
-//     panel.style.transition = 'none';
-//   };
-//   const move = (y) => {
-//     if (!dragging) return;
-//     const dy = Math.max(0, y - startY);
-//     panel.style.transform = `translateY(${dy}px)`;
-//   };
-//   const end = (y) => {
-//     if (!dragging) return;
-//     dragging = false;
-//     const dy = Math.max(0, y - startY);
-//     const shouldClose = dy > 80; // seuil de fermeture
-//     panel.style.transition = 'transform .22s cubic-bezier(.22,.8,.24,1)';
-//     if (shouldClose) { close(); }
-//     else { panel.style.transform = 'translateY(0)'; }
-//   };
-
-//   // Touch + Mouse (sur la poignée ET le panel haut)
-//   const startEvt = (e) => begin(e.touches ? e.touches[0].clientY : e.clientY);
-//   const moveEvt  = (e) => { e.preventDefault?.(); move(e.touches ? e.touches[0].clientY : e.clientY); };
-//   const endEvt   = (e) => end(e.changedTouches ? e.changedTouches[0].clientY : e.clientY);
-
-//   handle.addEventListener('touchstart', startEvt, { passive: true });
-//   handle.addEventListener('mousedown',  startEvt);
-//   window.addEventListener('touchmove',  moveEvt,  { passive: false });
-//   window.addEventListener('mousemove',  moveEvt);
-//   window.addEventListener('touchend',   endEvt);
-//   window.addEventListener('mouseup',    endEvt);
-// }
 function openFileSheet() {
   const existing = document.querySelector('.file-sheet');
   if (existing) { existing.remove(); return; }
@@ -2485,34 +1924,34 @@ function openFileSheet() {
   const sheet = document.createElement('div');
   sheet.className = 'file-sheet';
   sheet.innerHTML = `
-    <div class="file-sheet__backdrop" style="position:absolute;inset:0;z-index:0;background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);"></div>
-    <div class="file-sheet__panel" role="dialog" aria-modal="true" style="z-index:1">
+    <div class="file-sheet__backdrop"></div>
+    <div class="file-sheet__panel" role="dialog" aria-modal="true">
       <span class="file-sheet__handle" aria-hidden="true"></span>
       <div class="file-sheet__content">
-        <ul class="file-sheet__list" style="list-style:none;margin:0;padding:4px;">
+        <ul class="file-sheet__list">
           <li class="file-sheet__item" data-action="new">
             <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
             <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Nouveau</span>
-              <span class="file-sheet__subtitle">Réinitialiser le planning</span>
+              <span class="file-sheet__titleText">Nouveau planning</span>
+              <span class="file-sheet__subtitle">Réinitialise le planning</span>
             </div>
           </li>
           <li class="file-sheet__item" data-action="open">
             <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
             <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Ouvrir</span>
-              <span class="file-sheet__subtitle">Importer un fichier Excel</span>
+              <span class="file-sheet__titleText">Importer planning depuis Excel</span>
+              <span class="file-sheet__subtitle">Choisissez un fichier Excel contenant une liste d'activités</span>
             </div>
           </li>
           <li class="file-sheet__item" data-action="save">
             <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
             <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Sauvegarder</span>
-              <span class="file-sheet__subtitle">Exporter vers Excel</span>
+              <span class="file-sheet__titleText">Exporter planning vers Excel</span>
+              <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier Excel</span>
             </div>
           </li>
         </ul>
-        <div class="file-sheet__footer" style="display:flex;justify-content:center;padding:8px 4px 2px;">
+        <div class="file-sheet__footer">
         </div>
       </div>
     </div>
@@ -2543,9 +1982,9 @@ function openFileSheet() {
     li.addEventListener('click', () => {
       const act = li.dataset.action;
       close();
-      if (act === 'new')  console.log('[File] Nouveau');
-      if (act === 'open') doImport?.();
-      if (act === 'save') doExport?.();
+      if (act === 'new')  doNouveauContexte();
+      if (act === 'open') doImportExcel?.();
+      if (act === 'save') doExportExcel?.();
     });
   });
 
@@ -2635,7 +2074,6 @@ function openFileSheet() {
     }
   }, true);
 }
-
 
 // Centre horizontalement au-dessus du bouton (fallback en dessous si pas la place)
 function positionMenuOverBtn(btn, menu) {
@@ -2884,48 +2322,6 @@ function setSafeGap(px){
   document.documentElement.style.setProperty('--safe-gap', `${px}px`);
 }
 
-// function computeSafeGap(){
-//   if (isSplitterDragging) return;
-//   const vv = window.visualViewport;
-//   if (!vv) {
-//     setSafeGap(0);
-//     return;
-//   }
-//   // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
-//   const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-//   setSafeGap(gap); // pas besoin de déplacer la bottom bar au dessus du clavier sur mobile
-// }
-
-// function computeSafeGap() {
-//   if (isSplitterDragging) return;
-
-//   const vv = window.visualViewport;
-//   let gap = 0;
-
-//   if (vv) {
-//     // Espace “perdu” en bas : innerHeight - (viewport visible + offsetTop)
-//     gap = Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)));
-//   }
-
-//   // ⛔ borne anti-envol: en haut de page, on n'autorise PAS d'augmentation
-//   const atTop = (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
-
-//   const prev = parseInt(
-//     getComputedStyle(document.documentElement).getPropertyValue('--safe-gap'),
-//     10
-//   ) || 0;
-
-//   if (atTop && gap > prev) {
-//     gap = prev; // on gèle vers le haut quand on “tire” en haut de page
-//   }
-
-//   // (optionnel) clamp raisonnable
-//   const MAX_GAP = 180;
-//   gap = Math.max(0, Math.min(MAX_GAP, gap));
-
-//   setSafeGap(gap); 
-// }
-
 function computeSafeGap() {
   if (isSplitterDragging) return;
 
@@ -3001,8 +2397,8 @@ function initSafeAreaWatch(){
 }
 
 function wireContext() {
-  ctx.on('df:changed',        () => scheduleGlobalRefresh());
-  ctx.on('carnet:changed',    () => scheduleGlobalRefresh());
+  ctx.on('df:changed',        () => refreshActivitesGrids()); // scheduleGlobalRefresh());
+  ctx.on('carnet:changed',    () => refreshCarnetGrid()); // scheduleGlobalRefresh());
   ctx.on('history:change', (st) => {
     document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
     document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
@@ -3020,6 +2416,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 1️⃣ Contexte métier (singleton)
   window.ctx = await AppContext.ready();
+
+  // Creation de l'API pour le module activites.js
+  activitesAPI = createActivitesAPI(ctx);
 
   // 2️⃣ Branchements UI
   wireContext();

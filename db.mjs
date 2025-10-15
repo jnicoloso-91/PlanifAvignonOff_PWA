@@ -58,29 +58,76 @@ export async function df_getAllOrdered() {
   return idx.getAll(); // renvoie trié par __order
 }
 
+// export async function df_putMany(rows) {
+//   const db = await dbp;
+//   const tx = db.transaction(STORES.df, 'readwrite');
+
+//   let orderBase = Date.now(); // base unique pour cet import
+
+//   const putOne = (r, i = 0) => {
+//     if (!r || typeof r !== 'object' || Array.isArray(r)) return; // ignore non-objets
+//     const obj = { ...r }; // clone, on ne mutera pas l’original
+
+//     // UUID unique
+//     if (!obj.__uuid) {
+//       obj.__uuid =
+//         (crypto.randomUUID && crypto.randomUUID()) ||
+//         (`${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+//     }
+
+//     // Ordre (si absent)
+//     if (obj.__order == null) {
+//       obj.__order = orderBase + i;
+//     }
+
+//     tx.store.put(obj);
+//   };
+
+//   if (Array.isArray(rows)) {
+//     rows.forEach((r, i) => putOne(r, i));
+//   } else {
+//     putOne(rows, 0);
+//   }
+
+//   await tx.done;
+// }
 export async function df_putMany(rows) {
   const db = await dbp;
   const tx = db.transaction(STORES.df, 'readwrite');
+  const st = tx.store;
 
-  let orderBase = Date.now(); // base unique pour cet import
+  // 1) Récupère la valeur max actuelle pour APPEND propre
+  //    (via l’index 'by_order', sens 'prev' pour avoir le plus grand)
+  const cursor = await st.index('by_order').openKeyCursor(null, 'prev');
+  let maxOrder = cursor ? Number(cursor.primaryKey && cursor.key) : null; 
+  // ATTENTION: selon la lib idb, cursor.key = valeur de l'index, cursor.primaryKey = clé primaire.
+  // On veut la valeur d'index:
+  const lastOrder = cursor ? Number(cursor.key) : -1; // -1 si vide
+
+  let next = Number.isFinite(lastOrder) ? lastOrder + 1 : 0;
 
   const putOne = (r, i = 0) => {
-    if (!r || typeof r !== 'object' || Array.isArray(r)) return; // ignore non-objets
-    const obj = { ...r }; // clone, on ne mutera pas l’original
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return;
+    const obj = { ...r };
 
-    // UUID unique
+    // UUID
     if (!obj.__uuid) {
       obj.__uuid =
         (crypto.randomUUID && crypto.randomUUID()) ||
         (`${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     }
 
-    // Ordre (si absent)
+    // Order : toujours numérique
     if (obj.__order == null) {
-      obj.__order = orderBase + i;
+      obj.__order = next++;
+    } else {
+      obj.__order = Number(obj.__order); // coercition en number
+      if (!Number.isFinite(obj.__order)) {
+        obj.__order = next++;
+      }
     }
 
-    tx.store.put(obj);
+    return tx.store.put(obj);
   };
 
   if (Array.isArray(rows)) {
@@ -92,15 +139,21 @@ export async function df_putMany(rows) {
   await tx.done;
 }
 
+
 export async function df_clear() {
   const db = await dbp;
   return db.clear(STORES.df);
 }
 
 // ------- meta -------
+// export async function meta_get() {
+//   const db = await dbp;
+//   return (await db.get(STORES.meta, META_KEY)) ?? {};
+// }
 export async function meta_get() {
   const db = await dbp;
-  return (await db.get(STORES.meta, META_KEY)) ?? {};
+  const v = await db.get(STORES.meta, META_KEY);
+  return v ?? null;   // <= null si absent
 }
 
 export async function meta_put(obj) {

@@ -1,5 +1,7 @@
 // context.mjs
-import { df_getAllOrdered, df_putMany, df_clear } from './db.mjs';
+import { sortDf } from './activites.js';
+import { sortCarnet } from './carnet.js';
+import { df_getAllOrdered, df_putMany, df_clear, meta_get, meta_put } from './db.mjs';
 import { carnet_getAll, carnet_putMany, carnet_clear } from './db.mjs';
 
 const MAX_HISTORY = 50;
@@ -50,6 +52,7 @@ export class AppContext {
 
   // empêche sauvegardes concurrentes
   #saving = false;
+  #savePending = false;   
 
   // ---------- Boot / Shutdown ----------
   constructor() {
@@ -63,35 +66,71 @@ export class AppContext {
     });
   }
 
+  // async #init() {
+  //   // Hydrate RAM depuis IndexedDB (best-effort)
+  //   try {
+  //     const [df, carnet] = await Promise.all([
+  //       df_getAllOrdered().catch(() => []),
+  //       carnet_getAll?.().catch?.(()=>[]) || Promise.resolve([]),
+  //     ]);
+  //     this.#df = Array.isArray(df) ? df : [];
+  //     this.#carnet = Array.isArray(carnet) ? carnet : [];
+
+  //     // meta : optionnellement depuis localStorage
+  //     const rawMeta = localStorage.getItem('app.meta');
+  //     this.#meta = rawMeta ? safeParseJson(rawMeta, {}) : {};
+
+  //     // garantis __uuid
+  //     this.#df = normalizeUuid(this.#df);
+  //     this.#carnet = normalizeUuid(this.#carnet);
+  //   } catch (e) {
+  //     console.error('AppContext init error:', e);
+  //     this.#df = [];
+  //     this.#carnet = [];
+  //     this.#meta = {};
+  //   }
+  // }
   async #init() {
-    // Hydrate RAM depuis IndexedDB (best-effort)
     try {
+      // --- Hydrate df + carnet depuis IndexedDB
       const [df, carnet] = await Promise.all([
         df_getAllOrdered().catch(() => []),
-        carnet_getAll?.().catch?.(()=>[]) || Promise.resolve([]),
+        carnet_getAll?.().catch?.(() => []) || Promise.resolve([]),
       ]);
       this.#df = Array.isArray(df) ? df : [];
       this.#carnet = Array.isArray(carnet) ? carnet : [];
 
-      // meta : optionnellement depuis localStorage
-      const rawMeta = localStorage.getItem('app.meta');
-      this.#meta = rawMeta ? safeParseJson(rawMeta, {}) : {};
+      // --- Meta depuis IndexedDB
+      let meta = await meta_get();            // null si absent
+      if (!meta) {
+        meta = createDefaultMeta();
+        await meta_put(meta);
+      }
+      meta = normalizeMeta(meta);
 
-      // garantis __uuid
+      this.#meta = meta;
+      localStorage.setItem('app.meta', JSON.stringify(meta)); // cache rapide
+
+      // --- Garantis les UUID
       this.#df = normalizeUuid(this.#df);
       this.#carnet = normalizeUuid(this.#carnet);
+
     } catch (e) {
       console.error('AppContext init error:', e);
       this.#df = [];
       this.#carnet = [];
-      this.#meta = {};
+      this.#meta = createDefaultMeta();
     }
   }
 
-  // ---------- Accès lecture ----------
+  // ---------- Getters ----------
   get df() { return this.#df; }
   get carnet() { return this.#carnet; }
   get meta() { return this.#meta; }
+
+  getDf() { return this.#df; }
+  getCarnet() { return this.#carnet; }
+  getMeta() { return this.#meta; }
 
   // Accesseurs défensifs (clonés) 
   // get df() { return [...this.#df]; }
@@ -99,11 +138,11 @@ export class AppContext {
   // get meta() { return [...this.#meta]; }
 
   // Setters “property-style” → délèguent aux méthodes pour conserver historique/events/autosave
-  set df(rows)     { this.setDf(rows); }
-  set carnet(rows) { this.setCarnet(rows); }
-  set meta(patch)  { this.setMeta(patch); }
+  // set df(rows)     { this.setDf(rows); }
+  // set carnet(rows) { this.setCarnet(rows); }
+  // set meta(param)  { this.setMeta(param); }
 
-  // ---------- Mutations (marquent dirty + autosave) ----------
+  // ---------- Setters (marquent dirty + autosave) ----------
   setDf(rows) {
     this.#withHistory('setDf', () => {
       this.#df = normalizeUuid(Array.isArray(rows) ? rows : []);
@@ -126,7 +165,7 @@ export class AppContext {
     });
   }
 
-  // ---------- Mutateurs fonctionnels (marquent dirty + autosave) ----------
+  // ---------- Mutateurs (marquent dirty + autosave) ----------
   mutateDf(fn) {
     this.#withHistory('mutateDf', () => {
       const next = fn(Array.isArray(this.#df) ? this.#df.slice() : []);
@@ -153,26 +192,66 @@ export class AppContext {
   }
 
   // ---------- Sauvegarde ----------
+  // async save() {
+  //   if (this.#saving) return; // throttle
+  //   this.#saving = true;
+  //   try {
+  //     const ops = [];
+  //     if (this.#dirty.df) {
+  //       ops.push(df_clear().then(() => df_putMany(this.#df)));
+  //     }
+  //     if (this.#dirty.carnet && carnet_clear && carnet_putMany) {
+  //       ops.push(carnet_clear().then(() => carnet_putMany(this.#carnet)));
+  //     }
+  //     if (this.#dirty.meta) {
+  //       localStorage.setItem('app.meta', JSON.stringify(this.#meta));
+  //     }
+  //     await Promise.all(ops);
+  //     this.#dirty = { df: false, carnet: false, meta: false };
+  //   } catch (e) {
+  //     console.error('AppContext save error:', e);
+  //   } finally {
+  //     this.#saving = false;
+  //   }
+  // }
   async save() {
-    if (this.#saving) return; // throttle
+    // --- anti-chevauchement : si un save est en cours, on mémorise qu'il faudra relancer
+    if (this.#saving) { this.#savePending = true; return; }
+
     this.#saving = true;
     try {
       const ops = [];
+
       if (this.#dirty.df) {
+        // Remplacement complet pour rester simple et cohérent
         ops.push(df_clear().then(() => df_putMany(this.#df)));
       }
+
       if (this.#dirty.carnet && carnet_clear && carnet_putMany) {
         ops.push(carnet_clear().then(() => carnet_putMany(this.#carnet)));
       }
+
       if (this.#dirty.meta) {
-        localStorage.setItem('app.meta', JSON.stringify(this.#meta));
+        ops.push(meta_put(this.#meta));
       }
+
       await Promise.all(ops);
+
+      // reset des flags seulement si tout a bien fini
       this.#dirty = { df: false, carnet: false, meta: false };
     } catch (e) {
       console.error('AppContext save error:', e);
+      // on NE reset PAS #dirty pour ne pas perdre les changements
     } finally {
       this.#saving = false;
+
+      // Si un save a été redemandé pendant l'exécution, on relance une fois.
+      if (this.#savePending) {
+        this.#savePending = false;
+        // pas de boucle infinie : une seule relance
+        // (si tu veux une vraie coalescence, ajoute un debounce côté setters)
+        this.save();
+      }
     }
   }
 
@@ -196,19 +275,19 @@ export class AppContext {
     await this.save();
   }
 
-  // garantit __uuid
+  // garantit __uuid unique sur df et carnet
   ensureUuid() {
     this.#df = normalizeUuid(this.#df);
     this.#carnet = normalizeUuid(this.#carnet);
   }
 
-  // trouver une activité par uuid
-  getByUuid(uuid) {
+  // trouver une activité dans le DataFrame par uuid
+  dfGetByUuid(uuid) {
     return this.#df.find(r => r.__uuid === uuid) || null;
   }
 
-  // remplacer / insérer une activité
-  upsert(row) {
+  // remplacer / insérer une activité dans le DataFrame
+  dfUpsert(row) {
     this.#withHistory('upsert', () => {
       if (!row) return;
       const id = row.__uuid || genUuid();
@@ -218,13 +297,14 @@ export class AppContext {
         return r;
       });
       if (!found) this.#df.push({ ...row, __uuid: id });
+      sortDf(this.#df);
       this.#dirty.df = true;
       this.#em.emit('df:changed', { reason: found ? 'update' : 'insert', id });
     });
   }
 
-  // supprimer par uuid
-  remove(uuid) {
+  // supprimer une activité du DataFrame par uuid 
+  dfRemove(uuid) {
     this.#withHistory('remove', () => {
       const len = this.#df.length;
       this.#df = this.#df.filter(r => r.__uuid !== uuid);
@@ -235,9 +315,78 @@ export class AppContext {
     });
   }
 
-  #em = new Emitter();
+  // trouver une adresse dans le carnet d'adresses par uuid
+  carnetGetByUuid(uuid) {
+    return this.#carnet.find(r => r.__uuid === uuid) || null;
+  }
+
+  // remplacer / insérer une adresse dans le carnet d'adresses
+  carnetUpsert(row) {
+    this.#withHistory('upsert', () => {
+      if (!row) return;
+      const id = row.__uuid || genUuid();
+      let found = false;
+      this.#carnet = this.#carnet.map(r => {
+        if (r.__uuid === id) { found = true; return { ...r, ...row, __uuid: id }; }
+        return r;
+      });
+      if (!found) this.#carnet.push({ ...row, __uuid: id });
+      sortCarnet(this.#carnet);
+      this.#dirty.carnet = true;
+      this.#em.emit('carnet:changed', { reason: found ? 'update' : 'insert', id });
+    });
+  }
+
+  // supprimer une adresse du carnet d'adresses par uuid
+  carnetRemove(uuid) {
+    this.#withHistory('remove', () => {
+      const len = this.#carnet.length;
+      this.#carnet = this.#carnet.filter(r => r.__uuid !== uuid);
+      if (this.#carnet.length !== len) {
+        this.#dirty.carnet = true;
+        this.#em.emit('carnet:changed', { reason: 'remove', id: uuid });
+      }
+    });
+  }
+
+  getMetaParam(key, defaultValue = null) {
+    if (!this.#meta || typeof this.#meta !== 'object') return defaultValue;
+    return this.#meta[key] ?? defaultValue;
+  }
+
+  setMetaParam(key, value) {
+    if (!this.#meta || typeof this.#meta !== 'object') {
+      this.#meta = {};
+    }
+
+    // Évite les writes inutiles
+    if (this.#meta[key] === value) return;
+
+    this.#meta[key] = value;
+    this.#dirty.meta = true;
+  }
+
+  updMetaParams(patch = {}) {
+    if (!this.#meta || typeof this.#meta !== 'object') {
+      this.#meta = {};
+    }
+
+    let changed = false;
+    for (const [k, v] of Object.entries(patch)) {
+      if (this.#meta[k] !== v) {
+        this.#meta[k] = v;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.#dirty.meta = true;
+      // this.saveDebounced?.();
+    }
+  }
 
   // Historique
+  #em = new Emitter();
   #undoStack = [];
   #redoStack = [];
   #inAction = null;     // { label, baseSnapshot } pour coalescing
@@ -359,3 +508,28 @@ function safeParseJson(s, dflt) {
   try { return JSON.parse(s); } catch { return dflt; }
 }
 
+function createDefaultMeta() {
+  return {
+    id: 1,
+    fn: '',
+    fp: '',
+    MARGE: 30,
+    DUREE_REPAS: 60,
+    DUREE_CAFE: 15,
+    itineraire_app: '',
+    city_default: '',
+    traiter_pauses: 'non',
+    periode_a_programmer_debut: null,
+    periode_a_programmer_fin: null
+  };
+}
+
+function normalizeMeta(m = {}) {
+  return {
+    ...createDefaultMeta(),
+    ...m,
+    MARGE: Number(m?.MARGE ?? 30),
+    DUREE_REPAS: Number(m?.DUREE_REPAS ?? 60),
+    DUREE_CAFE: Number(m?.DUREE_CAFE ?? 15),
+  };
+}

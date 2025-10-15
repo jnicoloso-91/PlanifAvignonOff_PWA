@@ -1,13 +1,425 @@
 // activites.js
 import {
-  MIN_DAY, MAX_DAY, MARGE,
-  dateintToDate, mmToStr, debutMin, dureeMin
+  MIN_DAY, 
+  MAX_DAY, 
+  MARGE,
+  dateintToDate, 
+  dateToDateint,
+  mmToHHhMM, 
+  mmFromHHhMM,
+  debutMinute, 
+  dureeMinute, 
+  dateintToPretty,
 } from './utils-date.js';
 
-// ===== Stubs (placeholders à remplacer plus tard) =====
-// Renvoie vrai si au moins une activité programmable existe ce jour-là.
-// Pour l’instant: on suppose OUI (comme demandé “oublier les non définies”).
-function existActivitesProgrammables(/*jour, traiter_pauses*/) { return true; }
+let _ctx = null;
+
+export function createActivitesAPI(ctx) {
+
+  // Enregistrement local de la référence de contexte
+  if (!_ctx) {_ctx = ctx};
+
+  // ---------- API publique ----------
+  return {
+    /** 
+     * Initialisation de la période à programmer
+     */
+    async initialiserPeriodeProgrammation(df, fromDf=true) {
+      // if (!state) state = (window.appState = {});
+      // if (typeof state.nouveau_fichier === 'undefined') state.nouveau_fichier = true;
+
+      // // Si nouveau fichier -> réinitialise la période
+      // if (state.nouveau_fichier === true) {
+        // state.nouveau_fichier = false;
+      if (fromDf) {
+
+        let periodeDebut = null;
+        let periodeFin   = null;
+
+        // dates valides tirées du df
+        const diList = _getDatesFromRows(df);
+        if (diList.length > 0) {
+          const minDi = Math.min(...diList);
+          const maxDi = Math.max(...diList);
+          const dMin  = dateintToDate(minDi);
+          const dMax  = dateintToDate(maxDi);
+          if (dMin && dMax) {
+            periodeDebut = dMin;
+            periodeFin   = dMax;
+          }
+        }
+
+        // si rien trouvé -> dates du festival
+        if (!periodeDebut || !periodeFin) {
+          const fest = await _getDatesFestival();
+          periodeDebut = fest.debut;
+          periodeFin   = fest.fin;
+        }
+
+        _ctx.updMetaParams({
+          "periode_a_programmer_debut" : periodeDebut, 
+          "periode_a_programmer_fin"   : periodeFin
+        });
+      }
+
+      // garde-fou si pas encore initialisé
+      if (!_ctx.getMetaParam("periode_a_programmer_debut") || !_ctx.getMetaParam("periode_a_programmer_fin")) {
+        const fest = await _getDatesFestival();
+        _ctx.updMetaParams({
+          "periode_a_programmer_debut" : fest.debut, 
+          "periode_a_programmer_fin"   : fest.fin
+        });
+      }
+      
+      return {
+        debut: _ctx.getMetaParam("periode_a_programmer_debut"),
+        fin:   _ctx.getMetaParam("periode_a_programmer_fin")
+      };
+    },
+
+    /**
+     * Renvoie les créneaux disponibles en fonction d'un tableau d'activités
+     * @param {Array<object>} df                    - tableau des activités (programmées + non programmées)
+     * @param {Array<object>} activitesProgrammees  - tableau des activités programmées (triées par Date puis Debut_dt)
+     * @param {boolean} traiter_pauses              - ignoré pour l’instant
+     * @param {{periodeDebut?:number, periodeFin?:number}} opts
+     * @returns {Array<object>}  liste de créneaux pour la grille
+     */
+    getCreneaux(df, activitesProgrammees, traiter_pauses = false, opts = {}) {
+      const creneaux = [];
+      let bornes = []; // liste des [min,max] déjà vus pour la journée courante (évite doublons)
+
+      const periodeDebut = opts.debut ?? null; // dateint
+      const periodeFin   = opts.fin   ?? null; // dateint
+
+      // ---- Jours libres sur la période (si fournie) ----
+      if (Number.isFinite(periodeDebut) && Number.isFinite(periodeFin)) {
+        const setProg = new Set((activitesProgrammees || []).map(r => r.Date));
+        for (let jour = periodeDebut; jour <= periodeFin; jour++) {
+          if (!setProg.has(jour)) {
+            if (_existActivitesProgrammables(_getActivitesNonProgrammees(df), jour, traiter_pauses)) {
+              const fakeRow = { Date: jour };
+              creneaux.push(_creerCreneau(fakeRow, MIN_DAY, MAX_DAY, "", "", "Journée"));
+            }
+          }
+        }
+      }
+
+      if ((activitesProgrammees?.length || 0) > 0) {
+        // let jourCourant = activitesProgrammees[0].Date;
+
+        for (let i = 0; i < activitesProgrammees.length; i++) {
+          const row = activitesProgrammees[i];
+          const d = debutMinute(row), du = dureeMinute(row);
+          const heureDebut = Number.isFinite(d) ? d : null;
+          const heureFin   = (Number.isFinite(d) && Number.isFinite(du)) ? d + du : null;
+
+          // // changement de jour → reset des bornes anti-doublons
+          // if (row.Date !== jourCourant) {
+          //   bornes = [];
+          //   jourCourant = row.Date;
+          // }
+
+          // ---- Créneau AVANT ----
+          if (heureDebut != null) {
+            if (_getActivitesProgrammablesAvant(df, activitesProgrammees, row, traiter_pauses).length > 0) {
+              // (en Python, on vérifie qu'il existe des programmables avant; ici on passe outre tant que les fonctions manquent)
+              const [bMin, bMax, prev] = _getCreneauBoundsAvant(activitesProgrammees, row);
+              // Valide et pas doublon ?
+              if (bMin < bMax) {
+                const key = `${row.Date}-${bMin}-${bMax}`;
+                if (!bornes.includes(key)) {
+                  bornes.push(key);
+                  creneaux.push(
+                    _creerCreneau(row, bMin, bMax, prev?.Activite || prev?.Activité || "", row.Activite || row.Activité || "", "Avant")
+                  );
+                }
+              }
+            }
+          }
+
+          // ---- Créneau APRÈS ----
+          if (heureFin != null) {
+            if (_getActivitesProgrammablesApres(df, activitesProgrammees, row, traiter_pauses).length > 0) {
+              const [bMin, bMax, next] = _getCreneauBoundsApres(activitesProgrammees, row);
+              const max = (bMax == null ? MAX_DAY : bMax);
+              if (bMin < max) {
+                const key = `${row.Date}-${bMin}-${max}`;
+                if (!bornes.includes(key)) {
+                  bornes.push(key);
+                  creneaux.push(
+                    _creerCreneau(row, bMin, max, row.Activite || row.Activité || "", next?.Activite || next?.Activité || "", "Après")
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // tri par Date (string -> int)
+      creneaux.sort((a,b) => (parseInt(a.Date,10) || 0) - (parseInt(b.Date,10) || 0));
+      return creneaux;
+    },
+
+    /**
+     * Renvoie la liste des activités programmées à partir d'un tableau d'activités :
+     * celles qui ont une Date valide, et des champs Début, Durée, Activité non vides.
+     * On suppose qu'il s'agit bien d'un tableau d'activités contenant les champs nécessaires 
+     * et trié selon Date et Début.
+     *
+     * @param {Array<object>} df  - tableau d’activités (équivalent d'un DataFrame)
+     * @returns {Array<object>}   - activités programmées triées
+     */
+    getActivitesProgrammees(df) {
+      return _getActivitesProgrammees(df);
+    },
+
+    /**
+     * Renvoie la liste des activités non programmées à partir d'un tableau d'activités :
+     * celles sans Date, mais avec Debut, Duree et Activite définies.
+     * On suppose qu'il s'agit bien d'un tableau d'activités contenant les champs nécessaires 
+     * et trié selon Date et Début.
+     * @param {Array<Object>} df - tableau d'activités
+     * @returns {Array<Object>} nouveau tableau trié
+     */
+    getActivitesNonProgrammees(df = []) {
+      return _getActivitesNonProgrammees(df);
+    },
+
+    /**
+     * Renvoie les activités programmables sur un créneau donné
+     * @param {*} df              - tableau des activités (programmées + non programmées)
+     * @param {*} creneau         - creneau sur lequel rechercher
+     * @param {*} traiterPauses   - ignoré pour l’instant
+     * @returns 
+     */
+    getActivitesProgrammables(df, creneau, traiterPauses = false) {
+      if (!_isCreneauValide(creneau)) return [];   // ⬅️ sécurité immédiate
+
+      let proposables = [];
+
+      if (!df || df.length <= 0) return proposables;
+
+      const typeCreneau = creneau["__type_creneau"];
+      const idx = creneau["__uuid"];
+      const dateRef = Number(creneau["Date"]) || 0; // date_ref doit être un int
+
+      if (typeCreneau === "Avant" || typeCreneau === "Après") {
+        const activitesProgrammees = _getActivitesProgrammees(df);
+        if (!activitesProgrammees || activitesProgrammees.length <= 0) return proposables;
+
+        let ligneRef = null;
+        try {
+          ligneRef = activitesProgrammees.find(r => r.__uuid === creneau.__uuid);
+          if (!ligneRef) throw new Error("uuid de creneau introuvable dans activités programmées");
+        } catch (err) {
+          console.warn("Erreur getActivitesProgrammables :", err);
+          return proposables;
+        }
+
+        if (typeCreneau === "Avant") {
+          proposables = _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, traiterPauses);
+        } else {
+          proposables = _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, traiterPauses);
+        }
+
+      } else if (typeCreneau === "Journée") {
+        proposables = getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses);
+      }
+
+      // tri par "Début" croissant
+      if (proposables && proposables.length > 0) {
+        proposables.sort((a, b) => {
+          const parse = v => {
+            const m = /(\d{1,2})h(\d{2})/i.exec(String(v || ""));
+            return m ? (+m[1]) * 60 + (+m[2]) : 0;
+          };
+          return parse(a["Début"] || a.Debut) - parse(b["Début"] || b.Debut);
+        });
+      }
+
+      // impose la Date du créneau sur toutes les lignes proposées
+      for (const p of proposables) p.Date = String(creneau["Date"] ?? "");
+
+      return proposables;
+    },
+
+    /**
+     * Cherche un nom d'activité non encore alloué dans un DataFrame
+     * @param {*} df 
+     * @returns 
+     */
+    getNomNouvelleActivite(df) {
+      if (!Array.isArray(df)) return "Activité 1";
+
+      // 🔹 Extraire les noms existants
+      const nomsExistants = df
+        .map(r => (r.Activite ?? '').toString().trim())
+        .filter(n => n.length > 0);
+
+      // 🔹 Initialiser ou incrémenter le compteur global
+      if (!window.sessionState) window.sessionState = {};
+      if (typeof window.sessionState.compteur_activite !== 'number') {
+        window.sessionState.compteur_activite = 0;
+      }
+
+      // 🔹 Boucle de recherche d’un nom libre
+      while (true) {
+        window.sessionState.compteur_activite += 1;
+        const nomCandidat = `Activité ${window.sessionState.compteur_activite}`;
+        if (!nomsExistants.includes(nomCandidat)) {
+          return nomCandidat;
+        }
+      }
+    },
+
+    /**
+     * Indique si une activité est réservée
+     * @param {*} row 
+     * @returns 
+     */
+    estActiviteReserve(row) {
+      return String(row?.Reserve ?? '')
+        .trim()
+        .toLowerCase() === 'oui';
+    },
+
+    /**
+     * cellEditor de la colonne Date de la grille des activités programmées
+     * @param {*} row 
+     * @returns 
+     */
+    getOptionsDateForActiviteProgrammee(row) {
+      const k = _cacheKey(row);
+      const c = _joursCache.get(k);
+      if (c) return c;
+
+      const cur = row?.Date != null ? dateintToPretty(row.Date) : '';
+      const jours = _getJoursPossibles(row);     // [dateint]
+      const pretty = _toPrettyArray(jours);
+
+      let opts = [];
+      if (pretty.length) opts = [cur, ...pretty, ''];
+      else               opts = [cur, ''];
+      // nettoie doublons/vides consécutifs
+      opts = opts.filter((v,i,self)=> i===0 || v!==self[i-1]);
+      // _joursCache.set(k, opts);
+      return opts;
+    },
+
+    /**
+     * cellEditor de la colonne Date de la grille des activités non programmées
+     * @param {*} row 
+     * @returns 
+     */
+    getOptionsDateForActiviteNonProgrammee(row) {
+      const k = _cacheKey(row);
+      const c = _joursCache.get(k);
+      if (c) return c;
+
+      const jours = _getJoursPossibles(row);     // [dateint]
+      const pretty = _toPrettyArray(jours);
+      const opts = pretty.length ? [''].concat(pretty) : [];   // "" = laisser vide
+      // _joursCache.set(k, opts);
+      return opts;
+    },
+  };
+}
+
+/**
+ * Tri par Date (YYYYMMDD) puis Début ("HHhMM") d'un tableau d'activités.
+ * - Les lignes SANS Date vont à la fin, triées entre elles par Début.
+ * - Ne modifie PAS le tableau d'origine.
+ *
+ * @param {Array<Object>} df
+ * @param {Object} [opts]
+ * @param {boolean} [opts.desc=false] - sens du tri pour les lignes AVEC date
+ * @param {string}  [opts.dateKey='Date']
+ * @param {string}  [opts.timeKey='Début']  // <-- accent
+ * @returns {Array<Object>}
+ */
+export function sortDf(df, opts = {}) {
+  const {
+    desc = false,
+    dateKey = 'Date',
+    timeKey = 'Debut',
+  } = opts;
+
+  const dir = desc ? -1 : 1;
+
+  const parseDateInt = (d) => {
+    if (d == null || d === '') return null;
+    const n = Number(d);
+    return Number.isFinite(n) ? n : null; // attend YYYYMMDD
+  };
+
+  const parseTimeHhMM = (t) => {
+    if (t == null || t === '') return null;
+    const m = String(t).trim().match(/^(\d{1,2})h(\d{2})$/i);
+    if (!m) return null;
+    const hh = Number(m[1]), mm = Number(m[2]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh >= 24 || mm >= 60) return null;
+    return hh * 60 + mm; // minutes depuis 00:00
+  };
+
+  const indexed = df.map((r, i) => ({
+    r,
+    i,
+    d: parseDateInt(r[dateKey]),
+    m: parseTimeHhMM(r[timeKey]),
+  }));
+
+  indexed.sort((A, B) => {
+    const aNoDate = A.d == null;
+    const bNoDate = B.d == null;
+
+    // 0) Sans date : toujours APRES ceux avec date
+    if (aNoDate && !bNoDate) return 1;
+    if (!aNoDate && bNoDate) return -1;
+
+    if (!aNoDate && !bNoDate) {
+      // 1) Les deux ont une date -> comparer Date
+      if (A.d !== B.d) return (A.d - B.d) * dir;
+
+      // 2) Puis l'heure (nulls après)
+      const aNull = A.m == null, bNull = B.m == null;
+      if (aNull && bNull) return A.i - B.i;   // stabilité
+      if (aNull) return 1;
+      if (bNull) return -1;
+      return (A.m - B.m) * dir;
+    }
+
+    // 3) Les deux sont sans date -> trier par Début (nulls après)
+    const aNull = A.m == null, bNull = B.m == null;
+    if (aNull && bNull) return A.i - B.i;
+    if (aNull) return 1;
+    if (bNull) return -1;
+    return A.m - B.m;
+  });
+
+  return indexed.map(x => x.r);
+}
+
+/**
+ * Renvoie true s'il existe AU MOINS une activité programmable
+ * (i.e. non en relâche) pour la journée `dateRef` (AAAAMMJJ).
+ *
+ * @param {Array<object>} activitesNonProgrammees - liste des activités non programmées
+ * @param {number} dateRef - entier AAAAMMJJ
+ * @param {boolean} [traiter_pauses=false] - si true, on considère qu'il y a toujours des activités programmables
+ * @returns {boolean}
+ */
+function _existActivitesProgrammables(activitesNonProgrammees, dateRef, traiter_pauses = false) {
+  if (traiter_pauses) return true;
+  if (!Array.isArray(activitesNonProgrammees) || activitesNonProgrammees.length === 0) return false;
+
+  return activitesNonProgrammees.some(r => {
+    const relache = r?.Relache ?? r?.RELACHE ?? r?.relache ?? '';
+    return estHorsRelache(relache, dateRef);
+  });
+}
+
 
 /**
  * Renvoie la liste des activités programmées à partir d'un tableau d'activités :
@@ -18,7 +430,7 @@ function existActivitesProgrammables(/*jour, traiter_pauses*/) { return true; }
  * @param {Array<object>} df  - tableau d’activités (équivalent d'un DataFrame)
  * @returns {Array<object>}   - activités programmées triées
  */
-export function getActivitesProgrammees(df) {
+function _getActivitesProgrammees(df) {
   if (!Array.isArray(df)) return [];
 
   const estFloatValide = v => {
@@ -46,7 +458,7 @@ export function getActivitesProgrammees(df) {
  * @param {Array<Object>} df - tableau d'activités
  * @returns {Array<Object>} nouveau tableau trié
  */
-export function getActivitesNonProgrammees(df = []) {
+function _getActivitesNonProgrammees(df = []) {
   if (!Array.isArray(df)) return [];
 
   const filtered = df.filter(r =>
@@ -58,7 +470,12 @@ export function getActivitesNonProgrammees(df = []) {
   return filtered;
 }
 
-export function getDatesFromRows(rows) {
+/**
+ * Renvoie le tableau des dates (colonne Date) d'un tableau d'acticités
+ * @param {*} rows 
+ * @returns 
+ */
+function _getDatesFromRows(rows) {
   const out = [];
   for (const r of (rows || [])) {
     const di = Number(r?.Date);
@@ -68,14 +485,15 @@ export function getDatesFromRows(rows) {
 }
 
 // Considère qu’une ligne "non programmée" n’a pas de Date exploitable
-export function isUnscheduled(row) {
+function _isUnscheduled(row) {
   const d = row?.Date;
   return d == null || d === '' || Number.isNaN(+d);
 }
 
-// ====== Festival: fetch best-effort + cache ======
+
+// Renvoie les dates du Festival: fetch best-effort + cache
 // NB: CORS probablement bloqué -> fallback manuel activé automatiquement
-export async function getDatesFestival(state = window.appState) {
+async function _getDatesFestival(state = window.appState) {
   if (!state) state = (window.appState = {});
   if (state.festival_debut && state.festival_fin) {
     return { debut: state.festival_debut, fin: state.festival_fin };
@@ -124,55 +542,6 @@ export async function getDatesFestival(state = window.appState) {
   return { debut: state.festival_debut, fin: state.festival_fin };
 }
 
-// ====== Période à programmer ======
-export async function initialiserPeriodeProgrammation(rows, state = window.appState) {
-  if (!state) state = (window.appState = {});
-  if (typeof state.nouveau_fichier === 'undefined') state.nouveau_fichier = true;
-
-  // Si nouveau fichier -> réinitialise la période
-  if (state.nouveau_fichier === true) {
-    state.nouveau_fichier = false;
-
-    let periodeDebut = null;
-    let periodeFin   = null;
-
-    // dates valides tirées du DF (rows)
-    const diList = getDatesFromRows(rows);
-    if (diList.length > 0) {
-      const minDi = Math.min(...diList);
-      const maxDi = Math.max(...diList);
-      const dMin  = dateintToDate(minDi);
-      const dMax  = dateintToDate(maxDi);
-      if (dMin && dMax) {
-        periodeDebut = dMin;
-        periodeFin   = dMax;
-      }
-    }
-
-    // si rien trouvé -> dates du festival
-    if (!periodeDebut || !periodeFin) {
-      const fest = await getDatesFestival(state);
-      periodeDebut = fest.debut;
-      periodeFin   = fest.fin;
-    }
-
-    state.periode_a_programmer_debut = periodeDebut;
-    state.periode_a_programmer_fin   = periodeFin;
-  }
-
-  // garde-fou si pas encore initialisé
-  if (!state.periode_a_programmer_debut || !state.periode_a_programmer_fin) {
-    const fest = await getDatesFestival(state);
-    state.periode_a_programmer_debut = fest.debut;
-    state.periode_a_programmer_fin   = fest.fin;
-  }
-
-  return {
-    debut: state.periode_a_programmer_debut,
-    fin:   state.periode_a_programmer_fin
-  };
-}
-
 
 /**
  * Liste des activités non programmées (df) posables AVANT la ligne de ref.
@@ -181,20 +550,20 @@ export async function initialiserPeriodeProgrammation(rows, state = window.appSt
  * - ligneRef : activité de référence
  * - traiter_pauses : ignoré ici
  */
-function getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, traiter_pauses = true) {
+function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, traiter_pauses = true) {
   const proposables = [];
-  const [debut_min, fin_max] = getCreneauBoundsAvant(activitesProgrammees, ligneRef);
+  const [debut_min, fin_max] = _getCreneauBoundsAvant(activitesProgrammees, ligneRef);
   if (!(debut_min < fin_max)) return proposables;
 
   for (let idx = 0; idx < (df?.length || 0); idx++) {
     const row = df[idx];
-    if (!isUnscheduled(row)) continue;
+    if (!_isUnscheduled(row)) continue;
 
-    const d = debutMin(row), du = dureeMin(row);
+    const d = debutMinute(row), du = dureeMinute(row);
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
     const h_debut = d, h_fin = d + du;
 
-    if (h_debut >= (debut_min + MARGE) && h_fin <= (fin_max - MARGE)) {
+    if (h_debut >= (debut_min + MARGE) && h_fin <= (fin_max - MARGE) && _estHorsRelache(row, ligneRef.Date)) {
       const nouvelle = { ...row }; delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -209,27 +578,27 @@ function getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, trai
  * - Respecte: si fin_ref passe au lendemain → rien (comme Python)
  * - fin_max peut être null (alors borne haute = 23:59)
  */
-function getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, traiter_pauses = true) {
+function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, traiter_pauses = true) {
   const proposables = [];
 
-  const dRef = Number.isFinite(debutMin(ligneRef)) ? debutMin(ligneRef) : MIN_DAY;
-  const duRef = Number.isFinite(dureeMin(ligneRef)) ? dureeMin(ligneRef) : 0;
+  const dRef = Number.isFinite(debutMinute(ligneRef)) ? debutMinute(ligneRef) : MIN_DAY;
+  const duRef = Number.isFinite(dureeMinute(ligneRef)) ? dureeMinute(ligneRef) : 0;
   const finRef = dRef + duRef;
   if (finRef > MAX_DAY) return proposables; // changement de jour -> pas d'après
 
-  const [debut_min, fin_max] = getCreneauBoundsApres(activitesProgrammees, ligneRef);
+  const [debut_min, fin_max] = _getCreneauBoundsApres(activitesProgrammees, ligneRef);
   if (fin_max != null && !(debut_min < fin_max)) return proposables;
 
   for (let idx = 0; idx < (df?.length || 0); idx++) {
     const row = df[idx];
-    if (!isUnscheduled(row)) continue;
+    if (!_isUnscheduled(row)) continue;
 
-    const d = debutMin(row), du = dureeMin(row);
+    const d = debutMinute(row), du = dureeMinute(row);
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
     const h_debut = d, h_fin = d + du;
 
     const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - MARGE);
-    if (h_debut >= (debut_min + MARGE) && h_fin <= borneHaute) {
+    if (h_debut >= (debut_min + MARGE) && h_fin <= borneHaute && _estHorsRelache(row, ligneRef.Date)) {
       const nouvelle = { ...row }; delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -244,22 +613,22 @@ function getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, trai
  * - debut_min : fin de l’activité précédente le même jour, ou 00:00
  * - fin_max   : début de l’activité de ref (mm depuis minuit)
  */
-function getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
+function _getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
   const dateRef  = ligneRef.Date;
-  const debutRef = Number.isFinite(debutMin(ligneRef)) ? debutMin(ligneRef) : MIN_DAY;
+  const debutRef = Number.isFinite(debutMinute(ligneRef)) ? debutMinute(ligneRef) : MIN_DAY;
 
   const sameDay = (activitesProgrammees || [])
     .filter(r => r.Date === dateRef)
-    .sort((a,b) => (debutMin(a) ?? 0) - (debutMin(b) ?? 0));
+    .sort((a,b) => (debutMinute(a) ?? 0) - (debutMinute(b) ?? 0));
 
   let prev = null;
   for (const r of sameDay) {
-    const d = debutMin(r);
+    const d = debutMinute(r);
     if (Number.isFinite(d) && d < debutRef) prev = r;
     else if ((d ?? 0) >= debutRef) break;
   }
 
-  const prevFin = prev ? (debutMin(prev) + (dureeMin(prev) || 0)) : MIN_DAY;
+  const prevFin = prev ? (debutMinute(prev) + (dureeMinute(prev) || 0)) : MIN_DAY;
   const debut_min = prevFin;
   const fin_max   = debutRef;
 
@@ -274,41 +643,41 @@ function getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
  * NB: Si l’activité de ref déborde sur le lendemain, on calque le comportement Python:
  *     "Pas d'activités programmables après si le jour a changé" → on renvoie un créneau invalide.
  */
-function getCreneauBoundsApres(activitesProgrammees, ligneRef) {
+function _getCreneauBoundsApres(activitesProgrammees, ligneRef) {
   const dateRef  = ligneRef.Date;
-  const dRef = Number.isFinite(debutMin(ligneRef)) ? debutMin(ligneRef) : MIN_DAY;
-  const duRef = Number.isFinite(dureeMin(ligneRef)) ? dureeMin(ligneRef) : 0;
+  const dRef = Number.isFinite(debutMinute(ligneRef)) ? debutMinute(ligneRef) : MIN_DAY;
+  const duRef = Number.isFinite(dureeMinute(ligneRef)) ? dureeMinute(ligneRef) : 0;
   const finRef = dRef + duRef;
 
   if (finRef > MAX_DAY) return [finRef, null, null]; // déborde jour suivant -> pas d'"après"
 
   const sameDay = (activitesProgrammees || [])
     .filter(r => r.Date === dateRef)
-    .sort((a,b) => (debutMin(a) ?? 0) - (debutMin(b) ?? 0));
+    .sort((a,b) => (debutMinute(a) ?? 0) - (debutMinute(b) ?? 0));
 
   let next = null;
   for (const r of sameDay) {
-    const rDeb = debutMin(r) || 0;
-    const rFin = rDeb + (dureeMin(r) || 0);
+    const rDeb = debutMinute(r) || 0;
+    const rFin = rDeb + (dureeMinute(r) || 0);
     if (rFin > finRef) { next = r; break; }
   }
 
-  const fin_max   = next ? debutMin(next) : null;
+  const fin_max   = next ? debutMinute(next) : null;
   const debut_min = finRef;
 
   return [debut_min, fin_max, next];
 }
 
-// ===== Création d’un objet créneau =====
-function creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
+// Création d’un objet créneau
+function _creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
   const dateStr = (row.Date != null) ? String(row.Date) : "";
   const start   = Math.max(MIN_DAY, Math.min(borneMin ?? MIN_DAY, MAX_DAY));
   const endRaw  = (borneMax == null ? MAX_DAY : borneMax);
   const end     = Math.max(MIN_DAY, Math.min(endRaw, MAX_DAY));
   return {
     Date: dateStr,                         // string pour éviter l’icône filtre numérique
-    Début: mmToStr(start),
-    Fin:   mmToStr(end),
+    Début: mmToHHhMM(start),
+    Fin:   mmToHHhMM(end),
     'Activité avant': avant || '',
     'Activité après': apres || '',
     __type_creneau: typeCreneau,           // "Avant" | "Après" | "Journée"
@@ -316,219 +685,186 @@ function creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
   };
 }
 
-// ===== Renvoie les créneaux disponibles en fonction d'un tableau d'activités =====
-/**
- * @param {Array<object>} activites                 - toutes activités (programmées + non programmées)
- * @param {Array<object>} activitesProgrammees  - uniquement programmées (triées par Date puis Debut_dt)
- * @param {boolean} traiter_pauses              - ignoré pour l’instant
- * @param {{periodeDebut?:number, periodeFin?:number}} opts
- * @returns {Array<object>}  liste de créneaux pour la grille
- */
-export function getCreneaux(activites, activitesProgrammees, traiter_pauses = false, opts = {}) {
-  const creneaux = [];
-  let bornes = []; // liste des [min,max] déjà vus pour la journée courante (évite doublons)
-
-  const periodeDebut = opts.debut ?? null; // dateint
-  const periodeFin   = opts.fin   ?? null; // dateint
-
-  // ---- Jours libres sur la période (si fournie) ----
-  if (Number.isFinite(periodeDebut) && Number.isFinite(periodeFin)) {
-    const setProg = new Set((activitesProgrammees || []).map(r => r.Date));
-    for (let jour = periodeDebut; jour <= periodeFin; jour++) {
-      if (!setProg.has(jour)) {
-        if (existActivitesProgrammables(jour, traiter_pauses)) {
-          const fakeRow = { Date: jour };
-          creneaux.push(creerCreneau(fakeRow, MIN_DAY, MAX_DAY, "", "", "Journée"));
-        }
-      }
-    }
-  }
-
-  if ((activitesProgrammees?.length || 0) > 0) {
-    // let jourCourant = activitesProgrammees[0].Date;
-
-    for (let i = 0; i < activitesProgrammees.length; i++) {
-      const row = activitesProgrammees[i];
-      const d = debutMin(row), du = dureeMin(row);
-      const heureDebut = Number.isFinite(d) ? d : null;
-      const heureFin   = (Number.isFinite(d) && Number.isFinite(du)) ? d + du : null;
-
-      // // changement de jour → reset des bornes anti-doublons
-      // if (row.Date !== jourCourant) {
-      //   bornes = [];
-      //   jourCourant = row.Date;
-      // }
-
-      // ---- Créneau AVANT ----
-      if (heureDebut != null) {
-        if (getActivitesProgrammablesAvant(activites, activitesProgrammees, row, traiter_pauses).length > 0) {
-          // (en Python, on vérifie qu'il existe des programmables avant; ici on passe outre tant que les fonctions manquent)
-          const [bMin, bMax, prev] = getCreneauBoundsAvant(activitesProgrammees, row);
-          // Valide et pas doublon ?
-          if (bMin < bMax) {
-            const key = `${row.Date}-${bMin}-${bMax}`;
-            if (!bornes.includes(key)) {
-              bornes.push(key);
-              creneaux.push(
-                creerCreneau(row, bMin, bMax, prev?.Activite || prev?.Activité || "", row.Activite || row.Activité || "", "Avant")
-              );
-            }
-          }
-        }
-      }
-
-      // ---- Créneau APRÈS ----
-      if (heureFin != null) {
-        if (getActivitesProgrammablesApres(activites, activitesProgrammees, row, traiter_pauses).length > 0) {
-          const [bMin, bMax, next] = getCreneauBoundsApres(activitesProgrammees, row);
-          const max = (bMax == null ? MAX_DAY : bMax);
-          if (bMin < max) {
-            const key = `${row.Date}-${bMin}-${max}`;
-            if (!bornes.includes(key)) {
-              bornes.push(key);
-              creneaux.push(
-                creerCreneau(row, bMin, max, row.Activite || row.Activité || "", next?.Activite || next?.Activité || "", "Après")
-              );
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // tri par Date (string -> int)
-  creneaux.sort((a,b) => (parseInt(a.Date,10) || 0) - (parseInt(b.Date,10) || 0));
-  return creneaux;
-}
-
-function isCreneauValide(creneau) {
+function _isCreneauValide(creneau) {
   if (!creneau || typeof creneau !== 'object') return false;
   const t = creneau.__type_creneau;
   return t === 'Avant' || t === 'Après' || t === 'Journée';
 }
 
-export function getActivitesProgrammables(activites, creneau, traiterPauses = false) {
-  if (!isCreneauValide(creneau)) return [];   // ⬅️ sécurité immédiate
-
-  let proposables = [];
-
-  if (!activites || activites.length <= 0) return proposables;
-
-  const typeCreneau = creneau["__type_creneau"];
-  const idx = creneau["__uuid"];
-  const dateRef = Number(creneau["Date"]) || 0; // date_ref doit être un int
-
-  if (typeCreneau === "Avant" || typeCreneau === "Après") {
-    const activitesProgrammees = getActivitesProgrammees(activites);
-    if (!activitesProgrammees || activitesProgrammees.length <= 0) return proposables;
-
-    let ligneRef = null;
-    try {
-      ligneRef = activitesProgrammees.find(r => r.__uuid === creneau.__uuid);
-      if (!ligneRef) throw new Error("uuid de creneau introuvable dans activités programmées");
-    } catch (err) {
-      console.warn("Erreur getActivitesProgrammables :", err);
-      return proposables;
-    }
-
-    if (typeCreneau === "Avant") {
-      proposables = getActivitesProgrammablesAvant(activites, activitesProgrammees, ligneRef, traiterPauses);
-    } else {
-      proposables = getActivitesProgrammablesApres(activites, activitesProgrammees, ligneRef, traiterPauses);
-    }
-
-  } else if (typeCreneau === "Journée") {
-    proposables = getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses);
-  }
-
-  // tri par "Début" croissant
-  if (proposables && proposables.length > 0) {
-    proposables.sort((a, b) => {
-      const parse = v => {
-        const m = /(\d{1,2})h(\d{2})/i.exec(String(v || ""));
-        return m ? (+m[1]) * 60 + (+m[2]) : 0;
-      };
-      return parse(a["Début"] || a.Debut) - parse(b["Début"] || b.Debut);
-    });
-  }
-
-  // impose la Date du créneau sur toutes les lignes proposées
-  for (const p of proposables) p.Date = String(creneau["Date"] ?? "");
-
-  return proposables;
-}
-
 /**
- * Tri par Date (YYYYMMDD) puis Début ("HHhMM") d'un tableau d'activités.
- * - Les lignes SANS Date vont à la fin, triées entre elles par Début.
- * - Ne modifie PAS le tableau d'origine.
- *
- * @param {Array<Object>} rows
- * @param {Object} [opts]
- * @param {boolean} [opts.desc=false] - sens du tri pour les lignes AVEC date
- * @param {string}  [opts.dateKey='Date']
- * @param {string}  [opts.timeKey='Début']  // <-- accent
- * @returns {Array<Object>}
+ * Détermine si une date est "hors relâche" (jour jouable).
+ * 
+ * @param {string|null} relacheVal - Description des relâches (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
+ * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
+ * @param {Date} [today] - Date de référence pour l'année/mois par défaut
+ * @returns {boolean} - true = jour jouable / false = relâche
  */
-export function sortDf(rows, opts = {}) {
-  const {
-    desc = false,
-    dateKey = 'Date',
-    timeKey = 'Debut',
-  } = opts;
+function _estHorsRelache(relacheVal, dateVal, today = new Date()) {
+  if (!relacheVal || !String(relacheVal).trim() || dateVal == null) return true;
 
-  const dir = desc ? -1 : 1;
+  const dv = Number(dateVal);
+  if (!Number.isFinite(dv)) return true;
 
-  const parseDateInt = (d) => {
-    if (d == null || d === '') return null;
-    const n = Number(d);
-    return Number.isFinite(n) ? n : null; // attend YYYYMMDD
+  const dy = Math.floor(dv / 10000);
+  const dm = Math.floor((dv / 100) % 100);
+  const dd = dv % 100;
+  const defY = today.getFullYear();
+  const defM = today.getMonth() + 1;
+  const txt = String(relacheVal).trim().toLowerCase();
+
+  // --- Helpers internes ---
+  const y2k = y => (y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
+  const mkDateInt = (y, m, d) => (y * 10000 + m * 100 + d);
+  const parseDayMaybeDmY = (s, yy, mm) => {
+    const parts = s.split("/").map(x => x.trim());
+    let d, m = mm, y = yy;
+    if (parts.length === 3) [d, m, y] = parts.map(Number);
+    else if (parts.length === 2) [d, m] = parts.map(Number);
+    else if (parts.length === 1) d = Number(parts[0]);
+    y = y2k(y);
+    return [y, m, d];
   };
 
-  const parseTimeHhMM = (t) => {
-    if (t == null || t === '') return null;
-    const m = String(t).trim().match(/^(\d{1,2})h(\d{2})$/i);
-    if (!m) return null;
-    const hh = Number(m[1]), mm = Number(m[2]);
-    if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh >= 24 || mm >= 60) return null;
-    return hh * 60 + mm; // minutes depuis 00:00
-  };
+  // --- Parité ---
+  let pariteRelache = null;
+  if (/\brel[aâ]che\s+jours?\s+pairs?\b/.test(txt) || /\bjours?\s+pairs?\b/.test(txt)) pariteRelache = "pair";
+  if (/\brel[aâ]che\s+jours?\s+impairs?\b/.test(txt) || /\bjours?\s+impairs?\b/.test(txt)) pariteRelache = "impair";
 
-  const indexed = rows.map((r, i) => ({
-    r,
-    i,
-    d: parseDateInt(r[dateKey]),
-    m: parseTimeHhMM(r[timeKey]),
-  }));
+  const closedIntervals = []; // [A-B] = relâche
+  const openIntervals = [];   // <A-B> = fenêtres de jeu
+  const regroupDays = [];     // (a,b,c) = relâche
 
-  indexed.sort((A, B) => {
-    const aNoDate = A.d == null;
-    const bNoDate = B.d == null;
+  // --- (1) Intervalles fermés [A-B]
+  for (const m of txt.matchAll(/\[\s*([0-9/]+)\s*-\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+    const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
+    const mmDef = mmTxt ? Number(mmTxt) : defM;
+    const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
+    const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
+    const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
+    const aDi = mkDateInt(Ay, Am, Ad);
+    const bDi = mkDateInt(By, Bm, Bd);
+    closedIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
+  }
 
-    // 0) Sans date : toujours APRES ceux avec date
-    if (aNoDate && !bNoDate) return 1;
-    if (!aNoDate && bNoDate) return -1;
+  // --- (2) Fenêtres de jeu <A-B>
+  for (const m of txt.matchAll(/<\s*([0-9/]+)\s*-\s*([0-9/]+)\s*>\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+    const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
+    const mmDef = mmTxt ? Number(mmTxt) : defM;
+    const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
+    const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
+    const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
+    const aDi = mkDateInt(Ay, Am, Ad);
+    const bDi = mkDateInt(By, Bm, Bd);
+    openIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
+  }
 
-    if (!aNoDate && !bNoDate) {
-      // 1) Les deux ont une date -> comparer Date
-      if (A.d !== B.d) return (A.d - B.d) * dir;
+  // --- (3) Regroupements (a,b,c)
+  for (const m of txt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+    const [_, joursTxt, mmTxt, yyTxt] = m;
+    const mmDef = mmTxt ? Number(mmTxt) : defM;
+    const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
+    const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(Boolean);
+    for (const jd of jours) regroupDays.push(mkDateInt(yyDef, mmDef, jd));
+  }
 
-      // 2) Puis l'heure (nulls après)
-      const aNull = A.m == null, bNull = B.m == null;
-      if (aNull && bNull) return A.i - B.i;   // stabilité
-      if (aNull) return 1;
-      if (bNull) return -1;
-      return (A.m - B.m) * dir;
+  // --- (4) Jours isolés de relâche (hors parenthèses)
+  for (const part of txt.split(",").map(p => p.trim())) {
+    if (!part || /jour/.test(part)) continue;
+    if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
+    const mday = part.match(/^(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?$/);
+    if (!mday) continue;
+    const d = Number(mday[1]);
+    const mm = mday[2] ? Number(mday[2]) : defM;
+    const yy = mday[3] ? y2k(Number(mday[3])) : defY;
+    regroupDays.push(mkDateInt(yy, mm, d));
+  }
+
+  // --- (1) relâche explicite
+  for (const [lo, hi] of closedIntervals) {
+    if (lo <= dv && dv <= hi) return false;
+  }
+  if (regroupDays.includes(dv)) return false;
+  if (pariteRelache === "pair" || pariteRelache === "impair") {
+    const isEven = dd % 2 === 0;
+    if ((pariteRelache === "pair" && isEven) || (pariteRelache === "impair" && !isEven)) return false;
+  }
+
+  // --- (2) fenêtres de jeu présentes ? -> on ne joue QUE dedans
+  if (openIntervals.length > 0) {
+    for (const [lo, hi] of openIntervals) {
+      if (lo <= dv && dv <= hi) return true;
     }
+    return false;
+  }
 
-    // 3) Les deux sont sans date -> trier par Début (nulls après)
-    const aNull = A.m == null, bNull = B.m == null;
-    if (aNull && bNull) return A.i - B.i;
-    if (aNull) return 1;
-    if (bNull) return -1;
-    return A.m - B.m;
-  });
-
-  return indexed.map(x => x.r);
+  // --- (3) par défaut : joué
+  return true;
 }
 
+// Renvoie la 1ère activité programmée du jour (par heure)
+function _firstProgOfDay(jour) {
+  const L = _getActivitesProgrammees(_ctx.df).filter(r => r.Date === jour)
+                  .map(r => ({...r, _min: mmFromHHhMM(r['Debut']), _dur: mmFromHHhMM(r['Duree'])||0}))
+                  .filter(r => r._min!=null)
+                  .sort((a,b)=>a._min - b._min);
+  return L[0] || null;
+}
+
+// Renvoie la liste (triée) des activités programmées du jour
+function _progsOfDaySorted(jour){
+  return _getActivitesProgrammees(_ctx.df).filter(r => r.Date === jour)
+               .map(r => ({...r, _min: mmFromHHhMM(r['Debut']), _dur: mmFromHHhMM(r['Duree'])||0}))
+               .filter(r => r._min!=null)
+               .sort((a,b)=>a._min - b._min);
+}
+
+// Calcule les jours possibles pour poser une activité
+function _getJoursPossibles(rowActivite) {
+  const jours = [];
+  const debutMinute = mmFromHHhMM(rowActivite['Debut']);
+  const duree    = mmFromHHhMM(rowActivite['Duree']);
+  if (debutMinute == null || !duree) return jours;
+  const finAct   = debutMinute + duree;
+
+  for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
+    if (!_estHorsRelache(rowActivite['Relache'], jour)) continue;
+
+    const jList = _progsOfDaySorted(jour);
+    if (jList.length === 0) { // journée libre
+      jours.push(jour);
+      continue;
+    }
+
+    // 1) créneau 00:00 → première activité
+    const first = jList[0];
+    const borne_inf = 0;           // 00:00
+    const borne_sup = first._min;  // début de la 1ère activité
+    if (debutMinute >= borne_inf && finAct <= (borne_sup - MARGE)) {
+      jours.push(jour);
+      continue;
+    }
+
+    // 2) créneaux entre activités programmées
+    let ok = false;
+    for (const ref of jList) {
+      const [debut_min, fin_max ] = _getCreneauBoundsApres(jList, ref);
+      const afterMin = debut_min + MARGE;
+      const beforeMax = (fin_max == null) ? null : (fin_max - MARGE);
+      const fits = (debutMinute >= afterMin) && (beforeMax == null ? true : finAct <= beforeMax);
+      if (fits) { ok = true; break; }
+    }
+    if (ok) jours.push(jour);
+  }
+  return jours; // tableau de dateint
+}
+
+// cache simple (clé = __uuid)
+const _joursCache = new Map();
+const _cacheKey = row => row?.__uuid || '';
+
+function _toPrettyArray(arrInt){
+  return (arrInt||[]).slice().sort((a,b)=>a-b).map(di => dateintToPretty(di));
+}
+
+// Invalidate à chaque fois que l'on modifie df/Relâche/Réservé/Paramètres :
+function invalidateJoursCache(){ _joursCache.clear(); }
