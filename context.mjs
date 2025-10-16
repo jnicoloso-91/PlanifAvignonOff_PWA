@@ -3,6 +3,7 @@ import { sortDf } from './activites.js';
 import { sortCarnet } from './carnet.js';
 import { df_getAllOrdered, df_putMany, df_clear, meta_get, meta_put } from './db.mjs';
 import { carnet_getAll, carnet_putMany, carnet_clear } from './db.mjs';
+import { captureUiStateFromGrids, restoreUiStateToGrids } from './ui_state.mjs';
 
 const MAX_HISTORY = 50;
 
@@ -402,6 +403,7 @@ export class AppContext {
       df: this.#df.slice(),
       carnet: this.#carnet.slice(),
       meta: { ...(this.#meta || {}) },
+      ui: captureUiStateFromGrids(), 
     };
   }
   #restoreSnapshot(snap) {
@@ -412,6 +414,16 @@ export class AppContext {
     this.#em.emit('df:changed', { reason: 'restore' });
     this.#em.emit('carnet:changed', { reason: 'restore' });
     this.#em.emit('meta:changed', { reason: 'restore' });
+
+    // 🔁 Puis restaurer l'UI (sélection + scroll) juste après repaint
+    const ui = snap.ui;
+    if (ui) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try { restoreUiStateToGrids(ui); } catch {}
+        });
+      });
+    }
   }
   #pushUndo(snap) {
     this.#undoStack.push(snap);

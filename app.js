@@ -16,6 +16,7 @@ let activitesAPI = null;
 
 // ===== Multi-grilles =====
 const grids = new Map();           // id -> { api, el, loader }
+window.grids = grids;
 let activeGridId = null;
 
 // Mémorise le créneau sélectionné (grille C)
@@ -933,6 +934,89 @@ function addButtons() {
   addProgrammerButton('exp-programmables', async () => {await doProgrammerActivite();});
 }
 
+// Restitution des selections et scroll dans les grilles
+// function restoreSelectionAndScroll(gridId, api, hostEl) {
+//   // --- Sélection par UUID ---
+//   const uuids = ctx.meta.selections?.[gridId] || [];
+//   if (uuids.length) {
+//     api.forEachNode?.(node => {
+//       const id = node.data?.__uuid;
+//       if (id && uuids.includes(id)) node.setSelected?.(true, false); // (select, clearOthers=false)
+//     });
+//     const sel = api.getSelectedNodes?.()?.[0];
+//     if (sel) api.ensureIndexVisible?.(sel.rowIndex, 'middle');
+//   } else {
+//     // fallback si rien mémorisé : laisse ton fallback existant (1ère ligne, etc.)
+//   }
+
+//   // --- Scroll vertical ---
+//   const savedTop = ctx.meta.scroll?.[gridId];
+//   if (typeof savedTop === 'number' && hostEl) {
+//     const vp = hostEl.querySelector('.ag-body-viewport');
+//     if (vp) vp.scrollTop = savedTop;
+//   }
+// }
+
+// Lit la sélection + scroll de TOUTES les grilles et les pose dans ctx.meta
+// export function storeSelectionAndScrollAll() {
+//   if (!window.ctx || !window.grids) return;
+
+//   const selections = { ...(ctx.meta.selections || {}) };
+//   const scroll = { ...(ctx.meta.scroll || {}) };
+
+//   for (const [gridId, h] of grids.entries()) {
+//     try {
+//       const api = h.api;
+//       // sélection -> uuids
+//       const uuids = (api.getSelectedRows?.() || []).map(r => r?.__uuid).filter(Boolean);
+//       selections[gridId] = uuids;
+
+//       // scrollTop du viewport
+//       const vp = h.el.querySelector('.ag-body-viewport');
+//       if (vp) scroll[gridId] = vp.scrollTop || 0;
+//     } catch (e) { console.warn('[storeSelScroll] fail', gridId, e); }
+//   }
+
+//   ctx.setMeta({ selections, scroll });
+// }
+
+// Relit ctx.meta et ré-applique pour TOUTES les grilles
+// export function restoreSelectionAndScrollAll({ align='middle' } = {}) {
+//   if (!window.ctx || !window.grids) return;
+
+//   const selections = ctx.meta.selections || {};
+//   const scroll = ctx.meta.scroll || {};
+
+//   for (const [gridId, h] of grids.entries()) {
+//     try {
+//       const api = h.api;
+
+//       // --- Sélection ---
+//       const wanted = selections[gridId] || [];
+//       if (wanted.length) {
+//         // clear + reselect par __uuid (getRowId DOIT renvoyer __uuid)
+//         api.deselectAll?.();
+//         api.forEachNode?.(node => {
+//           const id = node.data?.__uuid;
+//           if (id && wanted.includes(id)) node.setSelected?.(true, false);
+//         });
+
+//         // s’assurer que la 1re sélection est visible
+//         const node = api.getSelectedNodes?.()?.[0];
+//         if (node) api.ensureIndexVisible?.(node.rowIndex, align);
+//       }
+
+//       // --- Scroll ---
+//       const top = scroll[gridId];
+//       if (typeof top === 'number') {
+//         const vp = h.el.querySelector('.ag-body-viewport');
+//         if (vp) vp.scrollTop = top;
+//       }
+//     } catch (e) { console.warn('[restoreSelScroll] fail', gridId, e); }
+//   }
+// }
+
+
 // ===== Colonnes =====
 // Colonnes des grilles d'activités programmées et non programmées
 function buildColumnsActivites(){
@@ -1069,6 +1153,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
   if (!el) return null;
 
   const gridOptions = {
+    // context: { gridId },                 // ← ex: 'grid-programmees'
     columnDefs: columnsBuilder(), //(columnsBuilder ?? buildColumnsActivites)(),
     defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
     rowData: [],
@@ -1098,6 +1183,12 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     onSelectionChanged: onSelectionChanged
       ? () => onSelectionChanged(gridId)
       : undefined,
+    //   : (params) => {
+    //   const gid = params.context.gridId;
+    //   const uuids = (params.api.getSelectedRows?.() || []).map(r => r.__uuid);
+    //   const prev = (ctx.meta.selections || {});
+    //   ctx.setMeta({ selections: { ...prev, [gid]: uuids } });
+    // },
     onCellValueChanged: (p) => {
       if (p.colDef.field == "Date") return;
       const uuid = p.node.id;
@@ -1108,6 +1199,13 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
       df = sortDf(df);
       ctx.setDf(df);        
     },
+    // onBodyScrollEnd: (params) => {
+    //   const gid = params.context.gridId;
+    //   // AG Grid v31+ fournit getVerticalPixelRange()
+    //   const top = params.api.getVerticalPixelRange?.().top ?? 0;
+    //   const prev = (ctx.meta.scroll || {});
+    //   ctx.setMeta({ scroll: { ...prev, [gid]: top } });
+    // },
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
@@ -1163,6 +1261,18 @@ async function refreshGrid(gridId) {
     // repaint + grid size (AG Grid v29+)
     api.refreshCells?.({ force: true });
     api.dispatchEvent?.({ type: 'gridSizeChanged' });
+
+    // 3) reselect/scroll depuis meta (APRES peinture)
+    // requestAnimationFrame(() => restoreSelectionAndScroll(gridId, api, h.el));
+
+    // (optionnel) fallback de sélection si rien n’est sélectionné :
+    // requestAnimationFrame(() => {
+    //   const haveSel = (api.getSelectedNodes?.()?.length || 0) > 0;
+    //   if (!haveSel) {
+    //     const n0 = api.getDisplayedRowAtIndex?.(0);
+    //     n0?.setSelected?.(true, true);
+    //   }
+    // });
 
     // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');

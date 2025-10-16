@@ -4,6 +4,7 @@ const OFFLINE_ASSETS = [
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./ui_state.mjs",
   "./context.js",
   "./activites.js",
   "./carnet.js",
