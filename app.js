@@ -831,43 +831,6 @@ function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
   });
 }
 
-// function addHeaderActionsProgrammables() {
-//   const exp = document.querySelector('#exp-programmables');
-//   if (!exp) return;
-//   const header = exp.querySelector('.st-expander-header');
-//   if (!header) return;
-
-//   // assure un span titre
-//   if (!header.querySelector('.st-expander-title')) {
-//     const t = header.querySelector('.title') || header.firstElementChild;
-//     if (t) t.classList.add('st-expander-title');
-//   }
-
-//   // déjà présent ?
-//   if (header.querySelector('.header-actions')) return;
-
-//   const actions = document.createElement('div');
-//   actions.className = 'header-actions';
-//   actions.setAttribute('data-no-toggle', ''); // pour le guard dans wireExpanders
-
-//   const btn = document.createElement('button');
-//   btn.className = 'btn';
-//   btn.textContent = 'Programmer';
-//   btn.title = 'Programmer l’activité sélectionnée';
-
-//   // 🔒 Empêche de déclencher le toggle de l’expander
-//   const swallow = (e) => { e.stopPropagation(); };
-//   btn.addEventListener('mousedown', swallow);
-//   btn.addEventListener('mouseup', swallow);
-//   btn.addEventListener('click', (e) => {
-//     e.stopPropagation();
-//     doProgrammerActivite();
-//   });
-
-//   actions.appendChild(btn);
-//   header.appendChild(actions);
-// }
-
 function addProgrammerButton(expanderId, onClick) {
   const exp = document.getElementById(expanderId);
   if (!exp) return;
@@ -968,7 +931,8 @@ function buildColumnsActivitesProgrammees() {
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
       return { values: values.map(String) };   // 👈 must be an array
-    }
+    },
+    onCellValueChanged: onProgGridDateCommitted,
   };
 
   return cols
@@ -992,7 +956,8 @@ function buildColumnsActivitesNonProgrammees() {
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteNonProgrammee(p.data) || [];
       return { values: values.map(String) };   // 👈 must be an array
-    }
+    },
+    onCellValueChanged: onNonProgGridDateCommitted,
   };
 
   return cols
@@ -1087,17 +1052,13 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
       ? () => onSelectionChanged(gridId)
       : undefined,
     onCellValueChanged: (p) => {
-      const uuid = p.node.id
-      const field = p.colDef.field;
-      let df = ctx.getDf().slice(); // copie actuelle du DataFrame
-      
-      // Trouver l'index de cette ligne dans le df (selon son identifiant unique __uuid)
+      const uuid = p.node.id;
+      let df = ctx.getDf().slice(); 
       const idx = df.findIndex(r => r.__uuid === uuid);
-      if (idx !== -1) {
-        df[idx] = { ...df[idx], ...p.data }; // remplace la row (copie pour éviter mutabilité)
-        df = sortDf(df);
-        ctx.setDf(df);        // actualise le contexte (marque dirty + saveDebounced)
-      }
+      if (idx < 0) return rows;
+      df[idx] = { ...df[idx], ...p.data }; 
+      df = sortDf(df);
+      ctx.setDf(df);        
     },
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
@@ -1257,7 +1218,54 @@ async function loadCarnet() {
   return carnet.map(r => ({...r}));
 }
 
-// ===== Sélection sur la grille des créneaux =====
+// ===== Handlers de grilles =====
+
+// Quand on édite la date d'une activité programmée
+async function onProgGridDateCommitted(params) {
+  if (params.colDef.field !== 'Date') return;
+
+  const uuid = params.node.id;
+  if (!uuid) return;
+
+  // 1) Commit dans contexte
+  let df = ctx.getDf().slice(); 
+  const idx = df.findIndex(r => r.__uuid === uuid);
+  if (idx < 0) return rows;
+  df[idx] = { ...df[idx], ...params.data }; 
+  df = sortDf(df);
+  ctx.setDf(df);        
+
+  // 2) Ouvre l’expander "programmées" et sélectionne la ligne
+  //    (la mutation va déclencher ton refresh via ctx.on('df:changed'…))
+  setTimeout(() => {
+    openExpanderById?.('exp-non-programmees');
+    selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
+  }, 50);
+}
+
+// Quand on édite la date d'une activité NON programmée
+async function onNonProgGridDateCommitted(params) {
+  if (params.colDef.field !== 'Date') return;
+
+  const uuid = params.node.id;
+  if (!uuid) return;
+
+  // 1) Commit dans contexte
+  let df = ctx.getDf().slice(); 
+  const idx = df.findIndex(r => r.__uuid === uuid);
+  if (idx < 0) return rows;
+  df[idx] = { ...df[idx], ...params.data }; 
+  df = sortDf(df);
+  ctx.setDf(df);        
+
+  // 2) Ouvre l’expander "programmées" et sélectionne la ligne
+  //    (la mutation va déclencher ton refresh via ctx.on('df:changed'…))
+  setTimeout(() => {
+    openExpanderById?.('exp-programmees');
+    selectRowByUuid('grid-programmees', uuid, { ensure: 'center', flash: true });
+  }, 50);
+}
+
 function onCreneauxSelectionChanged(gridId){
   const g = grids.get(gridId);
   if (!g?.api) return;
