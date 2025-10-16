@@ -45,6 +45,31 @@ const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
 
 const $ = id => document.getElementById(id);
 
+/**
+ * Renvoie le __uuid de la ligne voisine (suivante ou précédente)
+ * d'une ligne repérée par son __uuid de référence.
+ * - Si rows est vide ou l'uuid introuvable → null
+ * - Si possible → retourne le __uuid de la ligne suivante
+ *   sinon celui de la ligne précédente
+ * @param {Array<Object>} rows - tableau "df_display" (ordre d'affichage)
+ * @param {string|null|undefined} uuid - identifiant __uuid de la ligne de référence
+ * @returns {string|null} __uuid du voisin ou null
+ */
+function ligneVoisineUuid(rows, uuid) {
+  if (!rows || rows.length === 0) return null;
+  if (uuid == null) return null;
+
+  const selectedIdx = rows.findIndex(r => r && r.__uuid === uuid);
+  if (selectedIdx < 0) return null;
+
+  const len = rows.length;
+  const neighborIdx = (selectedIdx + 1 <= len - 1)
+    ? selectedIdx + 1
+    : Math.max(selectedIdx - 1, 0);
+
+  return rows[neighborIdx]?.__uuid ?? null;
+}
+
 function safeSizeToFitFor(id){
   const g = grids.get(id);
   if (!g?.api) return;
@@ -415,7 +440,15 @@ function getSelectedRowSafe(api) {
   return r?.data || null;
 }
 
-// --- calcul de la hauteur idéale pour ≤ 5 lignes ---
+// Renvoie la row de la ligne séléectionnée dans une grille donnée par son gridId
+function getSelectedRow(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return null;
+  const sel = h.api.getSelectedRows?.() || [];
+  return sel?.[0];
+}
+
+// Calcul de la hauteur idéale pour ≤ 5 lignes
 function desiredPaneHeightForRows(gridEl, api, { maxRows = 5 } = {}) {
   if (!gridEl) return null;
 
@@ -447,6 +480,7 @@ function desiredPaneHeightForRows(gridEl, api, { maxRows = 5 } = {}) {
   return Math.max(desired, hHeader + 8);
 }
 
+// Retaille en fonction du row count
 function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
   if (!pane || !gridEl) return;
 
@@ -474,6 +508,7 @@ function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
   }
 }
 
+// Ouverture Expander
 function openExp(exp) {
   if (!exp) return;
   const pane = exp.querySelector('.st-expander-body');
@@ -509,6 +544,7 @@ function openExp(exp) {
   });
 }
 
+// Fermeture Expander
 function closeExp(exp) {
   if (!exp) return;
   const pane = exp.querySelector('.st-expander-body');
@@ -570,11 +606,12 @@ function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {}) {
   return true;
 }
 
-// CSS.escape polyfill safe
-const cssEscape = (window.CSS && CSS.escape) ? CSS.escape
-  : (s) => String(s).replace(/["\\#:.%]/g, '\\$&');
-
+// Renvoie Row Node et Element en fonction de l'uuid de ligne
 async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paints = 2, debug = false } = {}) {
+  
+  // CSS.escape polyfill safe
+  const cssEscape = (window.CSS && CSS.escape) ? CSS.escape : (s) => String(s).replace(/["\\#:.%]/g, '\\$&');
+
   const h = grids.get(gridId);
   if (!h || !uuid) return { api: null, node: null, rowEl: null, el: h?.el || null };
 
@@ -646,36 +683,41 @@ async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paint
   return { api, node, rowEl, el: root };
 }
 
+// Fait exécuter un vol de ligne fantome de la ligne sélectionnée d'une grille à la ligne sélectionnée d'une autre
+async function doPhantomFlight (gridOrigine, gridCible, expCible) {
 
-function animateGhost(ghost, fromRect, toRect, { duration=560 } = {}) {
-  if (!ghost || !fromRect || !toRect) return Promise.resolve();
-  const dx = (toRect.left + toRect.width/2)  - (fromRect.left + fromRect.width/2);
-  const dy = (toRect.top  + toRect.height/2) - (fromRect.top  + fromRect.height/2);
-  const scale = Math.max(0.85, Math.min(1.05, toRect.height / Math.max(1, fromRect.height)));
-  return new Promise(res => {
-    const anim = ghost.animate(
-      [
-        { transform: 'translate(0,0) scale(1)', opacity: .95 },
-        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: .1 }
-      ],
-      { duration, easing: 'cubic-bezier(.22,.8,.2,1)', fill: 'forwards' }
-    );
-    anim.onfinish = () => { ghost.remove(); res(); };
-    anim.oncancel  = () => { ghost.remove(); res(); };
-  });
-}
+  // 0) Préparation
+  const srcRow = getSelectedRow(gridOrigine);
+  if (!srcRow) return;
+  const { node, rowEl } = await getRowNodeAndElByUuid(gridOrigine, srcRow.__uuid);
+  const fromRect = rowEl?.getBoundingClientRect() || null;
+  const ghostLabel = (srcRow.Activité || srcRow.Activite || '').trim();
 
-function getHeaderTargetRect(expId) {
-  const header = document.querySelector(`#${expId} .st-expander-header`);
-  if (!header) return null;
-  const r = header.getBoundingClientRect();
-  // viser un point un peu au-dessus, centré, pour un mouvement visible
-  return {
-    left: r.left + r.width/2 - 40,
-    top:  r.top  - 24,
-    width: 80,
-    height: 20
-  };
+  // 1) ouvrir l’expander cible et rendre la row visible
+  openExpanderById(expCible);
+  await nextPaint(2);
+
+  // 2) animer vers la VRAIE ligne si possible, sinon flash-only
+  const dstRow = getSelectedRow(gridCible);
+  if (!dstRow) return;
+  const dst = await ensureRowVisibleAndGetEl(gridCible, dstRow.__uuid);
+
+  if (fromRect && dst.rowEl) {
+    const toRect = dst.rowEl.getBoundingClientRect();
+    if (PHANTOM_WITH_OFFSET) {
+      const ghost  = makeRowGhostFromRect(fromRect, ghostLabel);
+      await animateGhostArc(ghost, fromRect, toRect, { duration: 700, lift: -180 });
+    } else {
+      const ghost  = makeRowGhostExact(fromRect);
+      await animateGhostToTopLeft(ghost, fromRect, toRect, { duration: 700});
+    }
+  }
+  // 3) quoi qu’il arrive : sélection & flash final (perceptible)
+  if (dst.node) {
+    dst.node.setSelected?.(true, true);
+    dst.api.ensureNodeVisible?.(dst.node, 'middle');
+    flashArrival(gridCible, dst.node);
+  }
 }
 
 // attendre qu'AG Grid ait peint
@@ -696,7 +738,7 @@ function openExpanderById(expId){
   }
 }
 
-// sélectionne + rend visible + retourne DOM de la ligne si possible
+// Sélectionne + rend visible + retourne DOM de la ligne si possible
 async function ensureRowVisibleAndGetEl(gridId, uuid) {
   const h = grids.get(gridId);
   if (!h) return { api:null, node:null, rowEl:null };
@@ -733,7 +775,7 @@ async function ensureRowVisibleAndGetEl(gridId, uuid) {
   return { api, node, rowEl: rowEl2 };
 }
 
-// mini flash propre
+// Mini flash propre
 function flashArrival(gridId, node) {
   const h = grids.get(gridId);
   if (!h || !node) return;
@@ -744,7 +786,7 @@ function flashArrival(gridId, node) {
   setTimeout(()=> rowEl.classList.remove('flash-arrival'), 480);
 }
 
-// ghost simple (lisible)
+// Ghost simple
 function makeRowGhostFromRect(rect, label='') {
   if (!rect) return null;
 
@@ -779,6 +821,22 @@ function makeRowGhostFromRect(rect, label='') {
   return ghost;
 }
 
+// Ghost strictement identique à la source (pas d’élargissement, pas de padding)
+function makeRowGhostExact(rect) {
+  if (!rect) return null;
+  const ghost = document.createElement('div');
+  ghost.className = 'row-flight';
+  ghost.style.left   = rect.left + 'px';
+  ghost.style.top    = rect.top  + 'px';
+  ghost.style.width  = rect.width + 'px';
+  ghost.style.height = rect.height + 'px';
+
+  // pas de padding ni texte (éviter biais visuel)
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
+// Translation du fantome selon un arc
 function animateGhostArc(ghost, fromRect, toRect, { duration=PHANTOM_DEFAULT_DURATION, lift=PHANTOM_DEFAULT_OFFSET }={}) {
   if (!ghost || !fromRect || !toRect) return Promise.resolve();
   const dx = (toRect.left+toRect.width/2)  - (fromRect.left+fromRect.width/2);
@@ -797,22 +855,7 @@ function animateGhostArc(ghost, fromRect, toRect, { duration=PHANTOM_DEFAULT_DUR
   });
 }
 
-// Ghost strictement identique à la source (pas d’élargissement, pas de padding)
-function makeRowGhostExact(rect) {
-  if (!rect) return null;
-  const ghost = document.createElement('div');
-  ghost.className = 'row-flight';
-  ghost.style.left   = rect.left + 'px';
-  ghost.style.top    = rect.top  + 'px';
-  ghost.style.width  = rect.width + 'px';
-  ghost.style.height = rect.height + 'px';
-
-  // pas de padding ni texte (éviter biais visuel)
-  document.body.appendChild(ghost);
-  return ghost;
-}
-
-// Translation simple vers le coin haut-gauche de la destination
+// Translation simple du phantome vers le coin haut-gauche de la destination
 function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
   if (!ghost || !fromRect || !toRect) return Promise.resolve();
   const dx = toRect.left - fromRect.left;
@@ -831,6 +874,7 @@ function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
   });
 }
 
+// Ajout du bouton Programme dans l'UI
 function addProgrammerButton(expanderId, onClick) {
   const exp = document.getElementById(expanderId);
   if (!exp) return;
@@ -882,6 +926,7 @@ function addProgrammerButton(expanderId, onClick) {
   actions.appendChild(btn);
 }
 
+// Ajout des boutons dynamiques
 function addButtons() {
   addProgrammerButton('exp-programmables', async () => {await doProgrammerActivite();});
 }
@@ -921,12 +966,12 @@ function buildColumnsActivitesProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    valueSetter: p => {
-      if (p.newValue == null) return false;
-      if (p.data.Date === p.newValue) return false;
-      p.data.Date = prettyToDateint(p.newValue) ?? p.oldValue ?? null; // ← écriture
-      return true;                            // ← crucial
-    },
+    // valueSetter: p => {
+    //   if (p.newValue == null) return false;
+    //   if (p.data.Date === p.newValue) return false;
+    //   p.data.Date = prettyToDateint(p.newValue) ?? p.oldValue ?? null; // ← écriture
+    //   return true;                            // ← crucial
+    // },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
@@ -946,12 +991,12 @@ function buildColumnsActivitesNonProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    valueSetter: p => {
-      if (p.newValue == null) return false;
-      if (p.data.Date === p.newValue) return false;
-      p.data.Date = prettyToDateint(p.newValue) ?? p.oldValue ?? null; // ← écriture
-      return true;                            // ← crucial
-    },
+    // valueSetter: p => {
+    //   if (p.newValue == null) return false;
+    //   if (p.data.Date === p.newValue) return false;
+    //   p.data.Date = prettyToDateint(p.newValue) ?? p.oldValue ?? null; // ← écriture
+    //   return true;                            // ← crucial
+    // },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteNonProgrammee(p.data) || [];
@@ -1052,10 +1097,11 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
       ? () => onSelectionChanged(gridId)
       : undefined,
     onCellValueChanged: (p) => {
+      if (p.colDef.field == "Date") return;
       const uuid = p.node.id;
       let df = ctx.getDf().slice(); 
       const idx = df.findIndex(r => r.__uuid === uuid);
-      if (idx < 0) return rows;
+      if (idx < 0) return;
       df[idx] = { ...df[idx], ...p.data }; 
       df = sortDf(df);
       ctx.setDf(df);        
@@ -1227,42 +1273,67 @@ async function onProgGridDateCommitted(params) {
   const uuid = params.node.id;
   if (!uuid) return;
 
-  // 1) Commit dans contexte
+  // Si params.newValue == "" il faudra écrire null dans le champ Date pour déclencher une déprogrammation
+  // sinon prettyToDateint(params.newValue) pour reprogrammer ou oldValue ou null
+  let di = null;
+  if (params.newValue != "") di = prettyToDateint(params.newValue) ?? params.oldValue ?? null; // ← écriture
+
+  // Récupération de l'uuid de la ligne voisine
+  const gridRows = []; params.api.forEachNode(node => gridRows.push(node.data));
+  const uuidVoisin = ligneVoisineUuid(gridRows, uuid);
+
+  // Commit dans contexte ctx
   let df = ctx.getDf().slice(); 
   const idx = df.findIndex(r => r.__uuid === uuid);
   if (idx < 0) return rows;
-  df[idx] = { ...df[idx], ...params.data }; 
+  df[idx] = { ...df[idx], ...params.data }; df[idx].Date = di; 
   df = sortDf(df);
   ctx.setDf(df);        
 
-  // 2) Ouvre l’expander "programmées" et sélectionne la ligne
-  //    (la mutation va déclencher ton refresh via ctx.on('df:changed'…))
+  // Si drop dans une autre grille: 
+  // - sélectionne la ligne voisine dans la grille de départ
+  // - ouvre l’expander de la grille de destination et sélectionne la ligne
   setTimeout(() => {
-    openExpanderById?.('exp-non-programmees');
-    selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
+    if (params.newValue == "") {
+      selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
+      openExpanderById?.('exp-non-programmees');
+      selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
+      doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
+    }
   }, 50);
 }
 
-// Quand on édite la date d'une activité NON programmée
 async function onNonProgGridDateCommitted(params) {
   if (params.colDef.field !== 'Date') return;
 
   const uuid = params.node.id;
   if (!uuid) return;
 
-  // 1) Commit dans contexte
+  // Il faudra écrire dans le champ Date prettyToDateint(params.newValue) pour programmer ou oldValue ou null
+  const di = prettyToDateint(params.newValue) ?? params.oldValue ?? null; // ← écriture
+  
+  // Récupération de l'uuid de la ligne voisine
+  const gridRows = []; params.api.forEachNode(node => gridRows.push(node.data));
+  const uuidVoisin = ligneVoisineUuid(gridRows, uuid);
+
+  // Commit dans contexte ctx
   let df = ctx.getDf().slice(); 
   const idx = df.findIndex(r => r.__uuid === uuid);
   if (idx < 0) return rows;
-  df[idx] = { ...df[idx], ...params.data }; 
+  df[idx] = { ...df[idx], ...params.data }; df[idx].Date = di; 
   df = sortDf(df);
   ctx.setDf(df);        
 
-  // 2) Ouvre l’expander "programmées" et sélectionne la ligne
-  //    (la mutation va déclencher ton refresh via ctx.on('df:changed'…))
+  // Si drop dans une autre grille: 
+  // - sélectionne la ligne voisine dans la grille de départ
+  // - ouvre l’expander de la grille de destination et sélectionne la ligne
   setTimeout(() => {
-    openExpanderById?.('exp-programmees');
-    selectRowByUuid('grid-programmees', uuid, { ensure: 'center', flash: true });
+    if (params.newValue != "") {
+      selectRowByUuid('grid-non-programmees', uuidVoisin, { ensure: 'center', flash: null });
+      openExpanderById?.('exp-programmees');
+      selectRowByUuid('grid-programmees', uuid, { ensure: 'center', flash: true });
+      doPhantomFlight("grid-non-programmees", "grid-programmees", "exp-programmees");
+    }
   }, 50);
 }
 
@@ -1641,18 +1712,18 @@ async function doProgrammerActivite() {
   const dateInt = toDateint(sel.Date);
   if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
 
-  // Capture source AVANT refresh pour préparation animation fantôme
-  const srcH = grids.get('grid-programmables');
-  let fromRect = null, ghostLabel = '';
-  if (srcH) {
-    const sel = srcH.api.getSelectedRows?.() || [];
-    const s = sel[0];
-    if (s) {
-      const { node, rowEl } = await ensureRowVisibleAndGetEl('grid-programmables', s.__uuid);
-      fromRect = rowEl?.getBoundingClientRect() || null;
-      ghostLabel = (s.Activité || s.Activite || '').trim();
-    }
-  }
+  // // Capture source AVANT refresh pour préparation animation fantôme
+  // const srcH = grids.get('grid-programmables');
+  // let fromRect = null, ghostLabel = '';
+  // if (srcH) {
+  //   const sel = srcH.api.getSelectedRows?.() || [];
+  //   const s = sel[0];
+  //   if (s) {
+  //     const { node, rowEl } = await ensureRowVisibleAndGetEl('grid-programmables', s.__uuid);
+  //     fromRect = rowEl?.getBoundingClientRect() || null;
+  //     ghostLabel = (s.Activité || s.Activite || '').trim();
+  //   }
+  // }
 
   // 1) pré-check (lecture instantanée en RAM)
   const exists = (ctx.df || []).some(r => r.__uuid === uuid);
@@ -1692,32 +1763,33 @@ async function doProgrammerActivite() {
   // await refreshAllGrids(); (fait par mutation)
 
   // 6) ANIMATION fantôme de la ligne (si on a capturé une source)
-  const doPhantom = true; // debug Phantom
-  if (doPhantom) {
+  // const doPhantom = true; // debug Phantom
+  // if (doPhantom) {
 
-    // 1) ouvrir l’expander cible et rendre la row visible
-    openExpanderById('exp-programmees');
-    await nextPaint(2);
-    const dst = await ensureRowVisibleAndGetEl('grid-programmees', uuid);
+  //   // 1) ouvrir l’expander cible et rendre la row visible
+  //   openExpanderById('exp-programmees');
+  //   await nextPaint(2);
+  //   const dst = await ensureRowVisibleAndGetEl('grid-programmees', uuid);
 
-    // 2) animer vers la VRAIE ligne si possible, sinon flash-only
-    if (fromRect && dst.rowEl) {
-      const toRect = dst.rowEl.getBoundingClientRect();
-      if (PHANTOM_WITH_OFFSET) {
-        const ghost  = makeRowGhostFromRect(fromRect, ghostLabel);
-        await animateGhostArc(ghost, fromRect, toRect, { duration: 700, lift: -180 });
-      } else {
-        const ghost  = makeRowGhostExact(fromRect);
-        await animateGhostToTopLeft(ghost, fromRect, toRect, { duration: 700});
-      }
-    }
-    // 3) quoi qu’il arrive : sélection & flash final (perceptible)
-    if (dst.node) {
-      dst.node.setSelected?.(true, true);
-      dst.api.ensureNodeVisible?.(dst.node, 'middle');
-      flashArrival('grid-programmees', dst.node);
-    }
-  }
+  //   // 2) animer vers la VRAIE ligne si possible, sinon flash-only
+  //   if (fromRect && dst.rowEl) {
+  //     const toRect = dst.rowEl.getBoundingClientRect();
+  //     if (PHANTOM_WITH_OFFSET) {
+  //       const ghost  = makeRowGhostFromRect(fromRect, ghostLabel);
+  //       await animateGhostArc(ghost, fromRect, toRect, { duration: 700, lift: -180 });
+  //     } else {
+  //       const ghost  = makeRowGhostExact(fromRect);
+  //       await animateGhostToTopLeft(ghost, fromRect, toRect, { duration: 700});
+  //     }
+  //   }
+  //   // 3) quoi qu’il arrive : sélection & flash final (perceptible)
+  //   if (dst.node) {
+  //     dst.node.setSelected?.(true, true);
+  //     dst.api.ensureNodeVisible?.(dst.node, 'middle');
+  //     flashArrival('grid-programmees', dst.node);
+  //   }
+  // }
+  doPhantomFlight('grid-programmables', 'grid-programmees', 'exp-programmees');
 }
 
 // Rechargement des grilles depuis contexte
