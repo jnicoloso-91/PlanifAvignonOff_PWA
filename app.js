@@ -1708,10 +1708,12 @@ async function doExportExcel() {
   }
 }
 
+// Undo
 async function doUndo() {
   try { await ctx.undo(); } catch {};
 }
 
+// Redo
 async function doRedo() {
   try { await ctx.redo(); } catch {};
 }
@@ -2212,7 +2214,7 @@ function positionMenuOverBtn(btn, menu) {
   menu.style.top  = top  + 'px';
 }
 
-// --- Handler du file input caché (import Excel effectif) ---
+// Handler du file input caché (import Excel effectif) 
 function wireHiddenFileInput(){
   const fi = $('fileInput');
   if (!fi) return;
@@ -2340,6 +2342,38 @@ function wireHiddenFileInput(){
   });
 }
 
+// function wireBottomBarToggle() {
+//   const bar = document.getElementById('bottomBar');
+//   const toggle = document.getElementById('toggleBar');
+//   if (!bar || !toggle) return;
+
+//   // Injecte le span rotatif si pas déjà là
+//   if (!toggle.querySelector('span')) {
+//     toggle.innerHTML = '<span>⌃</span>';
+//   }
+//   const icon = toggle.querySelector('span');
+
+//   const updateTogglePos = () => {
+//     const barHeight = bar.offsetHeight || 0;
+//     const barBottom = parseFloat(getComputedStyle(bar).bottom) || 0;
+
+//     // Place la languette juste au-dessus de la barre, en tenant compte du safe-area   
+//     toggle.style.bottom = bar.classList.contains('hidden')
+//       ? `${barBottom}px`
+//       : `${barBottom + barHeight}px`;
+//   };
+
+//   toggle.addEventListener('click', () => {
+//     const hidden = bar.classList.toggle('hidden');
+//     toggle.classList.toggle('rotated', hidden);
+//     updateTogglePos();
+//     setTimeout(syncBottomBarTogglePosition, 180);
+//   });
+
+//   // updateTogglePos();
+//   window.addEventListener('resize', updateTogglePos);
+// }
+
 function wireBottomBarToggle() {
   const bar = document.getElementById('bottomBar');
   const toggle = document.getElementById('toggleBar');
@@ -2365,12 +2399,44 @@ function wireBottomBarToggle() {
     const hidden = bar.classList.toggle('hidden');
     toggle.classList.toggle('rotated', hidden);
     updateTogglePos();
-    setTimeout(syncBottomBarTogglePosition, 180);
+    // setTimeout(syncBottomBarTogglePosition, 180);
+    syncBottomBarTogglePosition, 180;
   });
 
+  // --- 2️⃣ Fonction de sync (toujours locale à cette wire) ---
+  function syncBottomBarTogglePosition() {
+    const rect = bar.getBoundingClientRect();
+    tog.style.bottom = `calc(env(safe-area-inset-bottom) + ${rect.height}px)`;
+  }
+
+  // --- 3️⃣ Wiring des événements liés au viewport ---
+  window.addEventListener('resize', syncBottomBarTogglePosition);
+  window.addEventListener('orientationchange', () =>
+    setTimeout(syncBottomBarTogglePosition, 200)
+  );
+  bar.addEventListener('transitionend', (e) => {
+    if (e.propertyName === 'transform') syncBottomBarTogglePosition();
+  });
+
+  // --- 4️⃣ Lancer une première sync après layout ---
+  requestAnimationFrame(syncBottomBarTogglePosition);
+
   // updateTogglePos();
-  window.addEventListener('resize', updateTogglePos);
+  // window.addEventListener('resize', updateTogglePos);
 }
+
+// function syncBottomBarTogglePosition() {
+//   if (isSplitterDragging) return;
+//   const bar = document.querySelector('.bottom-bar');
+//   const tog = document.querySelector('.bottom-toggle');
+//   if (!bar || !tog) return;
+
+//   // Mesurer la hauteur réellement rendue
+//   const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
+
+//   // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
+//   tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
+// }
 
 function lockHorizontalScroll() {
   const scroller = document.querySelector('.bottom-bar__scroller');
@@ -2413,19 +2479,6 @@ function isStandaloneIOS(){
 function getSafeBottom() {
   // iOS notch etc.
   return 'env(safe-area-inset-bottom, 0px)';
-}
-
-function syncBottomBarTogglePosition() {
-  if (isSplitterDragging) return;
-  const bar = document.querySelector('.bottom-bar');
-  const tog = document.querySelector('.bottom-toggle');
-  if (!bar || !tog) return;
-
-  // Mesurer la hauteur réellement rendue
-  const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
-
-  // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
-  tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
 }
 
 function setSafeGap(px){
