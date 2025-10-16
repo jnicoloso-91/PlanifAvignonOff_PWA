@@ -364,6 +364,16 @@ main, .page-wrap {
     padding-left: 4px !important;
     padding-right: 4px !important;
   }
+
+  /* Taille du texte dans les menus déroulants de cellule */
+  .ag-theme-quartz .ag-select-list {
+    font-size: 10px !important;      /* ou 10px selon ton goût */
+    line-height: 1.2;
+  }
+
+  .ag-theme-quartz .ag-select-list-item {
+    padding: 2px 6px !important;     /* plus compact */
+  }
 }
 
 .ag-root, .ag-root * { -webkit-user-select: text; user-select: text; }
@@ -878,7 +888,8 @@ main, .page-wrap {
   width: 20px; height: 20px; flex: 0 0 auto; color: #111;
 }
 .file-sheet__text { display: flex; flex-direction: column; min-width: 0; }
-.file-sheet__titleText { font-weight: 700; color: #111; font-size: 15px; }
+/* .file-sheet__titleText { font-weight: 700; color: #111; font-size: 15px; } */
+.file-sheet__titleText { font-weight: 650; color: #111; font-size: 15px; }
 .file-sheet__subtitle { font-size: 12px; color: #6b7280; margin-top: 2px; }
 
 /* Bouton “Fermer” à la fin */
