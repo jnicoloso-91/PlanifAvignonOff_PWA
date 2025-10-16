@@ -8,7 +8,7 @@ import {
   safeDateint, 
   toDateint,
 } from './utils-date.js';
-import { createActivitesAPI, sortDf } from './activites.js'; 
+import { creerActivitesAPI, sortDf } from './activites.js'; 
 import { sortCarnet } from './carnet.js'; 
 import { AppContext } from './context.mjs';
 
@@ -45,6 +45,8 @@ const ROW_H=32, HEADER_H=32, PAD=4;
 const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
 
 const $ = id => document.getElementById(id);
+
+const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 
 /**
  * Renvoie le __uuid de la ligne voisine (suivante ou précédente)
@@ -159,7 +161,7 @@ function normalizeRowsKeys(rows = [], { keepOriginal = false } = {}) {
 }
 
 // ===== Grid Helpers =====
-// Palette pastel (ajuste si tu veux)
+// Palette de couleurs de jours pour colorisation des activités programmées
 const DAY_COLORS = [
   '#fff2b3',  // jaune sable doux mais lumineux
   '#cde9ff',  // bleu clair franc
@@ -171,10 +173,16 @@ const DAY_COLORS = [
   '#e0d8ff',  // lavande pastel un peu plus soutenu
 ];
 
-function colorForDate(dateInt) {
+const COULEUR_ACTIVITE_PROGRAMMABLE = "#d9fcd9"  // ("#ccffcc" autre vert clair  "#cfe2f3" bleu clair)
+
+function colorDate(dateInt) {
   if (dateInt == null || Number.isNaN(dateInt)) return null;
   const i = Math.abs(Number(dateInt)) % DAY_COLORS.length;
   return DAY_COLORS[i];
+}
+
+function colorActiviteProgrammable(row) {
+  return activitesAPI.estActiviteProgrammable(row) ? COULEUR_ACTIVITE_PROGRAMMABLE : null;
 }
 
 function findGridHandleInPane(pane) {
@@ -877,7 +885,7 @@ function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
   });
 }
 
-// Ajout du bouton Programme dans l'UI
+// ===== Boutons dynamiques =====
 function addProgrammerButton(expanderId, onClick) {
   const exp = document.getElementById(expanderId);
   if (!exp) return;
@@ -929,97 +937,13 @@ function addProgrammerButton(expanderId, onClick) {
   actions.appendChild(btn);
 }
 
-// Ajout des boutons dynamiques
 function addButtons() {
   addProgrammerButton('exp-programmables', async () => {await doProgrammerActivite();});
 }
 
-// Restitution des selections et scroll dans les grilles
-// function restoreSelectionAndScroll(gridId, api, hostEl) {
-//   // --- Sélection par UUID ---
-//   const uuids = ctx.meta.selections?.[gridId] || [];
-//   if (uuids.length) {
-//     api.forEachNode?.(node => {
-//       const id = node.data?.__uuid;
-//       if (id && uuids.includes(id)) node.setSelected?.(true, false); // (select, clearOthers=false)
-//     });
-//     const sel = api.getSelectedNodes?.()?.[0];
-//     if (sel) api.ensureIndexVisible?.(sel.rowIndex, 'middle');
-//   } else {
-//     // fallback si rien mémorisé : laisse ton fallback existant (1ère ligne, etc.)
-//   }
-
-//   // --- Scroll vertical ---
-//   const savedTop = ctx.meta.scroll?.[gridId];
-//   if (typeof savedTop === 'number' && hostEl) {
-//     const vp = hostEl.querySelector('.ag-body-viewport');
-//     if (vp) vp.scrollTop = savedTop;
-//   }
-// }
-
-// Lit la sélection + scroll de TOUTES les grilles et les pose dans ctx.meta
-// export function storeSelectionAndScrollAll() {
-//   if (!window.ctx || !window.grids) return;
-
-//   const selections = { ...(ctx.meta.selections || {}) };
-//   const scroll = { ...(ctx.meta.scroll || {}) };
-
-//   for (const [gridId, h] of grids.entries()) {
-//     try {
-//       const api = h.api;
-//       // sélection -> uuids
-//       const uuids = (api.getSelectedRows?.() || []).map(r => r?.__uuid).filter(Boolean);
-//       selections[gridId] = uuids;
-
-//       // scrollTop du viewport
-//       const vp = h.el.querySelector('.ag-body-viewport');
-//       if (vp) scroll[gridId] = vp.scrollTop || 0;
-//     } catch (e) { console.warn('[storeSelScroll] fail', gridId, e); }
-//   }
-
-//   ctx.setMeta({ selections, scroll });
-// }
-
-// Relit ctx.meta et ré-applique pour TOUTES les grilles
-// export function restoreSelectionAndScrollAll({ align='middle' } = {}) {
-//   if (!window.ctx || !window.grids) return;
-
-//   const selections = ctx.meta.selections || {};
-//   const scroll = ctx.meta.scroll || {};
-
-//   for (const [gridId, h] of grids.entries()) {
-//     try {
-//       const api = h.api;
-
-//       // --- Sélection ---
-//       const wanted = selections[gridId] || [];
-//       if (wanted.length) {
-//         // clear + reselect par __uuid (getRowId DOIT renvoyer __uuid)
-//         api.deselectAll?.();
-//         api.forEachNode?.(node => {
-//           const id = node.data?.__uuid;
-//           if (id && wanted.includes(id)) node.setSelected?.(true, false);
-//         });
-
-//         // s’assurer que la 1re sélection est visible
-//         const node = api.getSelectedNodes?.()?.[0];
-//         if (node) api.ensureIndexVisible?.(node.rowIndex, align);
-//       }
-
-//       // --- Scroll ---
-//       const top = scroll[gridId];
-//       if (typeof top === 'number') {
-//         const vp = h.el.querySelector('.ag-body-viewport');
-//         if (vp) vp.scrollTop = top;
-//       }
-//     } catch (e) { console.warn('[restoreSelScroll] fail', gridId, e); }
-//   }
-// }
-
-
-// ===== Colonnes =====
+// ===== Builders de colonnes de grilles =====
 // Colonnes des grilles d'activités programmées et non programmées
-function buildColumnsActivites(){
+function buildColumnsActivitesCommon(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
     { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
@@ -1035,7 +959,7 @@ function buildColumnsActivites(){
     },
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true },
-    { field:'Fin',   width, suppressSizeToFit:true },
+    { field:'Fin',   width, suppressSizeToFit:true, editable: false },
     { field:'Lieu',  minWidth:160, flex:1 },
     { field:'Relache', headerName: 'Relâche', minWidth:60, flex:.5 },
     { field:'Reserve', headerName: 'Réservé', minWidth:60, flex:.5 },
@@ -1044,20 +968,17 @@ function buildColumnsActivites(){
   ];
 }
 
-// Colonnes de la grille des activités programmées
 function buildColumnsActivitesProgrammees() {
-  const cols = buildColumnsActivites();
-  cols[0] = {
-    ...cols[0],
+  const cols = buildColumnsActivitesCommon();
+  let iDate = cols.findIndex(c => c.field === 'Date');
+  let iDebut = cols.findIndex(c => c.field === 'Debut');
+  let iDuree = cols.findIndex(c => c.field === 'Duree');
+
+  cols[iDate] = {
+    ...cols[iDate],
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    // valueSetter: p => {
-    //   if (p.newValue == null) return false;
-    //   if (p.data.Date === p.newValue) return false;
-    //   p.data.Date = prettyToDateint(p.newValue) ?? p.oldValue ?? null; // ← écriture
-    //   return true;                            // ← crucial
-    // },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
@@ -1066,23 +987,26 @@ function buildColumnsActivitesProgrammees() {
     onCellValueChanged: onProgGridDateCommitted,
   };
 
+  cols[iDebut] = {
+    ...cols[iDebut] ,
+    editable: (p) => !activitesAPI.estActiviteReservee(p.data),
+  };
+
+  cols[iDuree] = {
+    ...cols[iDuree] ,
+    editable: (p) => !activitesAPI.estActiviteReservee(p.data),
+  };
+
   return cols
 }
 
-// Colonnes de la grille des activités non programmées
 function buildColumnsActivitesNonProgrammees() {
-  const cols = buildColumnsActivites();
+  const cols = buildColumnsActivitesCommon();
   cols[0] = {
     ...cols[0],
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    // valueSetter: p => {
-    //   if (p.newValue == null) return false;
-    //   if (p.data.Date === p.newValue) return false;
-    //   p.data.Date = prettyToDateint(p.newValue) ?? p.oldValue ?? null; // ← écriture
-    //   return true;                            // ← crucial
-    // },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteNonProgrammee(p.data) || [];
@@ -1094,9 +1018,6 @@ function buildColumnsActivitesNonProgrammees() {
   return cols
 }
 
-const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
-
-// Colonnes de la grille des créneaux disponibles
 function buildColumnsCreneaux(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
   return [
@@ -1121,10 +1042,9 @@ function buildColumnsCreneaux(){
   ];
 }
 
-// Colonnes de la grille des activités programmables
 function buildColumnsActivitesProgrammables() {
   // récupère la définition standard
-  const cols = buildColumnsActivites();
+  const cols = buildColumnsActivitesCommon();
   
   // Dans ActivitesProgrammables Date est en string et non en dateint
   cols[0].valueFormatter = p=>dateintStrToPretty(p.value);  
@@ -1136,7 +1056,6 @@ function buildColumnsActivitesProgrammables() {
   }));
 }
 
-// Colonnes de la grille du carnet d’adresses
 function buildColumnsCarnet(){
   return [
     { field:'Nom', headerName:'Nom', minWidth:180, flex:1, editable:true },
@@ -1146,15 +1065,10 @@ function buildColumnsCarnet(){
   ];
 }
 
-// ===== Contrôleur de grille =====
-function createGridController({ gridId, elementId, loader, columnsBuilder, onSelectionChanged }) {
-  if (grids.has(gridId)) return grids.get(gridId);
-  const el = $(elementId);
-  if (!el) return null;
-
-  const gridOptions = {
-    // context: { gridId },                 // ← ex: 'grid-programmees'
-    columnDefs: columnsBuilder(), //(columnsBuilder ?? buildColumnsActivites)(),
+// ===== Options de grilles =====
+function gridOptionsCommon(gridId, el) {
+  return {
+    context: { gridId },                 
     defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
     rowData: [],
     getRowId: p => p.data?.__uuid,
@@ -1177,18 +1091,10 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     onCellFocused: () => setActiveGrid(gridId),
     onGridSizeChanged: () => safeSizeToFitFor(gridId),
     getRowStyle: p => {
-      const c = colorForDate(p.data?.Date);
-      return c ? { '--day-bg': c } : null;
+      const bg = colorDate(p.data?.Date);
+      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : null;
+      return { '--day-bg': bg, 'color': c };
     },
-    onSelectionChanged: onSelectionChanged
-      ? () => onSelectionChanged(gridId)
-      : undefined,
-    //   : (params) => {
-    //   const gid = params.context.gridId;
-    //   const uuids = (params.api.getSelectedRows?.() || []).map(r => r.__uuid);
-    //   const prev = (ctx.meta.selections || {});
-    //   ctx.setMeta({ selections: { ...prev, [gid]: uuids } });
-    // },
     onCellValueChanged: (p) => {
       if (p.colDef.field == "Date") return;
       const uuid = p.node.id;
@@ -1199,20 +1105,12 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
       df = sortDf(df);
       ctx.setDf(df);        
     },
-    // onBodyScrollEnd: (params) => {
-    //   const gid = params.context.gridId;
-    //   // AG Grid v31+ fournit getVerticalPixelRange()
-    //   const top = params.api.getVerticalPixelRange?.().top ?? 0;
-    //   const prev = (ctx.meta.scroll || {});
-    //   ctx.setMeta({ scroll: { ...prev, [gid]: top } });
-    // },
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
     singleClickEdit: false,
     suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
-
     onCellKeyDown: (p) => {
       // bonus: Enter déclenche l’édition (utile sur desktop)
       if (p.event?.key === 'Enter' && p.colDef?.editable) {
@@ -1222,138 +1120,36 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, onSel
     },
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
-  };
+  }
+};
 
-  const api = window.agGrid.createGrid(el, gridOptions);
-  el.__agApi = api; // ⟵ pour retrouver l’API depuis le pane
-  const handle = { id: gridId, el, api, loader, columnsBuilder };
-  grids.set(gridId, handle);
-  if (!activeGridId) setActiveGrid(gridId);
-  return handle;
+const gridOptionsActivitesNonProgrammees = {
+  getRowStyle: p => {
+    const bg = colorActiviteProgrammable(p.data);
+    return { '--day-bg': bg };
+  },
 }
 
-// Rend active une grille donnée
-function setActiveGrid(gridId){
-  activeGridId = gridId;
-  grids.forEach(g => g?.el?.classList.toggle('is-active-grid', g.id === gridId));
+const gridOptionsCreneaux = {
+  onSelectionChanged: () => onCreneauxSelectionChanged(),
 }
 
-// Rafraichit une grille
-async function refreshGrid(gridId) {
-  const h = grids.get(gridId);
-  if (!h) return;
-
-  const api = h.api;
-
-  // 0) mémorise la sélection actuelle (par __uuid)
-  let prevUuid = null;
-  try {
-    const prevSel = api.getSelectedRows?.() || [];
-    prevUuid = prevSel[0]?.__uuid ?? null;
-  } catch {}
-
-  // 1) recharge les données
-  const rows = await h.loader?.();
-  api.setGridOption?.('rowData', rows || []);
-
-  // 2) après peinture → reselect ou fallback 1ère ligne, puis resize + autosize pane
-  const finish = () => {
-    // repaint + grid size (AG Grid v29+)
-    api.refreshCells?.({ force: true });
-    api.dispatchEvent?.({ type: 'gridSizeChanged' });
-
-    // 3) reselect/scroll depuis meta (APRES peinture)
-    // requestAnimationFrame(() => restoreSelectionAndScroll(gridId, api, h.el));
-
-    // (optionnel) fallback de sélection si rien n’est sélectionné :
-    // requestAnimationFrame(() => {
-    //   const haveSel = (api.getSelectedNodes?.()?.length || 0) > 0;
-    //   if (!haveSel) {
-    //     const n0 = api.getDisplayedRowAtIndex?.(0);
-    //     n0?.setSelected?.(true, true);
-    //   }
-    // });
-
-    // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
-    const pane = h.el.closest('.st-expander-body');
-    if (rows?.length <= 5) autoSizePanelFromRowCount(pane, h.el, api);
-  };
-
-  const selectAfterPaint = () => {
-    // si déjà sélectionné (préservé via getRowId) -> ne rien faire
-    const already = api.getSelectedNodes?.();
-    if (already && already.length > 0) return finish();
-
-    let node = null;
-
-    // essaie de reselectionner l'ancienne ligne par __uuid
-    if (prevUuid) {
-      api.forEachNode?.(n => { if (!node && n.data?.__uuid === prevUuid) node = n; });
-    }
-
-    // fallback : sélectionner la 1ʳᵉ ligne si aucune
-    if (!node) {
-      const count = api.getDisplayedRowCount?.() ?? 0;
-      if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
-    }
-
-    node?.setSelected?.(true, true); // (select, clearOther)
-    finish();
-  };
-
-  // laisse AG Grid peindre les nouvelles rows
-  requestAnimationFrame(() => requestAnimationFrame(selectAfterPaint));
-}
-
-// Rafraichit toutes les grilles
-async function refreshAllGrids() {
-  const ids = Array.from(grids.keys());
-  await Promise.all(ids.map(id => refreshGrid(id)));
-}
-
-// Rafraichit toutes les grilles d'activités (à utiliser par la callback de changement de contexte sur df)
-async function refreshActivitesGrids() {
-  refreshGrid('grid-programmees');
-  refreshGrid('grid-non-programmees');
-  refreshGrid('grid-creneaux');
-  // refreshGrid('grid-programmables'); => Pas celle-là car elle se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
-}
-
-// Rafraichit la grille du carnet d'adresses (à utiliser par la callback de changement de contexte sur carnet)
-async function refreshCarnetGrid() {
-  refreshGrid('grid-carnet');
-}
-
-// Coalessance évitant les rafraîchissements multiples dans la même frame dus à des mutations multiples de contexte dans une fonction 
-// (à utiliser éventuellement dans les onChange de AppContext à la place de refreshAllGrids)
-let refreshPending = false;
-async function scheduleGlobalRefresh() {
-  if (refreshPending) return;
-  refreshPending = true;
-  requestAnimationFrame(async () => {
-    refreshPending = false;
-    await refreshAllGrids();
-  });
-}
-
-// ===== Loaders pour chaque grille =====
+// ===== Loaders de grille =====
 
 // Activités Programmées : Date non nulle
-async function loadProgrammees(){
+async function loadGridActivitesProgrammees(){
   const activites = ctx.df;                      
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
   return activitesAPI.getActivitesProgrammees(activites).map(r => ({...r}));
 }
 
-// Activités non programmées : Date vide/null
-async function loadNonProgrammees(){
+async function loadGridAtivitesNonProgrammees(){
   const activites = ctx.df;                      
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
   return activitesAPI.getActivitesNonProgrammees(activites).map(r => ({...r}));
 }
 
-// Créneaux disponibles
-async function loadCreneaux() {
+async function loadGridCreneaux() {
   const activites = ctx.df;                      
   const activitesProgrammees = activitesAPI.getActivitesProgrammees(activites);
   const periodeProgrammation = activitesAPI.initialiserPeriodeProgrammation(activites)
@@ -1361,16 +1157,14 @@ async function loadCreneaux() {
   return activitesAPI.getCreneaux(activites, activitesProgrammees, false, periodeProgrammation).map(r => ({...r}));
 }
 
-// Activités programmables 
-async function loadProgrammables(){
+async function loadGridActivitesProgrammables(){
   if (!selectedSlot) return [];
   const activites = ctx.df;                      
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
   return activitesAPI.getActivitesProgrammables(activites, selectedSlot).map(r => ({...r}));
 }
 
-// Carnet d'adresses
-async function loadCarnet() {
+async function loadGridCarnet() {
   const carnet = ctx.carnet;
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
   return carnet.map(r => ({...r}));
@@ -1453,14 +1247,133 @@ async function onNonProgGridDateCommitted(params) {
   }
 }
 
-function onCreneauxSelectionChanged(gridId){
-  const g = grids.get(gridId);
+function onCreneauxSelectionChanged(){
+  const g = grids.get('grid-creneaux');
   if (!g?.api) return;
   const sel = g.api.getSelectedRows?.() || [];
   selectedSlot = sel[0] || null;
 
   // rafraîchir la grille 4 (programmables)
   refreshGrid('grid-programmables');
+}
+
+// ===== Contrôleur de grille =====
+function createGridController({ gridId, elementId, loader, columnsBuilder, optionsPatch = {}}) {
+  if (grids.has(gridId)) return grids.get(gridId);
+  const el = $(elementId);
+  if (!el) return null;
+
+ // colonnes propres à la grille
+  const columnDefs = columnsBuilder?.() || [];
+
+  //merge superficiel : base + overrides + champs calculés
+  const common = gridOptionsCommon(gridId, el);
+  const gridOptions = {
+    ...common,
+    ...optionsPatch,
+    columnDefs,
+    // on garde le context pour identifier la grille dans les callbacks
+    context: { ...(common.context || {}), ...(optionsPatch.context || {}), gridId },
+  };
+
+  const api = window.agGrid.createGrid(el, gridOptions);
+  el.__agApi = api; // ⟵ pour retrouver l’API depuis le pane
+  const handle = { id: gridId, el, api, loader, columnsBuilder };
+  grids.set(gridId, handle);
+  if (!activeGridId) setActiveGrid(gridId);
+  return handle;
+}
+
+// Rend active une grille donnée
+function setActiveGrid(gridId){
+  activeGridId = gridId;
+  grids.forEach(g => g?.el?.classList.toggle('is-active-grid', g.id === gridId));
+}
+
+// Rafraichit une grille
+async function refreshGrid(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return;
+
+  const api = h.api;
+
+  // 0) mémorise la sélection actuelle (par __uuid)
+  let prevUuid = null;
+  try {
+    const prevSel = api.getSelectedRows?.() || [];
+    prevUuid = prevSel[0]?.__uuid ?? null;
+  } catch {}
+
+  // 1) recharge les données
+  const rows = await h.loader?.();
+  api.setGridOption?.('rowData', rows || []);
+
+  // 2) après peinture → reselect ou fallback 1ère ligne, puis resize + autosize pane
+  const finish = () => {
+    // repaint + grid size (AG Grid v29+)
+    api.refreshCells?.({ force: true });
+    api.dispatchEvent?.({ type: 'gridSizeChanged' });
+
+    // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
+    const pane = h.el.closest('.st-expander-body');
+    if (rows?.length <= 5) autoSizePanelFromRowCount(pane, h.el, api);
+  };
+
+  const selectAfterPaint = () => {
+    // si déjà sélectionné (préservé via getRowId) -> ne rien faire
+    const already = api.getSelectedNodes?.();
+    if (already && already.length > 0) return finish();
+
+    let node = null;
+
+    // essaie de reselectionner l'ancienne ligne par __uuid
+    if (prevUuid) {
+      api.forEachNode?.(n => { if (!node && n.data?.__uuid === prevUuid) node = n; });
+    }
+
+    // fallback : sélectionner la 1ʳᵉ ligne si aucune
+    if (!node) {
+      const count = api.getDisplayedRowCount?.() ?? 0;
+      if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
+    }
+
+    node?.setSelected?.(true, true); // (select, clearOther)
+    finish();
+  };
+
+  // laisse AG Grid peindre les nouvelles rows
+  requestAnimationFrame(() => requestAnimationFrame(selectAfterPaint));
+}
+
+// Rafraichit toutes les grilles
+async function refreshAllGrids() {
+  const ids = Array.from(grids.keys());
+  await Promise.all(ids.map(id => refreshGrid(id)));
+}
+
+// Rafraichit toutes les grilles d'activités (à utiliser par la callback de changement de contexte sur df)
+async function refreshActivitesGrids() {
+  refreshGrid('grid-programmees');
+  refreshGrid('grid-non-programmees');
+  refreshGrid('grid-creneaux');
+  // refreshGrid('grid-programmables'); => Pas celle-là car elle se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
+}
+
+// Rafraichit la grille du carnet d'adresses (à utiliser par la callback de changement de contexte sur carnet)
+async function refreshCarnetGrid() {
+  refreshGrid('grid-carnet');
+}
+
+// Coalessance évitant les rafraîchissements multiples dans la même frame dus à des mutations multiples de contexte dans une fonction 
+// (à utiliser éventuellement dans les onChange de AppContext à la place de refreshAllGrids)
+let refreshPending = false;
+async function scheduleGlobalRefresh() {
+  if (refreshPending) return;
+  refreshPending = true;
+  requestAnimationFrame(async () => {
+    refreshPending = false;
+    await refreshAllGrids();
+  });
 }
 
 // ===== Wiring =====
@@ -1595,41 +1508,42 @@ function wireGrids() {
   createGridController({
     gridId: 'grid-programmees',
     elementId: 'gridA',
-    loader: loadProgrammees,
-    columnsBuilder: buildColumnsActivitesProgrammees
+    loader: loadGridActivitesProgrammees,
+    columnsBuilder: buildColumnsActivitesProgrammees,
   });
 
   // 2) Activités non programmées
   createGridController({
     gridId: 'grid-non-programmees',
     elementId: 'gridB',
-    loader: loadNonProgrammees,
-    columnsBuilder: buildColumnsActivitesNonProgrammees
+    loader: loadGridAtivitesNonProgrammees,
+    columnsBuilder: buildColumnsActivitesNonProgrammees,
+    optionsPatch: gridOptionsActivitesNonProgrammees,
   });
 
   // 3) Créneaux disponibles
   createGridController({
     gridId: 'grid-creneaux',
     elementId: 'gridC',
-    loader: loadCreneaux,
+    loader: loadGridCreneaux,
     columnsBuilder: buildColumnsCreneaux,
-    onSelectionChanged: onCreneauxSelectionChanged
+    optionsPatch: gridOptionsCreneaux,
   });
 
   // 4) Activités programmables 
   createGridController({
     gridId: 'grid-programmables',
     elementId: 'gridD',
-    loader: loadProgrammables,
-    columnsBuilder: buildColumnsActivitesProgrammables
+    loader: loadGridActivitesProgrammables,
+    columnsBuilder: buildColumnsActivitesProgrammables,
   });
 
   // 5) Carnet d’adresses
   createGridController({
     gridId: 'grid-carnet',
     elementId: 'gridE',
-    loader: loadCarnet,
-    columnsBuilder: buildColumnsCarnet
+    loader: loadGridCarnet,
+    columnsBuilder: buildColumnsCarnet,
   });
 
 }
@@ -1969,14 +1883,14 @@ function wireBottomBar() {
   });
 
   // Optional: hide bar when an input focuses (to avoid overlap with mobile keyboard)
-  window.addEventListener('focusin', (e) => {
-    if (e.target.closest('input, textarea, [contenteditable="true"]')) {
-      bar.style.transform = 'translateY(120%)';
-    }
-  });
-  window.addEventListener('focusout', () => {
-    bar.style.transform = '';
-  });
+  // window.addEventListener('focusin', (e) => {
+  //   if (e.target.closest('input, textarea, [contenteditable="true"]')) {
+  //     bar.style.transform = 'translateY(120%)';
+  //   }
+  // });
+  // window.addEventListener('focusout', () => {
+  //   bar.style.transform = '';
+  // });
 
   wireHiddenFileInput();
   lockHorizontalScroll();
@@ -2614,7 +2528,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.ctx = await AppContext.ready();
 
   // Creation de l'API pour le module activites.js
-  activitesAPI = createActivitesAPI(ctx);
+  activitesAPI = creerActivitesAPI(ctx);
 
   // 2️⃣ Branchements UI
   wireContext();

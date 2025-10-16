@@ -14,7 +14,7 @@ import {
 
 let _ctx = null;
 
-export function createActivitesAPI(ctx) {
+export function creerActivitesAPI(ctx) {
 
   // Enregistrement local de la référence de contexte
   if (!_ctx) {_ctx = ctx};
@@ -195,7 +195,7 @@ export function createActivitesAPI(ctx) {
      * @returns 
      */
     getActivitesProgrammables(df, creneau, traiterPauses = false) {
-      if (!_isCreneauValide(creneau)) return [];   // ⬅️ sécurité immédiate
+      if (!_estCreneauValide(creneau)) return [];   // ⬅️ sécurité immédiate
 
       let proposables = [];
 
@@ -275,28 +275,13 @@ export function createActivitesAPI(ctx) {
     },
 
     /**
-     * Indique si une activité est réservée
-     * @param {*} row 
-     * @returns 
-     */
-    estActiviteReserve(row) {
-      return String(row?.Reserve ?? '')
-        .trim()
-        .toLowerCase() === 'oui';
-    },
-
-    /**
      * cellEditor de la colonne Date de la grille des activités programmées
      * @param {*} row 
      * @returns 
      */
     getOptionsDateForActiviteProgrammee(row) {
-      const k = _cacheKey(row);
-      const c = _joursCache.get(k);
-      if (c) return c;
-
       const cur = row?.Date != null ? dateintToPretty(row.Date) : '';
-      const jours = _getJoursPossibles(row);     // [dateint]
+      const jours = _estActiviteReservee(row) ? [] : _getJoursPossibles(row);     
       const pretty = _toPrettyArray(jours);
 
       let opts = [];
@@ -304,7 +289,6 @@ export function createActivitesAPI(ctx) {
       else               opts = [cur, ''];
       // nettoie doublons/vides consécutifs
       opts = opts.filter((v,i,self)=> i===0 || v!==self[i-1]);
-      // _joursCache.set(k, opts);
       return opts;
     },
 
@@ -314,15 +298,27 @@ export function createActivitesAPI(ctx) {
      * @returns 
      */
     getOptionsDateForActiviteNonProgrammee(row) {
-      const k = _cacheKey(row);
-      const c = _joursCache.get(k);
-      if (c) return c;
-
-      const jours = _getJoursPossibles(row);     // [dateint]
+      const jours = _getJoursPossibles(row);     
       const pretty = _toPrettyArray(jours);
       const opts = pretty.length ? [''].concat(pretty) : [];   // "" = laisser vide
-      // _joursCache.set(k, opts);
       return opts;
+    },
+
+    /**
+     * Indique si l'activité passée en paramètre est programmable
+     */
+    estActiviteProgrammable(row) {
+        const jp = _getJoursPossibles(row);
+        return (Array.isArray(jp) && jp.length > 0);
+    },
+
+    /**
+     * Indique si une activité est réservée
+     * @param {*} row 
+     * @returns 
+     */
+    estActiviteReservee(row) {
+      return _estActiviteReservee(row);
     },
   };
 }
@@ -400,6 +396,17 @@ export function sortDf(df, opts = {}) {
 
   return indexed.map(x => x.r);
 }
+
+/**
+ * Indique si une activité est réservée
+ * @param {*} row 
+ * @returns 
+ */
+function _estActiviteReservee(row) {
+  return String(row?.Reserve ?? '')
+    .trim()
+    .toLowerCase() === 'oui';
+};
 
 /**
  * Renvoie true s'il existe AU MOINS une activité programmable
@@ -485,11 +492,10 @@ function _getDatesFromRows(rows) {
 }
 
 // Considère qu’une ligne "non programmée" n’a pas de Date exploitable
-function _isUnscheduled(row) {
+function _estActiviteNonProgrammee(row) {
   const d = row?.Date;
   return d == null || d === '' || Number.isNaN(+d);
 }
-
 
 // Renvoie les dates du Festival: fetch best-effort + cache
 // NB: CORS probablement bloqué -> fallback manuel activé automatiquement
@@ -557,7 +563,7 @@ function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, tra
 
   for (let idx = 0; idx < (df?.length || 0); idx++) {
     const row = df[idx];
-    if (!_isUnscheduled(row)) continue;
+    if (!_estActiviteNonProgrammee(row)) continue;
 
     const d = debutMinute(row), du = dureeMinute(row);
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
@@ -591,7 +597,7 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
 
   for (let idx = 0; idx < (df?.length || 0); idx++) {
     const row = df[idx];
-    if (!_isUnscheduled(row)) continue;
+    if (!_estActiviteNonProgrammee(row)) continue;
 
     const d = debutMinute(row), du = dureeMinute(row);
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
@@ -685,7 +691,7 @@ function _creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
   };
 }
 
-function _isCreneauValide(creneau) {
+function _estCreneauValide(creneau) {
   if (!creneau || typeof creneau !== 'object') return false;
   const t = creneau.__type_creneau;
   return t === 'Avant' || t === 'Après' || t === 'Journée';
@@ -802,7 +808,7 @@ function _estHorsRelache(relacheVal, dateVal, today = new Date()) {
 }
 
 // Renvoie la 1ère activité programmée du jour (par heure)
-function _firstProgOfDay(jour) {
+function _premiereActiviteProgrammeeDuJour(jour) {
   const L = _getActivitesProgrammees(_ctx.df).filter(r => r.Date === jour)
                   .map(r => ({...r, _min: mmFromHHhMM(r['Debut']), _dur: mmFromHHhMM(r['Duree'])||0}))
                   .filter(r => r._min!=null)
@@ -811,7 +817,7 @@ function _firstProgOfDay(jour) {
 }
 
 // Renvoie la liste (triée) des activités programmées du jour
-function _progsOfDaySorted(jour){
+function _ActivitesProgrammeesDuJourTriees(jour){
   return _getActivitesProgrammees(_ctx.df).filter(r => r.Date === jour)
                .map(r => ({...r, _min: mmFromHHhMM(r['Debut']), _dur: mmFromHHhMM(r['Duree'])||0}))
                .filter(r => r._min!=null)
@@ -829,7 +835,7 @@ function _getJoursPossibles(rowActivite) {
   for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
     if (!_estHorsRelache(rowActivite['Relache'], jour)) continue;
 
-    const jList = _progsOfDaySorted(jour);
+    const jList = _ActivitesProgrammeesDuJourTriees(jour);
     if (jList.length === 0) { // journée libre
       jours.push(jour);
       continue;
@@ -858,13 +864,6 @@ function _getJoursPossibles(rowActivite) {
   return jours; // tableau de dateint
 }
 
-// cache simple (clé = __uuid)
-const _joursCache = new Map();
-const _cacheKey = row => row?.__uuid || '';
-
 function _toPrettyArray(arrInt){
   return (arrInt||[]).slice().sort((a,b)=>a-b).map(di => dateintToPretty(di));
 }
-
-// Invalidate à chaque fois que l'on modifie df/Relâche/Réservé/Paramètres :
-function invalidateJoursCache(){ _joursCache.clear(); }
