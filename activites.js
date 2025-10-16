@@ -202,7 +202,7 @@ export function creerActivitesAPI(ctx) {
       if (!df || df.length <= 0) return proposables;
 
       const typeCreneau = creneau["__type_creneau"];
-      const idx = creneau["__uuid"];
+      const idx = creneau["__srcUuid"];
       const dateRef = Number(creneau["Date"]) || 0; // date_ref doit être un int
 
       if (typeCreneau === "Avant" || typeCreneau === "Après") {
@@ -211,8 +211,8 @@ export function creerActivitesAPI(ctx) {
 
         let ligneRef = null;
         try {
-          ligneRef = activitesProgrammees.find(r => r.__uuid === creneau.__uuid);
-          if (!ligneRef) throw new Error("uuid de creneau introuvable dans activités programmées");
+          ligneRef = activitesProgrammees.find(r => r.__uuid === idx);
+          if (!ligneRef) throw new Error("uuid source du créneau introuvable dans activités programmées");
         } catch (err) {
           console.warn("Erreur getActivitesProgrammables :", err);
           return proposables;
@@ -687,7 +687,8 @@ function _creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
     'Activité avant': avant || '',
     'Activité après': apres || '',
     __type_creneau: typeCreneau,           // "Avant" | "Après" | "Journée"
-    __uuid: row.__uuid,
+    __srcUuid: row.__uuid,
+    __uuid: crypto.randomUUID(),
   };
 }
 

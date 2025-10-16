@@ -439,6 +439,34 @@ function autosizeFromGridSafe(handle, pane) {
   try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
 }
 
+// Retaille en fonction du row count
+function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
+  if (!pane || !gridEl) return;
+
+  const exp = pane.closest('.st-expander');
+  const isOpen = exp?.classList?.contains?.('open');
+  const isClosing = exp?.classList?.contains?.('is-closing');
+
+  const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
+  if (h == null) return;
+
+  pane.dataset.maxContentHeight = String(h);
+
+  const userSized = pane.dataset.userSized === '1';
+
+  // si fermé ou en train de se fermer → mémorise seulement
+  if (!isOpen || isClosing) {
+    if (!userSized) pane.dataset.pendingAutoHeight = String(h);
+    return;
+  }
+
+  // ouvert : applique seulement si pas userSized
+  if (!userSized) {
+    pane.style.height = `${h}px`;
+    delete pane.dataset.pendingAutoHeight;
+  }
+}
+
 // récupère la row sélectionnée (ou la focussée) dans une ag-Grid
 function getSelectedRowSafe(api) {
   if (!api) return null;
@@ -479,42 +507,23 @@ function desiredPaneHeightForRows(gridEl, api, { maxRows = 5 } = {}) {
   // nombre de lignes affichées
   const displayed = api?.getDisplayedRowCount?.() ?? 0;
 
+  // nombre de lignes du tableau à afficher
+  const nbRows = api.getModel().rowToDisplay.length;
+
   // nb à prendre en compte : min(displayed, 5) ; si vide et tu veux ~1,5 ligne visible, mets 1.5
   const n = Math.min(displayed, maxRows);
+  // let n = 0;
+  // if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
+  //   if (displayed > nbRows) { 
+  //     n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
+  //   } else return null;   // pas de resize auto
+  // } else n = Math.min(displayed, maxRows);
 
-  // padding interne du pane si tu en as (ajuste si nécessaire)
+  // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = 16;
 
   const desired = Math.round(hHeader + (rowH * n) + paddingPane);
   return Math.max(desired, hHeader + 8);
-}
-
-// Retaille en fonction du row count
-function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
-  if (!pane || !gridEl) return;
-
-  const exp = pane.closest('.st-expander');
-  const isOpen = exp?.classList?.contains?.('open');
-  const isClosing = exp?.classList?.contains?.('is-closing');
-
-  const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
-  if (h == null) return;
-
-  pane.dataset.maxContentHeight = String(h);
-
-  const userSized = pane.dataset.userSized === '1';
-
-  // si fermé ou en train de se fermer → mémorise seulement
-  if (!isOpen || isClosing) {
-    if (!userSized) pane.dataset.pendingAutoHeight = String(h);
-    return;
-  }
-
-  // ouvert : applique seulement si pas userSized
-  if (!userSized) {
-    pane.style.height = `${h}px`;
-    delete pane.dataset.pendingAutoHeight;
-  }
 }
 
 // Ouverture Expander
@@ -1316,7 +1325,7 @@ async function refreshGrid(gridId) {
 
     // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
-    if (rows?.length <= 5) autoSizePanelFromRowCount(pane, h.el, api);
+    autoSizePanelFromRowCount(pane, h.el, api);
   };
 
   const selectAfterPaint = () => {
@@ -1351,7 +1360,7 @@ async function refreshAllGrids() {
   await Promise.all(ids.map(id => refreshGrid(id)));
 }
 
-// Rafraichit toutes les grilles d'activités (à utiliser par la callback de changement de contexte sur df)
+// Rafraichit toutes les grilles d'activités (utilisé par la callback de modification de contexte ctx.onChange sur df)
 async function refreshActivitesGrids() {
   refreshGrid('grid-programmees');
   refreshGrid('grid-non-programmees');
@@ -1359,7 +1368,7 @@ async function refreshActivitesGrids() {
   // refreshGrid('grid-programmables'); => Pas celle-là car elle se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
 }
 
-// Rafraichit la grille du carnet d'adresses (à utiliser par la callback de changement de contexte sur carnet)
+// Rafraichit la grille du carnet d'adresses (utilisé par la callback de modification de contexte ctx.onChange sur carnet)
 async function refreshCarnetGrid() {
   refreshGrid('grid-carnet');
 }
@@ -2406,7 +2415,7 @@ function wireBottomBarToggle() {
   // --- 2️⃣ Fonction de sync (toujours locale à cette wire) ---
   function syncBottomBarTogglePosition() {
     const rect = bar.getBoundingClientRect();
-    tog.style.bottom = `calc(env(safe-area-inset-bottom) + ${rect.height}px)`;
+    toggle.style.bottom = `calc(env(safe-area-inset-bottom) + ${rect.height}px)`;
   }
 
   // --- 3️⃣ Wiring des événements liés au viewport ---
@@ -2428,14 +2437,14 @@ function wireBottomBarToggle() {
 // function syncBottomBarTogglePosition() {
 //   if (isSplitterDragging) return;
 //   const bar = document.querySelector('.bottom-bar');
-//   const tog = document.querySelector('.bottom-toggle');
-//   if (!bar || !tog) return;
+//   const toggle = document.querySelector('.bottom-toggle');
+//   if (!bar || !toggle) return;
 
 //   // Mesurer la hauteur réellement rendue
 //   const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
 
 //   // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
-//   tog.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
+//   toggle.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
 // }
 
 function lockHorizontalScroll() {
