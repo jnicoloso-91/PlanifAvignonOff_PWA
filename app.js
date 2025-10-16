@@ -684,9 +684,10 @@ async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paint
 }
 
 // Fait exécuter un vol de ligne fantome de la ligne sélectionnée d'une grille à la ligne sélectionnée d'une autre
-async function doPhantomFlight (gridOrigine, gridCible, expCible) {
+// Si gridOrigine = gridCible, utilisez le paramètre srcRow pour spécifier la row de départ du vol
+async function doPhantomFlight (gridOrigine, gridCible, expCible) { 
 
-  // 0) Préparation
+  // 0) récupération du rectangle et du label de l'origine
   const srcRow = getSelectedRow(gridOrigine);
   if (!srcRow) return;
   const { node, rowEl } = await getRowNodeAndElByUuid(gridOrigine, srcRow.__uuid);
@@ -750,6 +751,7 @@ async function ensureRowVisibleAndGetEl(gridId, uuid) {
 
   // sélection d’abord (feedback immédiat)
   node.setSelected?.(true, true);
+  await nextPaint(1);
   api.ensureNodeVisible?.(node, 'middle');
   await nextPaint(1);
 
@@ -1164,7 +1166,7 @@ async function refreshGrid(gridId) {
 
     // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
-    autoSizePanelFromRowCount(pane, h.el, api);
+    if (rows?.length <= 5) autoSizePanelFromRowCount(pane, h.el, api);
   };
 
   const selectAfterPaint = () => {
@@ -1281,6 +1283,7 @@ async function onProgGridDateCommitted(params) {
   // Récupération de l'uuid de la ligne voisine
   const gridRows = []; params.api.forEachNode(node => gridRows.push(node.data));
   const uuidVoisin = ligneVoisineUuid(gridRows, uuid);
+  const ligneVoisine = gridRows.find(r => r.__uuid === uuid);
 
   // Commit dans contexte ctx
   let df = ctx.getDf().slice(); 
@@ -1293,14 +1296,17 @@ async function onProgGridDateCommitted(params) {
   // Si drop dans une autre grille: 
   // - sélectionne la ligne voisine dans la grille de départ
   // - ouvre l’expander de la grille de destination et sélectionne la ligne
-  setTimeout(() => {
-    if (params.newValue == "") {
+  if (params.newValue == "") {
+    setTimeout(() => {
       selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
       openExpanderById?.('exp-non-programmees');
       selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
       doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
-    }
-  }, 50);
+    }, 50);
+  }
+  else {
+    await ensureRowVisibleAndGetEl("grid-programmees", uuid);
+  }
 }
 
 async function onNonProgGridDateCommitted(params) {
@@ -1327,14 +1333,14 @@ async function onNonProgGridDateCommitted(params) {
   // Si drop dans une autre grille: 
   // - sélectionne la ligne voisine dans la grille de départ
   // - ouvre l’expander de la grille de destination et sélectionne la ligne
-  setTimeout(() => {
-    if (params.newValue != "") {
+  if (params.newValue != "" && params.newValue) {
+    setTimeout(() => {
       selectRowByUuid('grid-non-programmees', uuidVoisin, { ensure: 'center', flash: null });
       openExpanderById?.('exp-programmees');
       selectRowByUuid('grid-programmees', uuid, { ensure: 'center', flash: true });
       doPhantomFlight("grid-non-programmees", "grid-programmees", "exp-programmees");
-    }
-  }, 50);
+    }, 50);
+  }
 }
 
 function onCreneauxSelectionChanged(gridId){
