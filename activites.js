@@ -24,14 +24,8 @@ export function creerActivitesAPI(ctx) {
     /** 
      * Initialisation de la période à programmer
      */
-    async initialiserPeriodeProgrammation(df, fromDf=true) {
-      // if (!state) state = (window.appState = {});
-      // if (typeof state.nouveau_fichier === 'undefined') state.nouveau_fichier = true;
-
-      // // Si nouveau fichier -> réinitialise la période
-      // if (state.nouveau_fichier === true) {
-        // state.nouveau_fichier = false;
-      if (fromDf) {
+    async getPeriodeProgrammation(df, {reinit=false}={}) {
+      if (reinit || !_ctx.getMetaParam("periode_a_programmer_debut") ||  !_ctx.getMetaParam("periode_a_programmer_fin")) {
 
         let periodeDebut = null;
         let periodeFin   = null;
@@ -280,8 +274,9 @@ export function creerActivitesAPI(ctx) {
      * @returns 
      */
     getOptionsDateForActiviteProgrammee(row) {
+      if (_estActiviteReservee(row)) return [];
       const cur = row?.Date != null ? dateintToPretty(row.Date) : '';
-      const jours = _estActiviteReservee(row) ? [] : _getJoursPossibles(row);     
+      const jours = _getJoursPossibles(row);     
       const pretty = _toPrettyArray(jours);
 
       let opts = [];

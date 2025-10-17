@@ -10,9 +10,12 @@ import {
 } from './utils-date.js';
 import { creerActivitesAPI, sortDf } from './activites.js'; 
 import { sortCarnet } from './carnet.js'; 
-import { AppContext } from './context.mjs';
+import { AppContext } from './AppContext.js';
+import { ActiviteRenderer } from './ActiviteRenderer.js';
+import { LieuRenderer } from './LieuRenderer.js';
 
 let activitesAPI = null;
+// let appJustLaunched = true;
 
 // ===== Multi-grilles =====
 const grids = new Map();           // id -> { api, el, loader }
@@ -439,54 +442,31 @@ function autosizeFromGridSafe(handle, pane) {
   try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
 }
 
-// Retaille en fonction du row count
-function autoSizePanelFromRowCount(pane, gridEl, api, { maxRows = 5 } = {}) {
-  if (!pane || !gridEl) return;
+function measureRowAndHeader(gridEl){
+  // valeurs par défaut / variables CSS
+  const cs = getComputedStyle(gridEl);
+  let rowH    = parseFloat(cs.getPropertyValue('--ag-row-height'))    || 30;
+  let headerH = parseFloat(cs.getPropertyValue('--ag-header-height')) || 32;
 
-  const exp = pane.closest('.st-expander');
-  const isOpen = exp?.classList?.contains?.('open');
-  const isClosing = exp?.classList?.contains?.('is-closing');
+  // affiner par le DOM si dispo
+  const anyRow = gridEl.querySelector('.ag-center-cols-container .ag-row');
+  if (anyRow)   rowH    = Math.max(18, Math.round(anyRow.getBoundingClientRect().height));
+  const hdr = gridEl.querySelector('.ag-header');
+  if (hdr)      headerH = Math.max(22, Math.round(hdr.getBoundingClientRect().height));
 
-  const h = desiredPaneHeightForRows(gridEl, api, { maxRows });
-  if (h == null) return;
-
-  pane.dataset.maxContentHeight = String(h);
-
-  const userSized = pane.dataset.userSized === '1';
-
-  // si fermé ou en train de se fermer → mémorise seulement
-  if (!isOpen || isClosing) {
-    if (!userSized) pane.dataset.pendingAutoHeight = String(h);
-    return;
-  }
-
-  // ouvert : applique seulement si pas userSized
-  if (!userSized) {
-    pane.style.height = `${h}px`;
-    delete pane.dataset.pendingAutoHeight;
-  }
+  return { rowH, headerH };
 }
 
-// récupère la row sélectionnée (ou la focussée) dans une ag-Grid
-function getSelectedRowSafe(api) {
-  if (!api) return null;
-  const sel = api.getSelectedRows?.() || [];
-  if (sel.length) return sel[0];
-  const fc = api.getFocusedCell?.();
-  const r = fc ? api.getDisplayedRowAtIndex?.(fc.rowIndex) : null;
-  return r?.data || null;
+function visibleRowsInPane(pane, gridEl){
+  if (!pane || !gridEl) return 0;
+  const paneH = Math.max(0, Math.round(pane.getBoundingClientRect().height));
+  const { rowH, headerH } = measureRowAndHeader(gridEl);
+  const bodyH = Math.max(0, paneH - headerH);
+  return Math.max(0, Math.floor(bodyH / rowH));
 }
 
-// Renvoie la row de la ligne séléectionnée dans une grille donnée par son gridId
-function getSelectedRow(gridId) {
-  const h = grids.get(gridId);
-  if (!h) return null;
-  const sel = h.api.getSelectedRows?.() || [];
-  return sel?.[0];
-}
-
-// Calcul de la hauteur idéale pour ≤ 5 lignes
-function desiredPaneHeightForRows(gridEl, api, { maxRows = 5 } = {}) {
+// Calcul de la hauteur idéale : on ne dépasse pas rowCount et on autosize si rowCount < 5
+function desiredPaneHeightForRows(pane, gridEl, api,  { nbRows=null, maxRows = 5 } = {}) {
   if (!gridEl) return null;
 
   // header
@@ -505,25 +485,135 @@ function desiredPaneHeightForRows(gridEl, api, { maxRows = 5 } = {}) {
   } catch {}
 
   // nombre de lignes affichées
-  const displayed = api?.getDisplayedRowCount?.() ?? 0;
-
-  // nombre de lignes du tableau à afficher
-  const nbRows = api.getModel().rowToDisplay.length;
+  // const displayed = api?.getDisplayedRowCount?.() ?? 0;
+  const displayed = visibleRowsInPane(pane, gridEl);   
 
   // nb à prendre en compte : min(displayed, 5) ; si vide et tu veux ~1,5 ligne visible, mets 1.5
-  const n = Math.min(displayed, maxRows);
-  // let n = 0;
-  // if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
-  //   if (displayed > nbRows) { 
-  //     n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-  //   } else return null;   // pas de resize auto
-  // } else n = Math.min(displayed, maxRows);
+  // const n = Math.min(displayed, maxRows);
+  let n = 0;
+  if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
+    if (displayed >= nbRows) { 
+      n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
+    } else return null;   // pas de resize auto
+  } else n = Math.min(maxRows, nbRows);
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
-  const paddingPane = 16;
+  const paddingPane = (nbRows > n) ? 8: 0;
 
   const desired = Math.round(hHeader + (rowH * n) + paddingPane);
   return Math.max(desired, hHeader + 8);
+}
+
+// Retaille en fonction du row count
+function autoSizePanelFromRowCount(pane, gridEl, api, { nbRows=null, maxRows = 5 } = {}) {
+  if (!pane || !gridEl) return;
+
+  const exp = pane.closest('.st-expander');
+  const isOpen = exp?.classList?.contains?.('open');
+  const isClosing = exp?.classList?.contains?.('is-closing');
+  const userSized = pane.dataset.userSized === '1';
+
+  // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
+  const h = desiredPaneHeightForRows(pane, gridEl, api, { nbRows,  maxRows });
+  if (h == null) return;
+
+  pane.dataset.maxContentHeight = String(h);
+  pane.dataset.autoOpenHeight   = String(h);  // utilisé par expander-open policy
+
+
+  // Fermé ou en train de se fermer: on mémorise seulement la hauteur calculée on ne la change pas
+  if (!isOpen || isClosing) {
+    if (!userSized) pane.dataset.pendingAutoHeight = String(h);
+    return;
+  }
+
+  // ouvert: on applique la hauteur calculée seulement si pas userSized
+  if (!userSized) {
+    pane.style.height = `${h}px`;
+    delete pane.dataset.pendingAutoHeight;
+  }
+}
+
+// function measureRowMetrics(gridEl){
+//   const cs = getComputedStyle(gridEl);
+//   let rowH    = parseFloat(cs.getPropertyValue('--ag-row-height'))  || 30;
+//   let headerH = parseFloat(cs.getPropertyValue('--ag-header-height')) || 32;
+
+//   // affiner via DOM si possible
+//   const anyRow = gridEl.querySelector('.ag-center-cols-container .ag-row');
+//   if (anyRow)   rowH    = Math.max(18, Math.round(anyRow.getBoundingClientRect().height));
+//   const hdr = gridEl.querySelector('.ag-header');
+//   if (hdr)      headerH = Math.max(22, Math.round(hdr.getBoundingClientRect().height));
+
+//   return { rowH, headerH };
+// }
+
+// // retourne { desiredH, capH } ; desiredH peut être null si nbRows > maxRows
+// function desiredPaneHeights(pane, gridEl, { maxRows = 5, nbRows }) {
+//   const { rowH, headerH } = measureRowMetrics(gridEl);
+//   const capRows = Math.max(0, Number(nbRows) || 0);
+//   const capH = headerH + capRows * rowH;
+
+//   if (nbRows > maxRows) {
+//     // on ne fait PAS d’auto-taille (mais on borne le splitter via capH)
+//     return { desiredH: null, capH };
+//   }
+//   // sinon : viser min(nbRows, maxRows)
+//   const targetRows = Math.min(nbRows, maxRows);
+//   const desiredH = headerH + targetRows * rowH;
+//   return { desiredH, capH };
+// }
+
+// applique l’auto-taille ; NB: si nbRows ≤ maxRows, on ignore userSized pour SHRINKER
+// function autoSizePanelFromRowCount2(pane, gridEl, api, { maxRows = 5, nbRows } = {}) {
+//   if (!pane || !gridEl) return;
+//   const exp = pane.closest('.st-expander');
+//   const isOpen = exp?.classList?.contains?.('open');
+
+//   const { desiredH, capH } = desiredPaneHeights(pane, gridEl, { maxRows, nbRows });
+
+//   // borne pour le splitter, toujours à jour
+//   if (capH != null) pane.dataset.maxContentHeight = String(capH);
+
+//   // si fermé → ne pas toucher, mais mémoriser la taille voulue si applicable
+//   if (!isOpen) {
+//     if (desiredH != null) pane.dataset.pendingAutoHeight = String(desiredH);
+//     return;
+//   }
+
+//   // si nbRows > maxRows → pas d’auto-taille
+//   if (desiredH == null) return;
+
+//   // tolérance 1 px : ne resize que si besoin réel
+//   const EPS = 1;
+//   const currentH = Math.round(pane.getBoundingClientRect().height);
+
+//   // ⚠️ IMPORTANT : quand nbRows ≤ maxRows, on FORCERA la hauteur souhaitée
+//   // (même si l’utilisateur a déjà “userSized”) pour garantir le shrink.
+//   if (Math.abs(currentH - desiredH) > EPS) {
+//     pane.style.height = `${desiredH}px`;
+//     delete pane.dataset.pendingAutoHeight;
+//   }
+// }
+
+
+
+// récupère la row sélectionnée (ou la focussée) dans une ag-Grid
+function getSelectedRowSafe(api) {
+  if (!api) return null;
+  const sel = api.getSelectedRows?.() || [];
+  if (sel.length) return sel[0];
+  const fc = api.getFocusedCell?.();
+  const r = fc ? api.getDisplayedRowAtIndex?.(fc.rowIndex) : null;
+  return r?.data || null;
+}
+
+// Renvoie la row de la ligne séléectionnée dans une grille donnée par son gridId
+function getSelectedRow(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return null;
+  const sel = h.api.getSelectedRows?.() || [];
+  return sel?.[0];
 }
 
 // Ouverture Expander
@@ -561,6 +651,47 @@ function openExp(exp) {
     pane.addEventListener('transitionend', onEnd, { once: true });
   });
 }
+// // Ouverture Expander (avec autoOpenHeight & userSized)
+// function openExp(exp) {
+//   if (!exp) return;
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (!pane) { exp.classList.add('open'); return; }
+
+//   // si déjà open et pas en fermeture, ne rien faire
+//   if (exp.classList.contains('open') && !exp.classList.contains('is-closing')) return;
+
+//   exp.classList.remove('is-closing');
+//   exp.classList.add('open');
+
+//   const userSized = pane.dataset.userSized === '1';
+//   const autoH     = parseInt(pane.dataset.autoOpenHeight || '', 10);     // ≤ 5 lignes
+//   const pending   = parseInt(pane.dataset.pendingAutoHeight || '', 10);  // mémorisé si fermé
+//   const saved     = parseInt(localStorage.getItem(`paneHeight:${exp.id}`) || '', 10); // redim manuel
+
+//   // Choix de la cible :
+//   // 1) si l'utilisateur a redimensionné → restaurer sa hauteur
+//   // 2) sinon → hauteur auto (≤ 5 lignes)
+//   // 3) sinon → hauteur "pending" mémorisée (si présente)
+//   let target = null;
+//   if (userSized && Number.isFinite(saved) && saved > 0)       target = saved;
+//   else if (Number.isFinite(autoH) && autoH > 0)               target = autoH;
+//   else if (Number.isFinite(pending) && pending > 0)           target = pending;
+//   else                                                        target = Math.max(0, pane.scrollHeight);
+
+//   // départ 0 → transition fluide vers target
+//   pane.style.height = '0px';
+//   requestAnimationFrame(() => {
+//     pane.style.height = `${target}px`;
+
+//     const onEnd = (ev) => {
+//       if (ev.propertyName !== 'height') return;
+//       pane.removeEventListener('transitionend', onEnd);
+//       delete pane.dataset.pendingAutoHeight; // nettoyage
+//       // on garde la height inline pour que le splitter continue de fonctionner
+//     };
+//     pane.addEventListener('transitionend', onEnd, { once: true });
+//   });
+// }
 
 // Fermeture Expander
 function closeExp(exp) {
@@ -969,7 +1100,7 @@ function buildColumnsActivitesCommon(){
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true },
     { field:'Fin',   width, suppressSizeToFit:true, editable: false },
-    { field:'Lieu',  minWidth:160, flex:1 },
+    { field:'Lieu',  minWidth:160, flex:1, cellRenderer: LieuRenderer },
     { field:'Relache', headerName: 'Relâche', minWidth:60, flex:.5 },
     { field:'Reserve', headerName: 'Réservé', minWidth:60, flex:.5 },
     { field:'Priorite', headerName: 'Priorité',minWidth:60, flex:.5 },
@@ -1101,7 +1232,7 @@ function gridOptionsCommon(gridId, el) {
     onGridSizeChanged: () => safeSizeToFitFor(gridId),
     getRowStyle: p => {
       const bg = colorDate(p.data?.Date);
-      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : null;
+      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
       return { '--day-bg': bg, 'color': c };
     },
     onCellValueChanged: (p) => {
@@ -1161,7 +1292,7 @@ async function loadGridAtivitesNonProgrammees(){
 async function loadGridCreneaux() {
   const activites = ctx.df;                      
   const activitesProgrammees = activitesAPI.getActivitesProgrammees(activites);
-  const periodeProgrammation = activitesAPI.initialiserPeriodeProgrammation(activites)
+  const periodeProgrammation = activitesAPI.getPeriodeProgrammation(activites)
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
   return activitesAPI.getCreneaux(activites, activitesProgrammees, false, periodeProgrammation).map(r => ({...r}));
 }
@@ -1325,7 +1456,7 @@ async function refreshGrid(gridId) {
 
     // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
-    autoSizePanelFromRowCount(pane, h.el, api);
+    autoSizePanelFromRowCount(pane, h.el, api, { nbRows:rows.length});
   };
 
   const selectAfterPaint = () => {
@@ -1419,6 +1550,7 @@ function wireExpanderSplitters() {
 
       // limite basse : contenu (nb rows) ou 1.5 si vide
       const maxH = calcMaxHForPane(paneTop);
+      // const maxH = Number(paneTop.dataset.maxContentHeight) || hTop; // ← toutes lignes
       dyMax = Math.max(0, Math.round(maxH - hTop));
 
       // couper toute animation pendant le drag (inline + important)
@@ -1605,57 +1737,6 @@ function wireExpanders(){
     header.setAttribute('aria-expanded', 'true');
   });
 }
-
-// ------- Grid Renderers -------
-const ActiviteRenderer = function () {};
-ActiviteRenderer.prototype.init = function (params) {
-  const e = document.createElement('div');
-  e.style.display = 'flex';
-  e.style.alignItems = 'center';
-  e.style.gap = '.4rem';
-  e.style.width = '100%';
-  e.style.overflow = 'hidden';
-
-  const label = (params.value != null ? String(params.value) : '').trim();
-  const raw   = params.data?.Hyperlien || '';
-  const href  = String(raw || ("https://www.festivaloffavignon.com/resultats-recherche?recherche="+encodeURIComponent(label)));
-
-  // lien-icône (ouvre NOUVEL onglet)
-  const a = document.createElement('a');
-  a.href = href;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  a.title = 'Ouvrir le site';
-  a.style.textDecoration = 'none';
-  a.style.flex = '0 0 auto';
-  a.style.display = 'inline-flex';
-  a.style.alignItems = 'center';
-  a.style.opacity = '.85';
-  a.addEventListener('mouseenter', () => a.style.opacity = '1');
-  a.addEventListener('mouseleave', () => a.style.opacity = '.85');
-  a.addEventListener('click', (ev) => {
-    // important : ne PAS mettre preventDefault ici,
-    // on laisse le navigateur ouvrir le nouvel onglet.
-    ev.stopPropagation(); // évite de changer la sélection de la ligne
-  });
-
-  const icon = document.createElement('span');
-  icon.textContent = '🔗';
-  icon.style.fontSize = '1rem';
-  a.appendChild(icon);
-
-  const txt = document.createElement('span');
-  txt.textContent = label;
-  txt.style.flex = '1 1 auto';
-  txt.style.overflow = 'hidden';
-  txt.style.textOverflow = 'ellipsis';
-
-  e.appendChild(a);
-  e.appendChild(txt);
-  this.eGui = e;
-};
-ActiviteRenderer.prototype.getGui = function(){ return this.eGui; };
-ActiviteRenderer.prototype.refresh = function(){ return false; };
 
 // ------- Actions -------
 
@@ -2240,34 +2321,16 @@ function wireHiddenFileInput(){
       let dfRows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
       dfRows = normalizeRowsKeys(dfRows);
 
-      // // 2) Carte d’en-têtes (détection robuste de "Activité" et "Hyperlien")
-      // const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-      // const norm = (s) => (s ?? '')
-      //   .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      //   .trim().toLowerCase();
-
-      // // headers: map nomNormalisé -> index de colonne (c)
-      // const headers = {};
-      // for (let c = range.s.c; c <= range.e.c; c++) {
-      //   const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
-      //   const cell = ws[addr];
-      //   const txt  = (cell && String(cell.v)) || '';
-      //   const key  = norm(txt);
-      //   if (key) headers[key] = c;
-      // }
-
-      // const colActivite = headers['activite'];   // normalizeRowsKeys garantit un nom normalisé
-
-      // 0) range de la feuille
+      // 2) range de la feuille
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
 
-      // 1) Récupère la ligne d'entêtes brute (array)
+      // 3) Récupère la ligne d'entêtes brute (array)
       const headerRow = (XLSX.utils.sheet_to_json(ws, { header: 1, range: range.s.r })[0] || []);
 
-      // 2) Trouve l'index de la colonne "Activite" en normalisant l'entête
+      // 4) Trouve l'index de la colonne "Activite" en normalisant l'entête
       const colActivite = headerRow.findIndex(h => normalizeHeaderToCanon(h) === 'Activite');
 
-      // 3) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
+      // 5) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
       if (typeof colActivite === 'number') {
         for (let i = 0; i < dfRows.length; i++) {
           const r = i + 1; // +1 car row 0 = ligne 2 en Excel (entête sur r0)
@@ -2283,7 +2346,7 @@ function wireHiddenFileInput(){
         }
       }
 
-      // 4) normalisation colonnes + __uuid + Date->dateint 
+      // 6) normalisation colonnes + __uuid + Date->dateint 
       dfRows = dfRows.map((r, i) => {
         const o = { ...r };
 
@@ -2301,18 +2364,19 @@ function wireHiddenFileInput(){
         }
         o.Date = di || null; // stock interne = dateint ou null
 
-        // __uuid garanti
+        // 7) __uuid garanti
         if (!o.__uuid) {
           o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
         }
         return o;
       });
       
+      // 8) Tri des données
       dfRows = sortDf(dfRows);
 
       console.log('✅ Import df OK', dfRows.length, 'lignes');
     
-      // 5) Carnet d’adresses (optionnel, 2e onglet)
+      // 9) Carnet d’adresses (optionnel, 2e onglet)
       let caRows = [];
       const ca  = wb.Sheets[wb.SheetNames[1]]; // 2e onglet = Carnet
       if (ca) {
@@ -2334,6 +2398,7 @@ function wireHiddenFileInput(){
         console.log('✅ Import ca OK', caRows.length, 'lignes');
       }
 
+      // 10) Enregistrement des données dans le contexte
       ctx.beginAction('import');
       try {
         ctx.setDf(dfRows);     
@@ -2341,6 +2406,10 @@ function wireHiddenFileInput(){
       } finally {
         ctx.endAction();                   
       }
+
+      // 11) Initialisation de la période programmation
+      const pp = activitesAPI.getPeriodeProgrammation(dfRows, {reinit:true});      
+
     }
     catch (e) {
       console.error('❌ Import Excel KO', e);
@@ -2350,38 +2419,6 @@ function wireHiddenFileInput(){
     }
   });
 }
-
-// function wireBottomBarToggle() {
-//   const bar = document.getElementById('bottomBar');
-//   const toggle = document.getElementById('toggleBar');
-//   if (!bar || !toggle) return;
-
-//   // Injecte le span rotatif si pas déjà là
-//   if (!toggle.querySelector('span')) {
-//     toggle.innerHTML = '<span>⌃</span>';
-//   }
-//   const icon = toggle.querySelector('span');
-
-//   const updateTogglePos = () => {
-//     const barHeight = bar.offsetHeight || 0;
-//     const barBottom = parseFloat(getComputedStyle(bar).bottom) || 0;
-
-//     // Place la languette juste au-dessus de la barre, en tenant compte du safe-area   
-//     toggle.style.bottom = bar.classList.contains('hidden')
-//       ? `${barBottom}px`
-//       : `${barBottom + barHeight}px`;
-//   };
-
-//   toggle.addEventListener('click', () => {
-//     const hidden = bar.classList.toggle('hidden');
-//     toggle.classList.toggle('rotated', hidden);
-//     updateTogglePos();
-//     setTimeout(syncBottomBarTogglePosition, 180);
-//   });
-
-//   // updateTogglePos();
-//   window.addEventListener('resize', updateTogglePos);
-// }
 
 function wireBottomBarToggle() {
   const bar = document.getElementById('bottomBar');
@@ -2602,6 +2639,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3️⃣ Premier rendu
   await refreshAllGrids();
+  // appJustLaunched = false;
 
   console.log('✅ Application initialisée');
 });

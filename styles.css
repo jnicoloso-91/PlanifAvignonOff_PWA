@@ -943,4 +943,30 @@ main, .page-wrap {
 .file-sheet.dragging { user-select: none; }
 
 
+.cell-lieu {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.lieu-icon {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 1em;
+}
+.lieu-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lieu-sub {
+  opacity: .7;
+  font-size: .85em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 
