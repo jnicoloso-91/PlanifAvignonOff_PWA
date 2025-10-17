@@ -1266,7 +1266,7 @@ function gridOptionsCommon(gridId, el) {
 const gridOptionsActivitesNonProgrammees = {
   getRowStyle: p => {
     const bg = colorActiviteProgrammable(p.data);
-    return { '--day-bg': bg };
+    return bg ? { '--day-bg': bg } : {};
   },
 }
 
@@ -1452,6 +1452,27 @@ async function refreshGrid(gridId) {
   const finish = () => {
     // repaint + grid size (AG Grid v29+)
     api.refreshCells?.({ force: true });
+
+    //--------------- DEBUG ---------------
+    if (gridId == 'grid-non-programmees') {
+      api.redrawRows();  // ré-évalue getRowStyle
+      // api.forEachNode(n => {
+      //   const bg = colorActiviteProgrammable(n.data);
+      //   n.setRowStyle(bg ? { '--day-bg': bg } : null);      
+      // })
+      // api.forEachNode(node => {
+      //   const bg = colorActiviteProgrammable(node.data);
+      //   const rowEl = node?.rowIndex != null
+      //     ? document.querySelector(`.ag-row[aria-rowindex="${node.rowIndex + 1}"]`)
+      //     : null;
+      //   if (rowEl) {
+      //     if (bg) rowEl.style.setProperty('--day-bg', bg);
+      //     else rowEl.style.removeProperty('--day-bg');
+      //   }
+      // });
+    }
+    //--------------- DEBUG ---------------
+
     api.dispatchEvent?.({ type: 'gridSizeChanged' });
 
     // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
