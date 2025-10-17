@@ -1,3 +1,4 @@
+// LieuRenderer.js
 // Marche sur Firefox mais pb sur lieu vide, sur IOS retour page blanche
 // export class LieuRenderer {
 //   init(p) {
@@ -138,7 +139,94 @@
 //   }
 // }
 
-// Pb sur lieu vide résolu
+// Pb sur lieu vide résolu, marche sur Firefox et IOS avec PWA impec, avec Safari appelle Iti Apple web dans la meme fenetre -> necessite de faire < pour revenir à l'appli
+// export class LieuRenderer {
+//   init(params) {
+//     this.params = params;
+
+//     // conteneur principal
+//     const e = document.createElement('div');
+//     e.style.display = 'flex';
+//     e.style.alignItems = 'center';
+//     e.style.gap = '.4rem';
+//     e.style.width = '100%';
+//     e.style.overflow = 'hidden';
+
+//     // icône lien
+//     const a = document.createElement('a');
+//     a.textContent = '📍';
+//     a.title = 'Itinéraire';
+//     a.style.flex = '0 0 auto';
+//     a.style.textDecoration = 'none';
+//     a.style.display = 'inline-flex';
+//     a.style.alignItems = 'center';
+//     a.style.opacity = '.85';
+//     a.addEventListener('mouseenter', () => (a.style.opacity = '1'));
+//     a.addEventListener('mouseleave', () => (a.style.opacity = '.85'));
+//     a.addEventListener('click', (ev) => {
+//       // on laisse le navigateur ouvrir le lien,
+//       // mais on n’impacte pas la sélection de la grille
+//       ev.stopPropagation();
+//     });
+
+//     // libellé lieu
+//     const txt = document.createElement('span');
+//     txt.style.flex = '1 1 auto';
+//     txt.style.overflow = 'hidden';
+//     txt.style.textOverflow = 'ellipsis';
+
+//     e.append(a, txt);
+
+//     // mémos
+//     this.eGui = e;
+//     this.$a = a;
+//     this.$txt = txt;
+
+//     this.refresh(params);
+//   }
+
+//   getGui() {
+//     return this.eGui;
+//   }
+
+//   refresh(params) {
+//     this.params = params || this.params || {};
+//     const lieu = (this.params.value ?? '').toString().trim();
+//     this.$txt.textContent = lieu;
+
+//     // URL d’itinéraire
+//     let url = '';
+//     if (lieu) {
+//       const addr = resolveAddress(lieu);     // ← ta fonction existante
+//       if (addr) url = buildDirectionsUrl(addr); // ← ta fonction existante
+//     }
+
+//     if (url) {
+//       // activer le lien en NOUVEL onglet (ne touche pas à l’URL de l’app)
+//       this.$a.href = url;
+//       this.$a.target = '_blank';
+//       this.$a.rel = 'noopener noreferrer';
+//       this.$a.style.pointerEvents = 'auto';
+//       this.$a.style.opacity = '.85';
+//       this.$a.title = 'Itinéraire';
+//     } else {
+//       // pas d’adresse → désactiver visuellement l’icône
+//       this.$a.removeAttribute('href');
+//       this.$a.removeAttribute('target');
+//       this.$a.removeAttribute('rel');
+//       this.$a.style.pointerEvents = 'none';
+//       this.$a.style.opacity = '.35';
+//       this.$a.title = '';
+//     }
+//     return true;
+//   }
+
+//   destroy() {
+//     // rien de spécial ici
+//   }
+// }
+
+// Pb sur lieu vide résolu, IOS impex en mode Safari et PWA (ouverture app iti Apple y compros en mode Safari)
 export class LieuRenderer {
   init(p) {
     this.p = p;
@@ -259,93 +347,6 @@ export class LieuRenderer {
   }
 }
 
-// Pb sur lieu vide résolu, marche sur Firefox et IOS avec PWA impec, avec Safari appelle Iti Apple web dans la meme fenetre -> necessite de faire < pour revenir à l'appli
-// export class LieuRenderer {
-//   init(params) {
-//     this.params = params;
-
-//     // conteneur principal
-//     const e = document.createElement('div');
-//     e.style.display = 'flex';
-//     e.style.alignItems = 'center';
-//     e.style.gap = '.4rem';
-//     e.style.width = '100%';
-//     e.style.overflow = 'hidden';
-
-//     // icône lien
-//     const a = document.createElement('a');
-//     a.textContent = '📍';
-//     a.title = 'Itinéraire';
-//     a.style.flex = '0 0 auto';
-//     a.style.textDecoration = 'none';
-//     a.style.display = 'inline-flex';
-//     a.style.alignItems = 'center';
-//     a.style.opacity = '.85';
-//     a.addEventListener('mouseenter', () => (a.style.opacity = '1'));
-//     a.addEventListener('mouseleave', () => (a.style.opacity = '.85'));
-//     a.addEventListener('click', (ev) => {
-//       // on laisse le navigateur ouvrir le lien,
-//       // mais on n’impacte pas la sélection de la grille
-//       ev.stopPropagation();
-//     });
-
-//     // libellé lieu
-//     const txt = document.createElement('span');
-//     txt.style.flex = '1 1 auto';
-//     txt.style.overflow = 'hidden';
-//     txt.style.textOverflow = 'ellipsis';
-
-//     e.append(a, txt);
-
-//     // mémos
-//     this.eGui = e;
-//     this.$a = a;
-//     this.$txt = txt;
-
-//     this.refresh(params);
-//   }
-
-//   getGui() {
-//     return this.eGui;
-//   }
-
-//   refresh(params) {
-//     this.params = params || this.params || {};
-//     const lieu = (this.params.value ?? '').toString().trim();
-//     this.$txt.textContent = lieu;
-
-//     // URL d’itinéraire
-//     let url = '';
-//     if (lieu) {
-//       const addr = resolveAddress(lieu);     // ← ta fonction existante
-//       if (addr) url = buildDirectionsUrl(addr); // ← ta fonction existante
-//     }
-
-//     if (url) {
-//       // activer le lien en NOUVEL onglet (ne touche pas à l’URL de l’app)
-//       this.$a.href = url;
-//       this.$a.target = '_blank';
-//       this.$a.rel = 'noopener noreferrer';
-//       this.$a.style.pointerEvents = 'auto';
-//       this.$a.style.opacity = '.85';
-//       this.$a.title = 'Itinéraire';
-//     } else {
-//       // pas d’adresse → désactiver visuellement l’icône
-//       this.$a.removeAttribute('href');
-//       this.$a.removeAttribute('target');
-//       this.$a.removeAttribute('rel');
-//       this.$a.style.pointerEvents = 'none';
-//       this.$a.style.opacity = '.35';
-//       this.$a.title = '';
-//     }
-//     return true;
-//   }
-
-//   destroy() {
-//     // rien de spécial ici
-//   }
-// }
-
 
 export default LieuRenderer;
 
@@ -389,8 +390,11 @@ function buildDirectionsUrl(address) {
   const onApple = /iPhone|iPad|Macintosh/.test(ua);
 
   // “daddr” = destination, “dirflg=w” = mode piéton
+  // return onApple
+  //   ? `http://maps.apple.com/?daddr=${q}&dirflg=w`
+  //   : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`;
   return onApple
-    ? `http://maps.apple.com/?daddr=${q}&dirflg=w`
+    ? `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`
     : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`;
 }
 
