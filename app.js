@@ -2466,44 +2466,44 @@ function wireBottomBarToggle() {
     const hidden = bar.classList.toggle('hidden');
     toggle.classList.toggle('rotated', hidden);
     updateTogglePos();
-    // setTimeout(syncBottomBarTogglePosition, 180);
-    syncBottomBarTogglePosition, 180;
+    setTimeout(syncBottomBarTogglePosition, 180);
+    // syncBottomBarTogglePosition();
   });
 
-  // --- 2️⃣ Fonction de sync (toujours locale à cette wire) ---
-  function syncBottomBarTogglePosition() {
-    const rect = bar.getBoundingClientRect();
-    toggle.style.bottom = `calc(env(safe-area-inset-bottom) + ${rect.height}px)`;
-  }
+  // // --- 2️⃣ Fonction de sync (toujours locale à cette wire) ---
+  // function syncBottomBarTogglePosition() {
+  //   const rect = bar.getBoundingClientRect();
+  //   toggle.style.bottom = `calc(env(safe-area-inset-bottom) + ${rect.height}px)`;
+  // }
 
-  // --- 3️⃣ Wiring des événements liés au viewport ---
-  window.addEventListener('resize', syncBottomBarTogglePosition);
-  window.addEventListener('orientationchange', () =>
-    setTimeout(syncBottomBarTogglePosition, 200)
-  );
-  bar.addEventListener('transitionend', (e) => {
-    if (e.propertyName === 'transform') syncBottomBarTogglePosition();
-  });
+  // // --- 3️⃣ Wiring des événements liés au viewport ---
+  // window.addEventListener('resize', syncBottomBarTogglePosition);
+  // window.addEventListener('orientationchange', () =>
+  //   setTimeout(syncBottomBarTogglePosition, 200)
+  // );
+  // bar.addEventListener('transitionend', (e) => {
+  //   if (e.propertyName === 'transform') syncBottomBarTogglePosition();
+  // });
 
-  // --- 4️⃣ Lancer une première sync après layout ---
-  requestAnimationFrame(syncBottomBarTogglePosition);
+  // // --- 4️⃣ Lancer une première sync après layout ---
+  // requestAnimationFrame(syncBottomBarTogglePosition);
 
-  // updateTogglePos();
-  // window.addEventListener('resize', updateTogglePos);
+  updateTogglePos();
+  window.addEventListener('resize', updateTogglePos);
 }
 
-// function syncBottomBarTogglePosition() {
-//   if (isSplitterDragging) return;
-//   const bar = document.querySelector('.bottom-bar');
-//   const toggle = document.querySelector('.bottom-toggle');
-//   if (!bar || !toggle) return;
+function syncBottomBarTogglePosition() {
+  if (isSplitterDragging) return;
+  const bar = document.querySelector('.bottom-bar');
+  const toggle = document.querySelector('.bottom-toggle');
+  if (!bar || !toggle) return;
 
-//   // Mesurer la hauteur réellement rendue
-//   const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
+  // Mesurer la hauteur réellement rendue
+  const h = Math.max(0, Math.round(bar.getBoundingClientRect().height));
 
-//   // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
-//   toggle.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
-// }
+  // Place la languette juste au-dessus de la barre, en tenant compte du safe-area
+  toggle.style.bottom = `calc(${getSafeBottom()} + ${h}px)`;
+}
 
 function lockHorizontalScroll() {
   const scroller = document.querySelector('.bottom-bar__scroller');
