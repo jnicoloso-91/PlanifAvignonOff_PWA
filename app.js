@@ -1293,43 +1293,43 @@ function addDynamicButtons() {
   });
   
   // Bouton Coller
-  addDynamicButton({
-    expanderId: 'exp-non-programmees',
-    id: 'btn-coller',
-    title: 'Ajouter une activité avec collage', 
-    innerHTML: `
-      <span class="exp-icon" aria-hidden="true">
-        <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h7l3 3h6v13H4z"/>
-          <path d="M9 14h6"/>
-          <path d="M9 18h6"/>
-        </svg>
-      </span>
-      <span class="exp-label">Coller</span>
-    `,
-    onClick: async () => {await doAjoutActiviteAvecCollage();}
-  });
+  // addDynamicButton({
+  //   expanderId: 'exp-non-programmees',
+  //   id: 'btn-coller',
+  //   title: 'Ajouter une activité avec collage', 
+  //   innerHTML: `
+  //     <span class="exp-icon" aria-hidden="true">
+  //       <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
+  //       <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+  //           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  //         <path d="M4 4h7l3 3h6v13H4z"/>
+  //         <path d="M9 14h6"/>
+  //         <path d="M9 18h6"/>
+  //       </svg>
+  //     </span>
+  //     <span class="exp-label">Coller</span>
+  //   `,
+  //   onClick: async () => {await doAjoutActiviteAvecCollage();}
+  // });
 
   // Bouton Ajouter
-  addDynamicButton({
-    expanderId: 'exp-non-programmees',
-    id: 'btn-ajouter',
-    title: 'Ajouter une activité', 
-    innerHTML: `
-      <span class="exp-icon" aria-hidden="true">
-        <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="2" width="6" height="4" rx="1"/>
-          <path d="M4 5h16v16H4z"/>
-        </svg>
-      </span>
-      <span class="exp-label">Ajouter</span>
-    `,
-    onClick: async () => {await doAjoutActivite();}
-  });
+  // addDynamicButton({
+  //   expanderId: 'exp-non-programmees',
+  //   id: 'btn-ajouter',
+  //   title: 'Ajouter une activité', 
+  //   innerHTML: `
+  //     <span class="exp-icon" aria-hidden="true">
+  //       <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
+  //       <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+  //           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  //         <rect x="9" y="2" width="6" height="4" rx="1"/>
+  //         <path d="M4 5h16v16H4z"/>
+  //       </svg>
+  //     </span>
+  //     <span class="exp-label">Ajouter</span>
+  //   `,
+  //   onClick: async () => {await doAjoutActivite();}
+  // });
 
   // Bouton Supprimer
   addDynamicButton({
@@ -2256,16 +2256,16 @@ function wireBottomBar() {
   });
 
   // --- Ajouter ---
-  // $('btn-add')?.addEventListener('click', (e) => {
-  //   pulse(e.currentTarget);
-  //   doAjoutActivite();
-  // });
+  $('btn-add')?.addEventListener('click', (e) => {
+    pulse(e.currentTarget);
+    doAjoutActivite();
+  });
 
   // --- Ajouter avec collage ---
-  // $('btn-paste')?.addEventListener('click', (e) => {
-  //   pulse(e.currentTarget);
-  //   doAjoutActiviteAvecCollage();
-  // });
+  $('btn-paste')?.addEventListener('click', (e) => {
+    pulse(e.currentTarget);
+    doAjoutActiviteAvecCollage();
+  });
 
   // Drag-to-scroll with mouse (desktop)
   let isDown = false, startX = 0, startScroll = 0;
