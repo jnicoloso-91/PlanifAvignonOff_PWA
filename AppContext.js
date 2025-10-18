@@ -298,7 +298,7 @@ export class AppContext {
         return r;
       });
       if (!found) this.#df.push({ ...row, __uuid: id });
-      sortDf(this.#df);
+      this.#df = sortDf(this.#df);
       this.#dirty.df = true;
       this.#em.emit('df:changed', { reason: found ? 'update' : 'insert', id });
     });
@@ -309,6 +309,7 @@ export class AppContext {
     this.#withHistory('remove', () => {
       const len = this.#df.length;
       this.#df = this.#df.filter(r => r.__uuid !== uuid);
+      this.#df = sortDf(this.#df);
       if (this.#df.length !== len) {
         this.#dirty.df = true;
         this.#em.emit('df:changed', { reason: 'remove', id: uuid });
