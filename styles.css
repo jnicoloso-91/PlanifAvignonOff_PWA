@@ -323,7 +323,7 @@ main, .page-wrap {
 
 /* Applique la couleur par jour à toutes les cellules de la ligne */
 .ag-theme-quartz .ag-row .ag-cell {
-  background-color: var(--day-bg) !important;
+  background-color: var(--day-bg, transparent) !important;
 }
 
 /* (optionnel) neutraliser le hover si tu veux garder la couleur de fond */
@@ -444,7 +444,7 @@ main, .page-wrap {
 
 .bottom-bar__scroller {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 
   /* scroll uniquement horizontal */
   overflow-x: auto;

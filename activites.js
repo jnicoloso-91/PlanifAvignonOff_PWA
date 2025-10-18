@@ -1185,7 +1185,7 @@ function _getNomNouvelleActivite(df, prefix="Activité") {
   // 🔹 Boucle de recherche d’un nom libre
   while (true) {
     _compteurNouvelleActivite += 1;
-    const nomCandidat = `${prefix} ${_compteurNouvelleActivite}`;
+    const nomCandidat = (prefix != 'Activité' && _compteurNouvelleActivite == 1) ? `${prefix}` : `${prefix} ${_compteurNouvelleActivite}`;
     if (!nomsExistants.includes(nomCandidat)) {
       return nomCandidat;
     }
