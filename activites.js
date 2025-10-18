@@ -13,6 +13,7 @@ import {
 } from './utils-date.js';
 
 let _ctx = null;
+let _compteurNouvelleActivite = null;
 
 export function creerActivitesAPI(ctx) {
 
@@ -243,35 +244,6 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
-     * Cherche un nom d'activité non encore alloué dans un DataFrame
-     * @param {*} df 
-     * @returns 
-     */
-    getNomNouvelleActivite(df) {
-      if (!Array.isArray(df)) return "Activité 1";
-
-      // 🔹 Extraire les noms existants
-      const nomsExistants = df
-        .map(r => (r.Activite ?? '').toString().trim())
-        .filter(n => n.length > 0);
-
-      // 🔹 Initialiser ou incrémenter le compteur global
-      if (!window.sessionState) window.sessionState = {};
-      if (typeof window.sessionState.compteur_activite !== 'number') {
-        window.sessionState.compteur_activite = 0;
-      }
-
-      // 🔹 Boucle de recherche d’un nom libre
-      while (true) {
-        window.sessionState.compteur_activite += 1;
-        const nomCandidat = `Activité ${window.sessionState.compteur_activite}`;
-        if (!nomsExistants.includes(nomCandidat)) {
-          return nomCandidat;
-        }
-      }
-    },
-
-    /**
      * cellEditor de la colonne Date de la grille des activités programmées
      * @param {*} row 
      * @returns 
@@ -317,6 +289,52 @@ export function creerActivitesAPI(ctx) {
      */
     estActiviteReservee(row) {
       return _estActiviteReservee(row);
+    },
+
+    /**
+     * Crée une nouvelle activité 
+     * @param {*} df  -> utilisé pour créer un nom d'activité unique qui ne soit pas déja alloué dans df
+     * @returns nouvelleActivite
+     */
+    async creerActivite(df) {
+      const nouveauNom = _getNomNouvelleActivite(df);
+      const nouvelleActivite =     {
+          __uuid: crypto.randomUUID?.() || String(Date.now()),
+          Date: null, 
+          Debut: "09h00", 
+          Duree: "1h00",
+          Activite: nouveauNom, 
+          Lieu: null, 
+          Relache: null, 
+          Reserve: null, 
+          Priorite: null, 
+          Hyperlien: `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
+        }
+      return nouvelleActivite;
+    },
+
+    /**
+     * Crée une nouvelle activité en utilisant le clipboard pour initialiser les champs
+     * @param {*} df  -> utilisé pour créer un nom d'activité unique qui ne soit pas déja alloué dans df
+     * @returns nouvelleActivite
+     */
+    async creerActiviteAvecCollage(df) {
+      const raw = await _getClipBoardText();
+      const parsed = _parseListingText(raw);
+      const nouveauNom = _getNomNouvelleActivite(df, parsed.Activite);
+      const nouvelleActivite =     {
+          __uuid: crypto.randomUUID?.() || String(Date.now()),
+          Date: null, 
+          Debut: parsed.Debut || "09h00", 
+          Duree: parsed.Duree || "1h00",
+          Activite: nouveauNom, 
+          Lieu: parsed.Lieu || null, 
+          Relache: parsed.Relache || null, 
+          Reserve: null, 
+          Priorite: null, 
+          Hyperlien: parsed.Hyperlien || `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
+        }
+      return nouvelleActivite;
     },
   };
 }
@@ -978,3 +996,210 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
   return proposables;
 }
 
+// ----------------- Helpers pour parser de texte -----------------
+const MOIS = {
+  'janvier': 1, 'fevrier': 2, 'février': 2, 'mars': 3, 'avril': 4,
+  'mai': 5, 'juin': 6, 'juillet': 7, 'aout': 8, 'août': 8,
+  'septembre': 9, 'octobre': 10, 'novembre': 11, 'decembre': 12, 'décembre': 12
+};
+
+function _norm(s) {
+  return String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève accents
+    .replace(/\s+/g, ' ')                             // espaces multiples -> simple
+    .trim();
+}
+
+function _clean_lieu(s) {
+  return String(s || '')
+    .replace(/^(lieu\s*[:\-]\s*)/i, '')
+    .replace(/^(theatre|théâtre)\s*[:\-]\s*/i, '')
+    .trim();
+}
+
+function _pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
+
+// ----------------- Parser de texte -----------------
+function _parseListingText(text) {
+  const res = {
+    Activite: null,
+    Lieu: null,
+    Relache: null,
+    Debut: null,    // "HHhMM"
+    Duree: null,    // "HhMM"
+    Hyperlien: null
+  };
+  if (!text) return res;
+
+  const txt = String(text).trim();
+  const txtNorm = _norm(txt).toLowerCase();
+
+  // --- Activité : 1re ligne après "programme >" sinon 1re ligne non vide ---
+  {
+    const m = txt.match(/programme\s*>\s*(.+)/i);
+    if (m) {
+      const line = m[1].trim().split(/\r?\n/)[0]?.trim();
+      if (line) res.Activite = line;
+    }
+    if (!res.Activite) {
+      const lines = txt.split(/\r?\n/);
+      for (let raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+        if (/festival\s+off\s+avignon\s*>\s*programme/i.test(line)) continue; // saute l'entête
+        res.Activite = line;
+        break;
+      }
+    }
+  }
+
+  // --- Lieu : première ligne après 'lieu' jugée pertinente ---
+  {
+    const m = txt.match(/\blieu\b(.*)/is);
+    if (m) {
+      const tail = m[1] || '';
+      const lines = tail.split(/\r?\n/);
+      for (let raw of lines) {
+        const cand = raw.trim();
+        if (!cand) continue;
+        if (/nom de la salle|nombre de places|t[eé]l[eé]phone|programmation|voir toute/i.test(cand)) continue;
+        if (cand.length >= 3) {
+          res.Lieu = _clean_lieu(cand);
+          break;
+        }
+      }
+    }
+  }
+
+  // --- Début : première occurrence HHhMM ---
+  {
+    const m = txtNorm.match(/\b(\d{1,2})h(\d{2})\b/i);
+    if (m) {
+      const [_, h, mm] = m;
+      res.Debut = `${_pad2(h)}h${_pad2(mm)}`;
+    }
+  }
+
+  // --- Durée : première occurrence HhMM (sans confondre avec "Début") ---
+  {
+    const m = txtNorm.match(/\b(\d{1,2})h(\d{2})\b/i);
+    if (m) {
+      const h = parseInt(m[1],10), mm = parseInt(m[2],10);
+      const cand = `${h}h${_pad2(mm)}`;
+
+      if (res.Debut && res.Debut.toLowerCase() === `${_pad2(h)}h${_pad2(mm)}`) {
+        // chercher une 2e occurrence
+        const m2 = txtNorm.match(/\b(\d{1,2})h(\d{2})\b.*?\b(\d{1,2})h(\d{2})\b/is);
+        if (m2) {
+          const h2 = parseInt(m2[3],10), mm2 = parseInt(m2[4],10);
+          res.Duree = `${h2}h${_pad2(mm2)}`;
+        }
+      } else {
+        res.Duree = cand;
+      }
+    }
+  }
+
+  // --- Hyperlien : ligne commençant par "Hyperlien <url...>" ---
+  {
+    const m = txt.match(/^\s*hyperlien\s+([^\s].*)$/gim);
+    if (m && m.length > 0) {
+      const line = m[0]; // 1ère correspondance
+      const url = line.replace(/^\s*hyperlien\s+/i, '').trim();
+      if (url) res.Hyperlien = url;
+    }
+  }
+
+  // -------- Relâche --------
+  const relParts = [];
+  let periode_jouee = null;
+
+  // Intervalle : “du X au Y <mois>” + parité optionnelle (jours pairs/impairs)
+  {
+    const m = txtNorm.match(
+      /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)\s*(?:,\s*(rel[aâ]che\s+)?(jours?\s+pairs?|jours?\s+impairs?))?/i
+    );
+    if (m) {
+      const d1 = parseInt(m[1],10);
+      const d2 = parseInt(m[2],10);
+      const moisTxt = m[3]?.toLowerCase();
+      const isRelachePrefix = !!m[4];
+      let parite = m[5] ? m[5].trim().toLowerCase() : null;
+
+      const moisNum = MOIS[moisTxt];
+      if (moisNum) {
+        let part = `<${d1}-${d2}>/${moisNum}`;
+
+        if (parite) {
+          const isPairs = /pairs?/.test(parite);
+          // Si parité décrite = jours joués (pas "relâche ..."), on inverse pour obtenir la relâche
+          const pariteRelache = isRelachePrefix
+            ? parite
+            : (isPairs ? 'jours impairs' : 'jours pairs');
+          part = `${part}, ${pariteRelache}`;
+        }
+        periode_jouee = part;
+      }
+    }
+  }
+
+  // Liste explicite : “relâche les 9, 16, 23 juillet”
+  {
+    const m = txtNorm.match(/rel[aâ]che\s+les\s+([0-9,\s]+)\s+([a-zéû]+)/i);
+    if (m) {
+      const joursStr = m[1] || '';
+      const moisTxt = (m[2] || '').toLowerCase();
+      const moisNum = MOIS[moisTxt];
+      if (moisNum) {
+        const jours = joursStr.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s));
+        if (jours.length) {
+          const part = `(${jours.map(j => String(parseInt(j,10))).join(',')})/${moisNum}`;
+          relParts.push(part);
+        }
+      }
+    }
+  }
+
+  if (periode_jouee) relParts.push(periode_jouee);
+  if (relParts.length) res.Relache = relParts.join(', ');
+
+  return res;
+}
+
+/**
+ * Cherche un nom d'activité non encore alloué dans un DataFrame
+ * @param {*} df 
+ * @returns 
+ */
+function _getNomNouvelleActivite(df, prefix="Activité") {
+  if (!Array.isArray(df)) return prefix;
+
+  // 🔹 Extraire les noms existants
+  const nomsExistants = df
+    .map(r => (r.Activite ?? '').toString().trim())
+    .filter(n => n.length > 0);
+
+  // 🔹 Initialiser ou incrémenter le compteur global
+  _compteurNouvelleActivite = 0;
+
+  // 🔹 Boucle de recherche d’un nom libre
+  while (true) {
+    _compteurNouvelleActivite += 1;
+    const nomCandidat = `${prefix} ${_compteurNouvelleActivite}`;
+    if (!nomsExistants.includes(nomCandidat)) {
+      return nomCandidat;
+    }
+  }
+}
+
+async function _getClipBoardText() {
+  try {
+    const txt = await navigator.clipboard.readText();
+    // console.log('Texte du presse-papier :', txt);
+    return txt;
+  } catch (err) {
+    console.warn('Impossible de lire le presse-papier :', err);
+    // alert("⚠️ Pour coller, autorisez l’accès au presse-papier ou collez manuellement.");
+    return null;
+  }
+}

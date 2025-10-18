@@ -52,7 +52,7 @@ const $ = id => document.getElementById(id);
 const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 
 /**
- * Renvoie le __uuid de la ligne voisine (suivante ou précédente)
+ * Renvoie la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
  * d'une ligne repérée par son __uuid de référence.
  * - Si rows est vide ou l'uuid introuvable → null
  * - Si possible → retourne le __uuid de la ligne suivante
@@ -61,7 +61,32 @@ const dateintStrToPretty = (d) => dateintToPretty(Number(d));
  * @param {string|null|undefined} uuid - identifiant __uuid de la ligne de référence
  * @returns {string|null} __uuid du voisin ou null
  */
-function ligneVoisineUuid(rows, uuid) {
+function getLigneVoisine(rows, uuid) {
+  if (!rows || rows.length === 0) return null;
+  if (uuid == null) return null;
+
+  const selectedIdx = rows.findIndex(r => r && r.__uuid === uuid);
+  if (selectedIdx < 0) return null;
+
+  const len = rows.length;
+  const neighborIdx = (selectedIdx + 1 <= len - 1)
+    ? selectedIdx + 1
+    : Math.max(selectedIdx - 1, 0);
+
+  return rows[neighborIdx];
+}
+
+/**
+ * Renvoie le __uuid de la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
+ * d'une ligne repérée par son __uuid de référence.
+ * - Si rows est vide ou l'uuid introuvable → null
+ * - Si possible → retourne le __uuid de la ligne suivante
+ *   sinon celui de la ligne précédente
+ * @param {Array<Object>} rows - tableau "df_display" (ordre d'affichage)
+ * @param {string|null|undefined} uuid - identifiant __uuid de la ligne de référence
+ * @returns {string|null} __uuid du voisin ou null
+ */
+function getLigneVoisineUuid(rows, uuid) {
   if (!rows || rows.length === 0) return null;
   if (uuid == null) return null;
 
@@ -616,42 +641,45 @@ function getSelectedRow(gridId) {
   return sel?.[0];
 }
 
-// Ouverture Expander
-function openExp(exp) {
-  if (!exp) return;
-  const pane = exp.querySelector('.st-expander-body');
-  if (!pane) { exp.classList.add('open'); return; }
-
-  // si déjà open et pas en fermeture, ne rien faire
-  if (exp.classList.contains('open') && !exp.classList.contains('is-closing')) return;
-
-  exp.classList.remove('is-closing');
-  exp.classList.add('open');
-
-  const saved   = localStorage.getItem(`paneHeight:${exp.id}`);
-  const pending = pane.dataset.pendingAutoHeight;
-  const target  = parseInt(pending || saved || '', 10);
-
-  // point de départ = 0
-  pane.style.height = '0px';
-
-  // applique la cible au frame suivant pour déclencher la transition
-  requestAnimationFrame(() => {
-    const h = Number.isFinite(target) && target > 0 ? target : pane.scrollHeight;
-    pane.style.height = `${h}px`;
-
-    // nettoyage en fin de transition : enlève la height inline pour laisser l'auto-size reprendre la main
-    const onEnd = (ev) => {
-      if (ev.propertyName !== 'height') return;
-      pane.removeEventListener('transitionend', onEnd);
-      delete pane.dataset.pendingAutoHeight;
-      // si tu veux laisser le pane “fixe”, garde la height ; sinon, enlève-la :
-      // pane.style.removeProperty('height');
-    };
-    pane.addEventListener('transitionend', onEnd, { once: true });
+// Renvoie les rows d'une grille à partir de son gridId
+function getRowsFromGridId(gridId) {
+  const h = grids.get(gridId);             // handle de la grille
+  if (!h || !h.api) return [];         // sécurité si non initialisée
+  const rows = [];
+  h.api.forEachNode(node => {
+    if (node?.data) rows.push(node.data);
   });
+  return rows;
 }
-// // Ouverture Expander (avec autoOpenHeight & userSized)
+
+// ---------------------------------------
+// Ouverture/Fermeture Expander (version d'origine à reprendre si celle du dessous bugue)
+// ---------------------------------------
+
+// // Helper: measure content height with temporary “auto” (restores inline styles)
+// function measureContentHeight(pane) {
+//   const prev = {
+//     height: pane.style.height,
+//     maxH:   pane.style.maxHeight,
+//     ovf:    pane.style.overflow,
+//     vis:    pane.style.visibility
+//   };
+//   try {
+//     pane.style.height    = 'auto';
+//     pane.style.maxHeight = 'none';
+//     pane.style.overflow  = 'hidden';
+//     pane.style.visibility = 'hidden'; // avoid flicker
+//     // Use both scrollHeight and DOM box; take the max
+//     const h = Math.max(pane.scrollHeight || 0, Math.round(pane.getBoundingClientRect().height) || 0);
+//     return Math.max(0, h);
+//   } finally {
+//     pane.style.height     = prev.height;
+//     pane.style.maxHeight  = prev.maxH;
+//     pane.style.overflow   = prev.ovf;
+//     pane.style.visibility = prev.vis;
+//   }
+// }
+
 // function openExp(exp) {
 //   if (!exp) return;
 //   const pane = exp.querySelector('.st-expander-body');
@@ -663,74 +691,225 @@ function openExp(exp) {
 //   exp.classList.remove('is-closing');
 //   exp.classList.add('open');
 
-//   const userSized = pane.dataset.userSized === '1';
-//   const autoH     = parseInt(pane.dataset.autoOpenHeight || '', 10);     // ≤ 5 lignes
-//   const pending   = parseInt(pane.dataset.pendingAutoHeight || '', 10);  // mémorisé si fermé
-//   const saved     = parseInt(localStorage.getItem(`paneHeight:${exp.id}`) || '', 10); // redim manuel
+//   const saved   = localStorage.getItem(`paneHeight:${exp.id}`);
+//   const pending = pane.dataset.pendingAutoHeight;
+//   const target  = parseInt(pending || saved || '', 10);
 
-//   // Choix de la cible :
-//   // 1) si l'utilisateur a redimensionné → restaurer sa hauteur
-//   // 2) sinon → hauteur auto (≤ 5 lignes)
-//   // 3) sinon → hauteur "pending" mémorisée (si présente)
-//   let target = null;
-//   if (userSized && Number.isFinite(saved) && saved > 0)       target = saved;
-//   else if (Number.isFinite(autoH) && autoH > 0)               target = autoH;
-//   else if (Number.isFinite(pending) && pending > 0)           target = pending;
-//   else                                                        target = Math.max(0, pane.scrollHeight);
-
-//   // départ 0 → transition fluide vers target
+//   // point de départ = 0
 //   pane.style.height = '0px';
-//   requestAnimationFrame(() => {
-//     pane.style.height = `${target}px`;
 
+//   // applique la cible au frame suivant pour déclencher la transition
+//   requestAnimationFrame(() => {
+//     const h = Number.isFinite(target) && target > 0 ? target : pane.scrollHeight;
+//     pane.style.height = `${h}px`;
+
+//     // nettoyage en fin de transition : enlève la height inline pour laisser l'auto-size reprendre la main
 //     const onEnd = (ev) => {
 //       if (ev.propertyName !== 'height') return;
 //       pane.removeEventListener('transitionend', onEnd);
-//       delete pane.dataset.pendingAutoHeight; // nettoyage
-//       // on garde la height inline pour que le splitter continue de fonctionner
+//       delete pane.dataset.pendingAutoHeight;
+//       // si tu veux laisser le pane “fixe”, garde la height ; sinon, enlève-la :
+//       // pane.style.removeProperty('height');
 //     };
 //     pane.addEventListener('transitionend', onEnd, { once: true });
 //   });
 // }
 
-// Fermeture Expander
-function closeExp(exp) {
+// function closeExp(exp) {
+//   if (!exp) return;
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (!pane) { exp.classList.remove('open'); return; }
+
+//   // si déjà en fermeture, ignore
+//   if (exp.classList.contains('is-closing')) return;
+
+//   // mémorise la hauteur actuelle pour réouverture / autosize ultérieure
+//   const curH = Math.max(0, Math.round(pane.getBoundingClientRect().height));
+//   if (curH > 0) {
+//     localStorage.setItem(`paneHeight:${exp.id}`, String(curH));
+//     pane.dataset.pendingAutoHeight = String(curH);
+//   }
+
+//   // prépare la fermeture animée : set la height actuelle -> force reflow -> 0
+//   pane.style.height = `${curH}px`;
+//   // force reflow pour que la transition reparte de curH
+//   // eslint-disable-next-line no-unused-expressions
+//   pane.offsetHeight;
+
+//   exp.classList.add('is-closing');
+//   pane.style.height = '0px';
+
+//   const onEnd = (ev) => {
+//     if (ev.propertyName !== 'height') return;
+//     pane.removeEventListener('transitionend', onEnd);
+
+//     // état final fermé
+//     exp.classList.remove('open');
+//     exp.classList.remove('is-closing');
+
+//     // IMPORTANT : aucune height inline qui pourrait re-gonfler en fermé
+//     pane.style.removeProperty('height');
+//   };
+//   pane.addEventListener('transitionend', onEnd, { once: true });
+// }
+
+
+// ---------------------------------------
+// Ouverture/Fermeture Expander (version d'origine à reprendre si celle du dessous bugue)
+// ---------------------------------------
+
+
+// ---------------------------------------
+// Ouverture/Fermeture Expander (version censée corriger les pb aléatoires de blocage en position fermée)
+// ---------------------------------------
+const MIN_OPEN_PX = 16;          // jamais ouvrir en dessous de ça
+const ANIM_TIMEOUT_OPEN  = 900;  // fallback Safari si pas de transitionend
+const ANIM_TIMEOUT_CLOSE = 700;
+
+function pickTargetHeight(pane, exp) {
+  const parse = s => {
+    const n = parseInt(s ?? '', 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const candidates = [
+    parse(pane.dataset.pendingAutoHeight),
+    parse(localStorage.getItem(`paneHeight:${exp.id}`)),
+    parse(pane.dataset.maxContentHeight),
+  ];
+
+  // dernier recours: mesurer le contenu
+  const measure = () => {
+    const prev = {
+      h: pane.style.height, maxH: pane.style.maxHeight,
+      ovf: pane.style.overflow, vis: pane.style.visibility
+    };
+    try {
+      pane.style.height = 'auto';
+      pane.style.maxHeight = 'none';
+      pane.style.overflow = 'hidden';
+      pane.style.visibility = 'hidden';
+      const a = pane.scrollHeight|0;
+      const b = Math.round(pane.getBoundingClientRect().height)|0;
+      return Math.max(a, b);
+    } finally {
+      pane.style.height = prev.h;
+      pane.style.maxHeight = prev.maxH;
+      pane.style.overflow = prev.ovf;
+      pane.style.visibility = prev.vis;
+    }
+  };
+
+  let target = candidates.find(v => v && v >= MIN_OPEN_PX) ?? measure();
+  if (!Number.isFinite(target) || target < MIN_OPEN_PX) target = MIN_OPEN_PX;
+  return target;
+}
+
+export function openExp(exp) {
+  if (!exp) return;
+  const pane = exp.querySelector('.st-expander-body');
+  if (!pane) { exp.classList.add('open'); return; }
+
+  // si anim en cours, on ignore ce clic
+  if (exp.dataset.animating === '1') return;
+
+  // déjà ouvert et pas en fermeture → rien à faire
+  if (exp.classList.contains('open') && !exp.classList.contains('is-closing')) return;
+
+  exp.classList.remove('is-closing');
+  exp.classList.add('open');
+  exp.dataset.animating = '1';
+  pane.classList.remove('no-anim');
+
+  // point de départ = hauteur actuelle (nudgé à 1px si 0 pour forcer transition)
+  const cur = Math.round(pane.getBoundingClientRect().height) || 0;
+  const start = cur > 0 ? cur : 1;
+  pane.style.height = `${start}px`;
+
+  // force reflow
+  // eslint-disable-next-line no-unused-expressions
+  pane.offsetHeight;
+
+  // cible “safe”
+  let target = pickTargetHeight(pane, exp);
+
+  // si start == target → nudger de 1px pour garantir transitionend
+  if (target === start) target += 1;
+
+  let ended = false;
+  const cleanup = () => {
+    if (ended) return;
+    ended = true;
+    pane.removeEventListener('transitionend', onEnd);
+    delete pane.dataset.pendingAutoHeight;
+    delete exp.dataset.animating;
+    // mémorise une bonne hauteur pour la prochaine ouverture
+    const hNow = Math.round(pane.getBoundingClientRect().height);
+    if (hNow >= MIN_OPEN_PX) {
+      localStorage.setItem(`paneHeight:${exp.id}`, String(hNow));
+    }
+  };
+  const onEnd = (ev) => { if (ev.propertyName === 'height') cleanup(); };
+  pane.addEventListener('transitionend', onEnd);
+  setTimeout(cleanup, ANIM_TIMEOUT_OPEN); // fallback Safari/iOS
+
+  // lance l’anim
+  requestAnimationFrame(() => { pane.style.height = `${target}px`; });
+
+  // 2 frames plus tard, on re-mesure (AG Grid a pu peindre) et on corrige si besoin
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (exp.dataset.animating !== '1') return;           // déjà fini
+    if (pane.dataset.userSized === '1') return;          // l’utilisateur contrôle
+    const contentH = pane.scrollHeight|0;
+    if (contentH >= MIN_OPEN_PX && Math.abs(contentH - target) > 2) {
+      pane.style.height = `${contentH}px`;
+      localStorage.setItem(`paneHeight:${exp.id}`, String(contentH));
+    }
+  }));
+}
+
+export function closeExp(exp) {
   if (!exp) return;
   const pane = exp.querySelector('.st-expander-body');
   if (!pane) { exp.classList.remove('open'); return; }
 
-  // si déjà en fermeture, ignore
-  if (exp.classList.contains('is-closing')) return;
+  if (exp.dataset.animating === '1') return;
 
-  // mémorise la hauteur actuelle pour réouverture / autosize ultérieure
-  const curH = Math.max(0, Math.round(pane.getBoundingClientRect().height));
-  if (curH > 0) {
-    localStorage.setItem(`paneHeight:${exp.id}`, String(curH));
-    pane.dataset.pendingAutoHeight = String(curH);
+  exp.classList.add('is-closing');
+  exp.dataset.animating = '1';
+  pane.classList.remove('no-anim');
+
+  const cur = Math.round(pane.getBoundingClientRect().height) || 0;
+  if (cur <= 1) {
+    // déjà “à plat” → ferme sans anim
+    exp.classList.remove('open', 'is-closing');
+    delete exp.dataset.animating;
+    pane.style.height = '0px';
+    return;
   }
 
-  // prépare la fermeture animée : set la height actuelle -> force reflow -> 0
-  pane.style.height = `${curH}px`;
-  // force reflow pour que la transition reparte de curH
+  pane.style.height = `${cur}px`;
+  // force reflow
   // eslint-disable-next-line no-unused-expressions
   pane.offsetHeight;
 
-  exp.classList.add('is-closing');
-  pane.style.height = '0px';
-
-  const onEnd = (ev) => {
-    if (ev.propertyName !== 'height') return;
+  let ended = false;
+  const cleanup = () => {
+    if (ended) return;
+    ended = true;
     pane.removeEventListener('transitionend', onEnd);
-
-    // état final fermé
-    exp.classList.remove('open');
-    exp.classList.remove('is-closing');
-
-    // IMPORTANT : aucune height inline qui pourrait re-gonfler en fermé
-    pane.style.removeProperty('height');
+    exp.classList.remove('open', 'is-closing');
+    delete exp.dataset.animating;
+    pane.style.height = '0px';
   };
-  pane.addEventListener('transitionend', onEnd, { once: true });
+  const onEnd = (ev) => { if (ev.propertyName === 'height') cleanup(); };
+  pane.addEventListener('transitionend', onEnd);
+  setTimeout(cleanup, ANIM_TIMEOUT_CLOSE); // fallback
+
+  requestAnimationFrame(() => { pane.style.height = '0px'; });
 }
+// ---------------------------------------
+// Ouverture/Fermeture Expander (version censée corriger les pb aléatoires de blocage en position fermée)
+// ---------------------------------------
 
 // Sélectionne par __uuid et rend visible
 function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {}) {
@@ -1026,7 +1205,7 @@ function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
 }
 
 // ===== Boutons dynamiques =====
-function addProgrammerButton(expanderId, onClick) {
+function addDynamicButton({expanderId, id, title, innerHTML, onClick}) {
   const exp = document.getElementById(expanderId);
   if (!exp) return;
   const header = exp.querySelector('.st-expander-header');
@@ -1039,25 +1218,12 @@ function addProgrammerButton(expanderId, onClick) {
     actions.className = 'exp-header-actions';
     header.appendChild(actions);
   }
-  if (actions.querySelector('.btn-programmer')) return;
+  if (actions.querySelector('.' + id)) return;
 
   const btn = document.createElement('button');
-  btn.className = 'exp-header-btn btn-programmer';
-  btn.title = 'Programmer l’activité sélectionnée';
-  btn.innerHTML = `
-    <span class="exp-icon" aria-hidden="true">
-      <!-- Icône calendrier fin, noir -->
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3" y="4.5" width="18" height="16" rx="2" ry="2"></rect>
-        <line x1="16" y1="3.5" x2="16" y2="7"></line>
-        <line x1="8"  y1="3.5" x2="8"  y2="7"></line>
-        <line x1="3"  y1="9"   x2="21" y2="9"></line>
-        <!-- petit carré de date pour le look -->
-        <rect x="7.5" y="12" width="4" height="3.8" rx="0.6" ry="0.6"></rect>
-      </svg>
-    </span>
-    <span class="exp-label">Programmer</span>
-  `;
+  btn.className = 'exp-header-btn ' + id;
+  btn.title = title;
+  btn.innerHTML = innerHTML;
 
   // stopPropagation : ne pas toggler l’expander
   btn.addEventListener('click', async (e) => {
@@ -1077,8 +1243,119 @@ function addProgrammerButton(expanderId, onClick) {
   actions.appendChild(btn);
 }
 
-function addButtons() {
-  addProgrammerButton('exp-programmables', async () => {await doProgrammerActivite();});
+function addDynamicButtons() {
+
+  // Bouton Programmer
+  addDynamicButton({
+    expanderId: 'exp-programmables',
+    id: 'btn-programmer',
+    title: 'Programmer l’activité sélectionnée', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône calendrier fin, noir -->
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4.5" width="18" height="16" rx="2" ry="2"></rect>
+          <line x1="16" y1="3.5" x2="16" y2="7"></line>
+          <line x1="8"  y1="3.5" x2="8"  y2="7"></line>
+          <line x1="3"  y1="9"   x2="21" y2="9"></line>
+          <!-- petit carré de date pour le look -->
+          <rect x="7.5" y="12" width="4" height="3.8" rx="0.6" ry="0.6"></rect>
+        </svg>
+      </span>
+      <span class="exp-label">Programmer</span>
+    `,
+    onClick: async () => {await doProgrammerActivite();}
+  });
+
+  // Bouton Déprogrammer
+  addDynamicButton({
+    expanderId: 'exp-programmees',
+    id: 'btn-deprogrammer',
+    title: 'Déprogrammer l’activité sélectionnée', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <!-- couvercle -->
+          <path d="M3 6h18" />
+          <path d="M8 6l1-2h6l1 2" />
+          <!-- corps -->
+          <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
+          <!-- poignées intérieures -->
+          <line x1="10" y1="10" x2="10" y2="17" />
+          <line x1="14" y1="10" x2="14" y2="17" />
+        </svg>
+      </span>
+      <span class="exp-label">Déprogrammer</span>
+    `,
+    onClick: async () => {await doDeprogrammerActivite();}
+  });
+  
+  // Bouton Coller
+  addDynamicButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-coller',
+    title: 'Ajouter une activité avec collage', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h7l3 3h6v13H4z"/>
+          <path d="M9 14h6"/>
+          <path d="M9 18h6"/>
+        </svg>
+      </span>
+      <span class="exp-label">Coller</span>
+    `,
+    onClick: async () => {await doAjoutActiviteAvecCollage();}
+  });
+
+  // Bouton Ajouter
+  addDynamicButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-ajouter',
+    title: 'Ajouter une activité', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="4" rx="1"/>
+          <path d="M4 5h16v16H4z"/>
+        </svg>
+      </span>
+      <span class="exp-label">Ajouter</span>
+    `,
+    onClick: async () => {await doAjoutActivite();}
+  });
+
+  // Bouton Supprimer
+  addDynamicButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-supprimer',
+    title: 'Supprimer l’activité sélectionnée', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <!-- couvercle -->
+          <path d="M3 6h18" />
+          <path d="M8 6l1-2h6l1 2" />
+          <!-- corps -->
+          <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
+          <!-- poignées intérieures -->
+          <line x1="10" y1="10" x2="10" y2="17" />
+          <line x1="14" y1="10" x2="14" y2="17" />
+        </svg>
+      </span>
+      <span class="exp-label">Supprimer</span>
+    `,
+    onClick: async () => {await doSupprimerActivite();}
+  });
+  
 }
 
 // ===== Builders de colonnes de grilles =====
@@ -1274,7 +1551,7 @@ const gridOptionsCreneaux = {
   onSelectionChanged: () => onCreneauxSelectionChanged(),
 }
 
-// ===== Loaders de grille =====
+// ===== Loaders de grilles =====
 
 // Activités Programmées : Date non nulle
 async function loadGridActivitesProgrammees(){
@@ -1326,8 +1603,7 @@ async function onProgGridDateCommitted(params) {
 
   // Récupération de l'uuid de la ligne voisine
   const gridRows = []; params.api.forEachNode(node => gridRows.push(node.data));
-  const uuidVoisin = ligneVoisineUuid(gridRows, uuid);
-  const ligneVoisine = gridRows.find(r => r.__uuid === uuid);
+  const uuidVoisin = getLigneVoisineUuid(gridRows, uuid);
 
   // Commit dans contexte ctx
   let df = ctx.getDf().slice(); 
@@ -1364,7 +1640,7 @@ async function onNonProgGridDateCommitted(params) {
   
   // Récupération de l'uuid de la ligne voisine
   const gridRows = []; params.api.forEachNode(node => gridRows.push(node.data));
-  const uuidVoisin = ligneVoisineUuid(gridRows, uuid);
+  const uuidVoisin = getLigneVoisineUuid(gridRows, uuid);
 
   // Commit dans contexte ctx
   let df = ctx.getDf().slice(); 
@@ -1537,7 +1813,7 @@ async function scheduleGlobalRefresh() {
   });
 }
 
-// ===== Wiring =====
+// ===== Wiring des grilles =====
 let isSplitterDragging = false; // pour geler les recalculs ailleurs
 function isFromGrid(e){ return !!e.target?.closest('.ag-root'); }
 
@@ -1830,17 +2106,67 @@ async function doRedo() {
   try { await ctx.redo(); } catch {};
 }
 
-// Ajout d'une activité
+// Ajout activité
 async function doAjoutActivite() {
-  const nom = activitesAPI.getNomNouvelleActivite(ctx.df);
-  const nouvelleActivite =     {
-      __uuid: crypto.randomUUID?.() || String(Date.now()),
-      Date: null, Debut: "09h00", Duree: "1h00",
-      Activite: nom, Lieu: null, Relache: null, Reserve: null, Priorite: null, 
-      Hyperlien: `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nom.trim().replace(/\s+/g, '+')}`,
-    }
-
+  const nouvelleActivite = await activitesAPI.creerActivite(ctx.df);
   ctx.mutateDf(rows => sortDf([...rows, nouvelleActivite]));
+
+  // Maj des sélections
+  setTimeout(() => {
+    selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
+  }, 50);
+}
+
+// Ajout activité avec collage
+async function doAjoutActiviteAvecCollage() {
+  const nouvelleActivite = await activitesAPI.creerActiviteAvecCollage(ctx.df);
+  ctx.mutateDf(rows => sortDf([...rows, nouvelleActivite]));
+
+  // Maj des sélections
+  setTimeout(() => {
+    selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
+  }, 50);
+}
+
+// Suppression d'une activité
+async function doSupprimerActivite() {
+  const row = getSelectedRow('grid-non-programmees');
+  if (!row) return;
+  const uuid = row.__uuid;
+  const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-non-programmees'), uuid);
+
+  ctx.dfRemove(row.__uuid);
+
+  // Maj des sélections
+  setTimeout(() => {
+    selectRowByUuid('grid-non-programmees', uuidVoisin, { ensure: 'center', flash: null });
+  }, 50);
+}
+
+// Déprogrammation d'une activité programmée
+async function doDeprogrammerActivite() {
+  const row = getSelectedRow('grid-programmees');
+  if (!row) return;  
+  if (activitesAPI.estActiviteReservee(row)) return;
+  const uuid = row.__uuid;
+  const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-programmees'), uuid);
+
+  // Mutation immuable
+  ctx.mutateDf(rows => {
+    let next = rows.slice();
+    const i = next.findIndex(r => r.__uuid === uuid);
+    if (i >= 0) next[i] = { ...next[i], Date: null };
+    next = sortDf(next);
+    return next;
+  });
+
+  // Maj des sélections
+  setTimeout(() => {
+    selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
+    openExpanderById?.('exp-non-programmees');
+    selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
+    doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
+  }, 50);
 }
 
 // Programmation de l'activité sélectionnée dans la grille des activités programmables
@@ -1855,19 +2181,6 @@ async function doProgrammerActivite() {
   const uuid = sel.__uuid;
   const dateInt = toDateint(sel.Date);
   if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
-
-  // // Capture source AVANT refresh pour préparation animation fantôme
-  // const srcH = grids.get('grid-programmables');
-  // let fromRect = null, ghostLabel = '';
-  // if (srcH) {
-  //   const sel = srcH.api.getSelectedRows?.() || [];
-  //   const s = sel[0];
-  //   if (s) {
-  //     const { node, rowEl } = await ensureRowVisibleAndGetEl('grid-programmables', s.__uuid);
-  //     fromRect = rowEl?.getBoundingClientRect() || null;
-  //     ghostLabel = (s.Activité || s.Activite || '').trim();
-  //   }
-  // }
 
   // 1) pré-check (lecture instantanée en RAM)
   const exists = (ctx.df || []).some(r => r.__uuid === uuid);
@@ -1903,36 +2216,6 @@ async function doProgrammerActivite() {
     }
   }));
 
-  // 5) rafraîchir grilles 
-  // await refreshAllGrids(); (fait par mutation)
-
-  // 6) ANIMATION fantôme de la ligne (si on a capturé une source)
-  // const doPhantom = true; // debug Phantom
-  // if (doPhantom) {
-
-  //   // 1) ouvrir l’expander cible et rendre la row visible
-  //   openExpanderById('exp-programmees');
-  //   await nextPaint(2);
-  //   const dst = await ensureRowVisibleAndGetEl('grid-programmees', uuid);
-
-  //   // 2) animer vers la VRAIE ligne si possible, sinon flash-only
-  //   if (fromRect && dst.rowEl) {
-  //     const toRect = dst.rowEl.getBoundingClientRect();
-  //     if (PHANTOM_WITH_OFFSET) {
-  //       const ghost  = makeRowGhostFromRect(fromRect, ghostLabel);
-  //       await animateGhostArc(ghost, fromRect, toRect, { duration: 700, lift: -180 });
-  //     } else {
-  //       const ghost  = makeRowGhostExact(fromRect);
-  //       await animateGhostToTopLeft(ghost, fromRect, toRect, { duration: 700});
-  //     }
-  //   }
-  //   // 3) quoi qu’il arrive : sélection & flash final (perceptible)
-  //   if (dst.node) {
-  //     dst.node.setSelected?.(true, true);
-  //     dst.api.ensureNodeVisible?.(dst.node, 'middle');
-  //     flashArrival('grid-programmees', dst.node);
-  //   }
-  // }
   doPhantomFlight('grid-programmables', 'grid-programmees', 'exp-programmees');
 }
 
@@ -1973,10 +2256,16 @@ function wireBottomBar() {
   });
 
   // --- Ajouter ---
-  $('btn-add')?.addEventListener('click', (e) => {
-    pulse(e.currentTarget);
-    doAjoutActivite();
-  });
+  // $('btn-add')?.addEventListener('click', (e) => {
+  //   pulse(e.currentTarget);
+  //   doAjoutActivite();
+  // });
+
+  // --- Ajouter avec collage ---
+  // $('btn-paste')?.addEventListener('click', (e) => {
+  //   pulse(e.currentTarget);
+  //   doAjoutActiviteAvecCollage();
+  // });
 
   // Drag-to-scroll with mouse (desktop)
   let isDown = false, startX = 0, startScroll = 0;
@@ -2535,14 +2824,6 @@ function lockHorizontalScroll() {
   }, { passive: false }); // on a besoin du preventDefault uniquement ici, pas ailleurs
 }
 
-
-function isStandaloneIOS(){
-  const ua = navigator.userAgent || "";
-  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  return isIOS && standalone;
-}
-
 function getSafeBottom() {
   // iOS notch etc.
   return 'env(safe-area-inset-bottom, 0px)';
@@ -2656,7 +2937,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireGrids();
   wireExpanders();
   wireExpanderSplitters();
-  addButtons();
+  addDynamicButtons();
 
   // 3️⃣ Premier rendu
   await refreshAllGrids();

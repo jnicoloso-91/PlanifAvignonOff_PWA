@@ -242,7 +242,7 @@ export class LieuRenderer {
 
     // lien/icone
     const a = document.createElement('a');
-    a.textContent = '📍';
+    a.textContent = '🧭';
     a.title = 'Itinéraire';
     a.style.flex = '0 0 auto';
     a.style.textDecoration = 'none';
@@ -258,17 +258,17 @@ export class LieuRenderer {
     title.style.textOverflow = 'ellipsis';
 
     // sous-texte (adresse)
-    const sub = document.createElement('span');
-    sub.className = 'lieu-sub';
-    sub.style.opacity = '.7';
+    // const sub = document.createElement('span');
+    // sub.className = 'lieu-sub';
+    // sub.style.opacity = '.7';
 
-    e.append(a, title, sub);
+    e.append(a, title); //, sub);
 
     // mémos
     this.el = e;
     this.$icon = a;
     this.$title = title;
-    this.$sub = sub;
+    // this.$sub = sub;
 
     // config plateforme (détermine la façon d’ouvrir)
     const ua = navigator.userAgent || '';
@@ -313,7 +313,7 @@ export class LieuRenderer {
 
     // Mise à jour du contenu texte
     this.$title.textContent = lieu || '';
-    this.$sub.textContent   = addr ? ` — ${addr}` : '';
+    // this.$sub.textContent   = addr ? ` — ${addr}` : '';
     this.el.title           = [lieu, addr].filter(Boolean).join('\n');
 
     // Mise à jour de l’icône + lien
