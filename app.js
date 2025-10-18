@@ -51,6 +51,18 @@ const $ = id => document.getElementById(id);
 
 const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 
+const estNumerique = (val) => {
+  return typeof val === 'number'
+    ? Number.isFinite(val)
+    : !isNaN(val) && isFinite(Number(val));
+}
+
+const capitalizeFirst = (str) => {
+  const s = String(str ?? '').trim();
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /**
  * Renvoie la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
  * d'une ligne repérée par son __uuid de référence.
@@ -1368,19 +1380,19 @@ function buildColumnsActivitesCommon(){
       valueParser:p=>prettyToDateint(p.newValue) ?? p.oldValue ?? null,
       comparator:(a,b)=>(safeDateint(a)||0)-(safeDateint(b)||0)
     },
-    { field:'Debut', headerName: 'Début', width, suppressSizeToFit:true,
+    { field:'Debut', headerName: 'Début', width, suppressSizeToFit:true, valueParser: valueParserHeure,
       comparator:(a,b)=>{
         const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
         return ma-mb;
       }
     },
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
-    { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true },
-    { field:'Fin',   width, suppressSizeToFit:true, editable: false },
+    { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
+    { field:'Fin',   width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu',  minWidth:160, flex:1, cellRenderer: LieuRenderer },
-    { field:'Relache', headerName: 'Relâche', minWidth:60, flex:.5 },
-    { field:'Reserve', headerName: 'Réservé', minWidth:60, flex:.5 },
-    { field:'Priorite', headerName: 'Priorité',minWidth:60, flex:.5 },
+    { field:'Relache', headerName: 'Relâche', minWidth:60, flex:.5, valueParser: valueParserRelache },
+    { field:'Reserve', headerName: 'Réservé', minWidth:60, flex:.5, valueParser: valueParserReserve },
+    { field:'Priorite', headerName: 'Priorité',minWidth:60, flex:.5, valueParser: valueParserNumerique },
     { field:'Hyperlien', minWidth:120, flex:2 }
   ];
 }
@@ -1419,7 +1431,9 @@ function buildColumnsActivitesProgrammees() {
 
 function buildColumnsActivitesNonProgrammees() {
   const cols = buildColumnsActivitesCommon();
-  cols[0] = {
+  let iDate = cols.findIndex(c => c.field === 'Date');
+
+  cols[iDate] = {
     ...cols[0],
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
@@ -1462,9 +1476,14 @@ function buildColumnsCreneaux(){
 function buildColumnsActivitesProgrammables() {
   // récupère la définition standard
   const cols = buildColumnsActivitesCommon();
+  let iDate = cols.findIndex(c => c.field === 'Date');
   
   // Dans ActivitesProgrammables Date est en string et non en dateint
-  cols[0].valueFormatter = p=>dateintStrToPretty(p.value);  
+  cols[iDate].valueFormatter = p=>dateintStrToPretty(p.value);  
+  cols[iDate].cellStyle = {
+    fontStyle: 'italic',
+    color: '#777'       // gris moyen
+  }
   
   // force toutes les colonnes non éditables
   return cols.map(col => ({
@@ -1480,6 +1499,43 @@ function buildColumnsCarnet(){
     { field:'Tel', minWidth:200, flex:1, editable:true },
     { field:'Web', minWidth:140, editable:true },
   ];
+}
+
+// ===== Parsers de grilles =====
+function valueParserHeure(params) {
+  if (!activitesAPI.estHeureValide(params.newValue)) {
+    alert("⛔ Format attendu : HHhMM (ex : 10h00)");
+    return params.oldValue;
+  }
+  else return params.newValue;
+}
+function valueParserDuree (params) {
+  if (!activitesAPI.estDureeValide(params.newValue)) {
+    alert("⛔ Format attendu : HhMM (ex : 1h00 ou 0h30)");
+    return params.oldValue;
+  }
+  else return params.newValue;
+}
+function valueParserRelache (params) {
+  if (!activitesAPI.estRelacheValide(params.newValue)) {
+    alert("⛔ Format attendu : voir Aide / Format des données");
+    return params.oldValue;
+  }
+  else return params.newValue;
+}
+function valueParserReserve (params) {
+  if (!activitesAPI.estReserveValide(params.newValue)) {
+    alert("⛔ Format attendu : Oui, Non");
+    return params.oldValue;
+  }
+  else return capitalizeFirst(params.newValue);
+}
+function valueParserNumerique (params) {
+  if (!estNumerique(params.newValue)) {
+    alert("⛔ Format numérique attendu");
+    return params.oldValue;
+  }
+  else return params.newValue;
 }
 
 // ===== Options de grilles =====

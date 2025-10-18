@@ -320,7 +320,21 @@ export function creerActivitesAPI(ctx) {
      */
     async creerActiviteAvecCollage(df) {
       const raw = await _getClipBoardText();
-      const parsed = _parseListingText(raw);
+
+      let parsed = null;
+      if (_looksLikeUrl(raw)) { 
+        try {
+          const html = await _fetchViaAllOrigins(raw);
+          parsed = _parseHTMLAvignonOff(html);
+        } catch (err) {
+          console.error('fetch failed', err);
+          alert("⚠️ Le collage depuis Partager/Copier a échoué, essayer en copiant le texte de la page.");
+          parsed = {..._PARSED_DEFAULT};
+        }
+      } else {
+        parsed = _parseTextAvignonOff(raw);
+      }
+
       const nouveauNom = _getNomNouvelleActivite(df, parsed.Activite);
       const nouvelleActivite =     {
           __uuid: crypto.randomUUID?.() || String(Date.now()),
@@ -336,6 +350,69 @@ export function creerActivitesAPI(ctx) {
         }
       return nouvelleActivite;
     },
+
+    /** 
+     * Indique si une valeur est valide pour le champ Debut d'une activité
+     * "10h00" (1–2 chiffres pour l’heure, 2 chiffres pour les minutes) 
+     */
+    estHeureValide(val) {
+      if (val == null) return false;
+      const s = String(val).trim();
+      return /^\d{1,2}h\d{2}$/.test(s);
+    },
+
+    /** 
+     * Indique si une valeur est valide pour le champ Duree d'une activité
+     * "1h00" (minutes 00–59) 
+     */
+    estDureeValide(val) {
+      if (val == null) return false;
+      const s = String(val).trim();
+      return /^\d{1,2}h[0-5]\d$/.test(s);
+    },
+
+    /**
+     * Indique si une valeur est valide pour le champ Relache d'une activité
+     * - vide => true
+     * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
+     * ───────────────────────────────────────────────────────────
+     * Format(s) acceptés, séparés par des virgules de “haut niveau” :
+     *  - "9", "09" (mois courant et année courante implicites), 
+     *  - "9/7", "09/07" (année courante implicite) , 
+     *  - "09/07/25" ou "09/07/2025"
+     *  - "(9, 16, 23)/7" pour énumérer des dates de relâche du même mois
+     *  - "[9-12]/07", [30/07-01/08] pour une période de relâche
+     *  - "<5-26>/7" pour une période de validité
+     *  - "jours pairs" | "jours impairs"
+     *  - (chaîne vide => OK)
+     * On valide que *tous* les tokens sont valides.
+     * ───────────────────────────────────────────────────────────
+     */
+    estRelacheValide(val, { default_year = null, default_month = null } = {}) {
+      const s = String(val ?? '').trim();
+      if (s === '') return true;               // vide = OK (pas de relâche)
+      
+      const tokens = _tokenizeSpecs(s);
+      if (!tokens.length) return false;
+
+      const now = new Date();
+      const defaultYear = now.getFullYear();
+      const defaultMonth = now.getMonth() + 1;
+
+      // Tous les tokens doivent être valides
+      return tokens.every(tok => _parseOneRelacheToken(tok, { defaultMonth, defaultYear }));
+    },
+
+    /**
+     * Indique si une valeur est valide pour le champ Reserve d'une activité
+     * @param {*} val 
+     * @returns 
+     */
+    estReserveValide(val) {
+      const s = String(val ?? '').trim().toLowerCase();
+      return s === '' || s === 'oui' || s === 'non';
+    },
+
   };
 }
 
@@ -996,11 +1073,46 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
   return proposables;
 }
 
+/**
+ * Cherche un nom d'activité non encore alloué dans un DataFrame
+ * @param {*} df 
+ * @returns 
+ */
+function _getNomNouvelleActivite(df, prefix="Activité") {
+  if (!Array.isArray(df)) return prefix;
+
+  // 🔹 Extraire les noms existants
+  const nomsExistants = df
+    .map(r => (r.Activite ?? '').toString().trim())
+    .filter(n => n.length > 0);
+
+  // 🔹 Initialiser ou incrémenter le compteur global
+  _compteurNouvelleActivite = 0;
+
+  // 🔹 Boucle de recherche d’un nom libre
+  while (true) {
+    _compteurNouvelleActivite += 1;
+    const nomCandidat = (prefix != 'Activité' && _compteurNouvelleActivite == 1) ? `${prefix}` : `${prefix} ${_compteurNouvelleActivite}`;
+    if (!nomsExistants.includes(nomCandidat)) {
+      return nomCandidat;
+    }
+  }
+}
+
 // ----------------- Helpers pour parser de texte -----------------
 const MOIS = {
   'janvier': 1, 'fevrier': 2, 'février': 2, 'mars': 3, 'avril': 4,
   'mai': 5, 'juin': 6, 'juillet': 7, 'aout': 8, 'août': 8,
   'septembre': 9, 'octobre': 10, 'novembre': 11, 'decembre': 12, 'décembre': 12
+};
+
+const _PARSED_DEFAULT = {
+    Activite: null,
+    Lieu: null,
+    Relache: null,
+    Debut: null,    // "HHhMM"
+    Duree: null,    // "HhMM"
+    Hyperlien: null
 };
 
 function _norm(s) {
@@ -1019,16 +1131,9 @@ function _clean_lieu(s) {
 
 function _pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
 
-// ----------------- Parser de texte -----------------
-function _parseListingText(text) {
-  const res = {
-    Activite: null,
-    Lieu: null,
-    Relache: null,
-    Debut: null,    // "HHhMM"
-    Duree: null,    // "HhMM"
-    Hyperlien: null
-  };
+// ----------------- Parser du texte d'une page de description de spectacle du catalogue Avignon Off -----------------
+function _parseTextAvignonOff(text) {
+  const res = {..._PARSED_DEFAULT};
   if (!text) return res;
 
   const txt = String(text).trim();
@@ -1166,31 +1271,139 @@ function _parseListingText(text) {
   return res;
 }
 
-/**
- * Cherche un nom d'activité non encore alloué dans un DataFrame
- * @param {*} df 
- * @returns 
- */
-function _getNomNouvelleActivite(df, prefix="Activité") {
-  if (!Array.isArray(df)) return prefix;
+// --- helpers pour parser HTML ---
+const _clean = s => (s ?? "").toString().replace(/\s+/g, " ").trim();
 
-  // 🔹 Extraire les noms existants
-  const nomsExistants = df
-    .map(r => (r.Activite ?? '').toString().trim())
-    .filter(n => n.length > 0);
-
-  // 🔹 Initialiser ou incrémenter le compteur global
-  _compteurNouvelleActivite = 0;
-
-  // 🔹 Boucle de recherche d’un nom libre
-  while (true) {
-    _compteurNouvelleActivite += 1;
-    const nomCandidat = (prefix != 'Activité' && _compteurNouvelleActivite == 1) ? `${prefix}` : `${prefix} ${_compteurNouvelleActivite}`;
-    if (!nomsExistants.includes(nomCandidat)) {
-      return nomCandidat;
-    }
-  }
+function _normalizeHeure(hhmm) {
+  const m = /(\d{1,2})h(\d{1,2})/.exec(_norm(hhmm));
+  if (!m) return null;
+  const h = String(parseInt(m[1],10)).padStart(2,'0');
+  const mm = String(parseInt(m[2],10)).padStart(2,'0');
+  return `${h}h${mm}`;
 }
+function _normalizeDuree(hhmm) {
+  const m = /(\d{1,2})h(\d{1,2})/.exec(_norm(hhmm));
+  if (!m) return null;
+  const h = String(parseInt(m[1],10));
+  const mm = String(parseInt(m[2],10)).padStart(2,'0');
+  return `${h}h${mm}`;
+}
+
+// "(9,16,23)/7"
+function _parseRelaches(text) {
+  const t = _norm(text);
+  const m = /rel[aâ]che\s+les\s+([0-9,\s]+)\s+([a-zéû]+)/i.exec(t);
+  if (!m) return null;
+  const jours = (m[1] || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(s => String(parseInt(s,10)));
+  const mois = MOIS[m[2]] || null;
+  if (!jours.length || !mois) return null;
+  return `(${jours.join(",")})/${mois}`;
+}
+
+// Inversion de parité pour passer "jours joués" -> "relâche"
+function _invertParite(parite /* "jours pairs" | "jours impairs" */) {
+  if (!parite) return null;
+  return /pairs?/.test(parite) ? "jours impairs" : "jours pairs";
+}
+
+// "<5-26>/7" ou "<5-26>/7, jours pairs|impairs" (déjà côté RELÂCHE)
+function _parsePeriodeEtParite(text) {
+  const t = _norm(text);
+  // capture : du 5 au 26 juillet [, (relâche )? (jours pairs|jours impairs)]
+  const m = /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)\s*(?:,\s*(rel[aâ]che\s+)?(jours?\s+pairs?|jours?\s+impairs?))?/i.exec(t);
+  if (!m) return null;
+
+  const d1 = parseInt(m[1],10);
+  const d2 = parseInt(m[2],10);
+  const moisTxt = m[3];
+  const hadRelachePrefix = !!m[4];           // "relâche ..." était présent ?
+  const pariteFound = m[5] ? m[5].trim().toLowerCase() : null; // "jours pairs|impairs"
+
+  const mois = MOIS[moisTxt] || null;
+  if (!mois) return null;
+
+  // Base = intervalle de jours joués
+  let part = `<${d1}-${d2}>/${mois}`;
+
+  if (pariteFound) {
+    // Si "relâche jours X" → garder X ; sinon c'était "jours X" joués → relâche = inverse(X)
+    const relacheParite = hadRelachePrefix ? pariteFound : _invertParite(pariteFound);
+    if (relacheParite) part = `${part}, ${relacheParite}`;
+  }
+  return part;
+}
+
+/**
+ * parseListingHtml(html, { url })
+ * @param {string} html
+ * @param {{url?: string}} opts
+ * @return {{Activite:string|null, Lieu:string|null, Relache:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
+ */
+// ----------------- Parser du HTML d'une page de description de spectacle du catalogue Avignon Off -----------------
+function _parseHTMLAvignonOff(html, { url=null } = {}) {
+  const res = { Activite:null, Lieu:null, Relache:null, Debut:null, Duree:null, Hyperlien:url||null };
+  if (!html || typeof html !== 'string') return res;
+
+  let doc;
+  try { doc = new DOMParser().parseFromString(html, 'text/html'); }
+  catch { return res; }
+
+  // Activité
+  const titleTxt = _clean(doc.querySelector('title')?.textContent || "");
+  if (titleTxt) {
+    const part = titleTxt.split('–')[0].split('-')[0].trim();
+    res.Activite = part || titleTxt;
+  }
+
+  // Lieu
+  const lieuSection = doc.querySelector('section.lieu-spectacle');
+  if (lieuSection) {
+    const aTheatre = lieuSection.querySelector('a[href*="/theatres/"]') || lieuSection.querySelector('a');
+    const lieuTxt = _clean(aTheatre?.textContent || "");
+    if (lieuTxt) res.Lieu = lieuTxt;
+  }
+
+  // Infos (Relâche / Début / Durée)
+  const infos = doc.querySelector('section.infos-spectacle');
+  if (infos) {
+    const spans = Array.from(infos.querySelectorAll('span'))
+      .map(s => _clean(s.textContent || ''))
+      .filter(Boolean);
+
+    // Concat pour matcher les patterns "du X au Y..., (relâche )? jours pairs/impairs"
+    const bigText = spans.join(' • ');
+
+    // Heures
+    for (const s of spans) {
+      if (!res.Debut) {
+        const h = _normalizeHeure(s);
+        if (h) { res.Debut = h; continue; }
+      }
+      if (!res.Duree) {
+        const d = _normalizeDuree(s);
+        if (d) { res.Duree = d; continue; }
+      }
+    }
+
+    // Relâche = (liste explicite) + (période + parité interprétée)
+    const parts = [];
+    const explicite = _parseRelaches(bigText);
+    if (explicite) parts.push(explicite);
+
+    const periode = _parsePeriodeEtParite(bigText);
+    if (periode) parts.push(periode);
+
+    if (parts.length) res.Relache = parts.join(', ');
+  }
+
+  return res;
+}
+
+//-----------------
 
 async function _getClipBoardText() {
   try {
@@ -1203,3 +1416,86 @@ async function _getClipBoardText() {
     return null;
   }
 }
+
+// urlToFetch doit être une string complète (https://...)
+async function _fetchViaAllOrigins(urlToFetch) {
+  const encoded = encodeURIComponent(urlToFetch);
+  const apiUrl = `https://api.allorigins.win/raw?url=${encoded}`; // ou /get?url=... pour JSON {contents,...}
+  const res = await fetch(apiUrl);          // HTTPS obligatoire
+  if (!res.ok) throw new Error(`AllOrigins error ${res.status}`);
+  const text = await res.text();           // HTML / texte de la page
+  return text;
+}
+
+// Est-ce qu'une string ressemble à une URL
+function _looksLikeUrl(text) {
+  if (!text) return false;
+  const re = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?$/i;
+  return re.test(text.trim());
+}
+
+// Split top-level par virgules (ignore celles dans les parenthèses)
+function _tokenizeSpecs(s) {
+  const out = [];
+  let cur = '', depth = 0;
+  for (const ch of String(s || '')) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth = Math.max(0, depth - 1);
+    if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+function _isIntInRange(x, min, max) {
+  const n = Number(x);
+  return Number.isInteger(n) && n >= min && n <= max;
+}
+
+function _parseOneRelacheToken(tok, { defaultMonth } = {}) {
+  const t = String(tok || '').toLowerCase().trim();
+  if (!t) return false;
+
+  // 1) Parité
+  if (/^jours?\s+(pairs?|impairs?)$/.test(t)) return true;
+
+  // 2) Jour isolé: "23" ou "23/7"
+  {
+    const m = t.match(/^(\d{1,2})(?:\/(0?[1-9]|1[0-2]))?$/);
+    if (m) {
+      const [, d, mm] = m;
+      const M = mm ? Number(mm) : (defaultMonth ?? null);
+      return _isIntInRange(d, 1, 31) && (M == null || _isIntInRange(M, 1, 12));
+    }
+  }
+
+  // 3) Liste: "(9,16,23)" ou "(9,16,23)/7"
+  {
+    const m = t.match(/^\(\s*([0-9,\s]+)\s*\)(?:\/(0?[1-9]|1[0-2]))?$/);
+    if (m) {
+      const [, list, mm] = m;
+      const M = mm ? Number(mm) : (defaultMonth ?? null);
+      const days = list.split(',').map(s => s.trim()).filter(Boolean);
+      if (!days.length) return false;
+      if (M != null && !_isIntInRange(M, 1, 12)) return false;
+      return days.every(d => _isIntInRange(d, 1, 31));
+    }
+  }
+
+  // 4) Intervalle: "<5-26>", "[5-26]", "<5-26>/7", "[5-26]/7"
+  {
+    const m = t.match(/^[<\[]\s*(\d{1,2})\s*-\s*(\d{1,2})\s*[>\]](?:\/(0?[1-9]|1[0-2]))?$/);
+    if (m) {
+      const [, d1, d2, mm] = m;
+      const M = mm ? Number(mm) : (defaultMonth ?? null);
+      const okDays = _isIntInRange(d1, 1, 31) && _isIntInRange(d2, 1, 31) && Number(d1) <= Number(d2);
+      const okMonth = (M == null) || _isIntInRange(M, 1, 12);
+      return okDays && okMonth;
+    }
+  }
+
+  return false;
+}
+
+

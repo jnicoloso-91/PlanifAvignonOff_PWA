@@ -664,7 +664,6 @@ main, .page-wrap {
 /* Hover + sélection plus lisibles */
 .ag-theme-quartz.compact {
   --ag-row-hover-color: rgba(0,0,0,.05);
-  --ag-selected-row-background-color: rgba(78, 150, 209, 0.12); /* bleu doux */
   --ag-odd-row-background-color: transparent;
 }
 
@@ -969,4 +968,114 @@ main, .page-wrap {
   text-overflow: ellipsis;
 }
 
+/* ====================
+/* Sélection de row : hachurée translucide au-dessus du fond coloré */
+/* ====================
+/* Supprime TOUT fond opaque appliqué par le thème */
+/* .ag-row.ag-row-selected,
+.ag-row.ag-row-selected::before {
+  background-color: transparent !important;
+} */
 
+/* Applique un léger motif hachuré semi-transparent au-dessus du fond jour */
+/* .ag-row.ag-row-selected {
+  background-color: transparent !important;         
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0,0,0,0.10),
+    rgba(0,0,0,0.10) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+  background-blend-mode: multiply;                  
+} */
+
+/* Garde le même effet même quand la grille perd le focus */
+/* .ag-theme-alpine .ag-row.ag-row-focus {
+  background-color: transparent !important;
+} */
+
+/* scope au thème utilisé */
+/* .ag-theme-quartz.compact {
+  --ag-selected-row-background-color: transparent !important;
+} */
+/* .ag-theme-quartz .ag-row-selected .ag-cell,
+.ag-theme-quartz .ag-row.ag-row-selected,
+.ag-theme-quartz .ag-row.ag-row-selected::before {
+  background-color: transparent !important;
+} */
+/* .ag-theme-quartz .ag-row { position: relative; }
+.ag-theme-quartz .ag-row.ag-row-selected::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0,0,0,.10) 0px, rgba(0,0,0,.10) 3px,
+    transparent 3px, transparent 6px
+  );
+  background-blend-mode: multiply;
+}  */
+
+/* .ag-row {
+  position: relative;
+} */
+
+.ag-theme-quartz.compact {
+  --ag-selected-row-background-color: rgba(189, 189, 189, 0.144); /* rgba(78, 150, 209, 0.12);   bleu doux */
+}
+/* .ag-row.ag-row-selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.3;  
+  background-size: 6px 6px;
+  background-repeat: repeat;
+  background-image: linear-gradient(
+    45deg,
+    currentColor 1px,
+    transparent 1px,
+    transparent 3px,
+    currentColor 3px,
+    currentColor 4px,
+    transparent 4px
+  );
+  mix-blend-mode: multiply; 
+}  */
+/* .ag-row.ag-row-selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,\
+    <svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'>\
+      <line x1='0' y1='8' x2='8' y2='0' stroke='rgba(0,0,0,0.2)' stroke-width='1'/>\
+    </svg>");
+  background-repeat: repeat;
+  mix-blend-mode: multiply; 
+} */
+ /* .ag-row.ag-row-selected::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  opacity:.25; mix-blend-mode:multiply;
+  background-size:4px 4px;               
+  background-repeat:repeat;
+  background-image:linear-gradient(
+    45deg,
+    currentColor 1px,      trait = 1px 
+    transparent 1px 3px    espace = 2px 
+  );
+} */
+
+.ag-row.ag-row-selected::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  opacity:.20; mix-blend-mode:multiply;
+  background-size:4px 4px;
+  background-repeat:repeat;
+  background-image:repeating-linear-gradient(
+    45deg,
+    currentColor 0 0.5px,   
+    transparent 0.5px 3px
+  );
+}
+/* ====================
