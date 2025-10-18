@@ -444,7 +444,7 @@ main, .page-wrap {
 
 .bottom-bar__scroller {
   display: flex;
-  gap: 6px;
+  gap: 4px;  /* joue sur le gap entre boutons */
 
   /* scroll uniquement horizontal */
   overflow-x: auto;
