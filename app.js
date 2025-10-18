@@ -2420,7 +2420,10 @@ function wireHiddenFileInput(){
         console.log('✅ Import ca OK', caRows.length, 'lignes');
       }
 
-      // 10) Enregistrement des données dans le contexte
+      // 10) Initialisation de la période programmation
+      activitesAPI.initPeriodeProgrammation(dfRows);      
+
+      // 11) Enregistrement des données dans le contexte
       ctx.beginAction('import');
       try {
         ctx.setDf(dfRows);     
@@ -2428,10 +2431,6 @@ function wireHiddenFileInput(){
       } finally {
         ctx.endAction();                   
       }
-
-      // 11) Initialisation de la période programmation
-      activitesAPI.initPeriodeProgrammation(dfRows);      
-
     }
     catch (e) {
       console.error('❌ Import Excel KO', e);

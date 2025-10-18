@@ -67,7 +67,7 @@ export function creerActivitesAPI(ctx) {
     /** 
      * Renvoie la période à programmer
      */
-    async getPeriodeProgrammation() {
+    getPeriodeProgrammation() {
       return {
         debut: _ctx?.getMetaParam("periode_a_programmer_debut") ?? null,
         fin:   _ctx?.getMetaParam("periode_a_programmer_fin") ?? null
