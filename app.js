@@ -1765,6 +1765,7 @@ function wireExpanders(){
 async function doNouveauContexte() {
   ctx.setDf([]);
   ctx.setCarnet([]);
+  activitesAPI.initPeriodeProgrammation(ctx.getDf());
 }
 
 // Import Excel
@@ -2429,7 +2430,7 @@ function wireHiddenFileInput(){
       }
 
       // 11) Initialisation de la période programmation
-      const pp = activitesAPI.getPeriodeProgrammation(dfRows, {reinit:true});      
+      activitesAPI.initPeriodeProgrammation(dfRows);      
 
     }
     catch (e) {

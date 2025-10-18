@@ -24,37 +24,35 @@ export function creerActivitesAPI(ctx) {
     /** 
      * Initialisation de la période à programmer
      */
-    async getPeriodeProgrammation(df, {reinit=false}={}) {
-      if (reinit || !_ctx.getMetaParam("periode_a_programmer_debut") ||  !_ctx.getMetaParam("periode_a_programmer_fin")) {
+    async initPeriodeProgrammation(df) {
 
-        let periodeDebut = null;
-        let periodeFin   = null;
+      let periodeDebut = null;
+      let periodeFin   = null;
 
-        // dates valides tirées du df
-        const diList = _getDatesFromRows(df);
-        if (diList.length > 0) {
-          const minDi = Math.min(...diList);
-          const maxDi = Math.max(...diList);
-          const dMin  = dateintToDate(minDi);
-          const dMax  = dateintToDate(maxDi);
-          if (dMin && dMax) {
-            periodeDebut = dMin;
-            periodeFin   = dMax;
-          }
+      // dates valides tirées du df
+      const diList = _getDatesFromRows(df);
+      if (diList.length > 0) {
+        const minDi = Math.min(...diList);
+        const maxDi = Math.max(...diList);
+        const dMin  = dateintToDate(minDi);
+        const dMax  = dateintToDate(maxDi);
+        if (dMin && dMax) {
+          periodeDebut = dMin;
+          periodeFin   = dMax;
         }
-
-        // si rien trouvé -> dates du festival
-        if (!periodeDebut || !periodeFin) {
-          const fest = await _getDatesFestival();
-          periodeDebut = fest.debut;
-          periodeFin   = fest.fin;
-        }
-
-        _ctx.updMetaParams({
-          "periode_a_programmer_debut" : periodeDebut, 
-          "periode_a_programmer_fin"   : periodeFin
-        });
       }
+
+      // si rien trouvé -> dates du festival
+      if (!periodeDebut || !periodeFin) {
+        const fest = await _getDatesFestival();
+        periodeDebut = fest.debut;
+        periodeFin   = fest.fin;
+      }
+
+      _ctx.updMetaParams({
+        "periode_a_programmer_debut" : periodeDebut, 
+        "periode_a_programmer_fin"   : periodeFin
+      });
 
       // garde-fou si pas encore initialisé
       if (!_ctx.getMetaParam("periode_a_programmer_debut") || !_ctx.getMetaParam("periode_a_programmer_fin")) {
@@ -64,10 +62,15 @@ export function creerActivitesAPI(ctx) {
           "periode_a_programmer_fin"   : fest.fin
         });
       }
-      
+    },
+
+    /** 
+     * Renvoie la période à programmer
+     */
+    async getPeriodeProgrammation() {
       return {
-        debut: _ctx.getMetaParam("periode_a_programmer_debut"),
-        fin:   _ctx.getMetaParam("periode_a_programmer_fin")
+        debut: _ctx?.getMetaParam("periode_a_programmer_debut") ?? null,
+        fin:   _ctx?.getMetaParam("periode_a_programmer_fin") ?? null
       };
     },
 
@@ -83,8 +86,8 @@ export function creerActivitesAPI(ctx) {
       const creneaux = [];
       let bornes = []; // liste des [min,max] déjà vus pour la journée courante (évite doublons)
 
-      const periodeDebut = opts.debut ?? null; // dateint
-      const periodeFin   = opts.fin   ?? null; // dateint
+      const periodeDebut = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); // dateint
+      const periodeFin   = dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); // dateint
 
       // ---- Jours libres sur la période (si fournie) ----
       if (Number.isFinite(periodeDebut) && Number.isFinite(periodeFin)) {
@@ -219,7 +222,7 @@ export function creerActivitesAPI(ctx) {
         }
 
       } else if (typeCreneau === "Journée") {
-        proposables = getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses);
+        proposables = _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses);
       }
 
       // tri par "Début" croissant
@@ -392,6 +395,54 @@ export function sortDf(df, opts = {}) {
   return indexed.map(x => x.r);
 }
 
+
+async function _getPeriodeProgrammation(df, {reinit=false}={}) {
+  if (reinit || !_ctx.getMetaParam("periode_a_programmer_debut") ||  !_ctx.getMetaParam("periode_a_programmer_fin")) {
+
+    let periodeDebut = null;
+    let periodeFin   = null;
+
+    // dates valides tirées du df
+    const diList = _getDatesFromRows(df);
+    if (diList.length > 0) {
+      const minDi = Math.min(...diList);
+      const maxDi = Math.max(...diList);
+      const dMin  = dateintToDate(minDi);
+      const dMax  = dateintToDate(maxDi);
+      if (dMin && dMax) {
+        periodeDebut = dMin;
+        periodeFin   = dMax;
+      }
+    }
+
+    // si rien trouvé -> dates du festival
+    if (!periodeDebut || !periodeFin) {
+      const fest = await _getDatesFestival();
+      periodeDebut = fest.debut;
+      periodeFin   = fest.fin;
+    }
+
+    _ctx.updMetaParams({
+      "periode_a_programmer_debut" : periodeDebut, 
+      "periode_a_programmer_fin"   : periodeFin
+    });
+  }
+
+  // garde-fou si pas encore initialisé
+  if (!_ctx.getMetaParam("periode_a_programmer_debut") || !_ctx.getMetaParam("periode_a_programmer_fin")) {
+    const fest = await _getDatesFestival();
+    _ctx.updMetaParams({
+      "periode_a_programmer_debut" : fest.debut, 
+      "periode_a_programmer_fin"   : fest.fin
+    });
+  }
+  
+  return {
+    debut: _ctx.getMetaParam("periode_a_programmer_debut"),
+    fin:   _ctx.getMetaParam("periode_a_programmer_fin")
+  };
+}
+
 /**
  * Indique si une activité est réservée
  * @param {*} row 
@@ -418,7 +469,7 @@ function _existActivitesProgrammables(activitesNonProgrammees, dateRef, traiter_
 
   return activitesNonProgrammees.some(r => {
     const relache = r?.Relache ?? r?.RELACHE ?? r?.relache ?? '';
-    return estHorsRelache(relache, dateRef);
+    return _estHorsRelache(relache, dateRef);
   });
 }
 
@@ -863,3 +914,67 @@ function _getJoursPossibles(rowActivite) {
 function _toPrettyArray(arrInt){
   return (arrInt||[]).slice().sort((a,b)=>a-b).map(di => dateintToPretty(di));
 }
+
+/**
+ * Renvoie les activités programmables sur une journée entière donc les activités qui ne sont pas relache ce jour
+ * @param {*} dateRef 
+ * @param {*} traiterPauses 
+ * @returns 
+ */
+function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = true) {
+  const proposables = [];
+  const nonProgrammees = window.ctx?.df?.filter(r => !r.Date) || [];  // équiv. activites_non_programmees
+
+  for (const row of nonProgrammees) {
+    if (_estHorsRelache(row.Relache, dateRef)) {
+      const nouvelleLigne = { ...row };
+      delete nouvelleLigne.Debut_dt;
+      delete nouvelleLigne.Duree_dt;
+      nouvelleLigne.__type_activite = 'ActiviteExistante';
+      nouvelleLigne.__index = row.__uuid;
+      proposables.push(nouvelleLigne);
+    }
+  }
+
+  if (traiterPauses) {
+    const DUREE_REPAS = window.ctx?.meta?.DUREE_REPAS ?? 3600000; // 1h par défaut (ms)
+    const BASE_DATE = new Date(2000, 0, 1);
+
+    // --- fonction d'aide pour formater une durée en "1h30" ---
+    const dureeStr = (ms) => {
+      const totalMin = Math.round(ms / 60000);
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return m ? `${h}h${m}` : `${h}h00`;
+    };
+
+    const completerLigne = (ligne) => ({
+      ...ligne,
+      Date: dateRef,
+      Reserve: '',
+      Relache: '',
+      Priorite: '',
+      Lieu: '',
+    });
+
+    const mkPause = (heure, typeRepas) => {
+      const h = new Date(BASE_DATE);
+      h.setHours(heure, 0, 0, 0);
+      const fin = new Date(h.getTime() + DUREE_REPAS);
+      return completerLigne({
+        Debut: `${heure}h00`,
+        Fin: `${fin.getHours()}h${String(fin.getMinutes()).padStart(2, '0')}`,
+        Duree: dureeStr(DUREE_REPAS),
+        Activite: `Pause ${typeRepas}`,
+        __type_activite: typeRepas,
+        __uuid: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      });
+    };
+
+    proposables.push(mkPause(12, 'déjeuner'));
+    proposables.push(mkPause(20, 'dîner'));
+  }
+
+  return proposables;
+}
+
