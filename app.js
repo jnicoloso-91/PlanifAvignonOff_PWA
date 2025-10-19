@@ -3938,6 +3938,7 @@ function openCarnet() {
       ];
 
       const gridOptions = {
+        defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
         columnDefs: columns,
         rowData: (window.ctx?.carnet || []),
         getRowId: p => p.data?.__uuid,
