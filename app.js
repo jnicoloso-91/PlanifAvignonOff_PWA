@@ -3938,11 +3938,10 @@ function openCarnet() {
       ];
 
       const gridOptions = {
-        defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
         columnDefs: columns,
         rowData: (window.ctx?.carnet || []),
         getRowId: p => p.data?.__uuid,
-        defaultColDef: { resizable:true, sortable:true, filter:true },
+        defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
         onGridReady: (params) => {
           const root = params.api.getGui();                 // racine de la grille
           enableTouchEdit(params.api, root, { debug: false });
