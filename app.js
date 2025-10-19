@@ -44,25 +44,6 @@ const dlog = (...args)=>DEBUG && console.log('[FLIGHT]', ...args);
 
 // ------- Misc Helpers -------
 
-const ROW_H=32, HEADER_H=32, PAD=4;
-const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
-
-const $ = id => document.getElementById(id);
-
-const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
-
-const estNumerique = (val) => {
-  return typeof val === 'number'
-    ? Number.isFinite(val)
-    : !isNaN(val) && isFinite(Number(val));
-}
-
-const capitalizeFirst = (str) => {
-  const s = String(str ?? '').trim();
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 // Crée une mini-console dans la page pour afficher les logs sur iPhone
 function logToPage(...args) {
   let el = document.getElementById('debug-console');
@@ -87,6 +68,25 @@ function logToPage(...args) {
   el.textContent += args.map(a => 
     typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)
   ).join(' ') + '\n';
+}
+
+const ROW_H=32, HEADER_H=32, PAD=4;
+const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
+
+const $ = id => document.getElementById(id);
+
+const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
+
+const estNumerique = (val) => {
+  return typeof val === 'number'
+    ? Number.isFinite(val)
+    : !isNaN(val) && isFinite(Number(val));
+}
+
+const capitalizeFirst = (str) => {
+  const s = String(str ?? '').trim();
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /**
@@ -4424,15 +4424,15 @@ function openCarnet() {
       // ⚠️ Très important : cibler la *bonne* racine de CETTE grille
       requestAnimationFrame(() => {
         const root = gridDiv.querySelector('.ag-root') || gridDiv;
-        enableTouchEdit(apiGrid, root, { debug:true });
+        enableTouchEdit(apiGrid, root, { debug:false });
       });
 
-      const testRoot = gridDiv.querySelector('.ag-root') || gridDiv;
-      ['pointerdown','pointerup','click','dblclick','touchstart','touchend'].forEach(ev=>{
-        testRoot.addEventListener(ev, e => {
-          logToPage('EVENT:', ev, e.pointerType || 'touch', Date.now());
-        }, { passive: true });
-      });
+      // const testRoot = gridDiv.querySelector('.ag-root') || gridDiv;
+      // ['pointerdown','pointerup','click','dblclick','touchstart','touchend'].forEach(ev=>{
+      //   testRoot.addEventListener(ev, e => {
+      //     logToPage('EVENT:', ev, e.pointerType || 'touch', Date.now());
+      //   }, { passive: true });
+      // });
 
       // actions
       const btnAdd = actions.querySelector('#btn-carnet-add');
