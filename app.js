@@ -4424,7 +4424,7 @@ function openCarnet() {
       // ⚠️ Très important : cibler la *bonne* racine de CETTE grille
       requestAnimationFrame(() => {
         const root = gridDiv.querySelector('.ag-root') || gridDiv;
-        enableTouchEditV2(apiGrid, root, { debug:true });
+        enableTouchEdit(apiGrid, root, { debug:true });
       });
 
       const testRoot = gridDiv.querySelector('.ag-root') || gridDiv;
