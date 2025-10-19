@@ -1035,7 +1035,7 @@ async function doPhantomFlight (gridOrigine, gridCible, expCible) {
   const ghostLabel = (srcRow.Activité || srcRow.Activite || '').trim();
 
   // 1) ouvrir l’expander cible et rendre la row visible
-  openExpanderById(expCible);
+  openExpander(expCible);
   await nextPaint(2);
 
   // 2) animer vers la VRAIE ligne si possible, sinon flash-only
@@ -1069,8 +1069,15 @@ function nextPaint(times=2) {
   });
 }
 
-// Ouvre l’expander par id (utilise ta openExp si dispo)
-function openExpanderById(expId){
+// Rend visible un expander
+function scrollToExpander(expId) {
+  const exp = document.getElementById(expId);
+  if (!exp) return;
+  exp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Ouvre un expander
+function openExpander(expId){
   const exp = document.getElementById(expId);
   if (!exp) return;
   if (!exp.classList.contains('open')) {
@@ -1675,7 +1682,7 @@ async function onProgGridDateCommitted(params) {
   if (params.newValue == "") {
     setTimeout(() => {
       selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
-      openExpanderById?.('exp-non-programmees');
+      openExpander?.('exp-non-programmees');
       selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
       doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
     }, 50);
@@ -1712,7 +1719,7 @@ async function onNonProgGridDateCommitted(params) {
   if (params.newValue != "" && params.newValue) {
     setTimeout(() => {
       selectRowByUuid('grid-non-programmees', uuidVoisin, { ensure: 'center', flash: null });
-      openExpanderById?.('exp-programmees');
+      openExpander?.('exp-programmees');
       selectRowByUuid('grid-programmees', uuid, { ensure: 'center', flash: true });
       doPhantomFlight("grid-non-programmees", "grid-programmees", "exp-programmees");
     }, 50);
@@ -2169,6 +2176,8 @@ async function doAjoutActivite() {
 
   // Maj des sélections
   setTimeout(() => {
+    scrollToExpander?.('exp-non-programmees');
+    openExpander?.('exp-non-programmees');
     selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
   }, 50);
 }
@@ -2180,6 +2189,8 @@ async function doAjoutActiviteAvecCollage() {
 
   // Maj des sélections
   setTimeout(() => {
+    scrollToExpander?.('exp-non-programmees');
+    openExpander?.('exp-non-programmees');
     selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
   }, 50);
 }
@@ -2219,7 +2230,7 @@ async function doDeprogrammerActivite() {
   // Maj des sélections
   setTimeout(() => {
     selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
-    openExpanderById?.('exp-non-programmees');
+    openExpander?.('exp-non-programmees');
     selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
     doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
   }, 50);
@@ -2255,7 +2266,7 @@ async function doProgrammerActivite() {
   });
   
   // 3) ouvrir l’expander “programmées” puis sélectionner & scroller la ligne
-  openExpanderById('exp-programmees');
+  openExpander('exp-programmees');
 
   // 4) attendre la peinture avant de sélectionner (double rAF)
   requestAnimationFrame(() => requestAnimationFrame(() => {
