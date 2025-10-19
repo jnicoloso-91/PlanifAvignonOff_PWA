@@ -3929,19 +3929,30 @@ function openCarnet() {
       // injecte dans la sheet
       body.append(host, actions);
 
-      // grille (adapte à tes colonnes réelles)
+      // grille 
       const columns = [
-        { field:'Nom', headerName:'Nom', editable:true },
-        { field:'Adresse', headerName:'Adresse', editable:true, flex:1 },
-        { field:'Tel', headerName:'Téléphone', editable:true, width:120 },
-        { field:'Web', headerName:'Web', editable:true, flex:1 },
+        { field:'Nom', headerName:'Nom', minWidth:180, flex:1, editable:true },
+        { field:'Adresse', headerName:'Adresse', minWidth:160, flex:1, editable:true },
+        { field:'Tel', headerName:'Téléphone', minWidth:200, flex:1, editable:true },
+        { field:'Web', headerName:'Web', minWidth:140, editable:true },
       ];
+
       const gridOptions = {
         columnDefs: columns,
         rowData: (window.ctx?.carnet || []),
         getRowId: p => p.data?.__uuid,
         defaultColDef: { resizable:true, sortable:true, filter:true },
         rowSelection: 'single',
+        onCellValueChanged: (p) => {
+          if (p.colDef.field == "Date") return;
+          const uuid = p.node.id;
+          let ca = ctx.getCarnet().slice(); 
+          const idx = ca.findIndex(a => a.__uuid === uuid);
+          if (idx < 0) return;
+          ca[idx] = { ...ca[idx], ...p.data }; 
+          ca = sortCarnet(ca);
+          ctx.setCarnet(ca);        
+        },
       };
       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
 
