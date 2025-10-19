@@ -3942,6 +3942,10 @@ function openCarnet() {
         rowData: (window.ctx?.carnet || []),
         getRowId: p => p.data?.__uuid,
         defaultColDef: { resizable:true, sortable:true, filter:true },
+        onGridReady: (params) => {
+          const root = params.api.getGui();                 // racine de la grille
+          enableTouchEdit(params.api, root, { debug: false });
+        },       
         rowSelection: 'single',
         onCellValueChanged: (p) => {
           if (p.colDef.field == "Date") return;
@@ -3953,6 +3957,9 @@ function openCarnet() {
           ca = sortCarnet(ca);
           ctx.setCarnet(ca);        
         },
+        singleClickEdit: false,
+        suppressClickEdit: false, 
+        stopEditingWhenCellsLoseFocus: true,
       };
       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
 
