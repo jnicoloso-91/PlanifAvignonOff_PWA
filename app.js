@@ -3937,30 +3937,63 @@ function openCarnet() {
         { field:'Web', headerName:'Web', minWidth:140, editable:true },
       ];
 
+      // const gridOptions = {
+      //   columnDefs: columns,
+      //   rowData: (window.ctx?.carnet || []),
+      //   getRowId: p => p.data?.__uuid,
+      //   defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
+      //   onGridReady: (params) => {
+      //     const root = params.api.getGui();                 // racine de la grille
+      //     enableTouchEdit(params.api, root, { debug: false });
+      //   },       
+      //   rowSelection: 'single',
+      //   onCellValueChanged: (p) => {
+      //     if (p.colDef.field == "Date") return;
+      //     const uuid = p.node.id;
+      //     let ca = ctx.getCarnet().slice(); 
+      //     const idx = ca.findIndex(a => a.__uuid === uuid);
+      //     if (idx < 0) return;
+      //     ca[idx] = { ...ca[idx], ...p.data }; 
+      //     ca = sortCarnet(ca);
+      //     ctx.setCarnet(ca);        
+      //   },
+      //   singleClickEdit: false,
+      //   suppressClickEdit: false, 
+      //   stopEditingWhenCellsLoseFocus: true,
+      // };
       const gridOptions = {
         columnDefs: columns,
         rowData: (window.ctx?.carnet || []),
         getRowId: p => p.data?.__uuid,
-        defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
+
+        // ✅ une seule fois
+        defaultColDef: { editable:true, resizable:true, sortable:true, filter:true },
+
         onGridReady: (params) => {
-          const root = params.api.getGui();                 // racine de la grille
-          enableTouchEdit(params.api, root, { debug: false });
-        },       
+          const root = params.api.getGui().querySelector('.ag-root') || params.api.getGui();
+          enableTouchEdit(params.api, root, { debug:false });
+          root.style.touchAction = 'manipulation'; // iOS: aide les gestes
+        },
         rowSelection: 'single',
         onCellValueChanged: (p) => {
-          if (p.colDef.field == "Date") return;
-          const uuid = p.node.id;
-          let ca = ctx.getCarnet().slice(); 
-          const idx = ca.findIndex(a => a.__uuid === uuid);
-          if (idx < 0) return;
-          ca[idx] = { ...ca[idx], ...p.data }; 
-          ca = sortCarnet(ca);
-          ctx.setCarnet(ca);        
+          if (p.colDef.field === 'Date') return;
+          const uuid = p.data?.__uuid;            // ✅ plus fiable que p.node.id
+          if (!uuid) return;
+          // mets à jour le carnet via le contexte
+          const patch = { [p.colDef.field]: p.newValue };
+          ctx.mutateCarnet(rows => {
+            const i = rows.findIndex(a => a.__uuid === uuid);
+            if (i < 0) return rows;
+            const next = rows.slice();
+            next[i] = { ...next[i], ...patch };
+            return sortCarnet(next);
+          });
         },
         singleClickEdit: false,
-        suppressClickEdit: false, 
+        suppressClickEdit: false,
         stopEditingWhenCellsLoseFocus: true,
       };
+
       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
 
       // actions
