@@ -63,6 +63,32 @@ const capitalizeFirst = (str) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// Crée une mini-console dans la page pour afficher les logs sur iPhone
+function logToPage(...args) {
+  let el = document.getElementById('debug-console');
+  if (!el) {
+    el = document.createElement('pre');
+    el.id = 'debug-console';
+    el.style.position = 'fixed';
+    el.style.bottom = '0';
+    el.style.left = '0';
+    el.style.width = '100%';
+    el.style.maxHeight = '40vh';
+    el.style.overflowY = 'auto';
+    el.style.background = 'rgba(0,0,0,0.75)';
+    el.style.color = '#0f0';
+    el.style.fontSize = '11px';
+    el.style.fontFamily = 'monospace';
+    el.style.padding = '4px 6px';
+    el.style.zIndex = '9999';
+    el.style.whiteSpace = 'pre-wrap';
+    document.body.appendChild(el);
+  }
+  el.textContent += args.map(a => 
+    typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)
+  ).join(' ') + '\n';
+}
+
 /**
  * Renvoie la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
  * d'une ligne repérée par son __uuid de référence.
@@ -4210,6 +4236,11 @@ function openCarnet() {
         },
         rowSelection: 'single',
         onCellValueChanged: (p) => {
+          // Demarre explicitement l’édition sur la cellule double-tapée
+          p.api.startEditingCell({
+            rowIndex: p.rowIndex,
+            colKey: p.column.getColId?.() || p.colDef.field
+          });
           if (p.colDef.field === 'Date') return;
           const uuid = p.data?.__uuid;            // ✅ plus fiable que p.node.id
           if (!uuid) return;
@@ -4229,6 +4260,13 @@ function openCarnet() {
       };
 
       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
+
+      const testRoot = gridDiv.querySelector('.ag-root') || gridDiv;
+      ['pointerdown','pointerup','click','dblclick','touchstart','touchend'].forEach(ev=>{
+        testRoot.addEventListener(ev, e => {
+          logToPage('EVENT:', ev, e.pointerType || 'touch', Date.now());
+        }, { passive: true });
+      });
 
       // actions
       const btnAdd = actions.querySelector('#btn-carnet-add');

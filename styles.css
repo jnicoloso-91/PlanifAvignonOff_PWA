@@ -1278,3 +1278,9 @@ main, .page-wrap {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* la grille dans une sheet doit laisser le tap tranquille */
+.sheet-panel .ag-root,
+.sheet-panel .ag-root * {
+  touch-action: manipulation;
+}
