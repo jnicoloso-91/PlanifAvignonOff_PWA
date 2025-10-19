@@ -320,20 +320,12 @@ export function creerActivitesAPI(ctx) {
      */
     async creerActiviteAvecCollage(df) {
       let raw = null;
-      try {
-        raw = await _getClipBoardText();
-      } catch {
-        // console.error('fetch failed', err);
-        // alert(`${err}`);
-        // return;
-      }
-      alert(`${raw.slice(0,500)}`);
+      try { raw = await _getClipBoardText(); } catch {}
 
       let parsed = null;
       if (_looksLikeUrl(raw)) { 
         try {
           const html = await _fetchViaAllOrigins(raw);
-          alert(`${html.slice(0,500)}`);
           parsed = _parseHTMLAvignonOff(html);
         } catch (err) {
           console.error('fetch failed', err);
