@@ -327,6 +327,7 @@ export function creerActivitesAPI(ctx) {
         // alert(`${err}`);
         // return;
       }
+      alert(`${raw.slice(0,500)}`);
 
       let parsed = null;
       if (_looksLikeUrl(raw)) { 
