@@ -1250,7 +1250,7 @@ main, .page-wrap {
 
 
 /* marge de sécurité iPhone en bas */
-/* .sheet-panel { padding-bottom: env(safe-area-inset-bottom, 0); } */
+.sheet-panel { padding-bottom: env(safe-area-inset-bottom, 0); }
 
 /* si tu as un footer/boutons séparé */
 /* .sheet-footer,
@@ -1260,7 +1260,7 @@ main, .page-wrap {
 
 /* zone scrollable */
 /* .sheet-body{
-  max-height: 66vh;                à ajuster 
+  max-height: 66vh;                
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
