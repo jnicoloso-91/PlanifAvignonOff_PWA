@@ -1499,14 +1499,14 @@ function buildColumnsActivitesProgrammables() {
   }));
 }
 
-function buildColumnsCarnet(){
-  return [
-    { field:'Nom', headerName:'Nom', minWidth:180, flex:1, editable:true },
-    { field:'Adresse', minWidth:160, flex:1, editable:true },
-    { field:'Tel', minWidth:200, flex:1, editable:true },
-    { field:'Web', minWidth:140, editable:true },
-  ];
-}
+// function buildColumnsCarnet(){
+//   return [
+//     { field:'Nom', headerName:'Nom', minWidth:180, flex:1, editable:true },
+//     { field:'Adresse', minWidth:160, flex:1, editable:true },
+//     { field:'Tel', minWidth:200, flex:1, editable:true },
+//     { field:'Web', minWidth:140, editable:true },
+//   ];
+// }
 
 // ===== Parsers de grilles =====
 function valueParserHeure(params) {
@@ -1644,11 +1644,12 @@ async function loadGridActivitesProgrammables(){
   return activitesAPI.getActivitesProgrammables(activites, selectedSlot).map(r => ({...r}));
 }
 
-async function loadGridCarnet() {
-  const carnet = ctx.carnet;
-  // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
-  return carnet.map(r => ({...r}));
-}
+// async function loadGridCarnet() {
+//   const carnet = ctx.carnet;
+//   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
+//   return carnet.map(r => ({...r}));
+// }
+
 
 // ===== Handlers de grilles =====
 
@@ -1860,9 +1861,9 @@ async function refreshActivitesGrids() {
 }
 
 // Rafraichit la grille du carnet d'adresses (utilisé par la callback de modification de contexte ctx.onChange sur carnet)
-async function refreshCarnetGrid() {
-  refreshGrid('grid-carnet');
-}
+// async function refreshCarnetGrid() {
+//   refreshGrid('grid-carnet');
+// }
 
 // Coalessance évitant les rafraîchissements multiples dans la même frame dus à des mutations multiples de contexte dans une fonction 
 // (à utiliser éventuellement dans les onChange de AppContext à la place de refreshAllGrids)
@@ -2040,12 +2041,12 @@ function wireGrids() {
   });
 
   // 5) Carnet d’adresses
-  createGridController({
-    gridId: 'grid-carnet',
-    elementId: 'gridE',
-    loader: loadGridCarnet,
-    columnsBuilder: buildColumnsCarnet,
-  });
+  // createGridController({
+  //   gridId: 'grid-carnet',
+  //   elementId: 'gridE',
+  //   loader: loadGridCarnet,
+  //   columnsBuilder: buildColumnsCarnet,
+  // });
 
 }
 
@@ -3415,21 +3416,202 @@ function wireAppKebab() {
 //   return { close: destroy, el: wrap, body, panel };
 // }
 
-function openSheet({ title = '', mount, onClose, classes = '', panelMaxHeight = '60vh', panelHeight = null, replaceExisting = false } = {}) {
+// function openSheet({ title = '', mount, onClose, classes = '', panelMaxHeight = '60vh', panelHeight = null, replaceExisting = false } = {}) {
+//   // 0) empêcher l’empilement
+//   const existing = document.querySelector('.sheet-wrap.is-open');
+//   if (existing && !replaceExisting) {
+//     // petit bounce visuel pour indiquer "déjà ouvert"
+//     const panel = existing.querySelector('.sheet-panel');
+//     if (panel) {
+//       panel.animate(
+//         [{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }],
+//         { duration: 180, easing: 'ease-out' }
+//       );
+//     }
+//     return { close: () => existing.remove(), el: existing, body: existing.querySelector('.sheet-body'), panel };
+//   }
+//   // si on veut vraiment remplacer : on supprime l’ancienne
+//   if (existing && replaceExisting) existing.remove();
+
+//   // 1) structure
+//   const wrap = document.createElement('div');
+//   wrap.className = `sheet-wrap ${classes}`.trim();
+
+//   const backdrop = document.createElement('div');
+//   backdrop.className = 'sheet-backdrop';
+
+//   const panel = document.createElement('div');
+//   panel.className = 'sheet-panel';
+//   // ← pilotage de la hauteur en inline
+//   if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
+//   if (panelHeight)    panel.style.height    = panelHeight;
+
+
+//   // poignée + header + body
+//   const handle = document.createElement('span');
+//   handle.className = 'sheet-handle';
+//   panel.prepend(handle);
+
+//   const header = document.createElement('div');
+//   header.className = 'sheet-header';
+
+//   const h = document.createElement('div');
+//   h.className = 'sheet-title';
+//   h.textContent = title;
+
+//   const closeBtn = document.createElement('button');
+//   closeBtn.className = 'sheet-close';
+//   closeBtn.innerHTML = '✕';
+
+//   header.append(h, closeBtn);
+
+//   const body = document.createElement('div');
+//   body.className = 'sheet-body';
+
+//   panel.append(handle, header, body);
+//   wrap.append(backdrop, panel);
+//   document.body.appendChild(wrap);
+
+//   // 2) fermeture
+//   const destroy = () => {
+//     wrap.classList.remove('is-open');
+//     setTimeout(() => {
+//       wrap.remove();
+//       onClose?.();
+//     }, 220);
+//   };
+//   backdrop.addEventListener('click', destroy);
+//   closeBtn.addEventListener('click', destroy);
+
+//   // -- Swipe-to-close (drag vers le bas) --
+//   (function attachSwipeToClose(wrap, panel, backdrop, onClose){
+//     let startY = 0, curY = 0, dragging = false;
+
+//     const onPointerDown = (e) => {
+//       // Ne déclenche que si on part du haut du panel (poignée, header),
+//       // ça évite de gêner le scroll du contenu.
+//       const y = (e.touches ? e.touches[0] : e).clientY;
+//       const target = e.target;
+//       const isHandleOrHeader =
+//         target.closest('.sheet-handle') || target.closest('.sheet-header');
+//       if (!isHandleOrHeader) return;
+
+//       dragging = true;
+//       startY = y;
+//       curY = y;
+//       wrap.classList.add('dragging');
+//     };
+
+//     const onPointerMove = (e) => {
+//       if (!dragging) return;
+//       const y = (e.touches ? e.touches[0] : e).clientY;
+//       curY = y;
+//       const dy = Math.max(0, curY - startY); // seulement vers le bas
+//       panel.style.transform = `translateY(${dy}px)`;
+//       // atténue le backdrop proportionnellement
+//       const k = Math.max(0, Math.min(1, dy / 180));
+//       backdrop.style.opacity = String(1 - 0.7 * k);
+
+//       // évite le scroll de page pendant le drag
+//       e.preventDefault?.();
+//     };
+
+//     const onPointerUp = () => {
+//       if (!dragging) return;
+//       dragging = false;
+//       wrap.classList.remove('dragging');
+
+//       const dy = Math.max(0, curY - startY);
+//       const THRESH = 120; // seuil de fermeture
+//       if (dy > THRESH) {
+//         // ferme pour de bon
+//         onClose();
+//       } else {
+//         // revient gentiment en place
+//         panel.style.transition = 'transform .22s ease';
+//         backdrop.style.transition = 'opacity .18s ease';
+//         panel.style.transform = 'translateY(0)';
+//         backdrop.style.opacity = '';
+//         setTimeout(() => {
+//           panel.style.transition = '';
+//           backdrop.style.transition = '';
+//         }, 220);
+//       }
+//     };
+
+//     // Écouteurs (pointer OU touch + mouse fallback)
+//     if (window.PointerEvent) {
+//       panel.addEventListener('pointerdown', onPointerDown, { passive: true });
+//       window.addEventListener('pointermove', onPointerMove, { passive: false });
+//       window.addEventListener('pointerup',   onPointerUp,   { passive: true });
+//       window.addEventListener('pointercancel', onPointerUp, { passive: true });
+//     } else {
+//       panel.addEventListener('touchstart', onPointerDown, { passive: true });
+//       window.addEventListener('touchmove',  onPointerMove, { passive: false });
+//       window.addEventListener('touchend',   onPointerUp,   { passive: true });
+//       panel.addEventListener('mousedown',   onPointerDown, true);
+//       window.addEventListener('mousemove',  onPointerMove, true);
+//       window.addEventListener('mouseup',    onPointerUp,   true);
+//     }
+//   })(wrap, panel, backdrop, destroy);
+
+//   // 3) contenu
+//   mount?.(body, { close: destroy });
+
+//   // 4) open anim
+//   requestAnimationFrame(() => wrap.classList.add('is-open'));
+
+//   return { close: destroy, el: wrap, body, panel };
+// }
+
+
+// helpers: lock/unlock scroll (iOS-safe)
+function lockScroll() {
+  const y = window.scrollY || document.documentElement.scrollTop || 0;
+  document.body.dataset.lockY = String(y);
+  Object.assign(document.body.style, {
+    position: 'fixed',
+    top: `-${y}px`,
+    left: '0', right: '0',
+    width: '100%',
+    overflow: 'hidden',
+  });
+}
+function unlockScroll() {
+  const y = parseInt(document.body.dataset.lockY || '0', 10) || 0;
+  Object.assign(document.body.style, {
+    position: '', top: '', left: '', right: '', width: '', overflow: '',
+  });
+  window.scrollTo(0, y);
+}
+
+function openSheet({
+  title = '',
+  mount,
+  onClose,
+  classes = '',
+  panelMaxHeight = '60vh',
+  panelHeight = null,
+  replaceExisting = false
+} = {}) {
+
   // 0) empêcher l’empilement
   const existing = document.querySelector('.sheet-wrap.is-open');
   if (existing && !replaceExisting) {
-    // petit bounce visuel pour indiquer "déjà ouvert"
-    const panel = existing.querySelector('.sheet-panel');
-    if (panel) {
-      panel.animate(
+    const existingPanel = existing.querySelector('.sheet-panel');
+    if (existingPanel) {
+      existingPanel.animate(
         [{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }],
         { duration: 180, easing: 'ease-out' }
       );
     }
-    return { close: () => existing.remove(), el: existing, body: existing.querySelector('.sheet-body'), panel };
+    return {
+      close: () => existing.remove(),
+      el: existing,
+      body: existing.querySelector('.sheet-body'),
+      panel: existingPanel
+    };
   }
-  // si on veut vraiment remplacer : on supprime l’ancienne
   if (existing && replaceExisting) existing.remove();
 
   // 1) structure
@@ -3441,22 +3623,19 @@ function openSheet({ title = '', mount, onClose, classes = '', panelMaxHeight = 
 
   const panel = document.createElement('div');
   panel.className = 'sheet-panel';
-  // ← pilotage de la hauteur en inline
   if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
   if (panelHeight)    panel.style.height    = panelHeight;
-
 
   // poignée + header + body
   const handle = document.createElement('span');
   handle.className = 'sheet-handle';
-  panel.prepend(handle);
 
   const header = document.createElement('div');
   header.className = 'sheet-header';
 
   const h = document.createElement('div');
   h.className = 'sheet-title';
-  h.textContent = title;
+  h.textContent = title || '';
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'sheet-close';
@@ -3474,90 +3653,87 @@ function openSheet({ title = '', mount, onClose, classes = '', panelMaxHeight = 
   // 2) fermeture
   const destroy = () => {
     wrap.classList.remove('is-open');
+    // petite anim de sortie assurée par le CSS (transform)
     setTimeout(() => {
       wrap.remove();
+      unlockScroll();          // ✅ rétablit le scroll page
       onClose?.();
     }, 220);
   };
   backdrop.addEventListener('click', destroy);
   closeBtn.addEventListener('click', destroy);
 
-  // -- Swipe-to-close (drag vers le bas) --
-  (function attachSwipeToClose(wrap, panel, backdrop, onClose){
+  // -- Swipe-to-close (drag vers le bas) -- (capte bien sur iOS)
+  (function attachSwipeToClose(panel, backdrop, onClose){
     let startY = 0, curY = 0, dragging = false;
 
-    const onPointerDown = (e) => {
-      // Ne déclenche que si on part du haut du panel (poignée, header),
-      // ça évite de gêner le scroll du contenu.
-      const y = (e.touches ? e.touches[0] : e).clientY;
+    const onStart = (e) => {
+      // déclenche UNIQUEMENT depuis la poignée ou le header
+      const t = e.touches ? e.touches[0] : e;
       const target = e.target;
-      const isHandleOrHeader =
-        target.closest('.sheet-handle') || target.closest('.sheet-header');
-      if (!isHandleOrHeader) return;
+      if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
 
       dragging = true;
-      startY = y;
-      curY = y;
+      startY = t.clientY;
+      curY = startY;
       wrap.classList.add('dragging');
+      panel.style.transition = 'none';
+      backdrop.style.transition = 'none';
     };
 
-    const onPointerMove = (e) => {
+    const onMove = (e) => {
       if (!dragging) return;
-      const y = (e.touches ? e.touches[0] : e).clientY;
-      curY = y;
+      const t = e.touches ? e.touches[0] : e;
+      curY = t.clientY;
       const dy = Math.max(0, curY - startY); // seulement vers le bas
+      // empêche le scroll de la page pendant le drag (iOS)
+      e.preventDefault?.();
+
       panel.style.transform = `translateY(${dy}px)`;
-      // atténue le backdrop proportionnellement
       const k = Math.max(0, Math.min(1, dy / 180));
       backdrop.style.opacity = String(1 - 0.7 * k);
-
-      // évite le scroll de page pendant le drag
-      e.preventDefault?.();
     };
 
-    const onPointerUp = () => {
+    const onEnd = () => {
       if (!dragging) return;
       dragging = false;
       wrap.classList.remove('dragging');
 
       const dy = Math.max(0, curY - startY);
-      const THRESH = 120; // seuil de fermeture
+      const THRESH = 120;
+      panel.style.transition = '';
+      backdrop.style.transition = '';
+
       if (dy > THRESH) {
-        // ferme pour de bon
         onClose();
       } else {
-        // revient gentiment en place
-        panel.style.transition = 'transform .22s ease';
-        backdrop.style.transition = 'opacity .18s ease';
         panel.style.transform = 'translateY(0)';
         backdrop.style.opacity = '';
-        setTimeout(() => {
-          panel.style.transition = '';
-          backdrop.style.transition = '';
-        }, 220);
       }
     };
 
-    // Écouteurs (pointer OU touch + mouse fallback)
+    // Écouteurs (Pointer Events si dispo, sinon touch+mouse)
     if (window.PointerEvent) {
-      panel.addEventListener('pointerdown', onPointerDown, { passive: true });
-      window.addEventListener('pointermove', onPointerMove, { passive: false });
-      window.addEventListener('pointerup',   onPointerUp,   { passive: true });
-      window.addEventListener('pointercancel', onPointerUp, { passive: true });
+      // On écoute sur le PANEL, mais on ne démarre que si la cible est poignée/header
+      panel.addEventListener('pointerdown', onStart, { passive: true });
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup',   onEnd,  { passive: true });
+      window.addEventListener('pointercancel', onEnd, { passive: true });
     } else {
-      panel.addEventListener('touchstart', onPointerDown, { passive: true });
-      window.addEventListener('touchmove',  onPointerMove, { passive: false });
-      window.addEventListener('touchend',   onPointerUp,   { passive: true });
-      panel.addEventListener('mousedown',   onPointerDown, true);
-      window.addEventListener('mousemove',  onPointerMove, true);
-      window.addEventListener('mouseup',    onPointerUp,   true);
+      panel.addEventListener('touchstart', onStart, { passive: true });
+      window.addEventListener('touchmove',  onMove, { passive: false });
+      window.addEventListener('touchend',   onEnd,  { passive: true });
+      panel.addEventListener('mousedown',   onStart, true);
+      window.addEventListener('mousemove',  onMove,  true);
+      window.addEventListener('mouseup',    onEnd,   true);
     }
-  })(wrap, panel, backdrop, destroy);
+  })(panel, backdrop, destroy);
 
   // 3) contenu
   mount?.(body, { close: destroy });
 
-  // 4) open anim
+  // 4) ouverture (anim) + lock scroll
+  lockScroll();                        // ✅ gèle la page en arrière-plan
   requestAnimationFrame(() => wrap.classList.add('is-open'));
 
   return { close: destroy, el: wrap, body, panel };
@@ -3816,7 +3992,7 @@ function openHelp(){}
 // ------- Boot -------
 function wireContext() {
   ctx.on('df:changed',        () => refreshActivitesGrids()); // scheduleGlobalRefresh());
-  ctx.on('carnet:changed',    () => refreshCarnetGrid()); // scheduleGlobalRefresh());
+  // ctx.on('carnet:changed',    () => refreshCarnetGrid()); // scheduleGlobalRefresh());
   ctx.on('history:change', (st) => {
     document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
     document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
