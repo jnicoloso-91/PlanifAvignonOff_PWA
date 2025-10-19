@@ -835,7 +835,7 @@ main, .page-wrap {
 
 
 /* ===============================
-   Bottom Sheet (mobile)
+   File Sheet (mobile)
    =============================== */
 .file-sheet {
   position: fixed; inset: 0; z-index: 3000;
@@ -941,7 +941,113 @@ main, .page-wrap {
 /* petit confort : pas de sélection pendant le drag */
 .file-sheet.dragging { user-select: none; }
 
+/* ====================
+/* Sélection de row : hachurée translucide au-dessus du fond coloré 
+/* ====================*/
+.ag-theme-quartz.compact {
+  --ag-selected-row-background-color: rgba(189, 189, 189, 0.144); /* rgba(78, 150, 209, 0.12);   bleu doux */
+}
 
+/* Applique un léger motif hachuré semi-transparent au-dessus du fond jour */
+.ag-row.ag-row-selected::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  opacity:.20; mix-blend-mode:multiply;
+  background-size:4px 4px;
+  background-repeat:repeat;
+  background-image:repeating-linear-gradient(
+    45deg,
+    currentColor 0 0.5px,   
+    transparent 0.5px 3px
+  );
+}
+
+/* ====================
+/* Kebab menu header   
+/* ====================*/
+.kebab-btn {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  background: transparent; border: none; cursor: pointer; color: #111;
+  border-radius: 8px; user-select: none;
+  padding: 2px 6px;           /* compact: ne change pas la hauteur du header */
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .15s ease, transform .08s ease;
+}
+.kebab-btn:hover { background: rgba(0,0,0,.06); }
+.kebab-btn .dot { font-size: 18px; line-height: 1; }
+
+/* Popover “petit menu arrondi” */
+.popover-menu {
+  position: fixed; z-index: 3000;
+  min-width: 180px; max-width: 240px;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.18);
+  padding: 6px; opacity: 0; transform: translateY(6px);
+  font-size: 0.875rem;         /* petite police */
+}
+.popover-menu button {
+  display: block; width: 100%;
+  background: transparent; border: none; border-radius: 8px;
+  text-align: left; padding: 8px 10px; cursor: pointer;
+  color: #111; font: 500 0.85rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.popover-menu button:hover { background: #f3f4f6; }
+.popover-menu .sep { height: 1px; background:#eee; margin: 6px 4px; border-radius: 1px; }
+
+.kebab-menu {
+  isolation: isolate;
+  position: fixed;
+  z-index: 4000;
+  min-width: 180px;
+  background: #fff;
+  color: #111 !important;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.15);
+  padding: 6px 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity .16s ease, transform .16s ease;
+  backdrop-filter: blur(8px);
+}
+.kebab-menu.show { opacity: 1; visibility: visible; transform: translateY(0); }
+
+.kebab-menu__item {
+  display: flex; align-items: center;
+  width: 100%;
+  padding: 7px 14px;
+  background: transparent; border: none;
+  font: 400 13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #222; cursor: pointer;
+  transition: background .15s ease;
+}
+.kebab-menu__item:hover  { background:#f3f4f6; }
+.kebab-menu__item:active { background:#e9eaec; }
+
+/* VRAI séparateur DOM */
+.kebab-sep {
+  height: 1px;
+  margin: 6px 8px;            /* respire un peu */
+  background: rgba(0,0,0,.08);
+  border-radius: 1px;
+}
+
+/* Séparateurs */
+.kebab-sep {
+  height: 1px;
+  margin: 6px 8px; /* espace vertical */
+  background: rgba(0,0,0,.08);
+  border-radius: 1px;
+}
+
+/* Premier séparateur : petit espace avant le haut du menu */
+.kebab-menu > .kebab-sep:first-child {
+  margin-top: 10px; /* ← espace haut supplémentaire */
+}
+
+/* ====================
+/* Lieu renderer   
+/* ====================*/
 .cell-lieu {
   display: flex;
   align-items: center;
@@ -969,113 +1075,175 @@ main, .page-wrap {
 }
 
 /* ====================
-/* Sélection de row : hachurée translucide au-dessus du fond coloré */
-/* ====================
-/* Supprime TOUT fond opaque appliqué par le thème */
-/* .ag-row.ag-row-selected,
-.ag-row.ag-row-selected::before {
-  background-color: transparent !important;
-} */
-
-/* Applique un léger motif hachuré semi-transparent au-dessus du fond jour */
-/* .ag-row.ag-row-selected {
-  background-color: transparent !important;         
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(0,0,0,0.10),
-    rgba(0,0,0,0.10) 3px,
-    transparent 3px,
-    transparent 6px
-  );
-  background-blend-mode: multiply;                  
-} */
-
-/* Garde le même effet même quand la grille perd le focus */
-/* .ag-theme-alpine .ag-row.ag-row-focus {
-  background-color: transparent !important;
-} */
-
-/* scope au thème utilisé */
-/* .ag-theme-quartz.compact {
-  --ag-selected-row-background-color: transparent !important;
-} */
-/* .ag-theme-quartz .ag-row-selected .ag-cell,
-.ag-theme-quartz .ag-row.ag-row-selected,
-.ag-theme-quartz .ag-row.ag-row-selected::before {
-  background-color: transparent !important;
-} */
-/* .ag-theme-quartz .ag-row { position: relative; }
-.ag-theme-quartz .ag-row.ag-row-selected::after {
-  content: "";
-  position: absolute; inset: 0;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(0,0,0,.10) 0px, rgba(0,0,0,.10) 3px,
-    transparent 3px, transparent 6px
-  );
-  background-blend-mode: multiply;
-}  */
-
-/* .ag-row {
-  position: relative;
-} */
-
-.ag-theme-quartz.compact {
-  --ag-selected-row-background-color: rgba(189, 189, 189, 0.144); /* rgba(78, 150, 209, 0.12);   bleu doux */
-}
-/* .ag-row.ag-row-selected::after {
-  content: "";
-  position: absolute;
+/* Sheets   
+/* ====================*/
+.sheet-wrap{
+  position: fixed;
   inset: 0;
-  pointer-events: none;
-  opacity: 0.3;  
-  background-size: 6px 6px;
-  background-repeat: repeat;
-  background-image: linear-gradient(
-    45deg,
-    currentColor 1px,
-    transparent 1px,
-    transparent 3px,
-    currentColor 3px,
-    currentColor 4px,
-    transparent 4px
-  );
-  mix-blend-mode: multiply; 
-}  */
-/* .ag-row.ag-row-selected::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml;utf8,\
-    <svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'>\
-      <line x1='0' y1='8' x2='8' y2='0' stroke='rgba(0,0,0,0.2)' stroke-width='1'/>\
-    </svg>");
-  background-repeat: repeat;
-  mix-blend-mode: multiply; 
-} */
- /* .ag-row.ag-row-selected::after{
-  content:""; position:absolute; inset:0; pointer-events:none;
-  opacity:.25; mix-blend-mode:multiply;
-  background-size:4px 4px;               
-  background-repeat:repeat;
-  background-image:linear-gradient(
-    45deg,
-    currentColor 1px,      trait = 1px 
-    transparent 1px 3px    espace = 2px 
-  );
-} */
-
-.ag-row.ag-row-selected::after{
-  content:""; position:absolute; inset:0; pointer-events:none;
-  opacity:.20; mix-blend-mode:multiply;
-  background-size:4px 4px;
-  background-repeat:repeat;
-  background-image:repeating-linear-gradient(
-    45deg,
-    currentColor 0 0.5px,   
-    transparent 0.5px 3px
-  );
+  z-index: 4000;                 /* > header/bottom bar */
+  display: grid;
+  grid-template-rows: 1fr auto;
+  pointer-events: none;          /* activés via panel */
 }
-/* ====================
+.sheet-backdrop{
+  grid-row: 1 / span 2;
+  background: rgba(0,0,0,.28);
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.sheet-panel{
+  pointer-events: auto;
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 30px rgba(0,0,0,.18);
+  transform: translateY(100%);
+  transition: transform .22s ease;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 70vh;              /* override via inline si besoin */
+}
+.sheet-header{
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.sheet-title{ font-weight: 600; }
+.sheet-close{
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+}
+.sheet-body{
+  padding: 8px 12px;
+  overflow: auto;
+  min-height: 120px;
+}
+
+/* état ouvert */
+.sheet-wrap.is-open .sheet-backdrop{ opacity: 1; }
+.sheet-wrap.is-open .sheet-panel{ transform: translateY(0); }
+
+.sheet-backdrop {
+  /* flex: 1; background: rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px); */
+  background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);
+}
+
+/* petite poignée centrée, style iOS */
+.sheet-handle{
+  display:block;
+  width:44px; height:4px;
+  margin:8px auto 10px;
+  border-radius:999px;
+  background: rgba(0,0,0,.18);
+}
+
+/* dark mode (option) */
+@media (prefers-color-scheme: dark){
+  .sheet-handle{ background: rgba(255,255,255,.25); }
+}
+
+/* pendant le drag : pas d’anim parasite + pas de sélection */
+.sheet-wrap.dragging { user-select: none; }
+.sheet-wrap.dragging .sheet-panel { transition: none !important; }
+
+/* --- panel : plus de max-height figé ici; on la pilotera en inline JS --- */
+.sheet-panel{
+  pointer-events: auto;
+  background: #fff;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 30px rgba(0,0,0,.18);
+  transform: translateY(100%);
+  transition: transform .22s ease;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* max-height: 55vh;  ← supprimé, on mettra en inline via JS */
+}
+
+/* body = zone flexible (la grille prendra 100% de sa hauteur) */
+.sheet-body{
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* hôte de la grille en plein */
+.sheet-grid-host{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.sheet-grid-host .ag-theme-quartz,
+.sheet-grid-host [id^="grid"]{
+  height: 100% !important;
+  min-height: 0 !important;
+  display: block;
+}
+
+/* --- Footer d’actions sans séparateur, plus intégré --- */
+.sheet-actions {
+  /* retiré : border-top */
+  padding: 8px 6px 10px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;     /* collé à gauche */
+  background: transparent;         /* pas de fond, fusionne avec la grille */
+}
+
+/* Boutons sans bordure, transparents mais avec feedback au toucher */
+.icon-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;                    /* ← plus de bordure */
+  background: transparent;         /* ← fond transparent */
+  border-radius: 10px;
+  padding: 6px 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, transform 0.06s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(0,0,0,0.06);    /* léger survol */
+}
+
+.icon-btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* icône + label plus sobres */
+.icon-btn .icon {
+  width: 18px;
+  height: 18px;
+  color: #111;
+}
+
+.icon-btn .label {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.sheet-actions {
+  display: flex;
+  align-items: flex-end;   /* ← aligne tous les boutons sur le bas */
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.sheet-actions .icon-btn svg {
+  width: 16px;
+  height: 16px;
+}

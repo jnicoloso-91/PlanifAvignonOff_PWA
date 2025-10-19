@@ -2102,8 +2102,13 @@ function wireExpanders(){
 
 // Reset du contexte
 async function doNouveauContexte() {
+  ctx.beginAction('Nouveau contexte');
+  try {
   ctx.setDf([]);
   ctx.setCarnet([]);
+  } finally {
+    ctx.endAction();
+  }
   activitesAPI.initPeriodeProgrammation(ctx.getDf());
 }
 
@@ -2374,126 +2379,182 @@ function openFileMenuOrSheet(anchorBtn) {
   if (window.matchMedia('(max-width: 768px)').matches) {
     openFileSheet(); // version mobile
   } else {
-    openFileMenu(anchorBtn);  // version desktop
+    openFileMenuDesktop(anchorBtn);  // version desktop
   }
 }
 
 // Menu contextuel au-dessus du bouton "Fichier"
-function openFileMenu(anchorBtn, opts = {}) {
-  const btn = anchorBtn;
-  if (!btn || !(btn instanceof HTMLElement)) {
-    console.warn('[FileMenu] anchor invalide');
-    return;
-  }
+// function openFileMenu(anchorBtn, opts = {}) {
+//   const btn = anchorBtn;
+//   if (!btn || !(btn instanceof HTMLElement)) {
+//     console.warn('[FileMenu] anchor invalide');
+//     return;
+//   }
 
-  // Si un menu est déjà ouvert → fermer si clic sur le même bouton
-  const existing = document.querySelector('.file-menu');
-  if (existing) {
-    const wasForSameBtn = existing.dataset.anchorId === btn.id;
-    existing.remove();
-    if (wasForSameBtn) return; // toggle: referme seulement
-  }
+//   // Si un menu est déjà ouvert → fermer si clic sur le même bouton
+//   const existing = document.querySelector('.file-menu');
+//   if (existing) {
+//     const wasForSameBtn = existing.dataset.anchorId === btn.id;
+//     existing.remove();
+//     if (wasForSameBtn) return; // toggle: referme seulement
+//   }
 
-  let openMenu = null;
+//   let openMenu = null;
 
-  const closeMenu = () => {
-    if (!openMenu) return;
-    openMenu.remove();
-    openMenu = null;
-    document.removeEventListener('keydown', onKeyDown);
-  };
-  const onKeyDown = (e) => { if (e.key === 'Escape') closeMenu(); };
+//   const closeMenu = () => {
+//     if (!openMenu) return;
+//     openMenu.remove();
+//     openMenu = null;
+//     document.removeEventListener('keydown', onKeyDown);
+//   };
+//   const onKeyDown = (e) => { if (e.key === 'Escape') closeMenu(); };
 
-  // 1) créer le menu (invisible le temps de le positionner)
+//   // 1) créer le menu (invisible le temps de le positionner)
+//   const menu = document.createElement('div');
+//   menu.className = 'file-menu';
+//   menu.dataset.anchorId = btn.id || ''; // pour savoir qui l’a ouvert
+//   menu.innerHTML = `
+//     <button data-action="new">Nouveau planning</button>
+//     <button data-action="open">Importer planning depuis Excel</button>
+//     <button data-action="save">Exporter planning vers Excel</button>
+//   `;
+//   Object.assign(menu.style, {
+//     position: 'fixed',
+//     zIndex: 2000,
+//     background: '#fff',
+//     border: '1px solid #ccc',
+//     borderRadius: '8px',
+//     boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+//     padding: '4px',
+//     visibility: 'hidden',
+//     opacity: '0',
+//   });
+//   document.body.appendChild(menu);
+
+//   // style des items
+//   menu.querySelectorAll('button').forEach(b => {
+//     Object.assign(b.style, {
+//       display: 'block',
+//       width: '100%',
+//       padding: '8px 10px',
+//       textAlign: 'left',
+//       background: 'transparent',
+//       border: 'none',
+//       borderRadius: '6px',
+//       cursor: 'pointer'
+//     });
+//     b.addEventListener('mouseenter', () => b.style.background = '#f3f4f6');
+//     b.addEventListener('mouseleave', () => b.style.background = 'transparent');
+//     b.addEventListener('click', async (ev) => {
+//       const act = ev.currentTarget.dataset.action;
+//       closeMenu();
+//       if (act === 'new')  {
+//         if (typeof opts.onNew === 'function') return opts.onNew();
+//         if (typeof doNouveauContexte === 'function') doNouveauContexte();
+//       }
+//       if (act === 'open') {
+//         if (typeof opts.onOpen === 'function') return opts.onOpen();
+//         if (typeof doImportExcel === 'function') doImportExcel();
+//       }
+//       if (act === 'save') {
+//         if (typeof opts.onSave === 'function') return opts.onSave();
+//         if (typeof doExportExcel === 'function') doExportExcel();
+//       }
+//     });
+//   });
+
+//   // 2) positionner AU-DESSUS du bouton (ou en dessous si pas de place)
+//   try {
+//     positionMenuOverBtn(btn, menu);
+//   } catch {
+//     const r = btn.getBoundingClientRect();
+//     Object.assign(menu.style, {
+//       left: `${Math.round(r.left)}px`,
+//       top: `${Math.round(r.top - 120)}px`,
+//     });
+//   }
+
+//   // 3) montrer avec une petite anim
+//   menu.style.visibility = 'visible';
+//   menu.animate(
+//     [
+//       { opacity: 0, transform: 'translateY(6px)' },
+//       { opacity: 1, transform: 'translateY(0)' }
+//     ],
+//     { duration: 140, easing: 'ease-out', fill: 'forwards' }
+//   );
+
+//   openMenu = menu;
+
+//   // fermer si clic ailleurs (différé pour ne pas capter ce même clic)
+//   setTimeout(() => {
+//     const onDocClick = (ev) => {
+//       if (menu.contains(ev.target)) return;
+//       // ⇩ ferme aussi si on reclique sur le bouton ancre ⇩
+//       if (ev.target === btn) { closeMenu(); return; }
+//       document.removeEventListener('click', onDocClick);
+//       closeMenu();
+//     };
+//     document.addEventListener('click', onDocClick);
+//   }, 0);
+
+//   document.addEventListener('keydown', onKeyDown);
+// }
+
+// Construit le menu fichier (desktop)
+function openFileMenuDesktop(anchorBtn) {
+  // évite doublons
+  document.querySelectorAll('.kebab-menu.file-menu').forEach(m => m.remove());
+
   const menu = document.createElement('div');
-  menu.className = 'file-menu';
-  menu.dataset.anchorId = btn.id || ''; // pour savoir qui l’a ouvert
-  menu.innerHTML = `
-    <button data-action="new">Nouveau planning</button>
-    <button data-action="open">Importer planning depuis Excel</button>
-    <button data-action="save">Exporter planning vers Excel</button>
-  `;
-  Object.assign(menu.style, {
-    position: 'fixed',
-    zIndex: 2000,
-    background: '#fff',
-    border: '1px solid #ccc',
-    borderRadius: '8px',
-    boxShadow: '0 8px 24px rgba(0,0,0,.12)',
-    padding: '4px',
-    visibility: 'hidden',
-    opacity: '0',
-  });
+  menu.className = 'kebab-menu';
+
+  // items
+  const items = [
+    { id:'new',  label:'Nouveau programme'     },
+    { id:'open', label:'Importer programme depuis Excel'      },
+    { id:'save', label:'Exporter programme depuis Excel' },
+  ];
+  for (const it of items) {
+    const b = document.createElement('button');
+    b.className = 'kebab-menu__item';
+    b.textContent = it.label;
+    b.dataset.action = it.id;
+    menu.appendChild(b);
+  }
+
   document.body.appendChild(menu);
 
-  // style des items
-  menu.querySelectorAll('button').forEach(b => {
-    Object.assign(b.style, {
-      display: 'block',
-      width: '100%',
-      padding: '8px 10px',
-      textAlign: 'left',
-      background: 'transparent',
-      border: 'none',
-      borderRadius: '6px',
-      cursor: 'pointer'
-    });
-    b.addEventListener('mouseenter', () => b.style.background = '#f3f4f6');
-    b.addEventListener('mouseleave', () => b.style.background = 'transparent');
-    b.addEventListener('click', async (ev) => {
-      const act = ev.currentTarget.dataset.action;
-      closeMenu();
-      if (act === 'new')  {
-        if (typeof opts.onNew === 'function') return opts.onNew();
-        if (typeof doNouveauContexte === 'function') doNouveauContexte();
-      }
-      if (act === 'open') {
-        if (typeof opts.onOpen === 'function') return opts.onOpen();
-        if (typeof doImportExcel === 'function') doImportExcel();
-      }
-      if (act === 'save') {
-        if (typeof opts.onSave === 'function') return opts.onSave();
-        if (typeof doExportExcel === 'function') doExportExcel();
-      }
-    });
+  // première mesure invisible → position → afficher
+  menu.getBoundingClientRect(); // force layout
+  positionMenuOverBtn(anchorBtn, menu, { gap: 10 });
+  // petite anim (via .show)
+  requestAnimationFrame(() => menu.classList.add('show'));
+
+  // actions
+  const close = () => { menu.classList.remove('show'); setTimeout(()=>menu.remove(), 120); };
+  menu.addEventListener('click', (e) => {
+    const btn = e.target.closest('.kebab-menu__item');
+    if (!btn) return;
+    const act = btn.dataset.action;
+    close();
+    if (act === 'new')  doNouveauContexte?.();
+    if (act === 'open') doImportExcel?.();
+    if (act === 'save') doExportExcel?.();
   });
 
-  // 2) positionner AU-DESSUS du bouton (ou en dessous si pas de place)
-  try {
-    positionMenuOverBtn(btn, menu);
-  } catch {
-    const r = btn.getBoundingClientRect();
-    Object.assign(menu.style, {
-      left: `${Math.round(r.left)}px`,
-      top: `${Math.round(r.top - 120)}px`,
-    });
+  // fermeture externe / ESC
+  const onDocClick = (e) => { if (!menu.contains(e.target) && e.target !== anchorBtn) { cleanup(); } };
+  const onKey = (e) => { if (e.key === 'Escape') cleanup(); };
+  function cleanup() {
+    document.removeEventListener('click', onDocClick, true);
+    document.removeEventListener('keydown', onKey, true);
+    close();
   }
-
-  // 3) montrer avec une petite anim
-  menu.style.visibility = 'visible';
-  menu.animate(
-    [
-      { opacity: 0, transform: 'translateY(6px)' },
-      { opacity: 1, transform: 'translateY(0)' }
-    ],
-    { duration: 140, easing: 'ease-out', fill: 'forwards' }
-  );
-
-  openMenu = menu;
-
-  // fermer si clic ailleurs (différé pour ne pas capter ce même clic)
-  setTimeout(() => {
-    const onDocClick = (ev) => {
-      if (menu.contains(ev.target)) return;
-      // ⇩ ferme aussi si on reclique sur le bouton ancre ⇩
-      if (ev.target === btn) { closeMenu(); return; }
-      document.removeEventListener('click', onDocClick);
-      closeMenu();
-    };
-    document.addEventListener('click', onDocClick);
+  setTimeout(() => { // évite de capter le même clic
+    document.addEventListener('click', onDocClick, true);
+    document.addEventListener('keydown', onKey, true);
   }, 0);
-
-  document.addEventListener('keydown', onKeyDown);
 }
 
 // File sheet appelée par le bouton "Fichier" sur mobile
@@ -2562,7 +2623,7 @@ function openFileSheet() {
     li.addEventListener('click', () => {
       const act = li.dataset.action;
       close();
-      if (act === 'new')  doNouveauContexte();
+      if (act === 'new')  doNouveauContexte?.();
       if (act === 'open') doImportExcel?.();
       if (act === 'save') doExportExcel?.();
     });
@@ -2974,6 +3035,785 @@ function initSafeAreaWatch(){
   window.addEventListener('pageshow', () => setTimeout(hardPinBottom, 200));
 }
 
+// ------- Menu kebab -------
+function positionMenuOverAnchor(anchor, menu) {
+  const r = anchor.getBoundingClientRect();
+  const vv = window.visualViewport || { width: window.innerWidth, height: window.innerHeight, offsetTop: 0, offsetLeft: 0 };
+  // Tentative : au-dessus du bouton
+  const menuRect = menu.getBoundingClientRect();
+  let left = r.right - menuRect.width;  // aligné à droite
+  let top  = r.top - 8 - menuRect.height;
+  // Fallback si pas de place au-dessus → dessous
+  if (top < (vv.offsetTop || 0) + 8) top = r.bottom + 8;
+
+  // garde dans l’écran
+  left = Math.max(8, Math.min(left, (vv.width + (vv.offsetLeft||0)) - menuRect.width - 8));
+
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.top  = `${Math.round(top)}px`;
+}
+
+function createKebabItem(label, key) {
+  const b = document.createElement('button');
+  b.className = 'kebab-menu__item';
+  b.type = 'button';
+  b.dataset.action = key;
+  b.textContent = label;
+  return b;
+}
+function createKebabSep() {
+  const d = document.createElement('div');
+  d.className = 'kebab-sep';
+  return d;
+}
+
+function openKebabMenu(anchorBtn, { items = [] } = {}) {
+  if (!anchorBtn) return;
+
+  // prevent double-open on the same button
+  if (anchorBtn.__menuOpen) {
+    try { anchorBtn.__menuOpen.remove(); } catch {}
+    anchorBtn.__menuOpen = null;
+  }
+
+  // 1) Build the menu (initially invisible so we can measure/position)
+  const menu = document.createElement('div');
+  menu.className = 'kebab-menu';
+
+  // Stop the click bubbling so outside-closer doesn’t fire
+  menu.addEventListener('click', (e)=> e.stopPropagation());
+
+  // Items
+  for (const it of items) {
+    // const sep = createKebabSep();
+    const btn = createKebabItem(it.label, it.id);
+    btn.addEventListener('mouseenter', ()=> btn.style.background = '#f3f4f6');
+    btn.addEventListener('mouseleave', ()=> btn.style.background = 'transparent');
+    btn.addEventListener('click', (e)=> {
+      e.stopPropagation();
+      try { it.onClick?.(); } finally { closeMenu(); }
+    });
+    // menu.append(sep, btn);
+    menu.appendChild(btn);
+  }
+
+  document.body.appendChild(menu);
+
+  // 2) Position it relative to the anchor (above if not enough space below)
+  const pos = () => {
+    const r = anchorBtn.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const m = menu.getBoundingClientRect();
+
+    // Prefer under the button, align right edge to button’s right
+    let top = r.bottom + 8;
+    let left = r.right - m.width;
+
+    // Keep within viewport
+    if (left < 8) left = 8;
+    if (left + m.width > vw - 8) left = vw - 8 - m.width;
+
+    // If not enough room below, open above
+    if (top + m.height > vh - 8) {
+      top = r.top - 8 - m.height;
+      if (top < 8) top = 8;
+    }
+
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top  = `${Math.round(top)}px`;
+    menu.style.visibility = 'visible';
+
+    // animate in
+    requestAnimationFrame(()=> {
+      menu.style.opacity = '1';
+      menu.style.transform = 'translateY(0)';
+    });
+  };
+
+  // 3) Close handlers (escape / outside click / resize)
+  const closeMenu = () => {
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('click', onDocClick, true);
+    window.removeEventListener('resize', onResize);
+    try {
+      menu.style.opacity = '0';
+      menu.style.transform = 'translateY(6px)';
+      setTimeout(()=> menu.remove(), 120);
+    } catch { menu.remove(); }
+    anchorBtn.__menuOpen = null;
+  };
+
+  const onKey = (e) => { if (e.key === 'Escape') closeMenu(); };
+  const onResize = () => { closeMenu(); };
+
+  // Important: defer outside-click to avoid closing immediately
+  const onDocClick = (e) => {
+    if (menu.contains(e.target) || e.target === anchorBtn) return;
+    closeMenu();
+  };
+
+  // Prevent the very click that opened the button from closing the menu
+  anchorBtn.addEventListener('click', (e)=> e.stopPropagation(), { once: true });
+
+  // Arm listeners
+  setTimeout(() => {
+    document.addEventListener('click', onDocClick, true);
+  }, 0);
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('resize', onResize);
+
+  // Position now (after in-DOM to get proper size)
+  pos();
+  anchorBtn.__menuOpen = menu;
+}
+
+function wireAppKebab() {
+  const btn = document.getElementById('btn-app-kebab');
+  if (!btn) return;
+
+  // Évite que le clic se propage à un parent cliquable
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openKebabMenu(btn, {
+      items: [
+        { id:'carnet', label:"Carnet d'adresses", onClick: ()=>openCarnet() },
+        { id:'periode', label:'Période de programmation', onClick: ()=>openPeriode() },
+        { id:'settings', label:'Paramètres',               onClick: ()=>openSettings() },
+        { id:'help',     label:'Aide',                     onClick: ()=>openHelp() },
+      ]
+    });
+  }, { passive: true });
+}
+
+// function openSheet({ title = '', maxHeight = '70vh', mount }) {
+//   // backdrop + panel
+//   const wrap = document.createElement('div');
+//   wrap.className = 'sheet-wrap';
+//   wrap.innerHTML = `
+//     <div class="sheet-backdrop"></div>
+//     <div class="sheet-panel" role="dialog" aria-modal="true" style="max-height:${maxHeight}">
+//       <header class="sheet-header">
+//         <div class="sheet-title">${title}</div>
+//         <button class="sheet-close" aria-label="Fermer">✕</button>
+//       </header>
+//       <div class="sheet-body"></div>
+//     </div>
+//   `;
+//   document.body.appendChild(wrap);
+
+//   const panel = wrap.querySelector('.sheet-panel');
+//   const body  = wrap.querySelector('.sheet-body');
+
+//   // monter le contenu (peut renvoyer un cleanup)
+//   let cleanup = null;
+//   if (typeof mount === 'function') cleanup = mount(body);
+
+//   // anim d’entrée
+//   requestAnimationFrame(() => wrap.classList.add('is-open'));
+
+//   const close = () => {
+//     wrap.classList.remove('is-open');
+//     setTimeout(() => {
+//       try { if (typeof cleanup === 'function') cleanup(); } catch {}
+//       wrap.remove();
+//     }, 180);
+//   };
+
+//   wrap.querySelector('.sheet-backdrop').addEventListener('click', close);
+//   wrap.querySelector('.sheet-close').addEventListener('click', close);
+//   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); }, { once: true });
+
+//   return { close };
+// }
+
+// openSheet({ title, mount, onClose, classes: 'file-skin' })
+
+//=============================
+// Version de base qui marche 
+//=============================
+// function openSheet({ title = '', mount, onClose, classes = '' } = {}) {
+//   // wrap
+//   const wrap = document.createElement('div');
+//   wrap.className = `sheet-wrap ${classes}`.trim();
+
+//   const backdrop = document.createElement('div');
+//   backdrop.className = 'sheet-backdrop';
+
+//   const panel = document.createElement('div');
+//   panel.className = 'sheet-panel';
+
+//   const header = document.createElement('div');
+//   header.className = 'sheet-header';
+
+//   const h = document.createElement('div');
+//   h.className = 'sheet-title';
+//   h.textContent = title;
+
+//   const close = document.createElement('button');
+//   close.className = 'sheet-close';
+//   close.innerHTML = '✕';
+//   close.addEventListener('click', () => destroy());
+
+//   header.append(h, close);
+
+//   const body = document.createElement('div');
+//   body.className = 'sheet-body';
+
+//   panel.append(header, body);
+//   wrap.append(backdrop, panel);
+//   document.body.appendChild(wrap);
+
+//   const destroy = () => {
+//     wrap.classList.remove('is-open');
+//     setTimeout(() => {
+//       wrap.remove();
+//       onClose?.();
+//     }, 180);
+//   };
+//   backdrop.addEventListener('click', destroy);
+
+//   // monter le contenu
+//   mount?.(body, { close: destroy });
+
+//   // animation d’entrée
+//   requestAnimationFrame(() => wrap.classList.add('is-open'));
+
+//   return { close: destroy, el: wrap, body, panel };
+// }
+
+// function openSheet({ title = '', mount, onClose, onOpen, classes = '', maxHeight } = {}) {
+//   // --- structure DOM identique à ta version ---
+//   const wrap = document.createElement('div');
+//   wrap.className = `sheet-wrap ${classes}`.trim();
+
+//   const backdrop = document.createElement('div');
+//   backdrop.className = 'sheet-backdrop';
+
+//   const panel = document.createElement('div');
+//   panel.className = 'sheet-panel';
+//   if (typeof maxHeight === 'number') {
+//     panel.style.maxHeight = `${maxHeight}px`;
+//   }
+
+//   const header = document.createElement('div');
+//   header.className = 'sheet-header';
+
+//   const h = document.createElement('div');
+//   h.className = 'sheet-title';
+//   h.textContent = title;
+
+//   const btnClose = document.createElement('button');
+//   btnClose.className = 'sheet-close';
+//   btnClose.innerHTML = '✕';
+//   btnClose.addEventListener('click', () => destroy());
+
+//   header.append(h, btnClose);
+
+//   const body = document.createElement('div');
+//   body.className = 'sheet-body';
+
+//   panel.append(header, body);
+//   wrap.append(backdrop, panel);
+//   document.body.appendChild(wrap);
+
+//   // --- verrouille le scroll de la page pendant la sheet ---
+//   const html = document.documentElement;
+//   const prevOverflow = html.style.overflow;
+//   const prevPaddingR = html.style.paddingRight;
+//   const scrollbarW = window.innerWidth - html.clientWidth;
+//   html.style.overflow = 'hidden';
+//   if (scrollbarW > 0) html.style.paddingRight = `${scrollbarW}px`;
+
+//   // --- safe area iOS (padding bas) sans changer ta CSS ---
+//   try {
+//     const cs = getComputedStyle(document.documentElement);
+//     const inset = parseFloat((cs.getPropertyValue('env(safe-area-inset-bottom)') || '0').replace('px','')) || 0;
+//     if (inset > 0) {
+//       panel.style.paddingBottom = `calc(${getComputedStyle(panel).paddingBottom} + env(safe-area-inset-bottom))`;
+//     }
+//   } catch {}
+
+//   // --- fermeture (anim identique à ta CSS) ---
+//   let closed = false;
+//   function destroy() {
+//     if (closed) return;
+//     closed = true;
+//     wrap.classList.remove('is-open');
+//     // durée alignée à .22s (CSS transform) / .18s (backdrop)
+//     setTimeout(() => {
+//       wrap.remove();
+//       // restore scroll
+//       html.style.overflow = prevOverflow;
+//       html.style.paddingRight = prevPaddingR;
+//       onClose?.();
+//       document.removeEventListener('keydown', onKey, true);
+//       window.removeEventListener('mousemove', onMove, { passive: false });
+//       window.removeEventListener('mouseup', onEnd, { passive: true });
+//     }, 220);
+//   }
+
+//   backdrop.addEventListener('click', destroy);
+
+//   // --- contenu (support async) ---
+//   (async () => {
+//     const ret = mount?.(body, { close: destroy, panel, wrap }) ?? null;
+//     if (ret && typeof ret.then === 'function') {
+//       await ret; // si mount est async
+//     }
+//     onOpen?.({ body, panel, wrap });
+//   })().catch(console.error);
+
+//   // --- ouverture (anime via .is-open comme ta version) ---
+//   requestAnimationFrame(() => wrap.classList.add('is-open'));
+
+//   // --- Esc pour fermer ---
+//   const onKey = (e) => { if (e.key === 'Escape') destroy(); };
+//   document.addEventListener('keydown', onKey, true);
+
+//   // --- drag-to-close : on glisse le HEADER vers le bas ---
+//   let dragging = false, startY = 0, curY = 0;
+//   const startTransform = () => {
+//     panel.style.transition = 'none'; // pas de snap pendant drag
+//   };
+//   const endTransform = () => {
+//     panel.style.transition = ''; // rétablit la transition CSS
+//   };
+//   const onStart = (ev) => {
+//     const t = ev.touches ? ev.touches[0] : ev;
+//     dragging = true;
+//     startY = t.clientY;
+//     curY = startY;
+//     startTransform();
+//     ev.preventDefault?.();
+//   };
+//   const onMove = (ev) => {
+//     if (!dragging) return;
+//     const t = ev.touches ? ev.touches[0] : ev;
+//     curY = t.clientY;
+//     const dy = Math.max(0, curY - startY);
+//     panel.style.transform = `translateY(${dy}px)`;
+//     ev.preventDefault?.();
+//   };
+//   const onEnd = () => {
+//     if (!dragging) return;
+//     dragging = false;
+//     const dy = Math.max(0, curY - startY);
+//     const threshold = Math.min(200, panel.clientHeight * 0.28);
+//     endTransform();
+//     if (dy > threshold) destroy();
+//     else panel.style.transform = ''; // revient à la position initiale (CSS)
+//   };
+
+//   // pointer + touch
+//   header.addEventListener('touchstart', onStart, { passive: false });
+//   header.addEventListener('touchmove', onMove, { passive: false });
+//   header.addEventListener('touchend', onEnd, { passive: true });
+//   header.addEventListener('mousedown', onStart, { passive: false });
+//   window.addEventListener('mousemove', onMove, { passive: false });
+//   window.addEventListener('mouseup', onEnd, { passive: true });
+
+//   return { close: destroy, el: wrap, body, panel };
+// }
+
+function openSheet({ title = '', mount, onClose, classes = '', panelMaxHeight = '60vh', panelHeight = null, replaceExisting = false } = {}) {
+  // 0) empêcher l’empilement
+  const existing = document.querySelector('.sheet-wrap.is-open');
+  if (existing && !replaceExisting) {
+    // petit bounce visuel pour indiquer "déjà ouvert"
+    const panel = existing.querySelector('.sheet-panel');
+    if (panel) {
+      panel.animate(
+        [{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }],
+        { duration: 180, easing: 'ease-out' }
+      );
+    }
+    return { close: () => existing.remove(), el: existing, body: existing.querySelector('.sheet-body'), panel };
+  }
+  // si on veut vraiment remplacer : on supprime l’ancienne
+  if (existing && replaceExisting) existing.remove();
+
+  // 1) structure
+  const wrap = document.createElement('div');
+  wrap.className = `sheet-wrap ${classes}`.trim();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'sheet-backdrop';
+
+  const panel = document.createElement('div');
+  panel.className = 'sheet-panel';
+  // ← pilotage de la hauteur en inline
+  if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
+  if (panelHeight)    panel.style.height    = panelHeight;
+
+
+  // poignée + header + body
+  const handle = document.createElement('span');
+  handle.className = 'sheet-handle';
+  panel.prepend(handle);
+
+  const header = document.createElement('div');
+  header.className = 'sheet-header';
+
+  const h = document.createElement('div');
+  h.className = 'sheet-title';
+  h.textContent = title;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'sheet-close';
+  closeBtn.innerHTML = '✕';
+
+  header.append(h, closeBtn);
+
+  const body = document.createElement('div');
+  body.className = 'sheet-body';
+
+  panel.append(handle, header, body);
+  wrap.append(backdrop, panel);
+  document.body.appendChild(wrap);
+
+  // 2) fermeture
+  const destroy = () => {
+    wrap.classList.remove('is-open');
+    setTimeout(() => {
+      wrap.remove();
+      onClose?.();
+    }, 220);
+  };
+  backdrop.addEventListener('click', destroy);
+  closeBtn.addEventListener('click', destroy);
+
+  // -- Swipe-to-close (drag vers le bas) --
+  (function attachSwipeToClose(wrap, panel, backdrop, onClose){
+    let startY = 0, curY = 0, dragging = false;
+
+    const onPointerDown = (e) => {
+      // Ne déclenche que si on part du haut du panel (poignée, header),
+      // ça évite de gêner le scroll du contenu.
+      const y = (e.touches ? e.touches[0] : e).clientY;
+      const target = e.target;
+      const isHandleOrHeader =
+        target.closest('.sheet-handle') || target.closest('.sheet-header');
+      if (!isHandleOrHeader) return;
+
+      dragging = true;
+      startY = y;
+      curY = y;
+      wrap.classList.add('dragging');
+    };
+
+    const onPointerMove = (e) => {
+      if (!dragging) return;
+      const y = (e.touches ? e.touches[0] : e).clientY;
+      curY = y;
+      const dy = Math.max(0, curY - startY); // seulement vers le bas
+      panel.style.transform = `translateY(${dy}px)`;
+      // atténue le backdrop proportionnellement
+      const k = Math.max(0, Math.min(1, dy / 180));
+      backdrop.style.opacity = String(1 - 0.7 * k);
+
+      // évite le scroll de page pendant le drag
+      e.preventDefault?.();
+    };
+
+    const onPointerUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      wrap.classList.remove('dragging');
+
+      const dy = Math.max(0, curY - startY);
+      const THRESH = 120; // seuil de fermeture
+      if (dy > THRESH) {
+        // ferme pour de bon
+        onClose();
+      } else {
+        // revient gentiment en place
+        panel.style.transition = 'transform .22s ease';
+        backdrop.style.transition = 'opacity .18s ease';
+        panel.style.transform = 'translateY(0)';
+        backdrop.style.opacity = '';
+        setTimeout(() => {
+          panel.style.transition = '';
+          backdrop.style.transition = '';
+        }, 220);
+      }
+    };
+
+    // Écouteurs (pointer OU touch + mouse fallback)
+    if (window.PointerEvent) {
+      panel.addEventListener('pointerdown', onPointerDown, { passive: true });
+      window.addEventListener('pointermove', onPointerMove, { passive: false });
+      window.addEventListener('pointerup',   onPointerUp,   { passive: true });
+      window.addEventListener('pointercancel', onPointerUp, { passive: true });
+    } else {
+      panel.addEventListener('touchstart', onPointerDown, { passive: true });
+      window.addEventListener('touchmove',  onPointerMove, { passive: false });
+      window.addEventListener('touchend',   onPointerUp,   { passive: true });
+      panel.addEventListener('mousedown',   onPointerDown, true);
+      window.addEventListener('mousemove',  onPointerMove, true);
+      window.addEventListener('mouseup',    onPointerUp,   true);
+    }
+  })(wrap, panel, backdrop, destroy);
+
+  // 3) contenu
+  mount?.(body, { close: destroy });
+
+  // 4) open anim
+  requestAnimationFrame(() => wrap.classList.add('is-open'));
+
+  return { close: destroy, el: wrap, body, panel };
+}
+
+
+// function openCarnet(){
+//   openSheet({
+//     title: 'Carnet d’adresses',
+//     classes: '',          
+//     maxHeight: '40vh', 
+//     mount: async (body) => {
+//       // Ici on injecte la grille :
+//       const host = document.createElement('div');
+//       host.style.height = '56vh'; // ex: h fixe interne pour scroller dans la sheet
+//       host.className = 'ag-theme-quartz compact';
+//       body.appendChild(host);
+
+//       // colonnes Carnet
+//       const columnDefs = buildColumnsCarnet();
+
+//       // données
+//       const rowData = (window.ctx?.carnet ?? []).slice();
+
+//       // options grille (adapte si tu as un factory makeGridOptions)
+//       const gridOptions = {
+//         columnDefs,
+//         rowData,
+//         getRowId: p => p.data?.__uuid,
+//         defaultColDef: { resizable: true, sortable: true, filter: true, editable: true },
+//         suppressRowClickSelection: false,
+//         rowSelection: 'single',
+//       };
+
+//       const api = window.agGrid.createGrid(host, gridOptions);
+
+//       // sizing initial
+//       setTimeout(() => api.onGridSizeChanged?.(), 0);
+
+//       // cleanup renvoyé au sheet manager
+//       return () => api.destroy?.();
+//     }
+//   });
+// }
+
+// function openCarnet() {
+//   openSheet({
+//     title: 'Carnet d’adresses',
+//     classes: '',          
+//     maxHeight: '40vh', 
+//     mount: (body /* HTMLElement */, api) => {
+//       // 1) conteneur de la grille
+//       const host = document.createElement('div');
+//       host.className = 'sheet-grid-host';
+
+//       const gridDiv = document.createElement('div');
+//       gridDiv.id = 'grid-carnet-sheet';                  // id local pour cette sheet
+//       gridDiv.className = 'ag-theme-quartz compact';     // ton thème
+//       host.appendChild(gridDiv);
+
+//       // 2) footer d’actions
+//       const actions = document.createElement('div');
+//       actions.className = 'sheet-actions';
+//       actions.innerHTML = `
+//         <button class="btn btn-primary" id="btn-carnet-add">Ajouter</button>
+//         <button class="btn btn-danger"  id="btn-carnet-del">Supprimer</button>
+//       `;
+
+//       // 3) on injecte dans le body de la sheet
+//       body.append(host, actions);
+
+//       // 4) créer/brancher la grille (réutilise ton createGridController si possible)
+//       //    Exemple minimal (adapte à ta factory et tes colonnes réelles) :
+//       const columns = [
+//         { field:'Nom', headerName:'Nom', editable:true },
+//         { field:'Adresse', headerName:'Adresse', editable:true, flex:1 },
+//         { field:'Tel', headerName:'Téléphone', editable:true, width:120 },
+//         { field:'Web', headerName:'Web', editable:true, flex:1 },
+//       ];
+//       const gridOptions = {
+//         columnDefs: columns,
+//         rowData: (window.ctx?.carnet || []),  // données actuelles
+//         getRowId: p => p.data?.__uuid,
+//         defaultColDef: { resizable:true, sortable:true, filter:true },
+//         rowSelection: 'single',
+//         // important pour style mobile
+//         suppressDragLeaveHidesColumns: true,
+//         suppressColumnMoveAnimation: true,
+//       };
+
+//       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
+
+//       // 5) câbler les boutons
+//       const btnAdd = actions.querySelector('#btn-carnet-add');
+//       const btnDel = actions.querySelector('#btn-carnet-del');
+
+//       btnAdd.addEventListener('click', () => {
+//         const row = {
+//           __uuid: crypto.randomUUID(),
+//           Nom: 'Nouveau lieu',
+//           Adresse: '',
+//           Tel: '',
+//           Web: ''
+//         };
+//         window.ctx?.mutateCarnet?.(rows => [...(rows||[]), row]);
+
+//         // recharge visuel rapide (si pas d’écouteur ctx → grille locale) :
+//         apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
+//         // sélectionner la ligne ajoutée
+//         setTimeout(() => {
+//           let node = null;
+//           apiGrid.forEachNode?.(n => { if (!node && n.data?.__uuid === row.__uuid) node = n; });
+//           node?.setSelected?.(true, true);
+//           apiGrid.ensureIndexVisible?.(node?.rowIndex ?? 0, 'middle');
+//         }, 0);
+//       });
+
+//       btnDel.addEventListener('click', () => {
+//         const sel = apiGrid.getSelectedRows?.()?.[0];
+//         if (!sel) return;
+//         window.ctx?.mutateCarnet?.(rows => (rows||[]).filter(r => r.__uuid !== sel.__uuid));
+//         apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
+//       });
+
+//       // 6) Pour écouter les changements ctx → rafraîchir la grille:
+//       const off = window.ctx?.on?.('carnet:changed', () => {
+//         apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
+//       });
+
+//       // 7) démonter proprement si la sheet se ferme
+//       api?.close && (api.onClose = () => { off?.(); /* + cleanup si besoin */ });
+//     }
+//   });
+// }
+
+function openCarnet() {
+  openSheet({
+    title: 'Carnet d’adresses',
+    panelMaxHeight: '60vh',
+    panelHeight: '40vh',
+    mount: (body) => {
+      // host grille
+      const host = document.createElement('div');
+      host.className = 'sheet-grid-host';
+
+      const gridDiv = document.createElement('div');
+      gridDiv.id = 'grid-carnet-sheet';
+      gridDiv.className = 'ag-theme-quartz compact';
+      host.appendChild(gridDiv);
+
+      // footer actions (icônes + labels)
+      const actions = document.createElement('div');
+      actions.className = 'sheet-actions';
+      actions.innerHTML = `
+        <button class="icon-btn" id="btn-carnet-add" title="Ajouter">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span class="label">Ajouter</span>
+        </button>
+        <button class="icon-btn" id="btn-carnet-del" title="Supprimer">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+              stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <!-- couvercle -->
+            <path d="M3 6h18" />
+            <path d="M8 6l1-2h6l1 2" />
+            <!-- corps -->
+            <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
+            <!-- poignées intérieures -->
+            <line x1="10" y1="10" x2="10" y2="17" />
+            <line x1="14" y1="10" x2="14" y2="17" />
+          </svg>
+          <span class="label">Supprimer</span>
+        </button>
+        <!-- Bouton Défaire -->
+        <button class="icon-btn" id="btn-carnet-undo">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 7v6h6M3 13a9 9 0 1 0 9-9"/>
+          </svg>
+          <span class="bb-label">Défaire</span>
+        </button>
+
+        <!-- Bouton Refaire -->
+        <button class="icon-btn" id="btn-carnet-redo">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 7v6h-6M21 13a9 9 0 1 1-9-9"/>
+          </svg>
+          <span class="bb-label">Refaire</span>
+        </button>
+      `;
+
+      // injecte dans la sheet
+      body.append(host, actions);
+
+      // grille (adapte à tes colonnes réelles)
+      const columns = [
+        { field:'Nom', headerName:'Nom', editable:true },
+        { field:'Adresse', headerName:'Adresse', editable:true, flex:1 },
+        { field:'Tel', headerName:'Téléphone', editable:true, width:120 },
+        { field:'Web', headerName:'Web', editable:true, flex:1 },
+      ];
+      const gridOptions = {
+        columnDefs: columns,
+        rowData: (window.ctx?.carnet || []),
+        getRowId: p => p.data?.__uuid,
+        defaultColDef: { resizable:true, sortable:true, filter:true },
+        rowSelection: 'single',
+      };
+      const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
+
+      // actions
+      const btnAdd = actions.querySelector('#btn-carnet-add');
+      const btnDel = actions.querySelector('#btn-carnet-del');
+      const btnUndo = actions.querySelector('#btn-carnet-undo');
+      const btnRedo = actions.querySelector('#btn-carnet-redo');
+
+      btnAdd.addEventListener('click', () => {
+        const row = { __uuid: crypto.randomUUID(), Nom:'Nouveau lieu', Adresse:'', Tel:'', Web:'' };
+        window.ctx?.mutateCarnet?.(rows => [...(rows||[]), row]);
+        apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
+        // select + scroll
+        setTimeout(() => {
+          let node = null;
+          apiGrid.forEachNode?.(n => { if (!node && n.data?.__uuid === row.__uuid) node = n; });
+          node?.setSelected?.(true, true);
+          apiGrid.ensureIndexVisible?.(node?.rowIndex ?? 0, 'middle');
+        }, 0);
+      });
+
+      btnDel.addEventListener('click', () => {
+        const sel = apiGrid.getSelectedRows?.()?.[0];
+        if (!sel) return;
+        window.ctx?.mutateCarnet?.(rows => (rows||[]).filter(r => r.__uuid !== sel.__uuid));
+        apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
+      });
+
+      btnUndo.addEventListener('click', () => { doUndo() });
+      btnRedo.addEventListener('click', () => { doRedo() });
+
+      // sync si le carnet change ailleurs
+      const off = window.ctx?.on?.('carnet:changed', () => {
+        apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
+      });
+
+      // clean si besoin : off() sera appelé par toi si tu stockes onClose
+    }
+  });
+}
+
+
+function openPeriode(){}
+function openSettings(){}
+function openHelp(){}
+
+// ------- Boot -------
 function wireContext() {
   ctx.on('df:changed',        () => refreshActivitesGrids()); // scheduleGlobalRefresh());
   ctx.on('carnet:changed',    () => refreshCarnetGrid()); // scheduleGlobalRefresh());
@@ -2988,7 +3828,6 @@ function wireContext() {
   document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
 }
 
-// ------- Boot -------
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('⏳ DOM prêt, initialisation du contexte...');
 
@@ -3005,6 +3844,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireExpanders();
   wireExpanderSplitters();
   addDynamicButtons();
+  wireAppKebab();
 
   // 3️⃣ Premier rendu
   await refreshAllGrids();
