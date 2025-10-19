@@ -1250,7 +1250,7 @@ main, .page-wrap {
 
 
 /* marge de sécurité iPhone en bas */
-.sheet-panel { padding-bottom: env(safe-area-inset-bottom, 0); }
+/* .sheet-panel { padding-bottom: env(safe-area-inset-bottom, 0); } */
 
 /* si tu as un footer/boutons séparé */
 /* .sheet-footer,
@@ -1259,16 +1259,16 @@ main, .page-wrap {
 } */
 
 /* zone scrollable */
-.sheet-body{
-  max-height: 66vh;               /* ajuste à ton goût */
+/* .sheet-body{
+  max-height: 66vh;                à ajuster 
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-}
+} */
 
 /* poignée visuelle */
-.sheet-handle{
+/* .sheet-handle{
   width: 44px; height: 4px; border-radius: 999px;
   background: rgba(0,0,0,.18);
   margin: 6px auto 10px;
-}
+} */
