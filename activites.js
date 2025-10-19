@@ -319,12 +319,20 @@ export function creerActivitesAPI(ctx) {
      * @returns nouvelleActivite
      */
     async creerActiviteAvecCollage(df) {
-      const raw = await _getClipBoardText();
+      let raw = null;
+      try {
+        raw = await _getClipBoardText();
+      } catch {
+        // console.error('fetch failed', err);
+        // alert(`${err}`);
+        // return;
+      }
 
       let parsed = null;
       if (_looksLikeUrl(raw)) { 
         try {
           const html = await _fetchViaAllOrigins(raw);
+          alert(`${html.slice(0,500)}`);
           parsed = _parseHTMLAvignonOff(html);
         } catch (err) {
           console.error('fetch failed', err);
@@ -334,7 +342,7 @@ export function creerActivitesAPI(ctx) {
       } else {
         parsed = _parseTextAvignonOff(raw);
       }
-
+      
       const nouveauNom = _getNomNouvelleActivite(df, parsed.Activite);
       const nouvelleActivite =     {
           __uuid: crypto.randomUUID?.() || String(Date.now()),
@@ -1078,8 +1086,9 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
  * @param {*} df 
  * @returns 
  */
-function _getNomNouvelleActivite(df, prefix="Activité") {
+function _getNomNouvelleActivite(df, prefix='Activité') {
   if (!Array.isArray(df)) return prefix;
+  if (!prefix) prefix = 'Activité';
 
   // 🔹 Extraire les noms existants
   const nomsExistants = df
