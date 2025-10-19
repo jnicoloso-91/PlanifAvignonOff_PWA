@@ -4314,14 +4314,12 @@ function openCarnet() {
         defaultColDef: { editable:true, resizable:true, sortable:true, filter:true },
 
         onGridReady: (params) => {
-          const root =
-            params.api?.getGui?.()                              // si dispo
-            || params.eGridDiv                                  // standard, toujours là
-            || params.api?.getGridBodyElement?.()               // autre API selon version
-            || document.querySelector('#grid-carnet-sheet .ag-root'); // dernier recours si tu connais l’id
-          // enableTouchEdit(params.api, root, { debug:false });
-          enableTouchEdit(params.api, root, { debug: true }); // mets true 1 minute pour voir les logs
-          root.style.touchAction = 'manipulation'; // iOS: aide les gestes
+          // const root =
+          //   params.api?.getGui?.()                              // si dispo
+          //   || params.eGridDiv                                  // standard, toujours là
+          //   || params.api?.getGridBodyElement?.()               // autre API selon version
+          //   || document.querySelector('#grid-carnet-sheet .ag-root'); // dernier recours si tu connais l’id
+          // root.style.touchAction = 'manipulation'; // iOS: aide les gestes
         },
         rowSelection: 'single',
         onCellValueChanged: (p) => {
@@ -4349,6 +4347,9 @@ function openCarnet() {
       };
 
       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
+      
+      const root = gridDiv.querySelector('.ag-root') || gridDiv;
+      enableTouchEdit(apiGrid, root, { debug: true }); // true 1 minute pour voir les logs
 
       const testRoot = gridDiv.querySelector('.ag-root') || gridDiv;
       ['pointerdown','pointerup','click','dblclick','touchstart','touchend'].forEach(ev=>{
