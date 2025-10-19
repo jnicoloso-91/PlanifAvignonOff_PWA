@@ -2322,19 +2322,19 @@ function wireBottomBar() {
     doRedo();
   });
 
-  // --- Ajouter ---
-  $('btn-add')?.addEventListener('click', (e) => {
-    pulse(e.currentTarget);
-    doAjoutActivite();
-  });
-
   // --- Ajouter avec collage ---
   $('btn-paste')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
     doAjoutActiviteAvecCollage();
   });
 
-  // Drag-to-scroll with mouse (desktop)
+    // --- Ajouter ---
+  $('btn-add')?.addEventListener('click', (e) => {
+    pulse(e.currentTarget);
+    doAjoutActivite();
+  });
+
+// Drag-to-scroll with mouse (desktop)
   let isDown = false, startX = 0, startScroll = 0;
   scroller.addEventListener('mousedown', (e) => {
     isDown = true;

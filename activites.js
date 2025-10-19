@@ -327,6 +327,7 @@ export function creerActivitesAPI(ctx) {
         try {
           const html = await _fetchViaAllOrigins(raw);
           parsed = _parseHTMLAvignonOff(html);
+          parsed.Hyperlien = raw;
         } catch (err) {
           console.error('fetch failed', err);
           alert("⚠️ Le collage depuis Partager/Copier a échoué, essayer en copiant le texte de la page.");
