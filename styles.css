@@ -1250,7 +1250,7 @@ main, .page-wrap {
 
 
 /* marge de sécurité iPhone en bas */
-.sheet-panel { padding-bottom: env(safe-area-inset-bottom, 0); }
+/* .sheet-panel { padding-bottom: env(safe-area-inset-bottom, 0); } */
 
 /* si tu as un footer/boutons séparé */
 .sheet-footer,
