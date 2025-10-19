@@ -3585,6 +3585,227 @@ function unlockScroll() {
   window.scrollTo(0, y);
 }
 
+// function openSheet({
+//   title = '',
+//   mount,
+//   onClose,
+//   classes = '',
+//   panelMaxHeight = '60vh',
+//   panelHeight = null,
+//   replaceExisting = false
+// } = {}) {
+
+//   // 0) empêcher l’empilement
+//   const existing = document.querySelector('.sheet-wrap.is-open');
+//   if (existing && !replaceExisting) {
+//     const existingPanel = existing.querySelector('.sheet-panel');
+//     if (existingPanel) {
+//       existingPanel.animate(
+//         [{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }],
+//         { duration: 180, easing: 'ease-out' }
+//       );
+//     }
+//     return {
+//       close: () => existing.remove(),
+//       el: existing,
+//       body: existing.querySelector('.sheet-body'),
+//       panel: existingPanel
+//     };
+//   }
+//   if (existing && replaceExisting) existing.remove();
+
+//   // 1) structure
+//   const wrap = document.createElement('div');
+//   wrap.className = `sheet-wrap ${classes}`.trim();
+
+//   const backdrop = document.createElement('div');
+//   backdrop.className = 'sheet-backdrop';
+
+//   const panel = document.createElement('div');
+//   panel.className = 'sheet-panel';
+//   if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
+//   if (panelHeight)    panel.style.height    = panelHeight;
+
+//   // poignée + header + body
+//   const handle = document.createElement('span');
+//   handle.className = 'sheet-handle';
+
+//   const header = document.createElement('div');
+//   header.className = 'sheet-header';
+
+//   const h = document.createElement('div');
+//   h.className = 'sheet-title';
+//   h.textContent = title || '';
+
+//   const closeBtn = document.createElement('button');
+//   closeBtn.className = 'sheet-close';
+//   closeBtn.innerHTML = '✕';
+
+//   header.append(h, closeBtn);
+
+//   const body = document.createElement('div');
+//   body.className = 'sheet-body';
+
+//   panel.append(handle, header, body);
+//   wrap.append(backdrop, panel);
+//   document.body.appendChild(wrap);
+
+//   // 2) fermeture
+//   const destroy = () => {
+//     wrap.classList.remove('is-open');
+//     // petite anim de sortie assurée par le CSS (transform)
+//     setTimeout(() => {
+//       wrap.remove();
+//       unlockScroll();          // ✅ rétablit le scroll page
+//       onClose?.();
+//     }, 220);
+//   };
+//   // ✅ ici, on attache le swipe avant de monter le contenu
+//   attachSwipeToClose(handle, header, backdrop, destroy);
+
+//   backdrop.addEventListener('click', destroy);
+//   closeBtn.addEventListener('click', destroy);
+
+//   // -- Swipe-to-close (drag vers le bas) -- (capte bien sur iOS)
+//   // (function attachSwipeToClose(panel, backdrop, onClose){
+//   //   let startY = 0, curY = 0, dragging = false;
+
+//   //   const onStart = (e) => {
+//   //     // déclenche UNIQUEMENT depuis la poignée ou le header
+//   //     const t = e.touches ? e.touches[0] : e;
+//   //     const target = e.target;
+//   //     if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
+
+//   //     dragging = true;
+//   //     startY = t.clientY;
+//   //     curY = startY;
+//   //     wrap.classList.add('dragging');
+//   //     panel.style.transition = 'none';
+//   //     backdrop.style.transition = 'none';
+//   //   };
+
+//   //   const onMove = (e) => {
+//   //     if (!dragging) return;
+//   //     const t = e.touches ? e.touches[0] : e;
+//   //     curY = t.clientY;
+//   //     const dy = Math.max(0, curY - startY); // seulement vers le bas
+//   //     // empêche le scroll de la page pendant le drag (iOS)
+//   //     e.preventDefault?.();
+
+//   //     panel.style.transform = `translateY(${dy}px)`;
+//   //     const k = Math.max(0, Math.min(1, dy / 180));
+//   //     backdrop.style.opacity = String(1 - 0.7 * k);
+//   //   };
+
+//   //   const onEnd = () => {
+//   //     if (!dragging) return;
+//   //     dragging = false;
+//   //     wrap.classList.remove('dragging');
+
+//   //     const dy = Math.max(0, curY - startY);
+//   //     const THRESH = 120;
+//   //     panel.style.transition = '';
+//   //     backdrop.style.transition = '';
+
+//   //     if (dy > THRESH) {
+//   //       onClose();
+//   //     } else {
+//   //       panel.style.transform = 'translateY(0)';
+//   //       backdrop.style.opacity = '';
+//   //     }
+//   //   };
+
+//   //   // Écouteurs (Pointer Events si dispo, sinon touch+mouse)
+//   //   if (window.PointerEvent) {
+//   //     // On écoute sur le PANEL, mais on ne démarre que si la cible est poignée/header
+//   //     panel.addEventListener('pointerdown', onStart, { passive: true });
+//   //     window.addEventListener('pointermove', onMove, { passive: false });
+//   //     window.addEventListener('pointerup',   onEnd,  { passive: true });
+//   //     window.addEventListener('pointercancel', onEnd, { passive: true });
+//   //   } else {
+//   //     panel.addEventListener('touchstart', onStart, { passive: true });
+//   //     window.addEventListener('touchmove',  onMove, { passive: false });
+//   //     window.addEventListener('touchend',   onEnd,  { passive: true });
+//   //     panel.addEventListener('mousedown',   onStart, true);
+//   //     window.addEventListener('mousemove',  onMove,  true);
+//   //     window.addEventListener('mouseup',    onEnd,   true);
+//   //   }
+//   // })(panel, backdrop, destroy);
+//   // -- Swipe-to-close (drag vers le bas) --
+//   function attachSwipeToClose(handleEl, headerEl, backdrop, onClose){
+//     let startY = 0, curY = 0, dragging = false;
+//     // the panel we need to move:
+//     const panel = backdrop.parentElement.querySelector('.sheet-panel');
+
+//     const onStart = (e) => {
+//       const t = e.touches ? e.touches[0] : e;
+//       dragging = true;
+//       startY = curY = t.clientY;
+//       document.querySelector('.sheet-wrap')?.classList.add('dragging');
+//       panel.style.transition = 'none';
+//       backdrop.style.transition = 'none';
+//     };
+
+//     const onMove = (e) => {
+//       if (!dragging) return;
+//       const t = e.touches ? e.touches[0] : e;
+//       curY = t.clientY;
+//       const dy = Math.max(0, curY - startY);
+//       // block page scroll only during drag
+//       e.preventDefault?.();
+//       panel.style.transform = `translateY(${dy}px)`;
+//       const k = Math.max(0, Math.min(1, dy / 180));
+//       backdrop.style.opacity = String(1 - 0.7 * k);
+//     };
+
+//     const onEnd = () => {
+//       if (!dragging) return;
+//       dragging = false;
+//       document.querySelector('.sheet-wrap')?.classList.remove('dragging');
+//       panel.style.transition = '';
+//       backdrop.style.transition = '';
+
+//       const dy = Math.max(0, curY - startY);
+//       if (dy > 120) onClose();
+//       else {
+//         panel.style.transform = 'translateY(0)';
+//         backdrop.style.opacity = '';
+//       }
+//     };
+
+//     const addStart = (el) => {
+//       if (!el) return;
+//       if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
+//       else {
+//         el.addEventListener('touchstart', onStart, { passive: true });
+//         el.addEventListener('mousedown',  onStart, true);
+//       }
+//     };
+
+//     addStart(handleEl);
+//     addStart(headerEl);
+
+//     if (window.PointerEvent) {
+//       window.addEventListener('pointermove', onMove, { passive: false });
+//       window.addEventListener('pointerup',   onEnd,  { passive: true });
+//       window.addEventListener('pointercancel', onEnd, { passive: true });
+//     } else {
+//       window.addEventListener('touchmove', onMove, { passive: false });
+//       window.addEventListener('touchend',  onEnd,  { passive: true });
+//       window.addEventListener('mousemove', onMove, true);
+//       window.addEventListener('mouseup',   onEnd,  true);
+//     }
+//   }(handle, header, backdrop, destroy);
+
+//   // 3) contenu
+//   mount?.(body, { close: destroy });
+
+//   // 4) ouverture (anim) + lock scroll
+//   lockScroll();                        // ✅ gèle la page en arrière-plan
+//   requestAnimationFrame(() => wrap.classList.add('is-open'));
+
+//   return { close: destroy, el: wrap, body, panel };
+// }
 function openSheet({
   title = '',
   mount,
@@ -3595,7 +3816,6 @@ function openSheet({
   replaceExisting = false
 } = {}) {
 
-  // 0) empêcher l’empilement
   const existing = document.querySelector('.sheet-wrap.is-open');
   if (existing && !replaceExisting) {
     const existingPanel = existing.querySelector('.sheet-panel');
@@ -3614,7 +3834,7 @@ function openSheet({
   }
   if (existing && replaceExisting) existing.remove();
 
-  // 1) structure
+  // DOM
   const wrap = document.createElement('div');
   wrap.className = `sheet-wrap ${classes}`.trim();
 
@@ -3626,7 +3846,6 @@ function openSheet({
   if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
   if (panelHeight)    panel.style.height    = panelHeight;
 
-  // poignée + header + body
   const handle = document.createElement('span');
   handle.className = 'sheet-handle';
 
@@ -3641,171 +3860,118 @@ function openSheet({
   closeBtn.className = 'sheet-close';
   closeBtn.innerHTML = '✕';
 
-  header.append(h, closeBtn);
-
   const body = document.createElement('div');
   body.className = 'sheet-body';
 
+  header.append(h, closeBtn);
   panel.append(handle, header, body);
   wrap.append(backdrop, panel);
   document.body.appendChild(wrap);
 
-  // ✅ ici, on attache le swipe avant de monter le contenu
-  attachSwipeToClose(handle, header, backdrop, destroy);
-
-  // 2) fermeture
+  // --- fermeture (définie AVANT usage) ---
+  let detachSwipe = null;
   const destroy = () => {
+    // détacher swipe + listeners
+    try { detachSwipe?.(); } catch {}
+    backdrop.removeEventListener('click', destroy);
+    closeBtn.removeEventListener('click', destroy);
+
     wrap.classList.remove('is-open');
-    // petite anim de sortie assurée par le CSS (transform)
     setTimeout(() => {
       wrap.remove();
-      unlockScroll();          // ✅ rétablit le scroll page
+      unlockScroll();
       onClose?.();
     }, 220);
   };
+
   backdrop.addEventListener('click', destroy);
   closeBtn.addEventListener('click', destroy);
 
-  // -- Swipe-to-close (drag vers le bas) -- (capte bien sur iOS)
-  // (function attachSwipeToClose(panel, backdrop, onClose){
-  //   let startY = 0, curY = 0, dragging = false;
+  // --- swipe-to-close ---
+  detachSwipe = attachSwipeToClose(handle, header, panel, backdrop, destroy);
 
-  //   const onStart = (e) => {
-  //     // déclenche UNIQUEMENT depuis la poignée ou le header
-  //     const t = e.touches ? e.touches[0] : e;
-  //     const target = e.target;
-  //     if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
-
-  //     dragging = true;
-  //     startY = t.clientY;
-  //     curY = startY;
-  //     wrap.classList.add('dragging');
-  //     panel.style.transition = 'none';
-  //     backdrop.style.transition = 'none';
-  //   };
-
-  //   const onMove = (e) => {
-  //     if (!dragging) return;
-  //     const t = e.touches ? e.touches[0] : e;
-  //     curY = t.clientY;
-  //     const dy = Math.max(0, curY - startY); // seulement vers le bas
-  //     // empêche le scroll de la page pendant le drag (iOS)
-  //     e.preventDefault?.();
-
-  //     panel.style.transform = `translateY(${dy}px)`;
-  //     const k = Math.max(0, Math.min(1, dy / 180));
-  //     backdrop.style.opacity = String(1 - 0.7 * k);
-  //   };
-
-  //   const onEnd = () => {
-  //     if (!dragging) return;
-  //     dragging = false;
-  //     wrap.classList.remove('dragging');
-
-  //     const dy = Math.max(0, curY - startY);
-  //     const THRESH = 120;
-  //     panel.style.transition = '';
-  //     backdrop.style.transition = '';
-
-  //     if (dy > THRESH) {
-  //       onClose();
-  //     } else {
-  //       panel.style.transform = 'translateY(0)';
-  //       backdrop.style.opacity = '';
-  //     }
-  //   };
-
-  //   // Écouteurs (Pointer Events si dispo, sinon touch+mouse)
-  //   if (window.PointerEvent) {
-  //     // On écoute sur le PANEL, mais on ne démarre que si la cible est poignée/header
-  //     panel.addEventListener('pointerdown', onStart, { passive: true });
-  //     window.addEventListener('pointermove', onMove, { passive: false });
-  //     window.addEventListener('pointerup',   onEnd,  { passive: true });
-  //     window.addEventListener('pointercancel', onEnd, { passive: true });
-  //   } else {
-  //     panel.addEventListener('touchstart', onStart, { passive: true });
-  //     window.addEventListener('touchmove',  onMove, { passive: false });
-  //     window.addEventListener('touchend',   onEnd,  { passive: true });
-  //     panel.addEventListener('mousedown',   onStart, true);
-  //     window.addEventListener('mousemove',  onMove,  true);
-  //     window.addEventListener('mouseup',    onEnd,   true);
-  //   }
-  // })(panel, backdrop, destroy);
-  // -- Swipe-to-close (drag vers le bas) --
-  (function attachSwipeToClose(handleEl, headerEl, backdrop, onClose){
-    let startY = 0, curY = 0, dragging = false;
-    // the panel we need to move:
-    const panel = backdrop.parentElement.querySelector('.sheet-panel');
-
-    const onStart = (e) => {
-      const t = e.touches ? e.touches[0] : e;
-      dragging = true;
-      startY = curY = t.clientY;
-      document.querySelector('.sheet-wrap')?.classList.add('dragging');
-      panel.style.transition = 'none';
-      backdrop.style.transition = 'none';
-    };
-
-    const onMove = (e) => {
-      if (!dragging) return;
-      const t = e.touches ? e.touches[0] : e;
-      curY = t.clientY;
-      const dy = Math.max(0, curY - startY);
-      // block page scroll only during drag
-      e.preventDefault?.();
-      panel.style.transform = `translateY(${dy}px)`;
-      const k = Math.max(0, Math.min(1, dy / 180));
-      backdrop.style.opacity = String(1 - 0.7 * k);
-    };
-
-    const onEnd = () => {
-      if (!dragging) return;
-      dragging = false;
-      document.querySelector('.sheet-wrap')?.classList.remove('dragging');
-      panel.style.transition = '';
-      backdrop.style.transition = '';
-
-      const dy = Math.max(0, curY - startY);
-      if (dy > 120) onClose();
-      else {
-        panel.style.transform = 'translateY(0)';
-        backdrop.style.opacity = '';
-      }
-    };
-
-    const addStart = (el) => {
-      if (!el) return;
-      if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
-      else {
-        el.addEventListener('touchstart', onStart, { passive: true });
-        el.addEventListener('mousedown',  onStart, true);
-      }
-    };
-
-    addStart(handleEl);
-    addStart(headerEl);
-
-    if (window.PointerEvent) {
-      window.addEventListener('pointermove', onMove, { passive: false });
-      window.addEventListener('pointerup',   onEnd,  { passive: true });
-      window.addEventListener('pointercancel', onEnd, { passive: true });
-    } else {
-      window.addEventListener('touchmove', onMove, { passive: false });
-      window.addEventListener('touchend',  onEnd,  { passive: true });
-      window.addEventListener('mousemove', onMove, true);
-      window.addEventListener('mouseup',   onEnd,  true);
-    }
-  })(handle, header, backdrop, destroy);
-
-  // 3) contenu
+  // contenu
   mount?.(body, { close: destroy });
 
-  // 4) ouverture (anim) + lock scroll
-  lockScroll();                        // ✅ gèle la page en arrière-plan
+  // open + lock scroll
+  lockScroll();
   requestAnimationFrame(() => wrap.classList.add('is-open'));
 
   return { close: destroy, el: wrap, body, panel };
 }
+
+/** Attache le swipe; retourne une fonction de nettoyage. */
+function attachSwipeToClose(handleEl, headerEl, panel, backdrop, onClose){
+  let startY = 0, curY = 0, dragging = false;
+
+  const isStartZone = (tgt) =>
+    tgt.closest('.sheet-handle') || tgt.closest('.sheet-header');
+
+  const onStart = (e) => {
+    const t = e.touches ? e.touches[0] : e;
+    if (!isStartZone(e.target)) return;
+    dragging = true;
+    startY = curY = t.clientY;
+    document.querySelector('.sheet-wrap')?.classList.add('dragging');
+    panel.style.transition = 'none';
+    backdrop.style.transition = 'none';
+  };
+
+  const onMove = (e) => {
+    if (!dragging) return;
+    const t = e.touches ? e.touches[0] : e;
+    curY = t.clientY;
+    const dy = Math.max(0, curY - startY);
+    e.preventDefault?.(); // bloque le scroll page pendant le drag
+    panel.style.transform = `translateY(${dy}px)`;
+    backdrop.style.opacity = String(1 - 0.7 * Math.min(1, dy/180));
+  };
+
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    document.querySelector('.sheet-wrap')?.classList.remove('dragging');
+    panel.style.transition = '';
+    backdrop.style.transition = '';
+
+    const dy = Math.max(0, curY - startY);
+    if (dy > 120) onClose();
+    else {
+      panel.style.transform = 'translateY(0)';
+      backdrop.style.opacity = '';
+    }
+  };
+
+  if (window.PointerEvent){
+    panel.addEventListener('pointerdown', onStart, { passive: true });
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup',   onEnd,  { passive: true });
+    window.addEventListener('pointercancel', onEnd, { passive: true });
+    return () => {
+      panel.removeEventListener('pointerdown', onStart, { passive: true });
+      window.removeEventListener('pointermove', onMove, { passive: false });
+      window.removeEventListener('pointerup',   onEnd,  { passive: true });
+      window.removeEventListener('pointercancel', onEnd, { passive: true });
+    };
+  } else {
+    panel.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove',  onMove, { passive: false });
+    window.addEventListener('touchend',   onEnd,  { passive: true });
+    panel.addEventListener('mousedown',   onStart, true);
+    window.addEventListener('mousemove',  onMove, true);
+    window.addEventListener('mouseup',    onEnd,   true);
+    return () => {
+      panel.removeEventListener('touchstart', onStart, { passive: true });
+      window.removeEventListener('touchmove',  onMove, { passive: false });
+      window.removeEventListener('touchend',   onEnd,  { passive: true });
+      panel.removeEventListener('mousedown',   onStart, true);
+      window.removeEventListener('mousemove',  onMove, true);
+      window.removeEventListener('mouseup',    onEnd,   true);
+    };
+  }
+}
+
+
 
 
 // function openCarnet(){
