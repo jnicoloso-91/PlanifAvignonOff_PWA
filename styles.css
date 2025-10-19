@@ -1272,3 +1272,9 @@ main, .page-wrap {
   background: rgba(0,0,0,.18);
   margin: 6px auto 10px;
 } */
+
+/* Make sure the scrolling happens in the body, not the whole panel */
+.sheet-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
