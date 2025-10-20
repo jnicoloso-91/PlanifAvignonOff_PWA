@@ -235,7 +235,7 @@ export class AppContext {
         ops.push(df_clear().then(() => df_putMany(this.#df)));
       }
 
-      if (this.#dirty.carnet && carnet_clear && carnet_putMany) {
+      if (this.#dirty.carnet) {
         ops.push(carnet_clear().then(() => carnet_putMany(this.#carnet)));
       }
 
@@ -289,14 +289,14 @@ export class AppContext {
     this.#carnet = normalizeUuid(this.#carnet);
   }
 
-  // trouver une activité dans le DataFrame par uuid
+  // trouver une activité dans df par uuid
   dfGetByUuid(uuid) {
     return this.#df.find(r => r.__uuid === uuid) || null;
   }
 
-  // remplacer / insérer une activité dans le DataFrame
+  // remplacer / insérer une activité dans df
   dfUpsert(row) {
-    this.#withHistory('upsert', () => {
+    this.#withHistory('df', 'upsert', () => {
       if (!row) return;
       const id = row.__uuid || genUuid();
       let found = false;
@@ -311,9 +311,9 @@ export class AppContext {
     });
   }
 
-  // supprimer une activité du DataFrame par uuid 
+  // supprimer une activité de df par uuid 
   dfRemove(uuid) {
-    this.#withHistory('remove', () => {
+    this.#withHistory('df', 'remove', () => {
       const len = this.#df.length;
       this.#df = this.#df.filter(r => r.__uuid !== uuid);
       this.#df = sortDf(this.#df);
@@ -331,7 +331,7 @@ export class AppContext {
 
   // remplacer / insérer une adresse dans le carnet d'adresses
   carnetUpsert(row) {
-    this.#withHistory('upsert', () => {
+    this.#withHistory('carnet', 'upsert', () => {
       if (!row) return;
       const id = row.__uuid || genUuid();
       let found = false;
@@ -348,7 +348,7 @@ export class AppContext {
 
   // supprimer une adresse du carnet d'adresses par uuid
   carnetRemove(uuid) {
-    this.#withHistory('remove', () => {
+    this.#withHistory('carnet', 'remove', () => {
       const len = this.#carnet.length;
       this.#carnet = this.#carnet.filter(r => r.__uuid !== uuid);
       if (this.#carnet.length !== len) {
@@ -565,7 +565,7 @@ export class AppContext {
     const base = inAct ? inAct.baseSnapshot : this.#makeDomainSnapshot(domain);
     const before = JSON.stringify(base);
 
-    mutator(); // << ta mutation
+    mutator(); // applique la mutation (setDf, upsert, etc.)
 
     const afterSnap = this.#makeDomainSnapshot(domain);
     const after = JSON.stringify(afterSnap);

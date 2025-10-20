@@ -14,6 +14,9 @@ import { AppContext } from './AppContext.js';
 import { ActiviteRenderer } from './ActiviteRenderer.js';
 import { LieuRenderer } from './LieuRenderer.js';
 
+const DEBUG = true;
+const dlog = (...args)=>DEBUG && console.log('[FLIGHT]', ...args);
+
 let activitesAPI = null;
 // let appJustLaunched = true;
 
@@ -38,9 +41,6 @@ const CUR_M = TODAY.getMonth() + 1;
 const PHANTOM_WITH_OFFSET = false;      // effet fantôme avec ou sans offset 
 const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la trajectoire de l'effet fantôme
 const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
-
-const DEBUG = false;
-const dlog = (...args)=>DEBUG && console.log('[FLIGHT]', ...args);
 
 // ------- Misc Helpers -------
 
@@ -2425,7 +2425,7 @@ async function doSupprimerActivite() {
   const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-non-programmees'), uuid);
 
   ctx.dfRemove(row.__uuid);
-
+  
   // Maj des sélections
   setTimeout(() => {
     selectRowByUuid('grid-non-programmees', uuidVoisin, { ensure: 'center', flash: null });
