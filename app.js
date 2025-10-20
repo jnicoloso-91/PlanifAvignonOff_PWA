@@ -3844,7 +3844,7 @@ function openSheet({
     }, 220);
   };
   // ✅ ici, on attache le swipe avant de monter le contenu
-  attachSwipeToClose(handle, header, backdrop, destroy);
+  attachSwipeToClose(panel, handle, header, backdrop, destroy);
 
   backdrop.addEventListener('click', destroy);
   closeBtn.addEventListener('click', destroy);
@@ -3914,72 +3914,6 @@ function openSheet({
   //     window.addEventListener('mouseup',    onEnd,   true);
   //   }
   // }(panel, backdrop, destroy);
-
-  // -- Swipe-to-close (drag vers le bas) --
-  function attachSwipeToClose(handleEl, headerEl, backdrop, onClose){
-    let startY = 0, curY = 0, dragging = false;
-    // the panel we need to move:
-    const panel = backdrop.parentElement.querySelector('.sheet-panel');
-
-    const onStart = (e) => {
-      const t = e.touches ? e.touches[0] : e;
-      dragging = true;
-      startY = curY = t.clientY;
-      document.querySelector('.sheet-wrap')?.classList.add('dragging');
-      panel.style.transition = 'none';
-      backdrop.style.transition = 'none';
-    };
-
-    const onMove = (e) => {
-      if (!dragging) return;
-      const t = e.touches ? e.touches[0] : e;
-      curY = t.clientY;
-      const dy = Math.max(0, curY - startY);
-      // block page scroll only during drag
-      e.preventDefault?.();
-      panel.style.transform = `translateY(${dy}px)`;
-      const k = Math.max(0, Math.min(1, dy / 180));
-      backdrop.style.opacity = String(1 - 0.7 * k);
-    };
-
-    const onEnd = () => {
-      if (!dragging) return;
-      dragging = false;
-      document.querySelector('.sheet-wrap')?.classList.remove('dragging');
-      panel.style.transition = '';
-      backdrop.style.transition = '';
-
-      const dy = Math.max(0, curY - startY);
-      if (dy > 120) onClose();
-      else {
-        panel.style.transform = 'translateY(0)';
-        backdrop.style.opacity = '';
-      }
-    };
-
-    const addStart = (el) => {
-      if (!el) return;
-      if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
-      else {
-        el.addEventListener('touchstart', onStart, { passive: true });
-        el.addEventListener('mousedown',  onStart, true);
-      }
-    };
-
-    addStart(handleEl);
-    addStart(headerEl);
-
-    if (window.PointerEvent) {
-      window.addEventListener('pointermove', onMove, { passive: false });
-      window.addEventListener('pointerup',   onEnd,  { passive: true });
-      window.addEventListener('pointercancel', onEnd, { passive: true });
-    } else {
-      window.addEventListener('touchmove', onMove, { passive: false });
-      window.addEventListener('touchend',  onEnd,  { passive: true });
-      window.addEventListener('mousemove', onMove, true);
-      window.addEventListener('mouseup',   onEnd,  true);
-    }
-  }(handle, header, backdrop, destroy);
 
   // -- Swipe-to-close (drag vers le bas) --
   // function attachSwipeToClose(handleEl, headerEl, backdropEl, onClose) {
@@ -4089,6 +4023,182 @@ function openSheet({
   //   }
   // }
 
+  // -- Swipe-to-close (drag vers le bas) --
+  // function attachSwipeToClose(handleEl, headerEl, backdrop, onClose){
+  //   let startY = 0, curY = 0, dragging = false;
+  //   // the panel we need to move:
+  //   const panel = backdrop.parentElement.querySelector('.sheet-panel');
+
+  //   const onStart = (e) => {
+  //     const t = e.touches ? e.touches[0] : e;
+  //     dragging = true;
+  //     startY = curY = t.clientY;
+  //     document.querySelector('.sheet-wrap')?.classList.add('dragging');
+  //     panel.style.transition = 'none';
+  //     backdrop.style.transition = 'none';
+  //   };
+
+  //   const onMove = (e) => {
+  //     if (!dragging) return;
+  //     const t = e.touches ? e.touches[0] : e;
+  //     curY = t.clientY;
+  //     const dy = Math.max(0, curY - startY);
+  //     // block page scroll only during drag
+  //     e.preventDefault?.();
+  //     panel.style.transform = `translateY(${dy}px)`;
+  //     const k = Math.max(0, Math.min(1, dy / 180));
+  //     backdrop.style.opacity = String(1 - 0.7 * k);
+  //   };
+
+  //   const onEnd = () => {
+  //     if (!dragging) return;
+  //     dragging = false;
+  //     document.querySelector('.sheet-wrap')?.classList.remove('dragging');
+  //     panel.style.transition = '';
+  //     backdrop.style.transition = '';
+
+  //     const dy = Math.max(0, curY - startY);
+  //     if (dy > 120) onClose();
+  //     else {
+  //       panel.style.transform = 'translateY(0)';
+  //       backdrop.style.opacity = '';
+  //     }
+  //   };
+
+  //   const addStart = (el) => {
+  //     if (!el) return;
+  //     if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
+  //     else {
+  //       el.addEventListener('touchstart', onStart, { passive: true });
+  //       el.addEventListener('mousedown',  onStart, true);
+  //     }
+  //   };
+
+  //   addStart(handleEl);
+  //   addStart(headerEl);
+
+  //   if (window.PointerEvent) {
+  //     window.addEventListener('pointermove', onMove, { passive: false });
+  //     window.addEventListener('pointerup',   onEnd,  { passive: true });
+  //     window.addEventListener('pointercancel', onEnd, { passive: true });
+  //   } else {
+  //     window.addEventListener('touchmove', onMove, { passive: false });
+  //     window.addEventListener('touchend',  onEnd,  { passive: true });
+  //     window.addEventListener('mousemove', onMove, true);
+  //     window.addEventListener('mouseup',   onEnd,  true);
+  //   }
+  // }(handle, header, backdrop, destroy);
+
+  // -- Swipe-to-close (drag vers le bas) --
+  function attachSwipeToClose(panel, headerEl, handleEl, backdrop, onClose){
+    const isiOS = (() => {
+      const ua = navigator.userAgent || '';
+      return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    })();
+
+    const waitViewportSettle = (cb) => {
+      if (!isiOS || !window.visualViewport) { cb(); return; }
+      const vvh0 = window.visualViewport.height;
+      const start = Date.now();
+      const poll = () => {
+        const vvh = window.visualViewport.height;
+        // stable si variation < 1px ou timeout
+        if (Math.abs(vvh - vvh0) < 1 || (Date.now() - start) > 300) { cb(); return; }
+        requestAnimationFrame(poll);
+      };
+      poll();
+    };
+
+    let startY = 0, curY = 0, dragging = false;
+
+    const onStart = (e) => {
+      // ne démarre que depuis header/poignée
+      const target = e.target;
+      if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
+
+      // ferme le clavier si un input est focus
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
+        ae.blur?.();
+      }
+
+      // attends la stabilisation du viewport iOS
+      waitViewportSettle(() => {
+        const t = e.touches ? e.touches[0] : e;
+        startY = curY = t.clientY;
+        dragging = true;
+
+        panel.style.transition = 'none';
+        backdrop.style.transition = 'none';
+        panel.style.willChange = 'transform';
+        backdrop.style.willChange = 'opacity';
+
+        // style "dragging" (si tu l’utilises)
+        document.querySelector('.sheet-wrap')?.classList.add('dragging');
+      });
+    };
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      const t = e.touches ? e.touches[0] : e;
+      curY = t.clientY;
+      const dy = Math.max(0, curY - startY);
+
+      // bloque le scroll de page pendant le drag
+      e.preventDefault?.();
+
+      panel.style.transform = `translateY(${dy}px)`;
+      const k = Math.max(0, Math.min(1, dy / 180));
+      backdrop.style.opacity = String(1 - 0.7 * k);
+    };
+
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+
+      document.querySelector('.sheet-wrap')?.classList.remove('dragging');
+      panel.style.willChange = '';
+      backdrop.style.willChange = '';
+
+      const dy = Math.max(0, curY - startY);
+      const THRESH = 120;
+
+      // remets les transitions
+      panel.style.transition = '';
+      backdrop.style.transition = '';
+
+      if (dy > THRESH) {
+        onClose();
+      } else {
+        panel.style.transform = 'translateY(0)';
+        backdrop.style.opacity = '';
+      }
+    };
+
+    // écouteurs
+    const addStart = (el) => {
+      if (!el) return;
+      if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
+      else {
+        el.addEventListener('touchstart', onStart, { passive: true });
+        el.addEventListener('mousedown',  onStart, true);
+      }
+    };
+
+    addStart(headerEl);
+    addStart(handleEl);
+
+    if (window.PointerEvent) {
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup',   onEnd,  { passive: true });
+      window.addEventListener('pointercancel', onEnd, { passive: true });
+    } else {
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend',  onEnd,  { passive: true });
+      window.addEventListener('mousemove', onMove, true);
+      window.addEventListener('mouseup',   onEnd,  true);
+    }
+  }(panel, header, handle, backdrop, destroy);
 
 
 
