@@ -3982,112 +3982,226 @@ function openSheet({
   // }(handle, header, backdrop, destroy);
 
   // -- Swipe-to-close (drag vers le bas) --
-  function attachSwipeToClose(handleEl, headerEl, backdropEl, onClose) {
-    const wrap  = document.querySelector('.sheet-wrap');
-    const panel = wrap?.querySelector('.sheet-panel');
-    const body  = wrap?.querySelector('.sheet-body'); // zone scrollable
-    if (!wrap || !panel || !backdropEl) return;
+  // function attachSwipeToClose(handleEl, headerEl, backdropEl, onClose) {
+  //   const wrap  = document.querySelector('.sheet-wrap');
+  //   const panel = wrap?.querySelector('.sheet-panel');
+  //   const body  = wrap?.querySelector('.sheet-body'); // zone scrollable
+  //   if (!wrap || !panel || !backdropEl) return;
 
-    let startY = 0, curY = 0, dragging = false, pointerId = null;
-    const OPEN_THRESH = 8;     // px pour “lancer” le drag
-    const CLOSE_THRESH = 120;  // px pour fermer
+  //   let startY = 0, curY = 0, dragging = false, pointerId = null;
+  //   const OPEN_THRESH = 8;     // px pour “lancer” le drag
+  //   const CLOSE_THRESH = 120;  // px pour fermer
 
-    const beginDrag = (y, e) => {
-      dragging = true;
-      startY   = curY = y;
-      wrap.classList.add('dragging');
-      panel.style.transition   = 'none';
-      backdropEl.style.transition = 'none';
-      if (e && e.pointerId != null && panel.setPointerCapture) {
-        pointerId = e.pointerId;
-        try { panel.setPointerCapture(pointerId); } catch {}
-      }
-    };
+  //   const beginDrag = (y, e) => {
+  //     dragging = true;
+  //     startY   = curY = y;
+  //     wrap.classList.add('dragging');
+  //     panel.style.transition   = 'none';
+  //     backdropEl.style.transition = 'none';
+  //     if (e && e.pointerId != null && panel.setPointerCapture) {
+  //       pointerId = e.pointerId;
+  //       try { panel.setPointerCapture(pointerId); } catch {}
+  //     }
+  //   };
 
-    const updateDrag = (y, e) => {
-      if (!dragging) return;
-      curY = y;
-      const dy = Math.max(0, curY - startY);
-      // bloque le scroll de page pendant le drag
-      e?.preventDefault?.();
+  //   const updateDrag = (y, e) => {
+  //     if (!dragging) return;
+  //     curY = y;
+  //     const dy = Math.max(0, curY - startY);
+  //     // bloque le scroll de page pendant le drag
+  //     e?.preventDefault?.();
 
+  //     panel.style.transform = `translateY(${dy}px)`;
+  //     const k = Math.max(0, Math.min(1, dy / 180));
+  //     backdropEl.style.opacity = String(1 - 0.7 * k);
+  //   };
+
+  //   const endDrag = () => {
+  //     if (!dragging) return;
+  //     dragging = false;
+  //     const dy = Math.max(0, curY - startY);
+
+  //     wrap.classList.remove('dragging');
+  //     panel.style.transition = '';
+  //     backdropEl.style.transition = '';
+
+  //     if (dy > CLOSE_THRESH) onClose();
+  //     else {
+  //       panel.style.transform = 'translateY(0)';
+  //       backdropEl.style.opacity = '';
+  //     }
+  //     if (pointerId != null && panel.releasePointerCapture) {
+  //       try { panel.releasePointerCapture(pointerId); } catch {}
+  //       pointerId = null;
+  //     }
+  //   };
+
+  //   const onStart = (ev) => {
+  //     // on ne déclenche que depuis la poignée ou le header
+  //     const target = ev.target;
+  //     if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
+
+  //     // ⚠️ si le contenu interne peut encore scroller vers le bas, on laisse scroller
+  //     if (body && body.scrollTop > 0) return;
+
+  //     const t = ev.touches ? ev.touches[0] : ev;
+  //     const y = t.clientY;
+
+  //     // petit “open threshold” : ne lance le drag qu’après quelques px
+  //     let started = false;
+  //     const moveOnce = (moveEv) => {
+  //       const m = moveEv.touches ? moveEv.touches[0] : moveEv;
+  //       const dy = (m.clientY - y);
+  //       if (!started && Math.abs(dy) > OPEN_THRESH) {
+  //         started = true;
+  //         beginDrag(m.clientY, ev);
+  //       }
+  //       if (started) updateDrag(m.clientY, moveEv);
+  //     };
+  //     const endOnce = () => {
+  //       if (started) endDrag();
+  //       window.removeEventListener('pointermove', moveOnce, true);
+  //       window.removeEventListener('pointerup',   endOnce,  true);
+  //       window.removeEventListener('pointercancel', endOnce, true);
+  //       window.removeEventListener('touchmove',   moveOnce, { capture:true });
+  //       window.removeEventListener('touchend',    endOnce,  { capture:true });
+  //     };
+
+  //     // on accroche immédiatement les listeners “window” (fiable sur iOS)
+  //     if (window.PointerEvent) {
+  //       window.addEventListener('pointermove', moveOnce, true);
+  //       window.addEventListener('pointerup',   endOnce,  true);
+  //       window.addEventListener('pointercancel', endOnce, true);
+  //     } else {
+  //       window.addEventListener('touchmove', moveOnce, { passive:false, capture:true });
+  //       window.addEventListener('touchend',  endOnce,  { capture:true });
+  //     }
+  //   };
+
+  //   // On écoute le start sur ces deux zones uniquement
+  //   if (window.PointerEvent) {
+  //     handleEl?.addEventListener('pointerdown', onStart, { passive:true });
+  //     headerEl?.addEventListener('pointerdown', onStart, { passive:true });
+  //   } else {
+  //     handleEl?.addEventListener('touchstart', onStart, { passive:true });
+  //     headerEl?.addEventListener('touchstart', onStart, { passive:true });
+  //     // (mouse fallback non nécessaire sur iOS)
+  //   }
+  // }
+
+
+  // -- Swipe-to-close (drag vers le bas) --
+  function attachSwipeToClose(panel, backdrop, onClose){
+    let startY = 0, curY = 0, dragging = false;
+    let lastY = 0, lastT = 0;                 // pour la vitesse
+    const WRAP = document.querySelector('.sheet-wrap');
+
+    const THRESH_DIST = 120;                  // px
+    const THRESH_VEL  = 0.6;                  // px/ms ≈ 600 px/s
+    const MAX_H = () => panel.getBoundingClientRect().height;
+
+    const setPos = (dy) => {
       panel.style.transform = `translateY(${dy}px)`;
       const k = Math.max(0, Math.min(1, dy / 180));
-      backdropEl.style.opacity = String(1 - 0.7 * k);
+      backdrop.style.opacity = String(1 - 0.7 * k);
     };
 
-    const endDrag = () => {
-      if (!dragging) return;
-      dragging = false;
-      const dy = Math.max(0, curY - startY);
-
-      wrap.classList.remove('dragging');
-      panel.style.transition = '';
-      backdropEl.style.transition = '';
-
-      if (dy > CLOSE_THRESH) onClose();
-      else {
-        panel.style.transform = 'translateY(0)';
-        backdropEl.style.opacity = '';
-      }
-      if (pointerId != null && panel.releasePointerCapture) {
-        try { panel.releasePointerCapture(pointerId); } catch {}
-        pointerId = null;
-      }
-    };
-
-    const onStart = (ev) => {
-      // on ne déclenche que depuis la poignée ou le header
-      const target = ev.target;
+    const onStart = (e) => {
+      const t = e.touches ? e.touches[0] : e;
+      // ne déclenche que si départ depuis poignée ou header
+      const target = e.target;
       if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
 
-      // ⚠️ si le contenu interne peut encore scroller vers le bas, on laisse scroller
-      if (body && body.scrollTop > 0) return;
+      dragging = true;
+      startY = curY = lastY = t.clientY;
+      lastT = performance.now();
 
-      const t = ev.touches ? ev.touches[0] : ev;
-      const y = t.clientY;
+      WRAP?.classList.add('dragging');
+      panel.style.transition = 'none';
+      backdrop.style.transition = 'none';
+    };
 
-      // petit “open threshold” : ne lance le drag qu’après quelques px
-      let started = false;
-      const moveOnce = (moveEv) => {
-        const m = moveEv.touches ? moveEv.touches[0] : moveEv;
-        const dy = (m.clientY - y);
-        if (!started && Math.abs(dy) > OPEN_THRESH) {
-          started = true;
-          beginDrag(m.clientY, ev);
-        }
-        if (started) updateDrag(m.clientY, moveEv);
-      };
-      const endOnce = () => {
-        if (started) endDrag();
-        window.removeEventListener('pointermove', moveOnce, true);
-        window.removeEventListener('pointerup',   endOnce,  true);
-        window.removeEventListener('pointercancel', endOnce, true);
-        window.removeEventListener('touchmove',   moveOnce, { capture:true });
-        window.removeEventListener('touchend',    endOnce,  { capture:true });
-      };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const t = e.touches ? e.touches[0] : e;
+      const now = performance.now();
+      const y   = t.clientY;
 
-      // on accroche immédiatement les listeners “window” (fiable sur iOS)
-      if (window.PointerEvent) {
-        window.addEventListener('pointermove', moveOnce, true);
-        window.addEventListener('pointerup',   endOnce,  true);
-        window.addEventListener('pointercancel', endOnce, true);
+      curY = y;
+      const dy = Math.max(0, curY - startY);
+      setPos(dy);
+
+      // mémorise un “échantillon” récent pour la vitesse
+      if (now - lastT > 16) {                 // ~60 fps
+        lastY = y;
+        lastT = now;
+      }
+      e.preventDefault?.(); // bloque le scroll page pendant le drag
+    };
+
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      WRAP?.classList.remove('dragging');
+
+      const now = performance.now();
+      const dy  = Math.max(0, curY - startY);
+      const dt  = Math.max(1, now - lastT);   // ms
+      const vy  = (curY - lastY) / dt;        // px/ms (positive = vers le bas)
+
+      // Critères de fermeture
+      const shouldClose = dy > THRESH_DIST || vy > THRESH_VEL;
+
+      // Restaure transitions CSS
+      panel.style.transition   = '';
+      backdrop.style.transition = '';
+
+      if (shouldClose) {
+        // Inertie : durée en fonction de la distance OU de la vitesse
+        const remaining = Math.max(0, MAX_H() - dy);
+        // base 220ms + un poil selon distance, plus court si “flick”
+        const dur = Math.max(140, Math.min(320, vy > THRESH_VEL ? 160 : 220 + remaining * 0.15));
+
+        panel.animate(
+          [
+            { transform: `translateY(${dy}px)` },
+            { transform: `translateY(${MAX_H()}px)` }
+          ],
+          { duration: dur, easing: 'cubic-bezier(.22,.8,.24,1)', fill: 'forwards' }
+        );
+        backdrop.animate(
+          [{ opacity: getComputedStyle(backdrop).opacity || 1 }, { opacity: 0 }],
+          { duration: Math.min(dur, 220), easing: 'linear', fill: 'forwards' }
+        ).onfinish = onClose;                  // ferme une fois l’anim finie
       } else {
-        window.addEventListener('touchmove', moveOnce, { passive:false, capture:true });
-        window.addEventListener('touchend',  endOnce,  { capture:true });
+        // Retour en place
+        panel.style.transition   = 'transform .22s ease';
+        backdrop.style.transition = 'opacity .18s ease';
+        setPos(0);
+        setTimeout(() => {
+          panel.style.transition = '';
+          backdrop.style.transition = '';
+        }, 220);
       }
     };
 
-    // On écoute le start sur ces deux zones uniquement
+    // Écouteurs (PointerEvents si dispo, sinon touch + mouse)
     if (window.PointerEvent) {
-      handleEl?.addEventListener('pointerdown', onStart, { passive:true });
-      headerEl?.addEventListener('pointerdown', onStart, { passive:true });
+      panel.addEventListener('pointerdown', onStart, { passive: true });
+      window.addEventListener('pointermove', onMove,   { passive: false });
+      window.addEventListener('pointerup',   onEnd,    { passive: true });
+      window.addEventListener('pointercancel', onEnd,  { passive: true });
     } else {
-      handleEl?.addEventListener('touchstart', onStart, { passive:true });
-      headerEl?.addEventListener('touchstart', onStart, { passive:true });
-      // (mouse fallback non nécessaire sur iOS)
+      panel.addEventListener('touchstart', onStart, { passive: true });
+      window.addEventListener('touchmove',  onMove, { passive: false });
+      window.addEventListener('touchend',   onEnd,  { passive: true });
+      panel.addEventListener('mousedown',   onStart, true);
+      window.addEventListener('mousemove',  onMove,  true);
+      window.addEventListener('mouseup',    onEnd,   true);
     }
   }
+
+
 
 
   // 3) contenu
@@ -4400,7 +4514,7 @@ function openCarnet() {
   openSheet({
     title: 'Carnet d’adresses',
     panelMaxHeight: '60vh',
-    panelHeight: '70vh',
+    panelHeight: '40vh',
     mount: (body) => {
       // host grille
       const host = document.createElement('div');
