@@ -1292,3 +1292,27 @@ main, .page-wrap {
   -webkit-user-select: none;
   user-select: none;
 }
+
+.icon-btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;        /* bloque toute interaction */
+  filter: grayscale(0.6);
+  transition: opacity .15s ease;
+}
+
+.icon-btn:disabled .bb-icon {
+  color: #888;
+  stroke: #888;
+}
+
+ 
+.exp-header-btn:disabled {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+  transition: opacity .15s ease;
+}
+
+.exp-header-btn:disabled .bb-icon {
+  color: #888;
+  stroke: #888;
+}

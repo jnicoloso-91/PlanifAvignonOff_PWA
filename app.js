@@ -39,7 +39,7 @@ const PHANTOM_WITH_OFFSET = false;      // effet fantôme avec ou sans offset
 const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la trajectoire de l'effet fantôme
 const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
 
-const DEBUG = true;
+const DEBUG = false;
 const dlog = (...args)=>DEBUG && console.log('[FLIGHT]', ...args);
 
 // ------- Misc Helpers -------
@@ -714,8 +714,12 @@ function desiredPaneHeightForRows(pane, gridEl, api,  { nbRows=null, maxRows = 5
   if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-    } else return null;   // pas de resize auto
+    } else {
+      if (DEBUG) console.log(`nb calculé: no autoresize`);
+      return null;   // pas de resize auto
+    }
   } else n = Math.min(maxRows, nbRows);
+  if (DEBUG) console.log(`nb calculé: ${n}`);
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8: 0;
@@ -1406,8 +1410,8 @@ function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
   });
 }
 
-// ===== Boutons dynamiques =====
-function addDynamicButton({expanderId, id, title, innerHTML, onClick}) {
+// ===== Boutons d'expanders =====
+function addExpanderButton({expanderId, id, title, innerHTML, onClick}) {
   const exp = document.getElementById(expanderId);
   if (!exp) return;
   const header = exp.querySelector('.st-expander-header');
@@ -1423,12 +1427,13 @@ function addDynamicButton({expanderId, id, title, innerHTML, onClick}) {
   if (actions.querySelector('.' + id)) return;
 
   const btn = document.createElement('button');
-  btn.className = 'exp-header-btn ' + id;
+  btn.id = id;
+  btn.className = 'exp-header-btn ';// + id;
   btn.title = title;
   btn.innerHTML = innerHTML;
 
-  // stopPropagation : ne pas toggler l’expander
   btn.addEventListener('click', async (e) => {
+    // stopPropagation : ne pas toggler l’expander
     e.stopPropagation();
     // flash visuel court
     btn.classList.add('clicked');
@@ -1442,13 +1447,17 @@ function addDynamicButton({expanderId, id, title, innerHTML, onClick}) {
     }
   });
 
+  // stopPropagation : ne pas toggler l’expander
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+
   actions.appendChild(btn);
 }
 
-function addDynamicButtons() {
+function addExpanderButtons() {
 
   // Bouton Programmer
-  addDynamicButton({
+  addExpanderButton({
     expanderId: 'exp-programmables',
     id: 'btn-programmer',
     title: 'Programmer l’activité sélectionnée', 
@@ -1470,7 +1479,7 @@ function addDynamicButtons() {
   });
 
   // Bouton Déprogrammer
-  addDynamicButton({
+  addExpanderButton({
     expanderId: 'exp-programmees',
     id: 'btn-deprogrammer',
     title: 'Déprogrammer l’activité sélectionnée', 
@@ -1495,46 +1504,46 @@ function addDynamicButtons() {
   });
   
   // Bouton Coller
-  // addDynamicButton({
-  //   expanderId: 'exp-non-programmees',
-  //   id: 'btn-coller',
-  //   title: 'Ajouter une activité avec collage', 
-  //   innerHTML: `
-  //     <span class="exp-icon" aria-hidden="true">
-  //       <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
-  //       <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-  //           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-  //         <path d="M4 4h7l3 3h6v13H4z"/>
-  //         <path d="M9 14h6"/>
-  //         <path d="M9 18h6"/>
-  //       </svg>
-  //     </span>
-  //     <span class="exp-label">Coller</span>
-  //   `,
-  //   onClick: async () => {await doAjoutActiviteAvecCollage();}
-  // });
+  addExpanderButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-coller',
+    title: 'Ajouter une activité avec collage', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h7l3 3h6v13H4z"/>
+          <path d="M9 14h6"/>
+          <path d="M9 18h6"/>
+        </svg>
+      </span>
+      <span class="exp-label">Coller</span>
+    `,
+    onClick: async () => {await doAjoutActiviteAvecCollage();}
+  });
 
   // Bouton Ajouter
-  // addDynamicButton({
-  //   expanderId: 'exp-non-programmees',
-  //   id: 'btn-ajouter',
-  //   title: 'Ajouter une activité', 
-  //   innerHTML: `
-  //     <span class="exp-icon" aria-hidden="true">
-  //       <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
-  //       <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-  //           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-  //         <rect x="9" y="2" width="6" height="4" rx="1"/>
-  //         <path d="M4 5h16v16H4z"/>
-  //       </svg>
-  //     </span>
-  //     <span class="exp-label">Ajouter</span>
-  //   `,
-  //   onClick: async () => {await doAjoutActivite();}
-  // });
+  addExpanderButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-ajouter',
+    title: 'Ajouter une activité', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+            stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="4" rx="1"/>
+          <path d="M4 5h16v16H4z"/>
+        </svg>
+      </span>
+      <span class="exp-label">Ajouter</span>
+    `,
+    onClick: async () => {await doAjoutActivite();}
+  });
 
   // Bouton Supprimer
-  addDynamicButton({
+  addExpanderButton({
     expanderId: 'exp-non-programmees',
     id: 'btn-supprimer',
     title: 'Supprimer l’activité sélectionnée', 
@@ -1739,7 +1748,7 @@ function gridOptionsCommon(gridId, el) {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
-      enableTouchEdit(p.api, root, {debug: true /*, forceTouch: true*/});
+      enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
     },
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);
@@ -1786,15 +1795,35 @@ function gridOptionsCommon(gridId, el) {
   }
 };
 
+const gridOptionsActivitesProgrammees = {
+  rowSelection: 'single',
+  onSelectionChanged(params) {
+    const sel = params.api.getSelectedRows();
+    const btn = document.getElementById('btn-deprogrammer');
+    btn.disabled = (sel.length > 0) ? activitesAPI.estActiviteReservee(sel[0]) : true;
+  },
+}
+
 const gridOptionsActivitesNonProgrammees = {
   getRowStyle: p => {
     const bg = colorActiviteProgrammable(p.data);
     return bg ? { '--day-bg': bg } : {};
   },
+  onSelectionChanged: (p) => {
+    const hasSel = !!p.api.getSelectedRows()?.length;
+    document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);
+  },
 }
 
 const gridOptionsCreneaux = {
   onSelectionChanged: () => onCreneauxSelectionChanged(),
+}
+
+const gridOptionsActivitesProgrammables = {
+  onSelectionChanged: (p) => {
+    const hasSel = !!p.api.getSelectedRows()?.length;
+    document.getElementById('btn-programmer')?.toggleAttribute('disabled', !hasSel);
+  },
 }
 
 // ===== Loaders de grilles =====
@@ -1958,6 +1987,8 @@ async function refreshGrid(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
 
+  if (DEBUG) console.log(`RefreshGrid ${gridId}`);
+
   const api = h.api;
 
   // 0) mémorise la sélection actuelle (par __uuid)
@@ -2038,8 +2069,8 @@ async function refreshAllGrids() {
 // Rafraichit toutes les grilles d'activités (utilisé par la callback de modification de contexte ctx.onChange sur df)
 async function refreshActivitesGrids() {
   refreshGrid('grid-programmees');
-  refreshGrid('grid-non-programmees');
   refreshGrid('grid-creneaux');
+  refreshGrid('grid-non-programmees');
   // refreshGrid('grid-programmables'); => Pas celle-là car elle se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
 }
 
@@ -2195,15 +2226,7 @@ function wireGrids() {
     elementId: 'gridA',
     loader: loadGridActivitesProgrammees,
     columnsBuilder: buildColumnsActivitesProgrammees,
-  });
-
-  // 2) Activités non programmées
-  createGridController({
-    gridId: 'grid-non-programmees',
-    elementId: 'gridB',
-    loader: loadGridAtivitesNonProgrammees,
-    columnsBuilder: buildColumnsActivitesNonProgrammees,
-    optionsPatch: gridOptionsActivitesNonProgrammees,
+    optionsPatch: gridOptionsActivitesProgrammees,
   });
 
   // 3) Créneaux disponibles
@@ -2221,6 +2244,16 @@ function wireGrids() {
     elementId: 'gridD',
     loader: loadGridActivitesProgrammables,
     columnsBuilder: buildColumnsActivitesProgrammables,
+    optionsPatch: gridOptionsActivitesProgrammables,
+  });
+
+  // 2) Activités non programmées
+  createGridController({
+    gridId: 'grid-non-programmees',
+    elementId: 'gridB',
+    loader: loadGridAtivitesNonProgrammees,
+    columnsBuilder: buildColumnsActivitesNonProgrammees,
+    optionsPatch: gridOptionsActivitesNonProgrammees,
   });
 
   // 5) Carnet d’adresses
@@ -2350,7 +2383,7 @@ async function doExportExcel() {
 
 // Undo
 async function doUndo() {
-  try { await ctx.undo(); } catch {};
+  try { await ctx.undo('df'); } catch {};
 }
 
 // Redo
@@ -2511,17 +2544,17 @@ function wireBottomBar() {
     doRedo();
   });
 
-  // --- Ajouter avec collage ---
-  $('btn-paste')?.addEventListener('click', (e) => {
-    pulse(e.currentTarget);
-    doAjoutActiviteAvecCollage();
-  });
+  // // --- Ajouter avec collage ---
+  // $('btn-paste')?.addEventListener('click', (e) => {
+  //   pulse(e.currentTarget);
+  //   doAjoutActiviteAvecCollage();
+  // });
 
-    // --- Ajouter ---
-  $('btn-add')?.addEventListener('click', (e) => {
-    pulse(e.currentTarget);
-    doAjoutActivite();
-  });
+  // // --- Ajouter ---
+  // $('btn-add')?.addEventListener('click', (e) => {
+  //   pulse(e.currentTarget);
+  //   doAjoutActivite();
+  // });
 
 // Drag-to-scroll with mouse (desktop)
   let isDown = false, startX = 0, startScroll = 0;
@@ -4628,6 +4661,8 @@ function markSheetEditing(wrap, on) {
 // }
 
 function openCarnet() {
+  let offHist = null;     // history:change (domain=carnet)
+  let offCarnet = null;   // carnet:changed (données)
   openSheet({
     title: 'Carnet d’adresses',
     panelMaxHeight: '60vh',
@@ -4766,10 +4801,19 @@ function openCarnet() {
           const wrap = document.querySelector('.sheet-wrap.is-open');
           markSheetEditing(wrap, false); // => attend le settle puis réactive le swipe
         },
+        rowSelection: 'single',
+        onSelectionChanged(params) {
+          const hasSel = params.api.getSelectedRows().length > 0;
+          const btnDel = document.getElementById('btn-carnet-del');
+          btnDel?.toggleAttribute('disabled', !hasSel);
+        },
       };
 
       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
       
+      // ➜ enregistre dans le registre des sheets
+      window.sheetGrids.set('grid-carnet', { api: apiGrid, el: gridDiv });
+
       // // désactive le swipe pendant l’édition, réactive après
       // const wrap = gridDiv.closest('.sheet-wrap');
       // if (wrap && apiGrid?.addEventListener) {
@@ -4796,41 +4840,89 @@ function openCarnet() {
       // });
 
       // actions
-      const btnAdd = actions.querySelector('#btn-carnet-add');
-      const btnDel = actions.querySelector('#btn-carnet-del');
-      const btnUndo = actions.querySelector('#btn-carnet-undo');
-      const btnRedo = actions.querySelector('#btn-carnet-redo');
+      const btnAddC = actions.querySelector('#btn-carnet-add');
+      const btnDelC = actions.querySelector('#btn-carnet-del');
+      const btnUndoC = actions.querySelector('#btn-carnet-undo');
+      const btnRedoC = actions.querySelector('#btn-carnet-redo');
 
-      btnAdd.addEventListener('click', () => {
-        const row = { __uuid: crypto.randomUUID(), Nom:'Nouveau lieu', Adresse:'', Tel:'', Web:'' };
-        window.ctx?.mutateCarnet?.(rows => [...(rows||[]), row]);
-        apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
-        // select + scroll
-        setTimeout(() => {
-          let node = null;
-          apiGrid.forEachNode?.(n => { if (!node && n.data?.__uuid === row.__uuid) node = n; });
-          node?.setSelected?.(true, true);
-          apiGrid.ensureIndexVisible?.(node?.rowIndex ?? 0, 'middle');
-        }, 0);
+      const getNouveauNom = (df, prefix='Nom') => {
+        if (!Array.isArray(df)) return prefix;
+        if (!prefix) prefix = 'Nom';
+
+        // 🔹 Extraire les noms existants
+        const nomsExistants = df
+          .map(r => (r.Nom ?? '').toString().trim())
+          .filter(n => n.length > 0);
+
+        // 🔹 Initialiser ou incrémenter un compteur
+        let compteurNouveauNom = 0;
+
+        // 🔹 Boucle de recherche d’un nom libre
+        while (true) {
+          compteurNouveauNom += 1;
+          const nomCandidat = (prefix != 'Nom' && compteurNouveauNom == 1) ? `${prefix}` : `${prefix} ${compteurNouveauNom}`;
+          if (!nomsExistants.includes(nomCandidat)) {
+            return nomCandidat;
+          }
+        }
+      }
+
+      const selectRow = (uuid) => {
+        let node = null;
+        apiGrid.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
+        node?.setSelected?.(true, true);
+        apiGrid.ensureIndexVisible?.(node?.rowIndex ?? 0, 'middle');
+      }
+
+      btnAddC.addEventListener('click', () => {
+        const row = { __uuid: crypto.randomUUID(), Nom: getNouveauNom(ctx.carnet), Adresse:'', Tel:'', Web:'' };
+        ctx?.mutateCarnet?.(rows => [...(rows||[]), row]);
+        setTimeout(selectRow(row.__uuid), 0);
       });
 
-      btnDel.addEventListener('click', () => {
+      btnDelC.addEventListener('click', () => {
         const sel = apiGrid.getSelectedRows?.()?.[0];
         if (!sel) return;
-        window.ctx?.mutateCarnet?.(rows => (rows||[]).filter(r => r.__uuid !== sel.__uuid));
+        const voisin = getLigneVoisineUuid(ctx.carnet, sel.__uuid)
+        ctx?.mutateCarnet?.(rows => (rows||[]).filter(r => r.__uuid !== sel.__uuid));
+        setTimeout(selectRow(voisin), 0);
+      });
+
+      btnUndoC.addEventListener('click', () => { 
+        ctx.undo('carnet'); 
+      });
+      btnRedoC.addEventListener('click', () => { 
+        ctx.redo('carnet'); 
+      });
+
+      const updateCarnetHistoryButtons = (st) => {
+        btnUndoC?.toggleAttribute('disabled', !st.canUndo);
+        btnRedoC?.toggleAttribute('disabled', !st.canRedo);
+      };
+
+      // init état au mount
+      updateCarnetHistoryButtons(ctx.historyState('carnet'));
+
+      // synchro ÉTAT undo/redo (history:change pour domain=carnet)
+      offHist = ctx.on('history:change', ({ domain, ...st }) => {
+        if (domain === 'carnet') updateCarnetHistoryButtons(st);
+      });
+
+      // synchro DONNÉES (carnet:changed → rafraîchit la grille)
+      offCarnet = ctx.on('carnet:changed', () => {
         apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
       });
 
-      btnUndo.addEventListener('click', () => { doUndo() });
-      btnRedo.addEventListener('click', () => { doRedo() });
+      // Selection de la première ligne
+      selectRow(ctx.carnet?.[0].__uuid);
+    },
+    onClose: () => { 
+      offCarnet?.(); 
+      offHist?.() 
 
-      // sync si le carnet change ailleurs
-      const off = window.ctx?.on?.('carnet:changed', () => {
-        apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
-      });
-
-      // clean si besoin : off() sera appelé par toi si tu stockes onClose
-    }
+      // ➜ nettoyage du registre des sheet grids
+      window.sheetGrids.delete('grid-carnet');
+    },
   });
 }
 
@@ -4843,15 +4935,21 @@ function openHelp(){}
 function wireContext() {
   ctx.on('df:changed',        () => refreshActivitesGrids()); // scheduleGlobalRefresh());
   // ctx.on('carnet:changed',    () => refreshCarnetGrid()); // scheduleGlobalRefresh());
-  ctx.on('history:change', (st) => {
-    document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
-    document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
+  ctx.on('history:change', ({ domain, ...st })  => {
+    if (domain === 'df') {
+      document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
+      document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
+    }
   });
 
   // état initial des boutons Undo/Redo
   const st = ctx.historyState ? ctx.historyState() : { canUndo: false, canRedo: false };
   document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
   document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
+}
+
+function initSheetGrids() {
+  window.sheetGrids = window.sheetGrids || new Map();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -4869,8 +4967,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireGrids();
   wireExpanders();
   wireExpanderSplitters();
-  addDynamicButtons();
+  addExpanderButtons();
   wireAppKebab();
+  initSheetGrids();
 
   // 3️⃣ Premier rendu
   await refreshAllGrids();

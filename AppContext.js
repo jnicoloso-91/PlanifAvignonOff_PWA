@@ -7,6 +7,9 @@ import { captureUiStateFromGrids, restoreUiStateToGrids } from './ui_state.mjs';
 
 const MAX_HISTORY = 50;
 
+// --- Historique par domaine ---
+const DOMAINS = { DF:'df', CARNET:'carnet', META:'meta' };
+
 // Petit util debounce
 function debounce(fn, ms = 400) {
   let t = null;
@@ -15,6 +18,10 @@ function debounce(fn, ms = 400) {
     t = setTimeout(() => fn(...args), ms);
   };
 }
+
+// util : compare superficiellement
+const sameArr = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+const sameObj = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 
 class Emitter {
   #m = new Map();
@@ -45,7 +52,7 @@ export class AppContext {
   // ---------- État interne ----------
   #df = [];        // activités (table principale)
   #carnet = [];    // carnet d’adresses
-  #meta = {};      // métadonnées “légères”
+  #meta = [];      // métadonnées “légères”
   #dirty = { df: false, carnet: false, meta: false };
 
   // autosave (débouncé)
@@ -144,22 +151,22 @@ export class AppContext {
   // set meta(param)  { this.setMeta(param); }
 
   // ---------- Setters (marquent dirty + autosave) ----------
-  setDf(rows) {
-    this.#withHistory('setDf', () => {
-      this.#df = normalizeUuid(Array.isArray(rows) ? rows : []);
+  setDf(rows){
+    this.#withHistory('df','setDf', ()=>{
+      this.#df = normalizeUuid(Array.isArray(rows)? rows: []);
       this.#dirty.df = true;
-      this.#em.emit('df:changed', { reason: 'set' });
+      this.#em.emit('df:changed', { reason:'set' });
     });
   }
   setCarnet(rows) {
-    this.#withHistory('setCarnet', () => {
+    this.#withHistory('carnet','setCarnet', () => {
       this.#carnet = normalizeUuid(Array.isArray(rows) ? rows : []);
       this.#dirty.carnet = true;
       this.#em.emit('carnet:changed', { reason: 'set' });
     });
   }
   setMeta(patch) {
-    this.#withHistory('setMeta', () => {
+    this.#withHistory('meta','setMeta', () => {
       this.#meta = { ...(this.#meta||{}), ...(patch||{}) };
       this.#dirty.meta = true;
       this.#em.emit('meta:changed', { reason: 'patch' });
@@ -167,16 +174,16 @@ export class AppContext {
   }
 
   // ---------- Mutateurs (marquent dirty + autosave) ----------
-  mutateDf(fn) {
-    this.#withHistory('mutateDf', () => {
-      const next = fn(Array.isArray(this.#df) ? this.#df.slice() : []);
-      this.#df = normalizeUuid(Array.isArray(next) ? next : []);
+  mutateDf(fn){
+    this.#withHistory('df','mutateDf', ()=>{
+      const next = fn(this.#df.slice());
+      this.#df = normalizeUuid(Array.isArray(next)? next: []);
       this.#dirty.df = true;
-      this.#em.emit('df:changed', { reason: 'mutate' });
+      this.#em.emit('df:changed', { reason:'mutate' });
     });
   }
   mutateCarnet(fn) {
-    this.#withHistory('mutateCarnet', () => {
+    this.#withHistory('carnet','mutateCarnet', () => {
       const next = fn(Array.isArray(this.#carnet) ? this.#carnet.slice() : []);
       this.#carnet = normalizeUuid(Array.isArray(next) ? next : []);
       this.#dirty.carnet = true;
@@ -184,7 +191,7 @@ export class AppContext {
     });
   }
   mutateMeta(fn) {
-    this.#withHistory('mutateMeta', () => {
+    this.#withHistory('meta','mutateMeta', () => {
       const next = fn({ ...(this.#meta||{}) });
       this.#meta = next || {};
       this.#dirty.meta = true;
@@ -389,34 +396,47 @@ export class AppContext {
 
   // Historique
   #em = new Emitter();
-  #undoStack = [];
-  #redoStack = [];
-  #inAction = null;     // { label, baseSnapshot } pour coalescing
+  // #undo = [];
+  // #redo = [];
+  // #inAction = null;     // { label, baseSnapshot } pour coalescing
+  #undo = {};
+  #redo = {};
+  #inAction = {}; // domain -> { label, baseSnapshot }
 
   // --- Events public API ---
   on(evt, fn){ return this.#em.on(evt, fn); }
   off(evt, fn){ return this.#em.off(evt, fn); }
 
   // --- Snapshot helpers ---
-  #makeSnapshot() {
-    // clones superficiels (les rows sont des objets “plats” → OK)
-    return {
-      df: this.#df.slice(),
-      carnet: this.#carnet.slice(),
-      meta: { ...(this.#meta || {}) },
-      ui: captureUiStateFromGrids(), 
-    };
-  }
-  #restoreSnapshot(snap) {
-    this.#df = snap.df.slice();
-    this.#carnet = snap.carnet.slice();
-    this.#meta = { ...(snap.meta || {}) };
-    // émettre les events de changement
-    this.#em.emit('df:changed', { reason: 'restore' });
-    this.#em.emit('carnet:changed', { reason: 'restore' });
-    this.#em.emit('meta:changed', { reason: 'restore' });
+  // #makeSnapshot() {
+  //   // clones superficiels (les rows sont des objets “plats” → OK)
+  //   return {
+  //     df: this.#df.slice(),
+  //     carnet: this.#carnet.slice(),
+  //     meta: { ...(this.#meta || {}) },
+  //     ui: captureUiStateFromGrids(), 
+  //   };
+  // }
+  // #restoreSnapshot(snap) {
+  //   this.#df = snap.df.slice();
+  //   this.#carnet = snap.carnet.slice();
+  //   this.#meta = { ...(snap.meta || {}) };
+  //   // émettre les events de changement
+  //   this.#em.emit('df:changed', { reason: 'restore' });
+  //   this.#em.emit('carnet:changed', { reason: 'restore' });
+  //   this.#em.emit('meta:changed', { reason: 'restore' });
 
-    // 🔁 Puis restaurer l'UI (sélection + scroll) juste après repaint
+  //   // 🔁 Puis restaurer l'UI (sélection + scroll) juste après repaint
+  //   const ui = snap.ui;
+  //   if (ui) {
+  //     requestAnimationFrame(() => {
+  //       requestAnimationFrame(() => {
+  //         try { restoreUiStateToGrids(ui); } catch {}
+  //       });
+  //     });
+  //   }
+  // }
+  #restoreUIStateToGrids(snap) {
     const ui = snap.ui;
     if (ui) {
       requestAnimationFrame(() => {
@@ -426,84 +446,198 @@ export class AppContext {
       });
     }
   }
-  #pushUndo(snap) {
-    this.#undoStack.push(snap);
-    if (this.#undoStack.length > MAX_HISTORY) this.#undoStack.shift();
-    this.#em.emit('history:change', this.historyState());
+  #makeDomainSnapshot(domain){
+    if (domain === 'df') return { df: this.#df.slice(), ui: captureUiStateFromGrids(), };
+    if (domain === 'carnet') return { carnet: this.#carnet.slice(), ui: captureUiStateFromGrids(), };
+    // if (domain === 'df') return { df: this.#df.slice() };
+    // if (domain === 'carnet') return { carnet: this.#carnet.slice() };
+    if (domain === 'meta')   return { meta: { ...(this.#meta||{}) } };
+    if (domain === 'ui')   return {  };
+
+    // fallback global si besoin :
+    return { df:this.#df.slice(), carnet:this.#carnet.slice(), meta:{ ...(this.#meta||{}) } };
   }
-  #clearRedo() {
-    if (this.#redoStack.length) {
-      this.#redoStack = [];
-      this.#em.emit('history:change', this.historyState());
+  #restoreDomainSnapshot(domain, snap){
+    if (domain === 'df'     && snap.df)     { this.#df = snap.df.slice(); this.#restoreUIStateToGrids(snap); }
+    if (domain === 'carnet' && snap.carnet) { this.#carnet = snap.carnet.slice(); this.#restoreUIStateToGrids(snap); }
+    // if (domain === 'df'     && snap.df)     { this.#df = snap.df.slice(); }
+    // if (domain === 'carnet' && snap.carnet) { this.#carnet = snap.carnet.slice(); }
+    if (domain === 'meta'   && snap.meta)   { this.#meta = { ...(snap.meta||{}) }; }
+
+    // émettre les events
+    if (domain === 'df')     this.#em.emit('df:changed',     { reason:'restore' });
+    if (domain === 'carnet') this.#em.emit('carnet:changed', { reason:'restore' });
+    if (domain === 'meta')   this.#em.emit('meta:changed',   { reason:'restore' });
+
+  }
+  // #pushUndo(snap) {
+  //   this.#undo.push(snap);
+  //   if (this.#undo.length > MAX_HISTORY) this.#undo.shift();
+  //   this.#em.emit('history:change', this.historyState());
+  // }
+  // #clearRedo() {
+  //   if (this.#redo.length) {
+  //     this.#redo = [];
+  //     this.#em.emit('history:change', this.historyState());
+  //   }
+  // }
+  // historyState() { return { canUndo: this.canUndo(), canRedo: this.canRedo(), undoLen: this.#undo.length, redoLen: this.#redo.length }; }
+  // canUndo(){ return this.#undo.length > 0; }
+  // canRedo(){ return this.#redo.length > 0; }
+  #ensureStacks(domain){
+    if (!this.#undo[domain]) this.#undo[domain] = [];
+    if (!this.#redo[domain]) this.#redo[domain] = [];
+  }
+  #pushUndo(domain, snap){
+    this.#ensureStacks(domain);
+    this.#undo[domain].push(snap);
+    if (this.#undo[domain].length > MAX_HISTORY) this.#undo[domain].shift();
+    this.#em.emit('history:change', { domain, ...this.historyState(domain) });
+  }
+  #clearRedo(domain){
+    this.#ensureStacks(domain);
+    if (this.#redo[domain].length){
+      this.#redo[domain] = [];
+      this.#em.emit('history:change', { domain, ...this.historyState(domain) });
     }
   }
-  historyState() { return { canUndo: this.canUndo(), canRedo: this.canRedo(), undoLen: this.#undoStack.length, redoLen: this.#redoStack.length }; }
-  canUndo(){ return this.#undoStack.length > 0; }
-  canRedo(){ return this.#redoStack.length > 0; }
+  canUndo(domain){ this.#ensureStacks(domain); return (this.#undo[domain]?.length||0) > 0; }
+  canRedo(domain){ this.#ensureStacks(domain); return (this.#redo[domain]?.length||0) > 0; }
+  historyState(domain){
+    this.#ensureStacks(domain);
+    const u = this.#undo[domain], r = this.#redo[domain];
+    return { canUndo: u.length>0, canRedo: r.length>0, undoLen: u.length, redoLen: r.length };
+  }
 
   // --- Regroupement d’actions (coalescing) ---
-  beginAction(label='op'){
-    if (this.#inAction) return; // déjà en cours
-    this.#inAction = { label, baseSnapshot: this.#makeSnapshot() };
+  // beginAction(label='op'){
+  //   if (this.#inAction) return; // déjà en cours
+  //   this.#inAction = { label, baseSnapshot: this.#makeSnapshot() };
+  // }
+  // endAction(){
+  //   // si rien n’a changé → pas d’entrée d’historique
+  //   if (!this.#inAction) return;
+  //   const snap = this.#inAction.baseSnapshot;
+  //   this.#inAction = null;
+  //   this.#pushUndo(snap);
+  //   this.#clearRedo();
+  // }
+  beginAction(domain='df'){
+    if (this.#inAction[domain]) return;
+    this.#inAction[domain] = { baseSnapshot: this.#makeDomainSnapshot(domain) };
   }
-  endAction(){
-    // si rien n’a changé → pas d’entrée d’historique
-    if (!this.#inAction) return;
-    const snap = this.#inAction.baseSnapshot;
-    this.#inAction = null;
-    this.#pushUndo(snap);
-    this.#clearRedo();
+  endAction(domain='df'){
+    const act = this.#inAction[domain];
+    if (!act) return;
+    delete this.#inAction[domain];
+    this.#pushUndo(domain, act.baseSnapshot);
+    this.#clearRedo(domain);
   }
 
   // --- Wrapper de modification avec historique ---
-  #withHistory(reason, mutator) {
-    // si on coalesce : on n’empile pas à chaque mutation
-    const base = this.#inAction ? this.#inAction.baseSnapshot : this.#makeSnapshot();
-    const beforeJson = JSON.stringify(base); // garde-fou simple
+  // #withHistory(reason, mutator) {
+  //   // si on coalesce : on n’empile pas à chaque mutation
+  //   const base = this.#inAction ? this.#inAction.baseSnapshot : this.#makeSnapshot();
+  //   const beforeJson = JSON.stringify(base); // garde-fou simple
 
-    mutator(); // applique la mutation (setDf, upsert, etc.)
+  //   mutator(); // applique la mutation (setDf, upsert, etc.)
 
-    const afterSnap = this.#makeSnapshot();
-    const afterJson = JSON.stringify(afterSnap);
+  //   const afterSnap = this.#makeSnapshot();
+  //   const afterJson = JSON.stringify(afterSnap);
 
-    // si état inchangé → on ne crée pas d’entrée d’historique
-    if (beforeJson === afterJson) return;
+  //   // si état inchangé → on ne crée pas d’entrée d’historique
+  //   if (beforeJson === afterJson) return;
 
-    if (this.#inAction) {
-      // on ne pushe pas maintenant : endAction() poussera baseSnapshot
-      // mais on garde la modif en RAM évidemment
+  //   if (this.#inAction) {
+  //     // on ne pushe pas maintenant : endAction() poussera baseSnapshot
+  //     // mais on garde la modif en RAM évidemment
+  //   } else {
+  //     this.#pushUndo(base);
+  //     this.#clearRedo();
+  //   }
+
+  //   // autosave débouncée
+  //   this.#autoSave();
+  //   this.#em.emit('history:change', this.historyState());
+  // }
+  #withHistory(domain, reason, mutator){
+    const inAct = this.#inAction[domain] || null;
+    const base = inAct ? inAct.baseSnapshot : this.#makeDomainSnapshot(domain);
+    const before = JSON.stringify(base);
+
+    mutator(); // << ta mutation
+
+    const afterSnap = this.#makeDomainSnapshot(domain);
+    const after = JSON.stringify(afterSnap);
+    if (before === after) return; // rien n’a changé
+
+    if (inAct) {
+      // coalescing : on n’empile pas maintenant ; endAction() le fera
     } else {
-      this.#pushUndo(base);
-      this.#clearRedo();
+      this.#pushUndo(domain, base);
+      this.#clearRedo(domain);
     }
 
-    // autosave débouncée
     this.#autoSave();
-    this.#em.emit('history:change', this.historyState());
+    this.#em.emit('history:change', { domain, ...this.historyState(domain) });
   }
-
   // ---------- Mutations (ré-écrites pour passer par #withHistory) ----------
 
   // ---------- Undo / Redo ----------
-  async undo() {
-    if (!this.canUndo()) return;
-    const snap = this.#undoStack.pop();
-    const cur  = this.#makeSnapshot();
-    this.#redoStack.push(cur);
-    this.#restoreSnapshot(snap);
-    this.#em.emit('history:change', this.historyState());
-    this.#autoSave(); // on sauve l’état restauré
+  // async undo() {
+  //   if (!this.canUndo()) return;
+  //   const snap = this.#undo.pop();
+  //   const cur  = this.#makeSnapshot();
+  //   this.#redo.push(cur);
+  //   this.#restoreSnapshot(snap);
+  //   this.#em.emit('history:change', this.historyState());
+  //   this.#autoSave(); // on sauve l’état restauré
+  // }
+
+  // async redo() {
+  //   if (!this.canRedo()) return;
+  //   const snap = this.#redo.pop();
+  //   const cur  = this.#makeSnapshot();
+  //   this.#undo.push(cur);
+  //   this.#restoreSnapshot(snap);
+  //   this.#em.emit('history:change', this.historyState());
+  //   this.#autoSave();
+  // }
+  _pushHistory(domain) {
+    const snap = this.#makeDomainSnapshot(domain);
+    if (snap == null) return;
+    (this.#undo[domain] ||= []).push(snap);
+    this.#redo[domain] = []; // clear redo
+    this.#em.emit('history:change', {
+      domain,
+      canUndo: this.#undo[domain].length > 0,
+      canRedo: this.#redo[domain].length > 0,
+    });
   }
 
-  async redo() {
-    if (!this.canRedo()) return;
-    const snap = this.#redoStack.pop();
-    const cur  = this.#makeSnapshot();
-    this.#undoStack.push(cur);
-    this.#restoreSnapshot(snap);
-    this.#em.emit('history:change', this.historyState());
+  async undo(domain='df'){
+    this.#ensureStacks(domain);
+    const u = this.#undo[domain], r = this.#redo[domain];
+    if (!u.length) return;
+    const snap = u.pop();
+    const cur  = this.#makeDomainSnapshot(domain);
+    r.push(cur);
+    this.#restoreDomainSnapshot(domain, snap);
+    this.#em.emit('history:change', { domain, ...this.historyState(domain) });
     this.#autoSave();
   }
+  async redo(domain='df'){
+    this.#ensureStacks(domain);
+    const u = this.#undo[domain], r = this.#redo[domain];
+    if (!r.length) return;
+    const snap = r.pop();
+    const cur  = this.#makeDomainSnapshot(domain);
+    u.push(cur);
+    this.#restoreDomainSnapshot(domain, snap);
+    this.#em.emit('history:change', { domain, ...this.historyState(domain) });
+    this.#autoSave();
+  }
+
 }  
 
 
