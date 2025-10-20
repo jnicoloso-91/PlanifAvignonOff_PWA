@@ -3850,7 +3850,7 @@ function openSheet({
   closeBtn.addEventListener('click', destroy);
 
   // -- Swipe-to-close (drag vers le bas) -- (capte bien sur iOS)
-  // (function attachSwipeToClose(panel, backdrop, onClose){
+  // function attachSwipeToClose(panel, backdrop, onClose){
   //   let startY = 0, curY = 0, dragging = false;
 
   //   const onStart = (e) => {
@@ -3913,7 +3913,7 @@ function openSheet({
   //     window.addEventListener('mousemove',  onMove,  true);
   //     window.addEventListener('mouseup',    onEnd,   true);
   //   }
-  // })(panel, backdrop, destroy);
+  // }(panel, backdrop, destroy);
   // -- Swipe-to-close (drag vers le bas) --
   function attachSwipeToClose(handleEl, headerEl, backdrop, onClose){
     let startY = 0, curY = 0, dragging = false;
