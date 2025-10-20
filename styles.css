@@ -1279,8 +1279,7 @@ main, .page-wrap {
   -webkit-overflow-scrolling: touch;
 }
 
-/* la grille dans une sheet doit laisser le tap tranquille */
-.sheet-panel .ag-root,
-.sheet-panel .ag-root * {
-  touch-action: manipulation;
+/* Évite que Safari “interprète” le double tap comme zoom */
+.sheet-body, .sheet-panel, .ag-root {
+  touch-action: manipulation;  /* important sur iOS */
 }
