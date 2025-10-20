@@ -3844,7 +3844,7 @@ function openSheet({
     }, 220);
   };
   // ✅ ici, on attache le swipe avant de monter le contenu
-  attachSwipeToClose(panel, handle, header, backdrop, destroy);
+  attachSwipeToClose(wrap, panel, handle, header, backdrop, destroy);
 
   backdrop.addEventListener('click', destroy);
   closeBtn.addEventListener('click', destroy);
@@ -4090,116 +4090,94 @@ function openSheet({
   // }(handle, header, backdrop, destroy);
 
   // -- Swipe-to-close (drag vers le bas) --
-  function attachSwipeToClose(panel, headerEl, handleEl, backdrop, onClose){
-    const isiOS = (() => {
-      const ua = navigator.userAgent || '';
-      return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    })();
+function attachSwipeToClose(wrap, panel, headerEl, handleEl, backdrop, onClose){
+  const isiOS = (() => {
+    const ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  })();
 
-    const waitViewportSettle = (cb) => {
-      if (!isiOS || !window.visualViewport) { cb(); return; }
-      const vvh0 = window.visualViewport.height;
-      const start = Date.now();
-      const poll = () => {
-        const vvh = window.visualViewport.height;
-        // stable si variation < 1px ou timeout
-        if (Math.abs(vvh - vvh0) < 1 || (Date.now() - start) > 300) { cb(); return; }
-        requestAnimationFrame(poll);
-      };
-      poll();
-    };
+  let startY = 0, curY = 0, dragging = false;
 
-    let startY = 0, curY = 0, dragging = false;
+  const onStart = (e) => {
+    // 🔒 disabled while editing
+    if (wrap.dataset.swipeDisabled === '1') return;
+    const last = Number(wrap.dataset.lastEditEndedAt || 0);
+    if (last && (Date.now() - last) < 200) return; // grace period after edit
 
-    const onStart = (e) => {
-      // ne démarre que depuis header/poignée
-      const target = e.target;
-      if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
+    // only from header/handle
+    const target = e.target;
+    if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
 
-      // ferme le clavier si un input est focus
-      const ae = document.activeElement;
-      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
-        ae.blur?.();
-      }
+    // blur focused input to avoid iOS keyboard pulling content
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) ae.blur?.();
 
-      // attends la stabilisation du viewport iOS
-      waitViewportSettle(() => {
-        const t = e.touches ? e.touches[0] : e;
-        startY = curY = t.clientY;
-        dragging = true;
-
-        panel.style.transition = 'none';
-        backdrop.style.transition = 'none';
-        panel.style.willChange = 'transform';
-        backdrop.style.willChange = 'opacity';
-
-        // style "dragging" (si tu l’utilises)
-        document.querySelector('.sheet-wrap')?.classList.add('dragging');
-      });
-    };
-
-    const onMove = (e) => {
-      if (!dragging) return;
+    waitViewportSettle().then (() => {
       const t = e.touches ? e.touches[0] : e;
-      curY = t.clientY;
-      const dy = Math.max(0, curY - startY);
+      startY = curY = t.clientY;
+      dragging = true;
 
-      // bloque le scroll de page pendant le drag
-      e.preventDefault?.();
+      wrap.classList.add('dragging');
+      panel.style.transition = 'none';
+      backdrop.style.transition = 'none';
+      panel.style.willChange = 'transform';
+      backdrop.style.willChange = 'opacity';
+    });
+  };
 
-      panel.style.transform = `translateY(${dy}px)`;
-      const k = Math.max(0, Math.min(1, dy / 180));
-      backdrop.style.opacity = String(1 - 0.7 * k);
-    };
+  const onMove = (e) => {
+    if (!dragging) return;
+    const t = e.touches ? e.touches[0] : e;
+    curY = t.clientY;
+    const dy = Math.max(0, curY - startY);
+    e.preventDefault?.(); // prevent page scroll during drag
 
-    const onEnd = () => {
-      if (!dragging) return;
-      dragging = false;
+    panel.style.transform = `translateY(${dy}px)`;
+    const k = Math.max(0, Math.min(1, dy / 180));
+    backdrop.style.opacity = String(1 - 0.7 * k);
+  };
 
-      document.querySelector('.sheet-wrap')?.classList.remove('dragging');
-      panel.style.willChange = '';
-      backdrop.style.willChange = '';
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
 
-      const dy = Math.max(0, curY - startY);
-      const THRESH = 120;
+    wrap.classList.remove('dragging');
+    panel.style.willChange = '';
+    backdrop.style.willChange = '';
+    panel.style.transition = '';
+    backdrop.style.transition = '';
 
-      // remets les transitions
-      panel.style.transition = '';
-      backdrop.style.transition = '';
-
-      if (dy > THRESH) {
-        onClose();
-      } else {
-        panel.style.transform = 'translateY(0)';
-        backdrop.style.opacity = '';
-      }
-    };
-
-    // écouteurs
-    const addStart = (el) => {
-      if (!el) return;
-      if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
-      else {
-        el.addEventListener('touchstart', onStart, { passive: true });
-        el.addEventListener('mousedown',  onStart, true);
-      }
-    };
-
-    addStart(headerEl);
-    addStart(handleEl);
-
-    if (window.PointerEvent) {
-      window.addEventListener('pointermove', onMove, { passive: false });
-      window.addEventListener('pointerup',   onEnd,  { passive: true });
-      window.addEventListener('pointercancel', onEnd, { passive: true });
-    } else {
-      window.addEventListener('touchmove', onMove, { passive: false });
-      window.addEventListener('touchend',  onEnd,  { passive: true });
-      window.addEventListener('mousemove', onMove, true);
-      window.addEventListener('mouseup',   onEnd,  true);
+    const dy = Math.max(0, curY - startY);
+    if (dy > 120) onClose();
+    else {
+      panel.style.transform = 'translateY(0)';
+      backdrop.style.opacity = '';
     }
-  }(panel, header, handle, backdrop, destroy);
+  };
 
+  const addStart = (el) => {
+    if (!el) return;
+    if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
+    else {
+      el.addEventListener('touchstart', onStart, { passive: true });
+      el.addEventListener('mousedown',  onStart, true);
+    }
+  };
+
+  addStart(headerEl);
+  addStart(handleEl);
+
+  if (window.PointerEvent) {
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup',   onEnd,  { passive: true });
+    window.addEventListener('pointercancel', onEnd, { passive: true });
+  } else {
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend',  onEnd,  { passive: true });
+    window.addEventListener('mousemove', onMove, true);
+    window.addEventListener('mouseup',   onEnd,  true);
+  }
+}
 
 
 
@@ -4213,6 +4191,41 @@ function openSheet({
 
   return { close: destroy, el: wrap, body, panel };
 }
+
+function waitViewportSettle(timeout = 350) {
+  return new Promise(resolve => {
+    const vv = window.visualViewport;
+    if (!vv) return resolve();
+    const start = Date.now();
+    let lastH = vv.height;
+
+    const tick = () => {
+      const h = vv.height;
+      const stable = Math.abs(h - lastH) < 1;
+      lastH = h;
+      if (stable || (Date.now() - start) > timeout) resolve();
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+// Marque la sheet comme "en train/juste fini d'éditer"
+function markSheetEditing(wrap, on) {
+  if (!wrap) return;
+  if (on) {
+    wrap.dataset.swipeDisabled = '1';
+  } else {
+    // on vient de sortir d'édition : réactive après stabilisation viewport
+    (async () => {
+      await waitViewportSettle(350);
+      delete wrap.dataset.swipeDisabled;
+      wrap.dataset.lastEditEndedAt = String(Date.now());
+    })();
+  }
+}
+
+
 // function openSheet({
 //   title = '',
 //   mount,
@@ -4641,10 +4654,30 @@ function openCarnet() {
         singleClickEdit: false,
         suppressClickEdit: false,
         stopEditingWhenCellsLoseFocus: true,
+        onCellEditingStarted: () => {
+          const wrap = document.querySelector('.sheet-wrap.is-open');
+          markSheetEditing(wrap, true);
+        },
+        onCellEditingStopped: () => {
+          const wrap = document.querySelector('.sheet-wrap.is-open');
+          markSheetEditing(wrap, false); // => attend le settle puis réactive le swipe
+        },
       };
 
       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
       
+      // // désactive le swipe pendant l’édition, réactive après
+      // const wrap = gridDiv.closest('.sheet-wrap');
+      // if (wrap && apiGrid?.addEventListener) {
+      //   apiGrid.addEventListener('cellEditingStarted', () => {
+      //     wrap.dataset.swipeDisabled = '1';
+      //   });
+      //   apiGrid.addEventListener('cellEditingStopped', () => {
+      //     delete wrap.dataset.swipeDisabled;
+      //     wrap.dataset.lastEditEndedAt = String(Date.now());
+      //   });
+      // }
+
       // ⚠️ Très important : cibler la *bonne* racine de CETTE grille
       requestAnimationFrame(() => {
         const root = gridDiv.querySelector('.ag-root') || gridDiv;
