@@ -227,10 +227,10 @@ body:not(.show-welcome) header.app-header {
 /* ---------------------------------
    Page planning
    --------------------------------- */
-.page--planning {
-  background: #ffffff;
-  padding: 8px 0;
-}
+/* .page--planning { */
+  /* background: #ffffff; */
+  /* padding: 8px 0; */
+/* } */
 
 /* ---------------------------------
    Page Catalogues
@@ -286,7 +286,7 @@ body:not(.show-welcome) header.app-header {
 }
 @media (min-width: 960px){
   .page--catalogs .catalog-grid{
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 3vh 2vw;
   }
 }
@@ -385,19 +385,20 @@ body:not(.show-welcome) header.app-header {
 
 /* La page “Catalogues” ne doit pas offrir de scroll horizontal natif */
 .page--catalogs {
-  overflow-x: hidden;
+  overflow-x: hidden;               /* pas de scroll horizontal natif (pour ne pas inteférer avec le swip est géré par le pager parent) */
+  overflow-y: hidden;               /* pas de scroll vertical */
   touch-action: pan-y;              /* idem : on laisse le vertical natif */
   -webkit-overflow-scrolling: touch;/* fluidité verticale iOS */
 }
 
 /* Idem pour la page Planning si besoin */
-.page--planning {
+/* .page--planning {
   overflow-x: hidden;
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
-}
+} */
 
 /* Bonus: évite que les gros boutons créent un pan X natif */
-.page--catalogs .big-cat-btn {
-  touch-action: pan-y; /* un tap reste un tap, le horizontal c’est nous */
-}
+/* .page--catalogs .big-cat-btn {
+  touch-action: pan-y; 
+} */
