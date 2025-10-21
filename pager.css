@@ -235,42 +235,11 @@ body:not(.show-welcome) header.app-header {
 /* ---------------------------------
    Page Catalogues
    --------------------------------- */
-.page--catalogs {
+/* .page--catalogs {
   background: linear-gradient(180deg, #66696e 0%, #000000 100%);
   padding: 16px;
-}
+} */
 
-/* Exemple : gros boutons catalogues (optionnel) */
-.page--catalogs .catalog-buttons {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-  /* max-width: 520px; */
-  margin: 100px;
-}
-.page--catalogs .big-cat-btn {
-  display: block;
-  width: 100%;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  font: 600 16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #111;
-  text-align: center;
-  cursor: pointer;
-  transition: transform .06s ease, background-color .12s ease, box-shadow .12s ease;
-}
-.page--catalogs .big-cat-btn:hover {
-  background: #f6f7fb;
-  box-shadow: 0 2px 10px rgba(0,0,0,.06);
-}
-.page--catalogs .big-cat-btn:active {
-  transform: translateY(1px);
-}
-
-/*=========================
-/* Page Catalogues : fond noir dégradé plein écran */
 #pager .page--catalogs{
   height: 100vh;
   overflow: auto;
@@ -278,6 +247,7 @@ body:not(.show-welcome) header.app-header {
     radial-gradient(120% 120% at 100% 0%, #1f2937 0%, #0b0f14 35%, #000 70%),
     #000;
   color: #fff;
+  padding: 16px;
 
   /* démarre sous le header mais autorise le scroll sous le header */
   /* --header-top: calc(var(--app-header-height,56px) + env(safe-area-inset-top,0px));
@@ -308,7 +278,7 @@ body:not(.show-welcome) header.app-header {
 /* Grille des boutons : 1 col mobile, 2 cols grands écrans */
 .page--catalogs .catalog-grid{
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   row-gap: 4vh;              /* 🔹 espace vertical entre boutons */
   column-gap: 2vw;
   width: 100%;
@@ -316,10 +286,19 @@ body:not(.show-welcome) header.app-header {
 }
 @media (min-width: 960px){
   .page--catalogs .catalog-grid{
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 3vh 2vw;
   }
 }
+
+/* gros boutons catalogues */
+/* .page--catalogs .catalog-buttons { */
+  /* display: grid; */
+  /* grid-template-columns: 1fr; */
+  /* gap: 12px; */
+  /* max-width: 520px; */
+  /* margin: 100px; */
+/* } */
 
 /* Bouton principal (plein écran, “glass” sombre) */
 .page--catalogs .catalog-btn{
