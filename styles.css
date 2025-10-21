@@ -39,6 +39,7 @@ body {
 .app-logo{
   width: 58px; height: 58px; flex: 0 0 auto;
   user-select: none; -webkit-user-drag: none;
+  clip-path: inset(10% 0% 10% 0%);
 }
 
 /* ===============================
@@ -1316,3 +1317,4 @@ main, .page-wrap {
   color: #888;
   stroke: #888;
 }
+

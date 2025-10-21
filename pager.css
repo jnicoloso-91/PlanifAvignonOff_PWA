@@ -1,0 +1,391 @@
+/* ===============================
+   Pager (autonome)
+   - occupe 100% du viewport
+   - 2 pages horizontales (catalogs / planning)
+   - chaque page = 100vw x 100vh
+   =============================== */
+
+/* Reset minimal pour fiabiliser le 100vh sur mobile */
+:root { 
+  --vh: 1vh; /* si tu veux gérer le bug iOS via JS, optionnel */
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Le conteneur pager : couvre tout l’écran */
+#pager {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;              /* masque le débordement horizontal */
+  touch-action: pan-y;           /* on gère le pan-x en JS */
+  background: #fff;              /* fond par défaut */
+}
+
+/* Rail horizontal des pages */
+#pager .pager-track {
+  display: flex;
+  height: 100%;
+  will-change: transform;
+  transform: translate3d(0,0,0);
+}
+
+/* Chaque page : 100vw x 100vh, pas de grow/shrink */
+#pager .pager-track > .page {
+  flex: 0 0 100vw;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: auto;                /* scroll vertical interne par page */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Empêche d’interagir avec les pages non actives (claviers, focus, etc.) */
+#pager .pager-track > .page:not(.is-active) {
+  pointer-events: none;
+}
+
+/* ---------------------------------
+   Safe areas iOS (optionnel)
+   --------------------------------- */
+@supports(padding: env(safe-area-inset-bottom)) {
+  #pager .pager-track > .page {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ---------------------------------
+   (Optionnel) Header d’app si présent
+   - cache le header sur certaines pages via .hidden
+   --------------------------------- */
+.app-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: 0 12px;
+  /* background: rgba(255,255,255,.92); */
+  border-bottom: 1px solid #eef0f2;
+  backdrop-filter: saturate(180%) blur(8px);
+  z-index: 10;
+  transition: transform .2s ease, opacity .2s ease;
+}
+.app-header.hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Si tu utilises un header, pense à compenser son espace dans la page */
+.has-header #pager .pager-track > .page {
+  padding-top: 48px; /* = hauteur du header */
+}
+
+#pager { position: relative; width: 100%; height: 100%; overflow: hidden; }
+#pager .pager-track { display: flex; height: 100%; will-change: transform; }
+#pager .page { flex: 0 0 100%; height: 100%; overflow: auto; }
+
+#pager.is-dragging .page { pointer-events: none; } /* désactive clics pendant drag */
+
+
+/* ===============================
+   Ajustement de la hauteur des pages
+   =============================== */
+
+/* Le conteneur global du pager */
+#pager {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh; /* plein viewport */
+  overflow: hidden;
+}
+
+/* Le rail horizontal */
+#pager .pager-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  transition: transform .4s ease;
+}
+
+/* Chaque page = toute la zone sous le header */
+#pager .page {
+  flex: 0 0 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding-top: var(--app-header-height, 3.0rem); /* espace auto sous header */
+  height: calc(100vh - var(--app-header-height, 3.5rem));
+}
+
+/* Le header fixe et sa hauteur déclarée */
+header.app-header {
+  --app-header-height: 3.5rem; /* ajustable */
+  height: var(--app-header-height);
+  line-height: var(--app-header-height);
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+}
+
+/* Quand on est sur le welcome, le header reste masqué */
+body.show-welcome #pager .page {
+  padding-top: 0;
+  height: 100vh;
+}
+
+/*=================================
+  Welcome
+  =================================*/
+#welcome {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, #3d3f42 0%, #000000 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  z-index: 5000;          /* > header et pager */
+  font-family: system-ui, sans-serif;
+  opacity: 1;
+  transform: none;
+  transition: opacity .45s ease, transform .45s ease;
+}
+
+
+#pager {
+  opacity: 0;
+  transform: translateX(30%);
+  transition: opacity .45s ease, transform .45s ease;
+}
+
+/* --- Sortie du welcome --- */
+#welcome.is-leaving {
+  opacity: 0;
+  transform: translateX(-30%);
+}
+
+/* --- Entrée du pager --- */
+#pager.is-entering {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* --- Blocage des clics pendant la transition --- */
+.transition-lock {
+  pointer-events: none;
+}
+
+/* --- Masquage du header pendant le welcome --- */
+body.show-welcome header.app-header {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+body:not(.show-welcome) header.app-header {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#welcome .welcome-inner {
+  max-width: 80%;
+}
+
+#welcome .welcome-title {
+  font-size: 8rem;
+  font-weight: 100;
+  margin-bottom: 10rem;
+}
+
+#welcome .welcome-sub {
+  font-size: 1rem;
+  opacity: .85;
+}
+
+/* Petit effet d’apparition */
+#welcome .welcome-inner {
+  animation: fadeUp .8s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------------------------
+   Page planning
+   --------------------------------- */
+.page--planning {
+  background: #ffffff;
+  padding: 8px 0;
+}
+
+/* ---------------------------------
+   Page Catalogues
+   --------------------------------- */
+.page--catalogs {
+  background: linear-gradient(180deg, #66696e 0%, #000000 100%);
+  padding: 16px;
+}
+
+/* Exemple : gros boutons catalogues (optionnel) */
+.page--catalogs .catalog-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  /* max-width: 520px; */
+  margin: 100px;
+}
+.page--catalogs .big-cat-btn {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font: 600 16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #111;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .06s ease, background-color .12s ease, box-shadow .12s ease;
+}
+.page--catalogs .big-cat-btn:hover {
+  background: #f6f7fb;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+}
+.page--catalogs .big-cat-btn:active {
+  transform: translateY(1px);
+}
+
+/*=========================
+/* Page Catalogues : fond noir dégradé plein écran */
+#pager .page--catalogs{
+  height: 100vh;
+  overflow: auto;
+  background:
+    radial-gradient(120% 120% at 100% 0%, #1f2937 0%, #0b0f14 35%, #000 70%),
+    #000;
+  color: #fff;
+
+  /* démarre sous le header mais autorise le scroll sous le header */
+  /* --header-top: calc(var(--app-header-height,56px) + env(safe-area-inset-top,0px));
+  padding-top: var(--header-top);
+  margin-top: calc(-1 * var(--header-top));
+  scroll-padding-top: var(--header-top); */
+  padding-bottom: calc(3vh + env(safe-area-inset-bottom,0px));
+}
+
+/* Contenu vertical : marge intérieure et espacement en % hauteur */
+.page--catalogs .catalog-wrap{
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3vh;                 /* espace vertical “fluide” */
+  padding-top: 6vh;          /* 🔹 espace haut global */
+  padding-inline: 5vw;
+}
+
+/* Titre optionnel */
+.page--catalogs .catalog-title{
+  font-weight: 650;
+  font-size: clamp(18px, 2.4vh, 24px);
+  letter-spacing: .2px;
+  color: #e5e7eb;
+}
+
+/* Grille des boutons : 1 col mobile, 2 cols grands écrans */
+.page--catalogs .catalog-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  row-gap: 4vh;              /* 🔹 espace vertical entre boutons */
+  column-gap: 2vw;
+  width: 100%;
+  margin-top: 4vh;           /* 🔹 espace entre titre et 1er bouton */
+}
+@media (min-width: 960px){
+  .page--catalogs .catalog-grid{
+    grid-template-columns: 1fr 1fr;
+    gap: 3vh 2vw;
+  }
+}
+
+/* Bouton principal (plein écran, “glass” sombre) */
+.page--catalogs .catalog-btn{
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  border: 1px solid rgba(255,255,255,.16);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.12));
+  color: #f9fafb;
+  border-radius: 16px;
+  padding: 3vh 3.5vw;
+  width: 100%;
+  height: 18vh;                   /* hauteur fluide */
+  max-height: 160px;              /* garde-fou desktop */
+  min-height: 110px;              /* garde-fou mobile */
+  display: flex; align-items: center; gap: 2.2vh;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+  box-shadow:
+    0 6px 20px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  transition: transform .08s ease, background .18s ease, box-shadow .18s ease, border-color .18s ease;
+  backdrop-filter: saturate(140%) blur(6px);
+}
+.page--catalogs .catalog-btn:hover{
+  border-color: rgba(255,255,255,.22);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.10));
+  box-shadow:
+    0 10px 28px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+.page--catalogs .catalog-btn:active{
+  transform: translateY(1px) scale(.996);
+}
+
+/* Icône + texte */
+.page--catalogs .catalog-btn .icon{
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items:center; justify-content:center;
+  opacity: .95;
+}
+.page--catalogs .catalog-btn .icon svg{
+  width: 100%; height: 100%;
+  stroke: currentColor; fill: none; stroke-width: 2;
+}
+.page--catalogs .catalog-btn .txt{
+  display: flex; flex-direction: column; gap: .6vh; min-width: 0;
+}
+.page--catalogs .catalog-btn .label{
+  font-size: clamp(16px, 2.2vh, 22px);
+  font-weight: 600;
+  color: #f3f4f6;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.page--catalogs .catalog-btn .sub{
+  font-size: clamp(12px, 1.7vh, 14px);
+  color: #9ca3af;
+}
+
+/* Variante “clair” (si tu veux un bouton plus lumineux) */
+.page--catalogs .catalog-btn.is-bright{
+  background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
+  color: #fff;
+  border-color: rgba(255,255,255,.25);
+}
