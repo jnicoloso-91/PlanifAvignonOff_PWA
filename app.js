@@ -7,12 +7,17 @@ import {
   ymdToDateint, 
   safeDateint, 
   toDateint,
+  dateintToInput,
+  minutesToPretty,
+  prettyToMinutes,
 } from './utils-date.js';
 import { creerActivitesAPI, sortDf } from './activites.js'; 
 import { sortCarnet } from './carnet.js'; 
 import { AppContext } from './AppContext.js';
 import { ActiviteRenderer } from './ActiviteRenderer.js';
 import { LieuRenderer } from './LieuRenderer.js';
+import { TelRenderer } from './TelRenderer.js';
+import { WebRenderer } from './WebRenderer.js';
 
 const DEBUG = true;
 const dlog = (...args)=>DEBUG && console.log('[FLIGHT]', ...args);
@@ -499,78 +504,77 @@ function enableTouchEdit(api, gridEl, opts = {}) {
 
 // Drop-in : double-tap (≈<280ms, même cellule) → startEditingCell
 //           long-press (≥550ms, sans bouger)   → startEditingCell
-function enableTouchEditV2(api, root, { debug=false, doubleTapMs=280, longPressMs=550 } = {}) {
-  if (!api || !root) return;
-  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  if (!hasTouch) { debug && console.log('[TouchEdit] skip (no touch)'); return; }
+// function enableTouchEditV2(api, root, { debug=false, doubleTapMs=280, longPressMs=550 } = {}) {
+//   if (!api || !root) return;
+//   const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+//   if (!hasTouch) { debug && console.log('[TouchEdit] skip (no touch)'); return; }
 
-  // petit confort pour iOS (réduit la latence du tap)
-  try { root.style.touchAction = 'manipulation'; } catch {}
+//   // petit confort pour iOS (réduit la latence du tap)
+//   try { root.style.touchAction = 'manipulation'; } catch {}
 
-  let lastTapT = 0, lastKey = '', lastPos = null;
-  let pressTimer = null, pressed = false, startPos = null;
+//   let lastTapT = 0, lastKey = '', lastPos = null;
+//   let pressTimer = null, pressed = false, startPos = null;
 
-  const cellFromEvent = (ev) => {
-    const el = ev.target?.closest?.('.ag-cell');
-    if (!el) return null;
-    const rowEl = el.closest('.ag-row');
-    if (!rowEl) return null;
-    const colId = el.getAttribute('col-id');
-    const rowIndex = (parseInt(rowEl.getAttribute('aria-rowindex'), 10) || 1) - 1; // 0-based
-    if (rowIndex < 0 || !colId) return null;
-    return { rowIndex, colId, cellEl: el, rowEl };
-  };
+//   const cellFromEvent = (ev) => {
+//     const el = ev.target?.closest?.('.ag-cell');
+//     if (!el) return null;
+//     const rowEl = el.closest('.ag-row');
+//     if (!rowEl) return null;
+//     const colId = el.getAttribute('col-id');
+//     const rowIndex = (parseInt(rowEl.getAttribute('aria-rowindex'), 10) || 1) - 1; // 0-based
+//     if (rowIndex < 0 || !colId) return null;
+//     return { rowIndex, colId, cellEl: el, rowEl };
+//   };
 
-  const startEditing = ({ rowIndex, colId }) => {
-    // focus puis édition
-    api.setFocusedCell?.(rowIndex, colId);
-    api.startEditingCell?.({ rowIndex, colKey: colId });
-    debug && console.log('[TouchEdit] → startEditingCell', rowIndex, colId);
-  };
+//   const startEditing = ({ rowIndex, colId }) => {
+//     // focus puis édition
+//     api.setFocusedCell?.(rowIndex, colId);
+//     api.startEditingCell?.({ rowIndex, colKey: colId });
+//     debug && console.log('[TouchEdit] → startEditingCell', rowIndex, colId);
+//   };
 
-  const clearPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } pressed = false; };
+//   const clearPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } pressed = false; };
 
-  // on écoute *pointerdown* pour capter iOS / PWA proprement
-  root.addEventListener('pointerdown', (e) => {
-    if (e.pointerType !== 'touch') return;
-    const hit = cellFromEvent(e);
-    if (!hit) return;
+//   // on écoute *pointerdown* pour capter iOS / PWA proprement
+//   root.addEventListener('pointerdown', (e) => {
+//     if (e.pointerType !== 'touch') return;
+//     const hit = cellFromEvent(e);
+//     if (!hit) return;
 
-    const now = Date.now();
-    const key = `${hit.rowIndex}|${hit.colId}`;
-    const pos = { x: e.clientX, y: e.clientY };
+//     const now = Date.now();
+//     const key = `${hit.rowIndex}|${hit.colId}`;
+//     const pos = { x: e.clientX, y: e.clientY };
 
-    // Long-press
-    pressed = true;
-    startPos = pos;
-    clearPress();
-    pressTimer = setTimeout(() => {
-      if (!pressed) return;
-      // seuil de mouvement : ~8px
-      const moved = startPos && Math.hypot(pos.x - startPos.x, pos.y - startPos.y) > 8;
-      if (!moved) startEditing(hit);
-      clearPress();
-    }, longPressMs);
+//     // Long-press
+//     pressed = true;
+//     startPos = pos;
+//     clearPress();
+//     pressTimer = setTimeout(() => {
+//       if (!pressed) return;
+//       // seuil de mouvement : ~8px
+//       const moved = startPos && Math.hypot(pos.x - startPos.x, pos.y - startPos.y) > 8;
+//       if (!moved) startEditing(hit);
+//       clearPress();
+//     }, longPressMs);
 
-    // Double-tap
-    const dt = now - lastTapT;
-    const moved = lastPos && Math.hypot(pos.x - lastPos.x, pos.y - lastPos.y) > 12;
-    if (dt < doubleTapMs && key === lastKey && !moved) {
-      e.preventDefault?.(); // évite le zoom double-tap iOS
-      clearPress();
-      requestAnimationFrame(() => startEditing(hit));
-      lastTapT = 0; lastKey = ''; lastPos = null;
-      return;
-    }
-    lastTapT = now; lastKey = key; lastPos = pos;
-  }, { passive: true });
+//     // Double-tap
+//     const dt = now - lastTapT;
+//     const moved = lastPos && Math.hypot(pos.x - lastPos.x, pos.y - lastPos.y) > 12;
+//     if (dt < doubleTapMs && key === lastKey && !moved) {
+//       e.preventDefault?.(); // évite le zoom double-tap iOS
+//       clearPress();
+//       requestAnimationFrame(() => startEditing(hit));
+//       lastTapT = 0; lastKey = ''; lastPos = null;
+//       return;
+//     }
+//     lastTapT = now; lastKey = key; lastPos = pos;
+//   }, { passive: true });
 
-  root.addEventListener('pointerup',   () => clearPress(), { passive: true });
-  root.addEventListener('pointercancel', () => clearPress(), { passive: true });
+//   root.addEventListener('pointerup',   () => clearPress(), { passive: true });
+//   root.addEventListener('pointercancel', () => clearPress(), { passive: true });
 
-  debug && console.log('[TouchEdit] listeners attached on', root);
-}
-
+//   debug && console.log('[TouchEdit] listeners attached on', root);
+// }
 
 function computeMinPaneHeight(pane) {
   // header
@@ -3393,10 +3397,10 @@ function wireAppKebab() {
     e.stopPropagation();
     openKebabMenu(btn, {
       items: [
-        { id:'carnet', label:"Carnet d'adresses", onClick: ()=>openCarnet() },
-        { id:'periode', label:'Période de programmation', onClick: ()=>openPeriode() },
-        { id:'settings', label:'Paramètres',               onClick: ()=>openSettings() },
-        { id:'help',     label:'Aide',                     onClick: ()=>openHelp() },
+        { id:'carnet', label:"Carnet d'adresses", onClick: ()=>openSheetCarnet() },
+        { id:'periode', label:'Période de programmation', onClick: ()=>openSheetPeriodeProg() },
+        { id:'settings', label:'Paramètres',               onClick: ()=>openSheetParams() },
+        { id:'help',     label:'Aide',                     onClick: ()=>openSheetAide() },
       ]
     });
   }, { passive: true });
@@ -4531,7 +4535,7 @@ function markSheetEditing(wrap, on) {
 
 
 
-// function openCarnet(){
+// function openSheetCarnet(){
 //   openSheet({
 //     title: 'Carnet d’adresses',
 //     classes: '',          
@@ -4570,7 +4574,7 @@ function markSheetEditing(wrap, on) {
 //   });
 // }
 
-// function openCarnet() {
+// function openSheetCarnet() {
 //   openSheet({
 //     title: 'Carnet d’adresses',
 //     classes: '',          
@@ -4660,7 +4664,7 @@ function markSheetEditing(wrap, on) {
 //   });
 // }
 
-function openCarnet() {
+function openSheetCarnet() {
   let offHist = null;     // history:change (domain=carnet)
   let offCarnet = null;   // carnet:changed (données)
   openSheet({
@@ -4724,10 +4728,13 @@ function openCarnet() {
 
       // grille 
       const columns = [
-        { field:'Nom', headerName:'Nom', minWidth:180, flex:1, editable:true },
-        { field:'Adresse', headerName:'Adresse', minWidth:160, flex:1, editable:true },
-        { field:'Tel', headerName:'Téléphone', minWidth:200, flex:1, editable:true },
-        { field:'Web', headerName:'Web', minWidth:140, editable:true },
+        { field:'Nom', headerName:'Nom', minWidth:100, flex:1, editable:true },
+        { field:'Adresse', headerName:'Adresse', minWidth:200, flex:2, editable:true },
+        { field:'Tel', headerName:'Téléphone', minWidth:100, flex:1, editable:true, cellRenderer: TelRenderer },
+        { field:'Web', headerName:'Web', minWidth:200, flex: 2, editable:true, cellRenderer: WebRenderer },
+        // { field:'Web', headerName:'Web', minWidth:200, flex:2, editable:true,
+        //   cellRendererSelector: () => ({ component: 'web91Renderer' })
+        // },
       ];
 
       // const gridOptions = {
@@ -4756,6 +4763,10 @@ function openCarnet() {
       // };
       const gridOptions = {
         columnDefs: columns,
+  // components: {                 // <— enregistre les classes ici
+  //   telRenderer: TelRenderer,
+  //   webRenderer: Web91Renderer,
+  // },
         rowData: (window.ctx?.carnet || []),
         getRowId: p => p.data?.__uuid,
 
@@ -4926,10 +4937,203 @@ function openCarnet() {
   });
 }
 
+function openSheetPeriodeProg(){
+  const meta = (window.ctx?.meta) || {};
+  const curDeb = meta.periode_a_programmer_debut || null; // dateint
+  const curFin = meta.periode_a_programmer_fin   || null; // dateint
 
-function openPeriode(){}
-function openSettings(){}
-function openHelp(){}
+  openSheet({
+    title: 'Période de programmation',
+    panelMaxHeight: '60vh',
+    panelHeight: '36vh',
+    replaceExisting: true,
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="form">
+          <div class="form-row">
+            <label for="pp-debut">Début</label>
+            <input id="pp-debut" type="date" value="${dateintToInput(curDeb)}"/>
+          </div>
+          <div class="form-row">
+            <label for="pp-fin">Fin</label>
+            <input id="pp-fin" type="date" value="${dateintToInput(curFin)}"/>
+          </div>
+
+          <div class="form-actions">
+            <button class="bb-btn" id="pp-cancel">Annuler</button>
+            <button class="bb-btn is-primary" id="pp-save">Enregistrer</button>
+          </div>
+        </div>
+      `;
+
+      // Styles (légers) si besoin
+      styleSimpleForm(body);
+
+      const $deb = body.querySelector('#pp-debut');
+      const $fin = body.querySelector('#pp-fin');
+
+      body.querySelector('#pp-cancel')?.addEventListener('click', close);
+
+      body.querySelector('#pp-save')?.addEventListener('click', () => {
+        const d1 = inputToDateint($deb.value);
+        const d2 = inputToDateint($fin.value);
+
+        if (!d1 || !d2 || d2 < d1) {
+          alert('Vérifie les dates (fin >= début).');
+          return;
+        }
+
+        // Sauvegarde meta + rafraîchissements éventuels
+        window.ctx?.setMeta({
+          periode_a_programmer_debut: d1,
+          periode_a_programmer_fin:   d2
+        });
+
+        // Si tes couleurs / règles dépendent de ces bornes :
+        // -> rafraîchis les grilles impactées ici
+        refreshAllGrids?.();
+
+        close();
+      });
+    }
+  });
+}
+
+function openSheetParams(){
+  const meta = (window.ctx?.meta) || {};
+  const dureeRepasMin = Math.max(0, Number(meta.DUREE_REPAS_MIN ?? 75)|0);
+  const margeMin      = Math.max(0, Number(meta.MARGE_MIN ?? 10)|0);
+  const itin          = String(meta.itineraire_app || 'Google Maps Web');
+
+  openSheet({
+    title: 'Paramètres',
+    panelMaxHeight: '70vh',
+    panelHeight: '52vh',
+    replaceExisting: true,
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="form">
+          <div class="form-row">
+            <label>Durée repas</label>
+            <div class="row-inline">
+              <input id="p-repas" type="number" min="0" step="5" value="${dureeRepasMin}" style="width:100px"/>
+              <span id="p-repas-pretty" class="hint">${minutesToPretty(dureeRepasMin)}</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Marge entre activités</label>
+            <div class="row-inline">
+              <input id="p-marge" type="number" min="0" step="5" value="${margeMin}" style="width:100px"/>
+              <span id="p-marge-pretty" class="hint">${minutesToPretty(margeMin)}</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Itinéraire</label>
+            <select id="p-itin">
+              <option ${itin==='Google Maps Web' ? 'selected':''}>Google Maps Web</option>
+              <option ${itin==='Google Maps App' ? 'selected':''}>Google Maps App</option>
+              <option ${itin==='Apple Maps' ? 'selected':''}>Apple Maps</option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button class="bb-btn" id="p-cancel">Annuler</button>
+            <button class="bb-btn is-primary" id="p-save">Enregistrer</button>
+          </div>
+        </div>
+      `;
+
+      styleSimpleForm(body);
+
+      const $rep = body.querySelector('#p-repas');
+      const $mar = body.querySelector('#p-marge');
+      const $it  = body.querySelector('#p-itin');
+
+      const $repPretty = body.querySelector('#p-repas-pretty');
+      const $marPretty = body.querySelector('#p-marge-pretty');
+
+      const syncPretty = () => {
+        $repPretty.textContent = minutesToPretty($rep.value);
+        $marPretty.textContent = minutesToPretty($mar.value);
+      };
+      $rep.addEventListener('input', syncPretty);
+      $mar.addEventListener('input', syncPretty);
+
+      body.querySelector('#p-cancel')?.addEventListener('click', close);
+
+      body.querySelector('#p-save')?.addEventListener('click', () => {
+        const repMin = Math.max(0, Number($rep.value||0)|0);
+        const marMin = Math.max(0, Number($mar.value||0)|0);
+        const itinApp = $it.value;
+
+        window.ctx?.setMeta({
+          DUREE_REPAS_MIN: repMin,
+          MARGE_MIN:       marMin,
+          itineraire_app:  itinApp
+        });
+
+        // si des calculs/affichages dépendent de ces params :
+        refreshAllGrids?.();
+
+        close();
+      });
+    }
+  });
+}
+
+function styleSimpleForm(root){
+  // évite de polluer le global: on style seulement l’intérieur de 'root'
+  const css = document.createElement('style');
+  css.textContent = `
+    .form { display: grid; gap: 12px; }
+    .form-row { display:flex; flex-direction:column; gap:6px; }
+    .form-row label { font-size: 12px; color:#6b7280; }
+    .row-inline { display:flex; align-items:center; gap:10px; }
+    .form input[type="date"],
+    .form input[type="number"],
+    .form select {
+      border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px;
+      font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:#fff; color:#111;
+    }
+    .form .hint { font-size:12px; color:#6b7280; }
+    .form-actions{
+      margin-top: 6px; display:flex; gap:8px; justify-content:flex-end;
+    }
+    .bb-btn.is-primary{ background:#1f6feb; color:#fff; border-color:#1f6feb; }
+    .bb-btn.is-primary:hover{ filter:brightness(1.05); }
+  `;
+  root.appendChild(css);
+}
+
+function openSheetAide() {
+  openSheet({
+    title: 'Aide',
+    panelMaxHeight: '70vh',
+    panelHeight: '60vh',
+    mount: (body) => {
+      body.innerHTML = `
+        <div class="help-block">
+          <h4>Gestes utiles</h4>
+          <ul>
+            <li><b>Swipe bas</b> sur l’entête de la sheet → fermer</li>
+            <li><b>Double-tap</b> sur une cellule → éditer (iOS OK)</li>
+            <li><b>Long-press</b> (desktop : clic) sur 🔗/📍 → ouvrir le lien</li>
+          </ul>
+          <h4>Programmation</h4>
+          <p>Choisissez une date dans la colonne <i>Date</i> (grille activités). Les lignes sélectionnées se
+             mettent en évidence; la ligne nouvellement programmée est auto-centrée.</p>
+          <h4>Contact</h4>
+          <ul>
+            <li>📧 support@example.com</li>
+          </ul>
+        </div>
+      `;
+    }
+  });
+}
 
 // ------- Boot -------
 function wireContext() {

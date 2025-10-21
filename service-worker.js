@@ -7,6 +7,8 @@ const OFFLINE_ASSETS = [
   "./AppContext.js",
   "./ActiviteRenderer.js",
   "./LieuRenderer.js",
+  "./TelRenderer.js",
+  "./WebRenderer.js",
   "./ui_state.mjs",
   "./activites.js",
   "./carnet.js",
