@@ -1260,12 +1260,46 @@ function nextPaint(times=2) {
   });
 }
 
+// trouve le vrai conteneur qui scrolle
+function getScrollContainer(el) {
+  let cur = el;
+  while (cur && cur !== document.body) {
+    const cs = getComputedStyle(cur);
+    if (/(auto|scroll)/.test(cs.overflowY) && cur.scrollHeight > cur.clientHeight) {
+      return cur;
+    }
+    cur = cur.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
+// scrolle l'expander en tenant compte du header
+function scrollExpanderIntoView(exp) {
+  if (!exp) return;
+  const scroller = getScrollContainer(exp);
+
+  // lis ta var CSS --header-h (fallback 48px) + petit coussin
+  const headerH = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--header-h')
+  ) || 48;
+  const cushion = 8;
+
+  const expRect = exp.getBoundingClientRect();
+  const scRect  = scroller.getBoundingClientRect();
+
+  // position cible = position actuelle du scroll + delta - header - coussin
+  const targetTop = scroller.scrollTop + (expRect.top - scRect.top) - headerH - cushion;
+
+  scroller.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+}
+
 // Rend visible un expander
 function scrollToExpander(expId) {
   const exp = document.getElementById(expId);
   if (!exp) return;
   // exp.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  exp.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  // exp.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  exp.scrollExpanderIntoView(exp);
 }
 
 // Ouvre un expander
