@@ -422,8 +422,7 @@ main, .page-wrap {
   position: fixed;
 
   /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
-  /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
-  bottom: 0px;
+  bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px));
   height: var(--bar-height);
 
   left: 0; right: 0; /* bottom: 0; */
@@ -498,8 +497,7 @@ main, .page-wrap {
 .bar-toggle {
   position: fixed;
   right: -8px;
-  /* bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height)); */
-  bottom: var(--bar-height);
+  bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height));
   transform: translateX(-50%);
   background: #f7f7f7;
   border: 1px solid #ccc;
@@ -811,8 +809,7 @@ main, .page-wrap {
    Spacer en bas de page pour éviter que le contenu soit caché par la bottom bar
    =============================== */
 .page-end-spacer {
-  /* height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px); */
-  height: calc(var(--bar-height) + 12px);
+  height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px);
   flex: 0 0 auto;
 }
 
