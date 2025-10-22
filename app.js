@@ -5176,7 +5176,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSheetGrids();
 
   // 3️⃣ Premier rendu
-  await refreshAllGrids();
+  // await refreshAllGrids();
   // appJustLaunched = false;
 
   console.log('✅ Application initialisée');
