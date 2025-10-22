@@ -127,7 +127,7 @@ html, body {
 
   padding-top: var(--header-h, 3.0rem); /* espace auto sous header */
   /* height: calc(100vh - var(--header-h, 3.5rem)); */
-  height: calc(100vh - env(safe-area-inset-bottom));
+  height: 200px; /*calc(100vh - env(safe-area-inset-bottom));*/
 
   /*padding-top: var(--app-header-height, 3.0rem); /* espace auto sous header */
   /* height: calc(100vh - var(--app-header-height, 3.5rem)); */
