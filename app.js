@@ -1299,7 +1299,7 @@ function scrollToExpander(expId) {
   if (!exp) return;
   // exp.scrollIntoView({ behavior: 'smooth', block: 'center' });
   // exp.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-  exp.scrollExpanderIntoView(exp);
+  scrollExpanderIntoView(exp);
 }
 
 // Ouvre un expander
