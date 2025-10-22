@@ -6,7 +6,7 @@
   --muted:#8b949e; 
   --accent:#2ea043;
   /* iOS safe areas */
-  --safe-gap: 200px;              /* injecté par JS */
+  --safe-gap: 0px;              /* injecté par JS */
   --bar-height: 56px;           /* hauteur bottom bar (approx) */
   /*--dvh: 100dvh; fallback if JS not run yet */
 }
@@ -422,7 +422,8 @@ main, .page-wrap {
   position: fixed;
 
   /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
-  bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px));
+  /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
+  bottom: var(--safe-gap, 0px);
   height: var(--bar-height);
 
   left: 0; right: 0; /* bottom: 0; */
@@ -497,7 +498,8 @@ main, .page-wrap {
 .bar-toggle {
   position: fixed;
   right: -8px;
-  bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height));
+  /* bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height)); */
+  bottom: calc(var(--safe-gap) + var(--bar-height));
   transform: translateX(-50%);
   background: #f7f7f7;
   border: 1px solid #ccc;
@@ -809,7 +811,8 @@ main, .page-wrap {
    Spacer en bas de page pour éviter que le contenu soit caché par la bottom bar
    =============================== */
 .page-end-spacer {
-  height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px);
+  /* height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px); */
+  height: calc(var(--bar-height) + var(--safe-gap, 0px) + 12px);
   flex: 0 0 auto;
 }
 
