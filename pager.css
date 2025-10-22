@@ -40,7 +40,7 @@ html, body {
 #pager .pager-track > .page {
   flex: 0 0 100vw;
   width: 100vw;
-  height: 100vh;
+  /* height: 100vh; */
   box-sizing: border-box;
   overflow: auto;                /* scroll vertical interne par page */
   -webkit-overflow-scrolling: touch;
