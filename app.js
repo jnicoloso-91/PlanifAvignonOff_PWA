@@ -3179,7 +3179,7 @@ function getSafeBottom() {
 }
 
 function setSafeGap(px){
-  document.documentElement.style.setProperty('--safe-gap', `${px}px`);
+  // document.documentElement.style.setProperty('--safe-gap', `${px}px`);
 }
 
 function computeSafeGap() {
