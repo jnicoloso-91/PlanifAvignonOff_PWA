@@ -150,7 +150,7 @@ html, body {
 
   /* height: calc(var(--vh, 100vh) - var(--header-h, 0px));
   overflow: hidden;       pas de scroll de la page elle-même */
-  scroll-padding-top: var(--header-h, 48px);
+  scroll-padding-top: calc(-var(--header-h, 48px));
 }
 
 /* Le header fixe et sa hauteur déclarée */
