@@ -118,13 +118,11 @@ html, body {
 }
 
 /* Si le navigateur supporte 100dvh (dynamic viewport height) → on l'utilise */
-@supports (height: 100dvh) {
+/* @supports (height: 100dvh) {
   #pager {
-    /* height: calc(100dvh - env(safe-area-inset-bottom)) - var(--safe-gap, 0px)); */
     height: calc(100dvh - env(safe-area-inset-bottom));
-    /* en 100dvh, on peut souvent mettre --safe-gap à 0 (cf. ci-dessous) */
   }
-}
+} */
 
 /* Le rail horizontal */
 #pager .pager-track {
@@ -142,7 +140,7 @@ html, body {
   box-sizing: border-box;
   overflow-y: auto;
 
-  padding-top: var(--header-h, 3.0rem); /* espace auto sous header */
+  padding-top: var(--header-h, 48px); /* espace auto sous header */
   /* height: calc(100vh - var(--header-h, 3.5rem)); */
   /* height: calc(100vh - env(safe-area-inset-bottom) - var(--header-h, 0px)); */
   height: 100%;
@@ -152,6 +150,7 @@ html, body {
 
   /* height: calc(var(--vh, 100vh) - var(--header-h, 0px));
   overflow: hidden;       pas de scroll de la page elle-même */
+  scroll-padding-top: var(--header-h, 48px);
 }
 
 /* Le header fixe et sa hauteur déclarée */
