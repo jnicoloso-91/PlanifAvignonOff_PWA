@@ -435,7 +435,8 @@ main, .page-wrap {
   /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
   /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
   /* bottom: var(--safe-gap, 0px); */
-  bottom: 0px; left: 0; right: 0;
+  bottom: env(safe-area-inset-bottom); 
+  left: 0; right: 0;
   height: var(--bar-height);
 
   left: 0; right: 0; /* bottom: 0; */
