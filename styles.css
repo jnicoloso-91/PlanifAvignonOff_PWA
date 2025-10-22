@@ -13,7 +13,7 @@
 
 * { box-sizing: border-box; }
 html,body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-#grid { height: calc(100vh - 64px); width: 100%; }
+/* #grid { height: calc(100vh - 64px); width: 100%; } */
 
 body {
   padding-top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
@@ -344,7 +344,7 @@ main, .page-wrap {
   --ag-header-height:32px;  
 }
 
-@media (max-width: 750px) {
+@media (max-width: 768px) {
   /* Font Height */
   .ag-theme-quartz.compact { 
     --ag-font-size: 10px; 
@@ -422,7 +422,8 @@ main, .page-wrap {
   position: fixed;
 
   /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
-  bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px));
+  /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
+  bottom: 0px;
   height: var(--bar-height);
 
   left: 0; right: 0; /* bottom: 0; */
