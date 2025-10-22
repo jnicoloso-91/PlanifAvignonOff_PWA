@@ -45,6 +45,63 @@
       </button>
     </header>
 
+    <!-- Bottom Bar -->
+    <div class="bottom-bar" id="bottomBar" role="toolbar" aria-label="Actions">
+      <div class="bottom-bar__scroller" id="bottomBarScroller">
+
+        <!-- Bouton Fichier -->
+        <button class="bb-icon-btn" id="btn-file">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h7l3 3h6v13H4z"/>
+          </svg>
+          <span class="bb-label">Fichier</span>
+        </button>
+
+        <!-- Bouton Défaire -->
+        <button class="bb-icon-btn" id="btn-undo">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 7v6h6M3 13a9 9 0 1 0 9-9"/>
+          </svg>
+          <span class="bb-label">Défaire</span>
+        </button>
+
+        <!-- Bouton Refaire -->
+        <button class="bb-icon-btn" id="btn-redo">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 7v6h-6M21 13a9 9 0 1 1-9-9"/>
+          </svg>
+          <span class="bb-label">Refaire</span>
+        </button>
+
+        <!-- Bouton Ajouter avec collage -->
+        <button class="bb-icon-btn" id="btn-paste">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h7l3 3h6v13H4z"/>
+            <path d="M9 14h6"/>
+            <path d="M9 18h6"/>
+          </svg>
+          <span class="bb-label">Coller</span>
+        </button>
+
+        <!-- Bouton Ajouter -->
+        <button class="bb-icon-btn" id="btn-add">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span class="bb-label">Ajouter</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- Languette dela Bottom Bar -->
+    <!-- <button id="toggleBar" class="bar-toggle" aria-label="Montrer ou cacher la barre">^</button> -->
+    
+    <!-- Masque de la Bottom Bar sur la safe-area d'IOS -->
+    <!-- <div id="safeMask" class="safe-bottom-mask"></div> -->
+
+
     <!-- ÉCRAN D’ACCUEIL (hors pager) -->
     <section id="welcome" class="welcome-screen">
       <div class="welcome-inner">
@@ -130,61 +187,7 @@
 
             <div class="page-end-spacer"></div>
 
-            <!-- Bottom Bar -->
-            <div class="bottom-bar" id="bottomBar" role="toolbar" aria-label="Actions">
-              <div class="bottom-bar__scroller" id="bottomBarScroller">
-
-                <!-- Bouton Fichier -->
-                <button class="bb-icon-btn" id="btn-file">
-                  <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 4h7l3 3h6v13H4z"/>
-                  </svg>
-                  <span class="bb-label">Fichier</span>
-                </button>
-
-                <!-- Bouton Défaire -->
-                <button class="bb-icon-btn" id="btn-undo">
-                  <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 7v6h6M3 13a9 9 0 1 0 9-9"/>
-                  </svg>
-                  <span class="bb-label">Défaire</span>
-                </button>
-
-                <!-- Bouton Refaire -->
-                <button class="bb-icon-btn" id="btn-redo">
-                  <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 7v6h-6M21 13a9 9 0 1 1-9-9"/>
-                  </svg>
-                  <span class="bb-label">Refaire</span>
-                </button>
-
-                <!-- Bouton Ajouter avec collage -->
-                <button class="bb-icon-btn" id="btn-paste">
-                  <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 4h7l3 3h6v13H4z"/>
-                    <path d="M9 14h6"/>
-                    <path d="M9 18h6"/>
-                  </svg>
-                  <span class="bb-label">Coller</span>
-                </button>
-
-                <!-- Bouton Ajouter -->
-                <button class="bb-icon-btn" id="btn-add">
-                  <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                  </svg>
-                  <span class="bb-label">Ajouter</span>
-                </button>
-
-              </div>
-            </div>
-
-            <!-- Languette dela Bottom Bar -->
-            <!-- <button id="toggleBar" class="bar-toggle" aria-label="Montrer ou cacher la barre">^</button> -->
-            
-            <!-- Masque de la Bottom Bar sur la safe-area d'IOS -->
-            <!-- <div id="safeMask" class="safe-bottom-mask"></div> -->
+            <!-- Position antérieure de la bottom bar et consors -->
 
             <!-- input fichier caché pour import -->
             <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" />

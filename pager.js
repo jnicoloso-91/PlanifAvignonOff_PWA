@@ -121,11 +121,23 @@
     track.style.transform  = `translate3d(${px}px,0,0)`;
   }
 
-	
+  function setBottomBarVisible(visible){
+		document.getElementById('bottomBar')?.classList.toggle('hidden', !visible);
+		document.getElementById('toggleBar')?.classList.toggle('hidden', !visible);
+		document.getElementById('safeMask')?.classList.toggle('hidden', !visible);
+	}
+
+	function manageBottomBarVisibility(i) {
+		if (!pages[i]) return;
+		const bottomBarVisible = pages[i]?.classList.contains('page--planning');
+		setBottomBarVisible(bottomBarVisible);
+	}
+
   function goto(i, animate=true){
     index = Math.max(0, Math.min(pages.length-1, i));
     applyTransform(-index * pageW, animate);
     pages.forEach((p,k)=>p.classList.toggle('is-active', k===index));
+		manageBottomBarVisibility(i);
     // console.log('[pager] goto', index, 'pageW=', pageW);
   }
 
@@ -134,8 +146,8 @@
   goto(index, false);
 
   // boutons
-  btnPrev?.addEventListener('click', () => goto(index-1, true));
-  btnNext?.addEventListener('click', () => goto(index+1, true));
+  btnPrev?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
+  btnNext?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
 
 // Drag
   const DEADZONE = 10;   // px
@@ -295,11 +307,13 @@
 		const header  = document.querySelector('header.app-header');
 		if (!welcome || !pager) return;
 
-		// État initial : header caché, pager invisible
-		body.classList.add('show-welcome', 'transition-lock');
+		// État initial : header et bottom bar cachés, pager invisible
+		body.classList.add('hide-app-header', 'transition-lock');
+		body.classList.add('hide-bottom-bar', 'transition-lock');
 
 		function revealPager() {
-			body.classList.remove('show-welcome');
+			body.classList.remove('hide-app-header');
+			body.classList.remove('hide-bottom-bar');
 			welcome.classList.add('is-leaving');
 			requestAnimationFrame(() => pager.classList.add('is-entering'));
 

@@ -114,15 +114,15 @@ html, body {
 
 /* Valeur par défaut (iOS anciens & fallback) */
 #pager {
-  height: 100svh; /* small vh = zone visible quand barres affichées */
+  height: 100svh; /* small vh (small viewport height) = zone visible quand barres affichées */
 }
 
-/* Si le navigateur supporte 100dvh → utilise-le */
+/* Si le navigateur supporte 100dvh (dynamic viewport height) → on l'utilise */
 @supports (height: 100dvh) {
   #pager {
     /* height: calc(100dvh - env(safe-area-inset-bottom)) - var(--safe-gap, 0px)); */
     height: calc(100dvh - env(safe-area-inset-bottom));
-    /* si tu passes en 100dvh, tu peux souvent mettre --safe-gap à 0 (cf. ci-dessous) */
+    /* en 100dvh, on peut souvent mettre --safe-gap à 0 (cf. ci-dessous) */
   }
 }
 
@@ -168,7 +168,7 @@ html, body {
 /* #pager .page--welcome { --header-h: 0px; } */
 
 /* Quand on est sur le welcome, le header reste masqué */
-/* body.show-welcome #pager .page {
+/* body.hide-app-header #pager .page {
   padding-top: 0;
   height: 100vh;
 } */
@@ -214,17 +214,6 @@ html, body {
 /* --- Blocage des clics pendant la transition --- */
 .transition-lock {
   pointer-events: none;
-}
-
-/* --- Masquage du header pendant le welcome --- */
-body.show-welcome header.app-header {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .25s ease;
-}
-body:not(.show-welcome) header.app-header {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 #welcome .welcome-inner {

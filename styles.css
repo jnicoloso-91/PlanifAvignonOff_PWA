@@ -34,6 +34,17 @@ body {
   z-index: 2000;                          /* au-dessus des grilles/splitters */
 }
 
+/* --- Masquage du header --- */
+body.hide-app-header header.app-header {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+body:not(.hide-app-header) header.app-header {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* décale le contenu pour ne pas passer sous le header */
 /* logo du header (option) */
 .app-logo{
@@ -423,7 +434,8 @@ main, .page-wrap {
 
   /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
   /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
-  bottom: var(--safe-gap, 0px);
+  /* bottom: var(--safe-gap, 0px); */
+  bottom: 0px; left: 0; right: 0;
   height: var(--bar-height);
 
   left: 0; right: 0; /* bottom: 0; */
@@ -443,6 +455,12 @@ main, .page-wrap {
 
   -webkit-overflow-scrolling: touch; /* inertie iOS */
 }
+
+/* --- Masquage de la bottom bar --- */
+/* Masquage “propre” si tu veux cacher la barre sur d’autres pages */
+.bottom-bar.hidden,
+.bar-toggle.hidden,
+.safe-bottom-mask.hidden { display: none !important; }
 
 .bottom-bar__scroller {
   display: flex;
@@ -499,7 +517,8 @@ main, .page-wrap {
   position: fixed;
   right: -8px;
   /* bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height)); */
-  bottom: calc(var(--safe-gap) + var(--bar-height));
+  /* bottom: calc(var(--safe-gap) + var(--bar-height)); */
+  bottom: var(--bar-height);
   transform: translateX(-50%);
   background: #f7f7f7;
   border: 1px solid #ccc;
@@ -812,7 +831,8 @@ main, .page-wrap {
    =============================== */
 .page-end-spacer {
   /* height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px); */
-  height: calc(var(--bar-height) + var(--safe-gap, 0px) + 12px);
+  /* height: calc(var(--bar-height) + var(--safe-gap, 0px) + 12px); */
+  height: calc(var(--bar-height) + 12px);
   flex: 0 0 auto;
 }
 
