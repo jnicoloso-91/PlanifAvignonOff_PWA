@@ -126,7 +126,7 @@ html, body {
   overflow-y: auto;
 
   padding-top: var(--header-h, 3.0rem); /* espace auto sous header */
-  height: calc(100vh - var(--header-h, 3.5rem));
+  height: calc(100vh - 2 * var(--header-h, 3.5rem));
 
   /*padding-top: var(--app-header-height, 3.0rem); /* espace auto sous header */
   /* height: calc(100vh - var(--app-header-height, 3.5rem)); */
