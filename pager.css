@@ -84,9 +84,9 @@ html, body {
 }
 
 /* Si tu utilises un header, pense à compenser son espace dans la page */
-.has-header #pager .pager-track > .page {
-  padding-top: var(--header-h); /* = hauteur du header */
-}
+/* .has-header #pager .pager-track > .page {
+  padding-top: var(--header-h); 
+} */
 
 /* #pager { position: relative; width: 100%; height: 100%; overflow: hidden; } */
 /* #pager .pager-track { display: flex; height: 100%; will-change: transform; } */
@@ -126,7 +126,8 @@ html, body {
   overflow-y: auto;
 
   padding-top: var(--header-h, 3.0rem); /* espace auto sous header */
-  height: calc(100vh - 2 * var(--header-h, 3.5rem));
+  /* height: calc(100vh - var(--header-h, 3.5rem)); */
+  height: calc(100vh - env(safe-area-inset-bottom));
 
   /*padding-top: var(--app-header-height, 3.0rem); /* espace auto sous header */
   /* height: calc(100vh - var(--app-header-height, 3.5rem)); */
@@ -174,7 +175,6 @@ html, body {
   transition: opacity .45s ease, transform .45s ease;
 }
 
-
 #pager {
   opacity: 0;
   transform: translateX(30%);
@@ -217,6 +217,13 @@ body:not(.show-welcome) header.app-header {
   font-size: 8rem;
   font-weight: 100;
   margin-bottom: 10rem;
+}
+@media (max-width: 768px) {
+  #welcome .welcome-title {
+    font-size: 5rem;
+    font-weight: 80;
+    margin-bottom: 10rem;
+  }
 }
 
 #welcome .welcome-sub {
