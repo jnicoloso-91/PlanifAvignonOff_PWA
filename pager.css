@@ -127,7 +127,7 @@ html, body {
 
   padding-top: var(--header-h, 3.0rem); /* espace auto sous header */
   /* height: calc(100vh - var(--header-h, 3.5rem)); */
-  height: calc(100vh - env(safe-area-inset-bottom) - 50px); /*calc(100vh - env(safe-area-inset-bottom) - var(--header-h, 0px));*/
+  height: calc(100vh - env(safe-area-inset-bottom) - 500px); /*calc(100vh - env(safe-area-inset-bottom) - var(--header-h, 0px));*/
 
   /*padding-top: var(--app-header-height, 3.0rem); /* espace auto sous header */
   /* height: calc(100vh - var(--app-header-height, 3.5rem)); */
