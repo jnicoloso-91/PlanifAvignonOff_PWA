@@ -1264,7 +1264,8 @@ function nextPaint(times=2) {
 function scrollToExpander(expId) {
   const exp = document.getElementById(expId);
   if (!exp) return;
-  exp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // exp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  exp.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
 }
 
 // Ouvre un expander
