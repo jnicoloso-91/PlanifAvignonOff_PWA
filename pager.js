@@ -99,7 +99,7 @@
   const pager = document.getElementById('pager');
   const track = pager?.querySelector('.pager-track');
   const pages = track ? Array.from(track.querySelectorAll('.page')) : [];
-  const btnPrev = document.getElementById('pg-prev');
+  // const btnPrev = document.getElementById('pg-prev');
   const btnNext = document.getElementById('pg-next');
 
   if (!pager || !track || pages.length === 0) {
@@ -146,7 +146,7 @@
   goto(index, false);
 
   // boutons
-  btnPrev?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
+  // btnPrev?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
   btnNext?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
 
 // Drag

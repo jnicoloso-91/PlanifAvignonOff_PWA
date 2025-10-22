@@ -3432,8 +3432,8 @@ function wireAppKebab() {
     e.stopPropagation();
     openKebabMenu(btn, {
       items: [
-        { id:'carnet', label:"Carnet d'adresses", onClick: ()=>openSheetCarnet() },
-        { id:'periode', label:'Période de programmation', onClick: ()=>openSheetPeriodeProg() },
+        { id:'carnet', label:"Carnet d'adresses",          onClick: ()=>openSheetCarnet() },
+        { id:'periode', label:'Période de programmation',  onClick: ()=>openSheetPeriodeProg() },
         { id:'settings', label:'Paramètres',               onClick: ()=>openSheetParams() },
         { id:'help',     label:'Aide',                     onClick: ()=>openSheetAide() },
       ]
@@ -3851,23 +3851,24 @@ function openSheet({
 } = {}) {
 
   // 0) empêcher l’empilement
-  const existing = document.querySelector('.sheet-wrap.is-open');
-  if (existing && !replaceExisting) {
-    const existingPanel = existing.querySelector('.sheet-panel');
-    if (existingPanel) {
-      existingPanel.animate(
-        [{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }],
-        { duration: 180, easing: 'ease-out' }
-      );
-    }
-    return {
-      close: () => existing.remove(),
-      el: existing,
-      body: existing.querySelector('.sheet-body'),
-      panel: existingPanel
-    };
-  }
-  if (existing && replaceExisting) existing.remove();
+  // const existing = document.querySelector('.sheet-wrap.is-open');
+  // if (existing && !replaceExisting) {
+  //   const existingPanel = existing.querySelector('.sheet-panel');
+  //   if (existingPanel) {
+  //     existingPanel.animate(
+  //       [{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }],
+  //       { duration: 180, easing: 'ease-out' }
+  //     );
+  //   }
+  //   return {
+  //     close: () => existing.remove(),
+  //     el: existing,
+  //     body: existing.querySelector('.sheet-body'),
+  //     panel: existingPanel
+  //   };
+  // }
+  // if (existing && replaceExisting) existing.remove();
+  // (plus de rebond ici : on suppose que l'appelant passe par openSheetExclusive)
 
   // 1) structure
   const wrap = document.createElement('div');
@@ -4368,6 +4369,62 @@ function attachSwipeToClose(wrap, panel, headerEl, handleEl, backdrop, onClose){
   return { close: destroy, el: wrap, body, panel };
 }
 
+function waitTransitionEnd(el, prop = 'transform', timeout = 280) {
+  return new Promise(resolve => {
+    let done = false;
+    const t = setTimeout(() => { if (!done) { done = true; resolve(); } }, timeout);
+
+    const onEnd = (ev) => {
+      if (done) return;
+      if (!prop || ev.propertyName === prop) {
+        done = true;
+        clearTimeout(t);
+        el.removeEventListener('transitionend', onEnd);
+        resolve();
+      }
+    };
+    el.addEventListener('transitionend', onEnd);
+  });
+}
+
+async function closeAnySheet({ immediate = false } = {}) {
+  const wrap = document.querySelector('.sheet-wrap.is-open');
+  if (!wrap) return;
+
+  // Empêche ré-entrance
+  if (wrap.dataset.state === 'closing') return;
+  wrap.dataset.state = 'closing';
+
+  const panel = wrap.querySelector('.sheet-panel');
+
+  if (immediate) {
+    wrap.remove();
+    document.body.style.removeProperty('overflow'); // si tu “lock scroll” pendant la sheet
+    return;
+  }
+
+  wrap.classList.remove('is-open');      // déclenche l’anim de sortie
+  await waitTransitionEnd(panel, 'transform', 260).catch(()=>{});
+  wrap.remove();
+  document.body.style.removeProperty('overflow');
+}
+
+let __sheetBusy = false;
+
+async function openSheetExclusive(opts = {}) {
+  // supprime/ferme toute sheet actuelle avant d’ouvrir
+  if (__sheetBusy) return;         // anti re-entrance
+  __sheetBusy = true;
+  try {
+    await closeAnySheet({ immediate: false }); // attend la fermeture
+    const inst = openSheet({ ...opts, replaceExisting: false }); // ta fonction existante
+    return inst;
+  } finally {
+    // petite garde pour laisser le DOM se poser
+    setTimeout(() => { __sheetBusy = false; }, 50);
+  }
+}
+
 // --- keep this helper outside openSheet ---
 function waitViewportSettle(timeout = 350) {
   return new Promise(resolve => {
@@ -4702,7 +4759,7 @@ function markSheetEditing(wrap, on) {
 function openSheetCarnet() {
   let offHist = null;     // history:change (domain=carnet)
   let offCarnet = null;   // carnet:changed (données)
-  openSheet({
+  openSheetExclusive({
     title: 'Carnet d’adresses',
     panelMaxHeight: '60vh',
     panelHeight: '40vh',
@@ -4836,6 +4893,7 @@ function openSheetCarnet() {
             return sortCarnet(next);
           });
         },
+        suppressDragLeaveHidesColumns: true,
         singleClickEdit: false,
         suppressClickEdit: false,
         stopEditingWhenCellsLoseFocus: true,
@@ -4977,7 +5035,7 @@ function openSheetPeriodeProg(){
   const curDeb = meta.periode_a_programmer_debut || null; // dateint
   const curFin = meta.periode_a_programmer_fin   || null; // dateint
 
-  openSheet({
+  openSheetExclusive({
     title: 'Période de programmation',
     panelMaxHeight: '60vh',
     panelHeight: '36vh',
@@ -5040,7 +5098,7 @@ function openSheetParams(){
   const margeMin      = Math.max(0, Number(meta.MARGE_MIN ?? 10)|0);
   const itin          = String(meta.itineraire_app || 'Google Maps Web');
 
-  openSheet({
+  openSheetExclusive({
     title: 'Paramètres',
     panelMaxHeight: '70vh',
     panelHeight: '52vh',
@@ -5144,7 +5202,7 @@ function styleSimpleForm(root){
 }
 
 function openSheetAide() {
-  openSheet({
+  openSheetExclusive({
     title: 'Aide',
     panelMaxHeight: '70vh',
     panelHeight: '60vh',

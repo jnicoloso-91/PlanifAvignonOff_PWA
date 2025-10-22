@@ -425,3 +425,14 @@ html, body {
 /* .page--catalogs .big-cat-btn {
   touch-action: pan-y; 
 } */
+
+#pg-next{
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);      /* centre visuel parfait */
+  border: 2px;                           /* pas de bordure */
+  background: transparent;               /* fond transparent */
+  padding: 4px 10px;
+  font: inherit;
+}

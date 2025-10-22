@@ -1158,6 +1158,12 @@ main, .page-wrap {
   background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);
 }
 
+/* facultatif, évite les clics fantômes pendant transition */
+/* .sheet-wrap * { pointer-events: auto; }             /* normal une fois ouverte */
+
+/* .sheet-wrap.is-closing, */
+/* .sheet-wrap.is-closing * { pointer-events: none; }  /* si tu ajoutes cette classe pendant close */
+
 /* petite poignée centrée, style iOS */
 .sheet-handle{
   display:block;
