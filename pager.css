@@ -120,7 +120,8 @@ html, body {
 /* Si le navigateur supporte 100dvh → utilise-le */
 @supports (height: 100dvh) {
   #pager {
-    height: calc(100dvh - env(safe-area-inset-bottom) - var(--safe-gap, 0px));
+    /* height: calc(100dvh - env(safe-area-inset-bottom)) - var(--safe-gap, 0px)); */
+    height: calc(100dvh - env(safe-area-inset-bottom));
     /* si tu passes en 100dvh, tu peux souvent mettre --safe-gap à 0 (cf. ci-dessous) */
   }
 }
