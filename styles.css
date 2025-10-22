@@ -19,9 +19,10 @@ body {
   padding-top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
 }
 
-/* ===============================
-   App logo
-   =============================== */
+
+/* =============================== */
+/* App logo                        */
+/* =============================== */
    
 /* barre haute fixe */
 .app-header{
@@ -34,7 +35,7 @@ body {
   z-index: 2000;                          /* au-dessus des grilles/splitters */
 }
 
-/* --- Masquage du header --- */
+/* Masquage du header */
 body.hide-app-header header.app-header {
   opacity: 0;
   pointer-events: none;
@@ -45,6 +46,11 @@ body:not(.hide-app-header) header.app-header {
   pointer-events: auto;
 }
 
+
+/*=============================== */
+/* App Header                     */
+/* ============================== */
+
 /* décale le contenu pour ne pas passer sous le header */
 /* logo du header (option) */
 .app-logo{
@@ -52,10 +58,6 @@ body:not(.hide-app-header) header.app-header {
   user-select: none; -webkit-user-drag: none;
   clip-path: inset(10% 0% 10% 0%);
 }
-
-/* ===============================
-   Thème clair Streamlit-like
-   =============================== */
 
 body {
   background-color: var(--bg);  /* fond clair neutre */
@@ -85,6 +87,11 @@ header h1 {
   gap: 8px;
 }
 
+
+/*============================ */
+/* Boutons                     */
+/* =========================== */
+
 button {
   background: #f9fafb;
   color: #111827;
@@ -98,6 +105,55 @@ button {
 button:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
+}
+
+/* Boutons sans bordure, transparents mais avec feedback au toucher */
+.icon-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;                    /* ← plus de bordure */
+  background: transparent;         /* ← fond transparent */
+  border-radius: 10px;
+  padding: 6px 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, transform 0.06s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(0,0,0,0.06);    /* léger survol */
+}
+
+.icon-btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* icône + label plus sobres */
+.icon-btn .icon {
+  width: 18px;
+  height: 18px;
+  color: #111;
+}
+
+.icon-btn .label {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.icon-btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;        /* bloque toute interaction */
+  filter: grayscale(0.6);
+  transition: opacity .15s ease;
+}
+
+.icon-btn:disabled .bb-icon {
+  color: #888;
+  stroke: #888;
 }
 
 /* Marge horizontale globale */
@@ -126,9 +182,10 @@ main, .page-wrap {
 }
 .header-actions .btn:hover { background: #005fa3; }
 
-/* ===============================
-   Expanders custom
-   =============================== */
+
+/*=============================== */
+/* Expanders                      */
+/* ============================== */
 
 /* Conteneur : centrage + cadre gris clair */
 .st-expander {
@@ -209,9 +266,10 @@ main, .page-wrap {
   line-height: 35px;   /* force une hauteur de ligne confortable */
 }
 
-/* ===============================
-   Expander body 
-   =============================== */
+
+/*============================= */
+/* Expander body                */
+/* ============================ */
 
 /* Base : animé et prêt à être piloté par JS (height en inline) */
 .st-expander .st-expander-body {
@@ -262,9 +320,10 @@ main, .page-wrap {
   display: block;
 }
 
-/* ===============================
-   Expander btn (boutons dans header)
-   =============================== */
+
+/*=================================== */
+/* Expander btn (boutons dans header) */
+/*=================================== */
 
 /* conteneur des actions à droite du header */
 .exp-header-actions {
@@ -319,9 +378,21 @@ main, .page-wrap {
 /* iOS: pas de halo violet */
 .exp-header-btn { -webkit-tap-highlight-color: transparent; }
 
-/* ===============================
-   Ag Grid 
-   =============================== */
+.exp-header-btn:disabled {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+  transition: opacity .15s ease;
+}
+
+.exp-header-btn:disabled .bb-icon {
+  color: #888;
+  stroke: #888;
+}
+
+
+/* =============================*/
+/* Ag Grid                      */
+/* =============================*/
 
 /* Thème clair intégré */
 .ag-theme-quartz {
@@ -418,151 +489,11 @@ main, .page-wrap {
   animation: row-flash 480ms ease-out;
 }
 
-/* ===============================
-   Bottom bar
-   =============================== */
 
-/* iOS 100vh bug guard (use --dvh instead of 100vh where needed) */
-/* .full-height-panel{
-  height: var(--dvh);
-} */
+/*===============================*/
+/* Splitter entre grilles        */
+/*===============================*/
 
-/* Container */
-.bottom-bar {
-  background: var(--bg);
-  position: fixed;
-
-  /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
-  /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
-  /* bottom: var(--safe-gap, 0px); */
-  bottom: env(safe-area-inset-bottom); 
-  left: 0; right: 0;
-  height: var(--bar-height);
-
-  left: 0; right: 0; /* bottom: 0; */
-  padding: 10px 12px;
-  backdrop-filter: blur(8px);               /* nice glass effect */
-  border-top: 1px solid #d1d5db;
-  display: flex;
-  transition: transform 0.3s ease;
-  z-index: 1000;
-
-  /* scroll uniquement horizontal */
-  overflow-x: auto;
-  overflow-y: hidden;
-
-  /* tactile : pan horizontal seulement (iOS/Android) */
-  touch-action: pan-x;
-
-  -webkit-overflow-scrolling: touch; /* inertie iOS */
-}
-
-/* --- Masquage de la bottom bar --- */
-/* Masquage “propre” si tu veux cacher la barre sur d’autres pages */
-.bottom-bar.hidden,
-.bar-toggle.hidden,
-.safe-bottom-mask.hidden { display: none !important; }
-
-.bottom-bar__scroller {
-  display: flex;
-  gap: 4px;  /* joue sur le gap entre boutons */
-
-  /* scroll uniquement horizontal */
-  overflow-x: auto;
-  overflow-y: hidden;
-
-  /* gestes tactiles : autorise seulement le pan horizontal */
-  touch-action: pan-x;
-
-  white-space: nowrap;              /* pas de retour à la ligne */
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;            /* Firefox */
-}
-.bottom-bar__scroller::-webkit-scrollbar { display: none; } /* WebKit */
-
-/* évite que les items “s’étirent” */
-.bottom-bar__scroller > * { flex: 0 0 auto; }
-
-/* bb Buttons */
-.bb-btn {
-  flex: 0 0 auto;
-  min-width: 90px;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 999px;         /* pill */
-  /* background: #1a1f27;
-  color: #e6edf3; */
-  font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  cursor: pointer;
-  transition: transform .08s ease, background .15s ease, border-color .15s ease;
-  user-select: none;
-  touch-action: manipulation;
-}
-.bb-btn:hover { background:#e9ecf0; border-color:#8391b8; }
-.bb-btn:active { transform: translateY(1px) scale(0.99); }
-.bb-btn.is-active { background:#d1dcf0; border-color:#5e6a85; }
-
-@media (max-width: 768px) {
-  .bb-btn { min-width: 84px; padding: 10px 12px; font-size: 13px; }
-}
-
-/* Make sure content isn't hidden behind the bar */
-/* body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); } */
-
-.bottom-bar.hidden {
-  transform: translateY(100%);
-}
-
-/* ----- toggle “languette” juste au-dessus ----- */
-.bar-toggle {
-  position: fixed;
-  right: -8px;
-  /* bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height)); */
-  /* bottom: calc(var(--safe-gap) + var(--bar-height)); */
-  bottom: var(--bar-height);
-  transform: translateX(-50%);
-  background: #f7f7f7;
-  border: 1px solid #ccc;
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  color: #333;
-  font-size: 0.9rem;
-  padding: 2px 10px;
-  cursor: pointer;
-  z-index: 1001;
-  transition: background 0.3s ease;
-}
-
-/* effet de rotation fluide */
-.bar-toggle span {
-  display: inline-block;
-  transform: rotate(0deg);
-  transition: transform 0.3s ease;
-}
-
-.bar-toggle.rotated span {
-  transform: rotate(180deg);
-}
-
-.bar-toggle:hover {
-  background: #f7f7f7;
-}
-
-/* ----- Masque de la safe-area iOS sous la bottom bar ----- */
-.safe-bottom-mask {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: calc(env(safe-area-inset-bottom, 0px) - 0px);  /* zone système iOS uniquement (-5px pour laisser la bordure) */
-  background: var(--bg);                                  /* même couleur que le fond */
-  z-index: 1002;                                          /* sur la bottom bar et le toggle */
-  pointer-events: none;                                   /* ne bloque aucun geste système */
-}
-
-/* ===============================
-   Splitter entre grilles
-   =============================== */
 .v-splitter {
   position: relative;
   height: 10px;
@@ -676,9 +607,10 @@ main, .page-wrap {
 .v-splitter__handle:active { background: rgba(60,60,60,.6); }
 
 
-/* ===============================
-   Configuration de la sélection grilles
-   =============================== */
+/*=======================*/
+/* Sélection grilles     */
+/* ======================*/
+
 /* Accent par défaut (modifiable dynamiquement par grille) */
 :root {
   --sel-accent: #0078d7;
@@ -723,9 +655,200 @@ main, .page-wrap {
   }
 }
 
-/* ===============================
-   Boutons de la bottom bar
-   =============================== */
+/* Spacer en bas de page pour éviter que le contenu ne soit caché par la bottom bar */
+.page-end-spacer {
+  /* height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px); */
+  /* height: calc(var(--bar-height) + var(--safe-gap, 0px) + 12px); */
+  height: calc(var(--bar-height) + 12px);
+  flex: 0 0 auto;
+}
+
+/* Kill the blue focus ring in Quartz */
+.ag-theme-quartz {
+  /* Quartz uses these for the focus outline */
+  --ag-focus-width: 0px;
+  --ag-focus-color: transparent;
+  --ag-cell-focus-border: none;
+}
+
+/* Belt & suspenders: nuke any remaining outline/box-shadow */
+.ag-theme-quartz .ag-cell-focus,
+.ag-theme-quartz .ag-cell:focus,
+.ag-theme-quartz .ag-cell:focus-within,
+.ag-theme-quartz .ag-cell.ag-cell-inline-editing {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* iOS tap highlight */
+.ag-theme-quartz { -webkit-tap-highlight-color: transparent; }
+
+
+/* Sélection de row : hachurée translucide au-dessus du fond coloré */
+.ag-theme-quartz.compact {
+  --ag-selected-row-background-color: rgba(189, 189, 189, 0.144); /* rgba(78, 150, 209, 0.12);   bleu doux */
+}
+
+/* Applique un léger motif hachuré semi-transparent au-dessus du fond jour */
+.ag-row.ag-row-selected::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  opacity:.20; mix-blend-mode:multiply;
+  background-size:4px 4px;
+  background-repeat:repeat;
+  background-image:repeating-linear-gradient(
+    45deg,
+    currentColor 0 0.5px,   
+    transparent 0.5px 3px
+  );
+}
+
+
+/*==================*/
+/*    Bottom bar    */
+/*==================*/
+
+/* iOS 100vh bug guard (use --dvh instead of 100vh where needed) */
+/* .full-height-panel{
+  height: var(--dvh);
+} */
+
+/* Container */
+.bottom-bar {
+  background: var(--bg);
+  position: fixed;
+
+  /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
+  /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
+  /* bottom: var(--safe-gap, 0px); */
+  bottom: env(safe-area-inset-bottom); 
+  left: 0; right: 0;
+  height: var(--bar-height);
+
+  left: 0; right: 0; /* bottom: 0; */
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);               /* nice glass effect */
+  border-top: 1px solid #d1d5db;
+  display: flex;
+  transition: transform 0.3s ease;
+  z-index: 1000;
+
+  /* scroll uniquement horizontal */
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  /* tactile : pan horizontal seulement (iOS/Android) */
+  touch-action: pan-x;
+
+  -webkit-overflow-scrolling: touch; /* inertie iOS */
+}
+
+/* --- Masquage de la bottom bar --- */
+/* Masquage “propre” si tu veux cacher la barre sur d’autres pages */
+.bottom-bar.hidden,
+.bar-toggle.hidden,
+.safe-bottom-mask.hidden { display: none !important; }
+
+.bottom-bar__scroller {
+  display: flex;
+  gap: 4px;  /* joue sur le gap entre boutons */
+
+  /* scroll uniquement horizontal */
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  /* gestes tactiles : autorise seulement le pan horizontal */
+  touch-action: pan-x;
+
+  white-space: nowrap;              /* pas de retour à la ligne */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;            /* Firefox */
+}
+.bottom-bar__scroller::-webkit-scrollbar { display: none; } /* WebKit */
+
+/* évite que les items “s’étirent” */
+.bottom-bar__scroller > * { flex: 0 0 auto; }
+
+/* bb Buttons */
+.bb-btn {
+  flex: 0 0 auto;
+  min-width: 90px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;         /* pill */
+  /* background: #1a1f27;
+  color: #e6edf3; */
+  font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  cursor: pointer;
+  transition: transform .08s ease, background .15s ease, border-color .15s ease;
+  user-select: none;
+  touch-action: manipulation;
+}
+.bb-btn:hover { background:#e9ecf0; border-color:#8391b8; }
+.bb-btn:active { transform: translateY(1px) scale(0.99); }
+.bb-btn.is-active { background:#d1dcf0; border-color:#5e6a85; }
+
+@media (max-width: 768px) {
+  .bb-btn { min-width: 84px; padding: 10px 12px; font-size: 13px; }
+}
+
+/* Make sure content isn't hidden behind the bar */
+/* body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); } */
+
+.bottom-bar.hidden {
+  transform: translateY(100%);
+}
+
+/* toggle “languette” juste au-dessus */
+.bar-toggle {
+  position: fixed;
+  right: -8px;
+  /* bottom: calc( max(var(--safe-gap), env(safe-area-inset-bottom)) + var(--bar-height)); */
+  /* bottom: calc(var(--safe-gap) + var(--bar-height)); */
+  bottom: var(--bar-height);
+  transform: translateX(-50%);
+  background: #f7f7f7;
+  border: 1px solid #ccc;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: #333;
+  font-size: 0.9rem;
+  padding: 2px 10px;
+  cursor: pointer;
+  z-index: 1001;
+  transition: background 0.3s ease;
+}
+
+/* effet de rotation fluide */
+.bar-toggle span {
+  display: inline-block;
+  transform: rotate(0deg);
+  transition: transform 0.3s ease;
+}
+
+.bar-toggle.rotated span {
+  transform: rotate(180deg);
+}
+
+.bar-toggle:hover {
+  background: #f7f7f7;
+}
+
+/* ----- Masque de la safe-area iOS sous la bottom bar ----- */
+.safe-bottom-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(env(safe-area-inset-bottom, 0px) - 0px);  /* zone système iOS uniquement (-5px pour laisser la bordure) */
+  background: var(--bg);                                  /* même couleur que le fond */
+  z-index: 1002;                                          /* sur la bottom bar et le toggle */
+  pointer-events: none;                                   /* ne bloque aucun geste système */
+}
+
+/*==========================*/
+/* Boutons de la bottom bar */
+/*==========================*/
 
 /* .bb-icon-btn {
   display: flex;
@@ -743,7 +866,7 @@ main, .page-wrap {
   -webkit-tap-highlight-color: transparent;
 } */
 
-/* ---- Normaliser les boutons iOS ---- */
+/* Normaliser boutons iOS */
 .bb-icon-btn {
   -webkit-appearance: none; /* iOS: enlève le style natif */
   appearance: none;
@@ -827,41 +950,11 @@ main, .page-wrap {
   background: transparent;
 }
 
-/* ===============================
-   Spacer en bas de page pour éviter que le contenu soit caché par la bottom bar
-   =============================== */
-.page-end-spacer {
-  /* height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px); */
-  /* height: calc(var(--bar-height) + var(--safe-gap, 0px) + 12px); */
-  height: calc(var(--bar-height) + 12px);
-  flex: 0 0 auto;
-}
 
-/* Kill the blue focus ring in Quartz */
-.ag-theme-quartz {
-  /* Quartz uses these for the focus outline */
-  --ag-focus-width: 0px;
-  --ag-focus-color: transparent;
-  --ag-cell-focus-border: none;
-}
+/*==============================*/
+/* File Sheet (mobile)          */
+/*==============================*/
 
-/* Belt & suspenders: nuke any remaining outline/box-shadow */
-.ag-theme-quartz .ag-cell-focus,
-.ag-theme-quartz .ag-cell:focus,
-.ag-theme-quartz .ag-cell:focus-within,
-.ag-theme-quartz .ag-cell.ag-cell-inline-editing {
-  outline: none !important;
-  box-shadow: none !important;
-  border-color: transparent !important;
-}
-
-/* iOS tap highlight */
-.ag-theme-quartz { -webkit-tap-highlight-color: transparent; }
-
-
-/* ===============================
-   File Sheet (mobile)
-   =============================== */
 .file-sheet {
   position: fixed; inset: 0; z-index: 3000;
   display: flex; flex-direction: column; justify-content: flex-end;
@@ -937,7 +1030,6 @@ main, .page-wrap {
   .file-sheet__item:hover { background: rgba(255,255,255,.06); }
 }
 
-
 /* Panel */
 .file-sheet__panel {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 1;
@@ -966,29 +1058,11 @@ main, .page-wrap {
 /* petit confort : pas de sélection pendant le drag */
 .file-sheet.dragging { user-select: none; }
 
-/* ====================
-/* Sélection de row : hachurée translucide au-dessus du fond coloré 
-/* ====================*/
-.ag-theme-quartz.compact {
-  --ag-selected-row-background-color: rgba(189, 189, 189, 0.144); /* rgba(78, 150, 209, 0.12);   bleu doux */
-}
 
-/* Applique un léger motif hachuré semi-transparent au-dessus du fond jour */
-.ag-row.ag-row-selected::after{
-  content:""; position:absolute; inset:0; pointer-events:none;
-  opacity:.20; mix-blend-mode:multiply;
-  background-size:4px 4px;
-  background-repeat:repeat;
-  background-image:repeating-linear-gradient(
-    45deg,
-    currentColor 0 0.5px,   
-    transparent 0.5px 3px
-  );
-}
+/*====================*/
+/* Kebab menu         */
+/*====================*/
 
-/* ====================
-/* Kebab menu header   
-/* ====================*/
 .kebab-btn {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
   background: transparent; border: none; cursor: pointer; color: #111;
@@ -1070,38 +1144,12 @@ main, .page-wrap {
   margin-top: 10px; /* ← espace haut supplémentaire */
 }
 
-/* ====================
-/* Lieu renderer   
-/* ====================*/
-.cell-lieu {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.lieu-icon {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  font-size: 1em;
-}
-.lieu-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.lieu-sub {
-  opacity: .7;
-  font-size: .85em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
-/* ====================
-/* Sheets   
-/* ====================*/
+
+/* ============================*/
+/* Sheets                      */
+/* ============================*/
+
 .sheet-wrap{
   position: fixed;
   inset: 0;
@@ -1230,43 +1278,6 @@ main, .page-wrap {
   background: transparent;         /* pas de fond, fusionne avec la grille */
 }
 
-/* Boutons sans bordure, transparents mais avec feedback au toucher */
-.icon-btn {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  border: none;                    /* ← plus de bordure */
-  background: transparent;         /* ← fond transparent */
-  border-radius: 10px;
-  padding: 6px 8px;
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.15s ease, transform 0.06s ease;
-}
-
-.icon-btn:hover {
-  background: rgba(0,0,0,0.06);    /* léger survol */
-}
-
-.icon-btn:active {
-  transform: translateY(1px) scale(0.99);
-}
-
-/* icône + label plus sobres */
-.icon-btn .icon {
-  width: 18px;
-  height: 18px;
-  color: #111;
-}
-
-.icon-btn .label {
-  font-size: 10px;
-  line-height: 1;
-  opacity: 0.7;
-}
-
 .sheet-actions {
   display: flex;
   align-items: flex-end;   /* ← aligne tous les boutons sur le bas */
@@ -1278,7 +1289,6 @@ main, .page-wrap {
   width: 16px;
   height: 16px;
 }
-
 
 /* marge de sécurité iPhone en bas */
 .sheet-panel { padding-bottom: env(safe-area-inset-bottom, 0); }
@@ -1324,27 +1334,64 @@ main, .page-wrap {
   user-select: none;
 }
 
-.icon-btn:disabled {
-  opacity: 0.45;
-  pointer-events: none;        /* bloque toute interaction */
-  filter: grayscale(0.6);
-  transition: opacity .15s ease;
+
+/************************/
+/* Smooth sheet closing */
+/************************/
+
+/* états */
+.sheet-wrap { opacity: 1; }
+.sheet-wrap.is-open .sheet-panel   { transform: translateY(0); }
+.sheet-wrap.is-open .sheet-backdrop{ opacity: 1; }
+
+.sheet-panel{
+  transform: translateY(100%);
+  transition: transform .24s cubic-bezier(.22,.8,.24,1);
+  will-change: transform;
+}
+.sheet-backdrop{
+  opacity: 0;
+  transition: opacity .18s ease;
+  will-change: opacity;
 }
 
-.icon-btn:disabled .bb-icon {
-  color: #888;
-  stroke: #888;
+/* fermeture douce */
+.sheet-wrap.is-closing .sheet-panel   { transform: translateY(100%); }
+.sheet-wrap.is-closing .sheet-backdrop{ opacity: 0; }
+
+/* bonus accessibilité */
+@media (prefers-reduced-motion: reduce){
+  .sheet-panel,.sheet-backdrop{ transition: none !important; }
 }
 
  
-.exp-header-btn:disabled {
-  opacity: 0.45;
-  filter: grayscale(0.6);
-  transition: opacity .15s ease;
-}
+/* ================*/
+/*  Lieu renderer  */
+/* ================*/
 
-.exp-header-btn:disabled .bb-icon {
-  color: #888;
-  stroke: #888;
+.cell-lieu {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.lieu-icon {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 1em;
+}
+.lieu-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lieu-sub {
+  opacity: .7;
+  font-size: .85em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 

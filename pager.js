@@ -108,7 +108,10 @@
   }
 
   let index = Number(pager.dataset.page || 0) || 0;
-  let dragging = false, engaged = false;
+	// const hasDF = window.ctx?.df && window.ctx.df.length > 0;
+	// let index = hasDF ? 0 : 1; // 1 = planning, 0 = catalogues
+
+	let dragging = false, engaged = false;
   let startX = 0, startY = 0, curX = 0;
   let pageW = pager.clientWidth || window.innerWidth || 1;
 
@@ -131,6 +134,13 @@
 		if (!pages[i]) return;
 		const bottomBarVisible = pages[i]?.classList.contains('page--planning');
 		setBottomBarVisible(bottomBarVisible);
+	}
+
+	function getPageIndexByClass(className) {
+		if (!className) return -1;
+		// Cherche la première page dont la classList contient className
+		const idx = pages.findIndex(p => p.classList.contains(className));
+		return idx;
 	}
 
   function goto(i, animate=true){
@@ -359,7 +369,7 @@
 
 	function wireCatalogButtons(){
 		document.querySelectorAll('.catalog-btn[data-url]').forEach(btn => {
-			// Assure-toi que c’est bien un “button” cliquable
+			// Est-ce bien un “button” cliquable
 			btn.type = 'button';
 			btn.addEventListener('click', (e) => {
 				e.stopPropagation(); // évite d’interférer avec le swipe
@@ -368,9 +378,13 @@
 				openPreferNewTab(raw);
 			});
 		});
+		const btnMonProgramme = document.querySelector('#mon-programme.catalog-btn')
+		btnMonProgramme.addEventListener('click', (e) => {
+			goto(getPageIndexByClass('page--planning'));
+		});	
 	}
 
-	// 👉 Appelle-le quand le DOM est prêt ET le pager est affiché
+	// 👉 Wirind des boutons du catalogue une fois le DOM prêt ET le pager affiché
 	document.addEventListener('DOMContentLoaded', () => {
 		wireCatalogButtons();
 	});

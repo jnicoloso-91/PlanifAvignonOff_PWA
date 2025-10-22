@@ -1640,6 +1640,7 @@ function buildColumnsActivitesProgrammees() {
   let iDate = cols.findIndex(c => c.field === 'Date');
   let iDebut = cols.findIndex(c => c.field === 'Debut');
   let iDuree = cols.findIndex(c => c.field === 'Duree');
+  let iReserve = cols.findIndex(c => c.field === 'Reserve');
 
   cols[iDate] = {
     ...cols[iDate],
@@ -1662,6 +1663,15 @@ function buildColumnsActivitesProgrammees() {
   cols[iDuree] = {
     ...cols[iDuree] ,
     editable: (p) => !activitesAPI.estActiviteReservee(p.data),
+  };
+
+  cols[iReserve] = {
+    ...cols[iReserve] ,
+    onCellValueChanged: (p) => {
+      onCellValueChangedCommon(p);
+      const btn = document.getElementById('btn-deprogrammer');
+      btn.disabled = activitesAPI.estActiviteReservee(p.data);
+    },
   };
 
   return cols
@@ -1777,6 +1787,17 @@ function valueParserNumerique (params) {
 }
 
 // ===== Options de grilles =====
+function onCellValueChangedCommon(p) {
+  if (p.colDef.field == "Date") return;
+  const uuid = p.node.id;
+  let df = ctx.getDf().slice(); 
+  const idx = df.findIndex(r => r.__uuid === uuid);
+  if (idx < 0) return;
+  df[idx] = { ...df[idx], ...p.data }; 
+  df = sortDf(df);
+  ctx.setDf(df);        
+}
+
 function gridOptionsCommon(gridId, el) {
   return {
     context: { gridId },                 
@@ -1806,16 +1827,7 @@ function gridOptionsCommon(gridId, el) {
       const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
       return { '--day-bg': bg, 'color': c };
     },
-    onCellValueChanged: (p) => {
-      if (p.colDef.field == "Date") return;
-      const uuid = p.node.id;
-      let df = ctx.getDf().slice(); 
-      const idx = df.findIndex(r => r.__uuid === uuid);
-      if (idx < 0) return;
-      df[idx] = { ...df[idx], ...p.data }; 
-      df = sortDf(df);
-      ctx.setDf(df);        
-    },
+    onCellValueChanged: (p) => onCellValueChangedCommon(p),
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
@@ -3433,7 +3445,6 @@ function wireAppKebab() {
     openKebabMenu(btn, {
       items: [
         { id:'carnet', label:"Carnet d'adresses",          onClick: ()=>openSheetCarnet() },
-        { id:'periode', label:'Période de programmation',  onClick: ()=>openSheetPeriodeProg() },
         { id:'settings', label:'Paramètres',               onClick: ()=>openSheetParams() },
         { id:'help',     label:'Aide',                     onClick: ()=>openSheetAide() },
       ]
@@ -3907,15 +3918,46 @@ function openSheet({
   document.body.appendChild(wrap);
 
   // 2) fermeture
+  // const destroy = () => {
+  //   wrap.classList.remove('is-open');
+  //   // petite anim de sortie assurée par le CSS (transform)
+  //   setTimeout(() => {
+  //     wrap.remove();
+  //     unlockScroll();          // ✅ rétablit le scroll page
+  //     onClose?.();
+  //   }, 220);
+  // };
+
   const destroy = () => {
+    // évite double-close
+    if (wrap.classList.contains('is-closing')) return;
+
+    // passe en état "closing" → déclenche les transitions CSS
+    wrap.classList.add('is-closing');
     wrap.classList.remove('is-open');
-    // petite anim de sortie assurée par le CSS (transform)
-    setTimeout(() => {
+
+    // quand la transition du panel se termine, on retire du DOM
+    const onEnd = (ev) => {
+      if (ev.target !== panel || ev.propertyName !== 'transform') return;
+      panel.removeEventListener('transitionend', onEnd);
       wrap.remove();
-      unlockScroll();          // ✅ rétablit le scroll page
+      unlockScroll?.();
       onClose?.();
-    }, 220);
+    };
+    panel.addEventListener('transitionend', onEnd);
+
+    // filet de sécurité si pas d'event (navigateurs capricieux)
+    setTimeout(() => {
+      if (wrap.isConnected) {
+        panel.removeEventListener('transitionend', onEnd);
+        wrap.remove();
+        unlockScroll?.();
+        onClose?.();
+      }
+    }, 400);
   };
+
+
   // ✅ ici, on attache le swipe avant de monter le contenu
   attachSwipeToClose(wrap, panel, handle, header, backdrop, destroy);
 
@@ -5094,6 +5136,8 @@ function openSheetPeriodeProg(){
 
 function openSheetParams(){
   const meta = (window.ctx?.meta) || {};
+  const curDeb = meta.periode_a_programmer_debut || null; // dateint
+  const curFin = meta.periode_a_programmer_fin   || null; // dateint
   const dureeRepasMin = Math.max(0, Number(meta.DUREE_REPAS_MIN ?? 75)|0);
   const margeMin      = Math.max(0, Number(meta.MARGE_MIN ?? 10)|0);
   const itin          = String(meta.itineraire_app || 'Google Maps Web');
@@ -5101,11 +5145,22 @@ function openSheetParams(){
   openSheetExclusive({
     title: 'Paramètres',
     panelMaxHeight: '70vh',
-    panelHeight: '52vh',
+    panelHeight: '60vh',
     replaceExisting: true,
     mount: (body, { close }) => {
       body.innerHTML = `
         <div class="form">
+
+          <div class="form-row">
+            <label for="pp-debut">Début</label>
+            <input id="pp-debut" type="date" value="${curDeb}"/>
+          </div>
+
+          <div class="form-row">
+            <label for="pp-fin">Fin</label>
+            <input id="pp-fin" type="date" value="${curFin}"/>
+          </div>
+
           <div class="form-row">
             <label>Durée repas</label>
             <div class="row-inline">
@@ -5140,6 +5195,8 @@ function openSheetParams(){
 
       styleSimpleForm(body);
 
+      const $deb = body.querySelector('#pp-debut');
+      const $fin = body.querySelector('#pp-fin');
       const $rep = body.querySelector('#p-repas');
       const $mar = body.querySelector('#p-marge');
       const $it  = body.querySelector('#p-itin');
@@ -5157,11 +5214,20 @@ function openSheetParams(){
       body.querySelector('#p-cancel')?.addEventListener('click', close);
 
       body.querySelector('#p-save')?.addEventListener('click', () => {
+        const d1 = $deb.value;
+        const d2 = $fin.value;
+
+        if (!d1 || !d2 || d2 < d1) {
+          alert('Dates invalides (fin >= début).');
+        }
+
         const repMin = Math.max(0, Number($rep.value||0)|0);
         const marMin = Math.max(0, Number($mar.value||0)|0);
         const itinApp = $it.value;
 
         window.ctx?.setMeta({
+          periode_a_programmer_debut: d1,
+          periode_a_programmer_fin:   d2,
           DUREE_REPAS_MIN: repMin,
           MARGE_MIN:       marMin,
           itineraire_app:  itinApp
@@ -5230,6 +5296,10 @@ function openSheetAide() {
 
 // ------- Boot -------
 function wireContext() {
+
+  // Initialisation de la periode de programmation si contexte vide
+  if (!ctx.df) activitesAPI.initPeriodeProgrammation();
+
   ctx.on('df:changed',        () => refreshActivitesGrids()); // scheduleGlobalRefresh());
   // ctx.on('carnet:changed',    () => refreshCarnetGrid()); // scheduleGlobalRefresh());
   ctx.on('history:change', ({ domain, ...st })  => {
