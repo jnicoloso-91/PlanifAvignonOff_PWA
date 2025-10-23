@@ -177,7 +177,7 @@ html, body {
   =================================*/
 #welcome {
   height: 100svh;              /* small viewport height = zone réellement visible */
-  width: 100svh;
+  width: 100svw;
   position: fixed;
   inset: 0;
   background: linear-gradient(180deg, #3d3f42 0%, #000000 100%);
@@ -205,7 +205,7 @@ html, body {
 @supports (height: 100dvh) {
   #welcome { 
     height: 100dvh; 
-    width: 100dvh;
+    width: 100dvw;
   }
 }
 
