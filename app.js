@@ -4850,8 +4850,8 @@ function openSheetParams(){
 
   openSheetExclusive({
     title: 'Paramètres',
-    panelMaxHeight: '40rem',
-    panelHeight: '40rem',
+    panelMaxHeight: '42rem',
+    panelHeight: '42rem',
     replaceExisting: true,
     mount: (body, { close }) => {
       body.innerHTML = `
