@@ -176,16 +176,23 @@ html, body {
   Welcome
   =================================*/
 #welcome {
-  min-height: 100svh;              /* small viewport height = zone réellement visible */
+  height: 100svh;              /* small viewport height = zone réellement visible */
   position: fixed;
   inset: 0;
   background: linear-gradient(180deg, #3d3f42 0%, #000000 100%);
   color: white;
-  display: flex;
+
+  /* display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  text-align: center;
+  text-align: center; */
+
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)) 16px;
+  box-sizing: border-box;
+
   z-index: 5000;          /* > header et pager */
   font-family: system-ui, sans-serif;
   opacity: 1;
@@ -195,7 +202,19 @@ html, body {
 
 /* Si le navigateur supporte 100dvh (viewport dynamique) */
 @supports (height: 100dvh) {
-  #welcome { min-height: 100dvh; }
+  #welcome { height: 100dvh; }
+}
+
+/* Petit effet d’apparition */
+#welcome .welcome-inner {
+  width: min(92vw, 640px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;                /* ← remplace ton énorme margin-bottom */
+  text-align: center;
+  animation: fadeUp .8s ease both;
 }
 
 #pager {
@@ -241,11 +260,6 @@ html, body {
 #welcome .welcome-sub {
   font-size: 1rem;
   opacity: .85;
-}
-
-/* Petit effet d’apparition */
-#welcome .welcome-inner {
-  animation: fadeUp .8s ease both;
 }
 
 @keyframes fadeUp {
