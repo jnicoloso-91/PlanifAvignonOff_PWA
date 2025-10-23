@@ -3902,7 +3902,6 @@ function openSheet({
   //     onClose?.();
   //   }, 220);
   // };
-
   const destroy = () => {
     // évite double-close
     if (wrap.classList.contains('is-closing')) return;
@@ -3932,449 +3931,163 @@ function openSheet({
     }, 400);
   };
 
+  function closeSmoothFrom(dy){
+    // 1) réactiver transitions si elles ont été coupées
+    wrap.classList.remove('dragging');
+    panel.style.willChange   = '';
+    backdrop.style.willChange= '';
+    panel.style.transition   = '';  // respecte les transitions CSS
+    backdrop.style.transition= '';
+
+    // 2) position de départ = position atteinte par le drag
+    panel.style.transform = `translateY(${dy}px)`;
+    const k = Math.max(0, Math.min(1, dy / 180));
+    backdrop.style.opacity = String(1 - 0.7 * k);
+
+    // 3) IMPORTANT : forcer un reflow pour "sceller" le point de départ
+    // avant de basculer en is-closing
+    void panel.offsetHeight;
+
+    // 4) bascule en .is-closing -> le CSS anime vers translateY(100%) / opacity:0
+    wrap.classList.add('is-closing');
+    wrap.classList.remove('is-open');
+
+    // 5) cleanup quand l’anim est finie
+    const onEnd = (ev) => {
+      if (ev.target !== panel || ev.propertyName !== 'transform') return;
+      panel.removeEventListener('transitionend', onEnd);
+      try { wrap.remove(); } catch {}
+      unlockScroll?.();
+      onClose?.();
+    };
+    panel.addEventListener('transitionend', onEnd);
+
+    // filet de sécu si pas d’event
+    setTimeout(() => {
+      if (!wrap.isConnected) return;
+      panel.removeEventListener('transitionend', onEnd);
+      try { wrap.remove(); } catch {}
+      unlockScroll?.();
+      onClose?.();
+    }, 500);
+  }
 
   // ✅ ici, on attache le swipe avant de monter le contenu
-  attachSwipeToClose(wrap, panel, handle, header, backdrop, destroy);
+  // attachSwipeToClose(wrap, panel, handle, header, backdrop, destroy);
+  attachSwipeToClose(wrap, panel, handle, header, backdrop, closeSmoothFrom);
 
   backdrop.addEventListener('click', destroy);
   closeBtn.addEventListener('click', destroy);
 
-  // -- Swipe-to-close (drag vers le bas) -- (capte bien sur iOS)
-  // function attachSwipeToClose(panel, backdrop, onClose){
-  //   let startY = 0, curY = 0, dragging = false;
+  // =======================
+  // Swipe handler (patched)
+  // =======================
+  function attachSwipeToClose(wrap, panel, headerEl, handleEl, backdrop, onClose){
+    let startY = 0, curY = 0, dragging = false;
 
-  //   const onStart = (e) => {
-  //     // déclenche UNIQUEMENT depuis la poignée ou le header
-  //     const t = e.touches ? e.touches[0] : e;
-  //     const target = e.target;
-  //     if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
+    const canStartFrom = (tgt) =>
+      !!(tgt.closest('.sheet-handle') || tgt.closest('.sheet-header'));
 
-  //     dragging = true;
-  //     startY = t.clientY;
-  //     curY = startY;
-  //     wrap.classList.add('dragging');
-  //     panel.style.transition = 'none';
-  //     backdrop.style.transition = 'none';
-  //   };
+    const onStart = (e) => {
+      // block if editing just ended
+      if (wrap.dataset.swipeDisabled === '1') return;
+      const last = Number(wrap.dataset.lastEditEndedAt || 0);
+      if (last && (Date.now() - last) < 180) return;
 
-  //   const onMove = (e) => {
-  //     if (!dragging) return;
-  //     const t = e.touches ? e.touches[0] : e;
-  //     curY = t.clientY;
-  //     const dy = Math.max(0, curY - startY); // seulement vers le bas
-  //     // empêche le scroll de la page pendant le drag (iOS)
-  //     e.preventDefault?.();
+      const target = e.target;
+      if (!canStartFrom(target)) return;
 
-  //     panel.style.transform = `translateY(${dy}px)`;
-  //     const k = Math.max(0, Math.min(1, dy / 180));
-  //     backdrop.style.opacity = String(1 - 0.7 * k);
-  //   };
+      // blur editor to let keyboard go down
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
+        ae.blur?.();
+      }
 
-  //   const onEnd = () => {
-  //     if (!dragging) return;
-  //     dragging = false;
-  //     wrap.classList.remove('dragging');
+      // Synchronously arm the drag so we own the gesture right away
+      const t = e.touches ? e.touches[0] : e;
+      startY = curY = t.clientY;
+      dragging = true;
 
-  //     const dy = Math.max(0, curY - startY);
-  //     const THRESH = 120;
-  //     panel.style.transition = '';
-  //     backdrop.style.transition = '';
+      wrap.classList.add('dragging');
+      panel.style.transition = 'none';
+      backdrop.style.transition = 'none';
+      panel.style.willChange = 'transform';
+      backdrop.style.willChange = 'opacity';
 
-  //     if (dy > THRESH) {
-  //       onClose();
-  //     } else {
-  //       panel.style.transform = 'translateY(0)';
-  //       backdrop.style.opacity = '';
-  //     }
-  //   };
+      // IMPORTANT: stop page scroll immediately
+      e.preventDefault?.();
 
-  //   // Écouteurs (Pointer Events si dispo, sinon touch+mouse)
-  //   if (window.PointerEvent) {
-  //     // On écoute sur le PANEL, mais on ne démarre que si la cible est poignée/header
-  //     panel.addEventListener('pointerdown', onStart, { passive: true });
-  //     window.addEventListener('pointermove', onMove, { passive: false });
-  //     window.addEventListener('pointerup',   onEnd,  { passive: true });
-  //     window.addEventListener('pointercancel', onEnd, { passive: true });
-  //   } else {
-  //     panel.addEventListener('touchstart', onStart, { passive: true });
-  //     window.addEventListener('touchmove',  onMove, { passive: false });
-  //     window.addEventListener('touchend',   onEnd,  { passive: true });
-  //     panel.addEventListener('mousedown',   onStart, true);
-  //     window.addEventListener('mousemove',  onMove,  true);
-  //     window.addEventListener('mouseup',    onEnd,   true);
-  //   }
-  // }(panel, backdrop, destroy);
+      // We still wait for viewport to settle, but we already own the gesture
+      waitViewportSettle(300).then(() => {
+        /* nothing extra here; we already started */
+      });
+    };
 
-  // -- Swipe-to-close (drag vers le bas) --
-  // function attachSwipeToClose(handleEl, headerEl, backdropEl, onClose) {
-  //   const wrap  = document.querySelector('.sheet-wrap');
-  //   const panel = wrap?.querySelector('.sheet-panel');
-  //   const body  = wrap?.querySelector('.sheet-body'); // zone scrollable
-  //   if (!wrap || !panel || !backdropEl) return;
+    const onMove = (e) => {
+      if (!dragging) return;
+      const t = e.touches ? e.touches[0] : e;
+      curY = t.clientY;
+      const dy = Math.max(0, curY - startY);
 
-  //   let startY = 0, curY = 0, dragging = false, pointerId = null;
-  //   const OPEN_THRESH = 8;     // px pour “lancer” le drag
-  //   const CLOSE_THRESH = 120;  // px pour fermer
+      // keep blocking scroll while dragging
+      e.preventDefault?.();
 
-  //   const beginDrag = (y, e) => {
-  //     dragging = true;
-  //     startY   = curY = y;
-  //     wrap.classList.add('dragging');
-  //     panel.style.transition   = 'none';
-  //     backdropEl.style.transition = 'none';
-  //     if (e && e.pointerId != null && panel.setPointerCapture) {
-  //       pointerId = e.pointerId;
-  //       try { panel.setPointerCapture(pointerId); } catch {}
-  //     }
-  //   };
+      panel.style.transform = `translateY(${dy}px)`;
+      const k = Math.max(0, Math.min(1, dy / 180));
+      backdrop.style.opacity = String(1 - 0.7 * k);
+    };
 
-  //   const updateDrag = (y, e) => {
-  //     if (!dragging) return;
-  //     curY = y;
-  //     const dy = Math.max(0, curY - startY);
-  //     // bloque le scroll de page pendant le drag
-  //     e?.preventDefault?.();
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
 
-  //     panel.style.transform = `translateY(${dy}px)`;
-  //     const k = Math.max(0, Math.min(1, dy / 180));
-  //     backdropEl.style.opacity = String(1 - 0.7 * k);
-  //   };
+      wrap.classList.remove('dragging');
+      panel.style.willChange = '';
+      backdrop.style.willChange = '';
+      panel.style.transition = '';
+      backdrop.style.transition = '';
 
-  //   const endDrag = () => {
-  //     if (!dragging) return;
-  //     dragging = false;
-  //     const dy = Math.max(0, curY - startY);
+      const dy = Math.max(0, curY - startY);
+      // if (dy > 120) onClose();
+      // else {
+      //   panel.style.transform = 'translateY(0)';
+      //   backdrop.style.opacity = '';
+      if (dy > 120) onClose(dy);
+      else {
+        // retour en place
+        panel.style.transition = '';
+        backdrop.style.transition = '';
+        panel.style.transform = 'translateY(0)';
+        backdrop.style.opacity = '';
+      }
+    };
 
-  //     wrap.classList.remove('dragging');
-  //     panel.style.transition = '';
-  //     backdropEl.style.transition = '';
+    // register start listeners as NON-passive so we can preventDefault on start
+    const addStart = (el) => {
+      if (!el) return;
+      if (window.PointerEvent) {
+        el.addEventListener('pointerdown', onStart, { passive: false });
+      } else {
+        el.addEventListener('touchstart', onStart, { passive: false });
+        el.addEventListener('mousedown',  onStart, false);
+      }
+    };
 
-  //     if (dy > CLOSE_THRESH) onClose();
-  //     else {
-  //       panel.style.transform = 'translateY(0)';
-  //       backdropEl.style.opacity = '';
-  //     }
-  //     if (pointerId != null && panel.releasePointerCapture) {
-  //       try { panel.releasePointerCapture(pointerId); } catch {}
-  //       pointerId = null;
-  //     }
-  //   };
+    addStart(headerEl);
+    addStart(handleEl);
 
-  //   const onStart = (ev) => {
-  //     // on ne déclenche que depuis la poignée ou le header
-  //     const target = ev.target;
-  //     if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
-
-  //     // ⚠️ si le contenu interne peut encore scroller vers le bas, on laisse scroller
-  //     if (body && body.scrollTop > 0) return;
-
-  //     const t = ev.touches ? ev.touches[0] : ev;
-  //     const y = t.clientY;
-
-  //     // petit “open threshold” : ne lance le drag qu’après quelques px
-  //     let started = false;
-  //     const moveOnce = (moveEv) => {
-  //       const m = moveEv.touches ? moveEv.touches[0] : moveEv;
-  //       const dy = (m.clientY - y);
-  //       if (!started && Math.abs(dy) > OPEN_THRESH) {
-  //         started = true;
-  //         beginDrag(m.clientY, ev);
-  //       }
-  //       if (started) updateDrag(m.clientY, moveEv);
-  //     };
-  //     const endOnce = () => {
-  //       if (started) endDrag();
-  //       window.removeEventListener('pointermove', moveOnce, true);
-  //       window.removeEventListener('pointerup',   endOnce,  true);
-  //       window.removeEventListener('pointercancel', endOnce, true);
-  //       window.removeEventListener('touchmove',   moveOnce, { capture:true });
-  //       window.removeEventListener('touchend',    endOnce,  { capture:true });
-  //     };
-
-  //     // on accroche immédiatement les listeners “window” (fiable sur iOS)
-  //     if (window.PointerEvent) {
-  //       window.addEventListener('pointermove', moveOnce, true);
-  //       window.addEventListener('pointerup',   endOnce,  true);
-  //       window.addEventListener('pointercancel', endOnce, true);
-  //     } else {
-  //       window.addEventListener('touchmove', moveOnce, { passive:false, capture:true });
-  //       window.addEventListener('touchend',  endOnce,  { capture:true });
-  //     }
-  //   };
-
-  //   // On écoute le start sur ces deux zones uniquement
-  //   if (window.PointerEvent) {
-  //     handleEl?.addEventListener('pointerdown', onStart, { passive:true });
-  //     headerEl?.addEventListener('pointerdown', onStart, { passive:true });
-  //   } else {
-  //     handleEl?.addEventListener('touchstart', onStart, { passive:true });
-  //     headerEl?.addEventListener('touchstart', onStart, { passive:true });
-  //     // (mouse fallback non nécessaire sur iOS)
-  //   }
-  // }
-
-  // -- Swipe-to-close (drag vers le bas) --
-  // function attachSwipeToClose(handleEl, headerEl, backdrop, onClose){
-  //   let startY = 0, curY = 0, dragging = false;
-  //   // the panel we need to move:
-  //   const panel = backdrop.parentElement.querySelector('.sheet-panel');
-
-  //   const onStart = (e) => {
-  //     const t = e.touches ? e.touches[0] : e;
-  //     dragging = true;
-  //     startY = curY = t.clientY;
-  //     document.querySelector('.sheet-wrap')?.classList.add('dragging');
-  //     panel.style.transition = 'none';
-  //     backdrop.style.transition = 'none';
-  //   };
-
-  //   const onMove = (e) => {
-  //     if (!dragging) return;
-  //     const t = e.touches ? e.touches[0] : e;
-  //     curY = t.clientY;
-  //     const dy = Math.max(0, curY - startY);
-  //     // block page scroll only during drag
-  //     e.preventDefault?.();
-  //     panel.style.transform = `translateY(${dy}px)`;
-  //     const k = Math.max(0, Math.min(1, dy / 180));
-  //     backdrop.style.opacity = String(1 - 0.7 * k);
-  //   };
-
-  //   const onEnd = () => {
-  //     if (!dragging) return;
-  //     dragging = false;
-  //     document.querySelector('.sheet-wrap')?.classList.remove('dragging');
-  //     panel.style.transition = '';
-  //     backdrop.style.transition = '';
-
-  //     const dy = Math.max(0, curY - startY);
-  //     if (dy > 120) onClose();
-  //     else {
-  //       panel.style.transform = 'translateY(0)';
-  //       backdrop.style.opacity = '';
-  //     }
-  //   };
-
-  //   const addStart = (el) => {
-  //     if (!el) return;
-  //     if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
-  //     else {
-  //       el.addEventListener('touchstart', onStart, { passive: true });
-  //       el.addEventListener('mousedown',  onStart, true);
-  //     }
-  //   };
-
-  //   addStart(handleEl);
-  //   addStart(headerEl);
-
-  //   if (window.PointerEvent) {
-  //     window.addEventListener('pointermove', onMove, { passive: false });
-  //     window.addEventListener('pointerup',   onEnd,  { passive: true });
-  //     window.addEventListener('pointercancel', onEnd, { passive: true });
-  //   } else {
-  //     window.addEventListener('touchmove', onMove, { passive: false });
-  //     window.addEventListener('touchend',  onEnd,  { passive: true });
-  //     window.addEventListener('mousemove', onMove, true);
-  //     window.addEventListener('mouseup',   onEnd,  true);
-  //   }
-  // }(handle, header, backdrop, destroy);
-
-  // -- Swipe-to-close (drag vers le bas) --
-// function attachSwipeToClose(wrap, panel, headerEl, handleEl, backdrop, onClose){
-//   const isiOS = (() => {
-//     const ua = navigator.userAgent || '';
-//     return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-//   })();
-
-//   let startY = 0, curY = 0, dragging = false;
-
-//   const onStart = (e) => {
-//     // 🔒 disabled while editing
-//     if (wrap.dataset.swipeDisabled === '1') return;
-//     const last = Number(wrap.dataset.lastEditEndedAt || 0);
-//     if (last && (Date.now() - last) < 200) return; // grace period after edit
-
-//     // only from header/handle
-//     const target = e.target;
-//     if (!(target.closest('.sheet-handle') || target.closest('.sheet-header'))) return;
-
-//     // blur focused input to avoid iOS keyboard pulling content
-//     const ae = document.activeElement;
-//     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) ae.blur?.();
-
-//     waitViewportSettle().then (() => {
-//       const t = e.touches ? e.touches[0] : e;
-//       startY = curY = t.clientY;
-//       dragging = true;
-
-//       wrap.classList.add('dragging');
-//       panel.style.transition = 'none';
-//       backdrop.style.transition = 'none';
-//       panel.style.willChange = 'transform';
-//       backdrop.style.willChange = 'opacity';
-//     });
-//   };
-
-//   const onMove = (e) => {
-//     if (!dragging) return;
-//     const t = e.touches ? e.touches[0] : e;
-//     curY = t.clientY;
-//     const dy = Math.max(0, curY - startY);
-//     e.preventDefault?.(); // prevent page scroll during drag
-
-//     panel.style.transform = `translateY(${dy}px)`;
-//     const k = Math.max(0, Math.min(1, dy / 180));
-//     backdrop.style.opacity = String(1 - 0.7 * k);
-//   };
-
-//   const onEnd = () => {
-//     if (!dragging) return;
-//     dragging = false;
-
-//     wrap.classList.remove('dragging');
-//     panel.style.willChange = '';
-//     backdrop.style.willChange = '';
-//     panel.style.transition = '';
-//     backdrop.style.transition = '';
-
-//     const dy = Math.max(0, curY - startY);
-//     if (dy > 120) onClose();
-//     else {
-//       panel.style.transform = 'translateY(0)';
-//       backdrop.style.opacity = '';
-//     }
-//   };
-
-//   const addStart = (el) => {
-//     if (!el) return;
-//     if (window.PointerEvent) el.addEventListener('pointerdown', onStart, { passive: true });
-//     else {
-//       el.addEventListener('touchstart', onStart, { passive: true });
-//       el.addEventListener('mousedown',  onStart, true);
-//     }
-//   };
-
-//   addStart(headerEl);
-//   addStart(handleEl);
-
-//   if (window.PointerEvent) {
-//     window.addEventListener('pointermove', onMove, { passive: false });
-//     window.addEventListener('pointerup',   onEnd,  { passive: true });
-//     window.addEventListener('pointercancel', onEnd, { passive: true });
-//   } else {
-//     window.addEventListener('touchmove', onMove, { passive: false });
-//     window.addEventListener('touchend',  onEnd,  { passive: true });
-//     window.addEventListener('mousemove', onMove, true);
-//     window.addEventListener('mouseup',   onEnd,  true);
-//   }
-// }
-
-
-// =======================
-// Swipe handler (patched)
-// =======================
-function attachSwipeToClose(wrap, panel, headerEl, handleEl, backdrop, onClose){
-  let startY = 0, curY = 0, dragging = false;
-
-  const canStartFrom = (tgt) =>
-    !!(tgt.closest('.sheet-handle') || tgt.closest('.sheet-header'));
-
-  const onStart = (e) => {
-    // block if editing just ended
-    if (wrap.dataset.swipeDisabled === '1') return;
-    const last = Number(wrap.dataset.lastEditEndedAt || 0);
-    if (last && (Date.now() - last) < 180) return;
-
-    const target = e.target;
-    if (!canStartFrom(target)) return;
-
-    // blur editor to let keyboard go down
-    const ae = document.activeElement;
-    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) {
-      ae.blur?.();
-    }
-
-    // Synchronously arm the drag so we own the gesture right away
-    const t = e.touches ? e.touches[0] : e;
-    startY = curY = t.clientY;
-    dragging = true;
-
-    wrap.classList.add('dragging');
-    panel.style.transition = 'none';
-    backdrop.style.transition = 'none';
-    panel.style.willChange = 'transform';
-    backdrop.style.willChange = 'opacity';
-
-    // IMPORTANT: stop page scroll immediately
-    e.preventDefault?.();
-
-    // We still wait for viewport to settle, but we already own the gesture
-    waitViewportSettle(300).then(() => {
-      /* nothing extra here; we already started */
-    });
-  };
-
-  const onMove = (e) => {
-    if (!dragging) return;
-    const t = e.touches ? e.touches[0] : e;
-    curY = t.clientY;
-    const dy = Math.max(0, curY - startY);
-
-    // keep blocking scroll while dragging
-    e.preventDefault?.();
-
-    panel.style.transform = `translateY(${dy}px)`;
-    const k = Math.max(0, Math.min(1, dy / 180));
-    backdrop.style.opacity = String(1 - 0.7 * k);
-  };
-
-  const onEnd = () => {
-    if (!dragging) return;
-    dragging = false;
-
-    wrap.classList.remove('dragging');
-    panel.style.willChange = '';
-    backdrop.style.willChange = '';
-    panel.style.transition = '';
-    backdrop.style.transition = '';
-
-    const dy = Math.max(0, curY - startY);
-    if (dy > 120) onClose();
-    else {
-      panel.style.transform = 'translateY(0)';
-      backdrop.style.opacity = '';
-    }
-  };
-
-  // register start listeners as NON-passive so we can preventDefault on start
-  const addStart = (el) => {
-    if (!el) return;
+    // move/end listeners (move must be non-passive to allow preventDefault)
     if (window.PointerEvent) {
-      el.addEventListener('pointerdown', onStart, { passive: false });
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup',   onEnd,  { passive: true });
+      window.addEventListener('pointercancel', onEnd, { passive: true });
     } else {
-      el.addEventListener('touchstart', onStart, { passive: false });
-      el.addEventListener('mousedown',  onStart, false);
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend',  onEnd,  { passive: true });
+      window.addEventListener('mousemove', onMove, false);
+      window.addEventListener('mouseup',   onEnd,  false);
     }
-  };
-
-  addStart(headerEl);
-  addStart(handleEl);
-
-  // move/end listeners (move must be non-passive to allow preventDefault)
-  if (window.PointerEvent) {
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup',   onEnd,  { passive: true });
-    window.addEventListener('pointercancel', onEnd, { passive: true });
-  } else {
-    window.addEventListener('touchmove', onMove, { passive: false });
-    window.addEventListener('touchend',  onEnd,  { passive: true });
-    window.addEventListener('mousemove', onMove, false);
-    window.addEventListener('mouseup',   onEnd,  false);
   }
-}
-
-
-
 
   // 3) contenu
   mount?.(body, { close: destroy });

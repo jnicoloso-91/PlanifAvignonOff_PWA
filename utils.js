@@ -37,7 +37,7 @@ export function openUrl(u, IosPwaMode=true){
 
     // Cas iOS PWA → créer un lien temporaire pour forcer Safari
     if (isIOS && isStandalone) {
-      logToPage('Début openUrl en mode PWA')
+      // logToPage('Début openUrl en mode PWA')
       const a = document.createElement('a');
       a.href = url;
       a.target = '_blank';
@@ -47,14 +47,16 @@ export function openUrl(u, IosPwaMode=true){
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      logToPage('Fin openUrl en mode PWA')
+      // logToPage('Fin openUrl en mode PWA')
       return;
     }
   }
 
   // Desktop / Android (ou fallback iOS)
-  logToPage('OpenUrl en mode Standard')
-  try { window.open(url, '_blank', 'noopener'); return; } catch(_) {}
-  try { window.open(url, '_top'); return; } catch(_) {}
-  try { window.location.assign(url); } catch(_) {}
+  // logToPage('Début openUrl en mode Standard');
+  const domain = new URL(url).hostname.replace(/\W+/g, '_');
+  const windowName = `avignon_${domain}`;
+  try { window.open(url, windowName, 'noopener'); } 
+  catch(_) { window.location.assign(url); }
+  // logToPage(`Fin openUrl en mode Standard sur ${windowName}`);
 }

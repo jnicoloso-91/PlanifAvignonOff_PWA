@@ -1339,30 +1339,48 @@ main, .page-wrap {
 /* Smooth sheet closing */
 /************************/
 
-/* états */
-.sheet-wrap { opacity: 1; }
-.sheet-wrap.is-open .sheet-panel   { transform: translateY(0); }
-.sheet-wrap.is-open .sheet-backdrop{ opacity: 1; }
+// /* états */
+// .sheet-wrap { opacity: 1; }
+// .sheet-wrap.is-open .sheet-panel   { transform: translateY(0); }
+// .sheet-wrap.is-open .sheet-backdrop{ opacity: 1; }
 
+// .sheet-panel{
+//   transform: translateY(100%);
+//   transition: transform .24s cubic-bezier(.22,.8,.24,1);
+//   will-change: transform;
+// }
+// .sheet-backdrop{
+//   opacity: 0;
+//   transition: opacity .18s ease;
+//   will-change: opacity;
+// }
+
+// /* fermeture douce */
+// .sheet-wrap.is-closing .sheet-panel   { transform: translateY(100%); }
+// .sheet-wrap.is-closing .sheet-backdrop{ opacity: 0; }
+
+// /* bonus accessibilité */
+// @media (prefers-reduced-motion: reduce){
+//   .sheet-panel,.sheet-backdrop{ transition: none !important; }
+// }
 .sheet-panel{
-  transform: translateY(100%);
-  transition: transform .24s cubic-bezier(.22,.8,.24,1);
-  will-change: transform;
+  transition: transform .25s cubic-bezier(.22,.8,.24,1);
 }
 .sheet-backdrop{
-  opacity: 0;
-  transition: opacity .18s ease;
-  will-change: opacity;
+  transition: opacity .20s ease;
 }
 
-/* fermeture douce */
+/* Pendant le drag on coupe les transitions */
+.sheet-wrap.dragging .sheet-panel,
+.sheet-wrap.dragging .sheet-backdrop{
+  transition: none !important;
+}
+
+/* États d’ouverture/fermeture */
+.sheet-wrap.is-open    .sheet-panel   { transform: translateY(0); }
+.sheet-wrap.is-open    .sheet-backdrop{ opacity: 1; }
 .sheet-wrap.is-closing .sheet-panel   { transform: translateY(100%); }
 .sheet-wrap.is-closing .sheet-backdrop{ opacity: 0; }
-
-/* bonus accessibilité */
-@media (prefers-reduced-motion: reduce){
-  .sheet-panel,.sheet-backdrop{ transition: none !important; }
-}
 
  
 /* ================*/
