@@ -176,6 +176,7 @@ html, body {
   Welcome
   =================================*/
 #welcome {
+  min-height: 100svh;              /* small viewport height = zone réellement visible */
   position: fixed;
   inset: 0;
   background: linear-gradient(180deg, #3d3f42 0%, #000000 100%);
@@ -190,6 +191,11 @@ html, body {
   opacity: 1;
   transform: none;
   transition: opacity .45s ease, transform .45s ease;
+}
+
+/* Si le navigateur supporte 100dvh (viewport dynamique) */
+@supports (height: 100dvh) {
+  #welcome { min-height: 100dvh; }
 }
 
 #pager {
