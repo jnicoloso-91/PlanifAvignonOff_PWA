@@ -3931,49 +3931,125 @@ function openSheet({
     }, 400);
   };
 
-  function closeSmoothFrom(dy){
-    // 1) réactiver transitions si elles ont été coupées
-    wrap.classList.remove('dragging');
-    panel.style.willChange   = '';
-    backdrop.style.willChange= '';
-    panel.style.transition   = '';  // respecte les transitions CSS
-    backdrop.style.transition= '';
+  // function closeSmoothFrom(dy){
+  //   // 1) réactiver transitions si elles ont été coupées
+  //   wrap.classList.remove('dragging');
+  //   panel.style.willChange   = '';
+  //   backdrop.style.willChange= '';
+  //   panel.style.transition   = '';  // respecte les transitions CSS
+  //   backdrop.style.transition= '';
 
-    // 2) position de départ = position atteinte par le drag
-    panel.style.transform = `translateY(${dy}px)`;
-    const k = Math.max(0, Math.min(1, dy / 180));
-    backdrop.style.opacity = String(1 - 0.7 * k);
+  //   // 2) position de départ = position atteinte par le drag
+  //   panel.style.transform = `translateY(${dy}px)`;
+  //   const k = Math.max(0, Math.min(1, dy / 180));
+  //   backdrop.style.opacity = String(1 - 0.7 * k);
 
-    // 3) IMPORTANT : forcer un reflow pour "sceller" le point de départ
-    // avant de basculer en is-closing
-    void panel.offsetHeight;
+  //   // 3) IMPORTANT : forcer un reflow pour "sceller" le point de départ
+  //   // avant de basculer en is-closing
+  //   void panel.offsetHeight;
 
-    // 4) bascule en .is-closing -> le CSS anime vers translateY(100%) / opacity:0
-    wrap.classList.add('is-closing');
-    wrap.classList.remove('is-open');
+  //   // 4) bascule en .is-closing -> le CSS anime vers translateY(100%) / opacity:0
+  //   wrap.classList.add('is-closing');
+  //   wrap.classList.remove('is-open');
 
-    // 5) cleanup quand l’anim est finie
-    const onEnd = (ev) => {
-      if (ev.target !== panel || ev.propertyName !== 'transform') return;
-      panel.removeEventListener('transitionend', onEnd);
-      try { wrap.remove(); } catch {}
-      unlockScroll?.();
-      onClose?.();
-    };
-    panel.addEventListener('transitionend', onEnd);
+  //   // 5) cleanup quand l’anim est finie
+  //   const onEnd = (ev) => {
+  //     if (ev.target !== panel || ev.propertyName !== 'transform') return;
+  //     panel.removeEventListener('transitionend', onEnd);
+  //     try { wrap.remove(); } catch {}
+  //     unlockScroll?.();
+  //     onClose?.();
+  //   };
+  //   panel.addEventListener('transitionend', onEnd);
 
-    // filet de sécu si pas d’event
-    setTimeout(() => {
-      if (!wrap.isConnected) return;
-      panel.removeEventListener('transitionend', onEnd);
-      try { wrap.remove(); } catch {}
-      unlockScroll?.();
-      onClose?.();
-    }, 500);
-  }
+  //   // filet de sécu si pas d’event
+  //   setTimeout(() => {
+  //     if (!wrap.isConnected) return;
+  //     panel.removeEventListener('transitionend', onEnd);
+  //     try { wrap.remove(); } catch {}
+  //     unlockScroll?.();
+  //     onClose?.();
+  //   }, 500);
+  // }
 
   // ✅ ici, on attache le swipe avant de monter le contenu
   // attachSwipeToClose(wrap, panel, handle, header, backdrop, destroy);
+
+  function closeSmoothFrom(dy){
+    // 0) On est sûr de ne plus être en mode "drag sans transition"
+    wrap.classList.remove('dragging');
+    panel.style.willChange = '';
+    backdrop.style.willChange = '';
+
+    // 1) Réactiver les transitions CSS (si tu les avais coupées inline)
+    panel.style.transition = '';
+    backdrop.style.transition = '';
+
+    // 2) Fixer le point de départ de l'anim (position atteinte par le drag)
+    const k = Math.max(0, Math.min(1, dy / 180));
+    panel.style.transform = `translateY(${dy}px)`;
+    backdrop.style.opacity = String(1 - 0.7 * k);
+
+    // 3) Laisser le style se "poser" (double rAF = ultra-fiable)
+    requestAnimationFrame(() => {
+      // forcer un reflow si tu préfères : void panel.offsetHeight;
+      requestAnimationFrame(() => {
+        // 4) Bascule en fermeture via les classes (CSS fera le job)
+        wrap.classList.add('is-closing');
+        wrap.classList.remove('is-open');
+
+        // 5) Fallback Web Animations (au cas où la transition CSS ne déclenche pas)
+        try {
+          const pAnim = panel.animate(
+            [
+              { transform: `translateY(${dy}px)` },
+              { transform: 'translateY(100%)' }
+            ],
+            { duration: 250, easing: 'cubic-bezier(.22,.8,.24,1)', fill: 'forwards' }
+          );
+          const bAnim = backdrop.animate(
+            [
+              { opacity: parseFloat(backdrop.style.opacity) || 1 },
+              { opacity: 0 }
+            ],
+            { duration: 200, easing: 'ease', fill: 'forwards' }
+          );
+
+          let done = false;
+          const cleanup = () => {
+            if (done) return; done = true;
+            try { wrap.remove(); } catch{}
+            unlockScroll?.();
+            onClose?.();
+          };
+          pAnim.addEventListener?.('finish', cleanup);
+          bAnim.addEventListener?.('finish', cleanup);
+          // filet de sécu
+          setTimeout(cleanup, 400);
+        } catch {
+          // Si Web Animations indisponible, on retombe sur l'event CSS
+          const onEnd = (ev) => {
+            if (ev.target !== panel || ev.propertyName !== 'transform') return;
+            panel.removeEventListener('transitionend', onEnd);
+            try { wrap.remove(); } catch{};
+            unlockScroll?.();
+            onClose?.();
+          };
+          panel.addEventListener('transitionend', onEnd);
+          setTimeout(() => {
+            panel.removeEventListener('transitionend', onEnd);
+            if (wrap.isConnected) {
+              try { wrap.remove(); } catch{};
+              unlockScroll?.();
+              onClose?.();
+            }
+          }, 500);
+        }
+      });
+    });
+  }
+
+
   attachSwipeToClose(wrap, panel, handle, header, backdrop, closeSmoothFrom);
 
   backdrop.addEventListener('click', destroy);
@@ -4052,8 +4128,12 @@ function openSheet({
       // else {
       //   panel.style.transform = 'translateY(0)';
       //   backdrop.style.opacity = '';
-      if (dy > 120) onClose(dy);
-      else {
+      if (dy > 120) {
+console.log('dragging?', wrap.classList.contains('dragging'));
+console.log('panel computed transition:', getComputedStyle(panel).transition);
+console.log('panel computed transform:', getComputedStyle(panel).transform);
+        onClose(dy);
+      } else {
         // retour en place
         panel.style.transition = '';
         backdrop.style.transition = '';
