@@ -177,6 +177,7 @@ html, body {
   =================================*/
 #welcome {
   height: 100svh;              /* small viewport height = zone réellement visible */
+  width: 100svh;
   position: fixed;
   inset: 0;
   background: linear-gradient(180deg, #3d3f42 0%, #000000 100%);
@@ -202,7 +203,10 @@ html, body {
 
 /* Si le navigateur supporte 100dvh (viewport dynamique) */
 @supports (height: 100dvh) {
-  #welcome { height: 100dvh; }
+  #welcome { 
+    height: 100dvh; 
+    width: 100dvh;
+  }
 }
 
 /* Petit effet d’apparition */
@@ -248,6 +252,8 @@ html, body {
   font-size: 8rem;
   font-weight: 100;
   margin-bottom: 10rem;
+  word-break: break-word;
+  /* font-size: clamp(28px, 10vw, 64px); */
 }
 @media (max-width: 768px) {
   #welcome .welcome-title {
