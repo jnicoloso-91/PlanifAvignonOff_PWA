@@ -1413,3 +1413,142 @@ main, .page-wrap {
   text-overflow: ellipsis;
 }
 
+
+/* ====================*/
+/*  Sheet paramètres   */
+/* ====================*/
+
+/* --- Container principal de la sheet --- */
+.sheet-wrap .form {
+  display: flex;
+  flex-direction: column;
+  padding: 1.2rem 1rem 1.6rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  color: #111;
+  background: #f9f9fb;
+
+  border-top: 1px solid rgba(0,0,0,0.08);
+  padding-top: 0px
+}
+
+/* --- Chaque ligne de paramètre --- */
+.sheet-wrap .form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+/* --- Label à gauche --- */
+.sheet-wrap .form-row > label {
+  flex: 1 1 auto;
+  color: #333;
+  font-weight: 500;
+  text-align: left;
+  margin-right: 1rem;
+  font-size: 0.85rem;
+}
+
+/* --- Champs à droite (valeurs) --- */
+.sheet-wrap .form-row input,
+.sheet-wrap .form-row select {
+  flex: 0 0 auto;
+  width: 10rem;                     /* largeur stable */
+  padding: 0.35rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.15);
+  background: #fff;
+  text-align: right;
+  color: #111;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+  box-sizing: border-box;
+  transition: border-color .2s, box-shadow .2s;
+  font-size: 0.85rem;
+}
+
+/* --- Focus doux façon iOS --- */
+.sheet-wrap .form-row input:focus,
+.sheet-wrap .form-row select:focus {
+  outline: none;
+  border-color: #007AFF;
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+}
+
+/* --- Inline rows (repas / marge) --- */
+.sheet-wrap .row-inline {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+.sheet-wrap .hint {
+  font-size: 0.85rem;
+  color: #666;
+  text-align: right;
+}
+
+/* --- Actions en bas --- */
+.sheet-wrap .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  // margin-top: 1.5rem;
+  // border-top: 1px solid rgba(0,0,0,0.08);
+  padding-top: 1rem;
+}
+.sheet-wrap .form-actions .bb-btn {
+  font-size: 1rem;
+  padding: 0.55rem 1.2rem;
+  border-radius: 8px;
+  border: none;
+  background: #ddd;
+  color: #000;
+  transition: background .2s, transform .1s;
+}
+.sheet-wrap .form-actions .bb-btn.is-primary {
+  background: var(--accent-color, #007AFF);
+  color: #fff;
+}
+.sheet-wrap .form-actions .bb-btn:active {
+  transform: scale(0.97);
+}
+
+/* --- En-tête sheet : centré, propre --- */
+.sheet-wrap .sheet-header {
+  justify-content: center;
+  border-bottom: none;
+}
+.sheet-wrap .sheet-title {
+  font-weight: 600;
+}
+.sheet-wrap .sheet-close {
+  position: absolute;
+  right: 1rem;
+  top: 0.8rem;
+}
+
+/* --- Responsive vertical (petits écrans) --- */
+// @media (max-width: 600px) {
+//   .sheet-wrap .form-row {
+//     flex-direction: column;
+//     align-items: stretch;
+//     padding: 0.8rem 0;
+//   }
+//   .sheet-wrap .form-row > label {
+//     margin-bottom: 0.35rem;
+//   }
+//   .sheet-wrap .form-row input,
+//   .sheet-wrap .form-row select {
+//     width: 100%;
+//     text-align: left;
+//   }
+//   .sheet-wrap .form-actions {
+//     flex-direction: column;
+//     align-items: stretch;
+//   }
+//   .sheet-wrap .form-actions .bb-btn {
+//     width: 100%;
+//   }
+// }

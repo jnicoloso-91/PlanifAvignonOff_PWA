@@ -4129,9 +4129,6 @@ function openSheet({
       //   panel.style.transform = 'translateY(0)';
       //   backdrop.style.opacity = '';
       if (dy > 120) {
-console.log('dragging?', wrap.classList.contains('dragging'));
-console.log('panel computed transition:', getComputedStyle(panel).transition);
-console.log('panel computed transform:', getComputedStyle(panel).transform);
         onClose(dy);
       } else {
         // retour en place
@@ -4840,118 +4837,63 @@ function openSheetCarnet() {
   });
 }
 
-function openSheetPeriodeProg(){
-  const meta = (window.ctx?.meta) || {};
-  const curDeb = meta.periode_a_programmer_debut || null; // dateint
-  const curFin = meta.periode_a_programmer_fin   || null; // dateint
-
-  openSheetExclusive({
-    title: 'Période de programmation',
-    panelMaxHeight: '60vh',
-    panelHeight: '36vh',
-    replaceExisting: true,
-    mount: (body, { close }) => {
-      body.innerHTML = `
-        <div class="form">
-          <div class="form-row">
-            <label for="pp-debut">Début</label>
-            <input id="pp-debut" type="date" value="${dateintToInput(curDeb)}"/>
-          </div>
-          <div class="form-row">
-            <label for="pp-fin">Fin</label>
-            <input id="pp-fin" type="date" value="${dateintToInput(curFin)}"/>
-          </div>
-
-          <div class="form-actions">
-            <button class="bb-btn" id="pp-cancel">Annuler</button>
-            <button class="bb-btn is-primary" id="pp-save">Enregistrer</button>
-          </div>
-        </div>
-      `;
-
-      // Styles (légers) si besoin
-      styleSimpleForm(body);
-
-      const $deb = body.querySelector('#pp-debut');
-      const $fin = body.querySelector('#pp-fin');
-
-      body.querySelector('#pp-cancel')?.addEventListener('click', close);
-
-      body.querySelector('#pp-save')?.addEventListener('click', () => {
-        const d1 = inputToDateint($deb.value);
-        const d2 = inputToDateint($fin.value);
-
-        if (!d1 || !d2 || d2 < d1) {
-          alert('Vérifie les dates (fin >= début).');
-          return;
-        }
-
-        // Sauvegarde meta + rafraîchissements éventuels
-        window.ctx?.setMeta({
-          periode_a_programmer_debut: d1,
-          periode_a_programmer_fin:   d2
-        });
-
-        // Si tes couleurs / règles dépendent de ces bornes :
-        // -> rafraîchis les grilles impactées ici
-        refreshAllGrids?.();
-
-        close();
-      });
-    }
-  });
-}
-
+// Feuilles paramètres
 function openSheetParams(){
   const meta = (window.ctx?.meta) || {};
   const curDeb = meta.periode_a_programmer_debut || null; // dateint
   const curFin = meta.periode_a_programmer_fin   || null; // dateint
-  const dureeRepasMin = Math.max(0, Number(meta.DUREE_REPAS_MIN ?? 75)|0);
-  const margeMin      = Math.max(0, Number(meta.MARGE_MIN ?? 10)|0);
+  const marge      = Math.max(0, Number(meta.MARGE ?? 10)|0);
+  const dureeRepas = Math.max(0, Number(meta.DUREE_REPAS ?? 60)|0);
+  const dureeCafe = Math.max(0, Number(meta.DUREE_CAFE ?? 60)|0);
   const itin          = String(meta.itineraire_app || 'Google Maps Web');
+  const cityDefault   = String(meta.city_default || 'Avignon');
 
   openSheetExclusive({
     title: 'Paramètres',
-    panelMaxHeight: '70vh',
-    panelHeight: '60vh',
+    panelMaxHeight: '72vh',
+    panelHeight: '72vh',
     replaceExisting: true,
     mount: (body, { close }) => {
       body.innerHTML = `
         <div class="form">
 
           <div class="form-row">
-            <label for="pp-debut">Début</label>
+            <label for="pp-debut">Début de la période de programmation</label>
             <input id="pp-debut" type="date" value="${curDeb}"/>
           </div>
 
           <div class="form-row">
-            <label for="pp-fin">Fin</label>
+            <label for="pp-fin">Fin de la période de programmation</label>
             <input id="pp-fin" type="date" value="${curFin}"/>
           </div>
 
           <div class="form-row">
-            <label>Durée repas</label>
-            <div class="row-inline">
-              <input id="p-repas" type="number" min="0" step="5" value="${dureeRepasMin}" style="width:100px"/>
-              <span id="p-repas-pretty" class="hint">${minutesToPretty(dureeRepasMin)}</span>
-            </div>
+            <label>Marge entre activités (min)</label>
+            <input id="p-marge" type="number" min="0" step="5" value="${marge}"/>
           </div>
 
           <div class="form-row">
-            <label>Marge entre activités</label>
-            <div class="row-inline">
-              <input id="p-marge" type="number" min="0" step="5" value="${margeMin}" style="width:100px"/>
-              <span id="p-marge-pretty" class="hint">${minutesToPretty(margeMin)}</span>
-            </div>
+            <label>Durée des pauses repas (min)</label>
+            <input id="p-repas" type="number" min="0" step="5" value="${dureeRepas}"/>
           </div>
 
           <div class="form-row">
-            <label>Itinéraire</label>
+            <label>Durée des pauses café (min)</label>
+            <input id="p-cafe" type="number" min="0" step="5" value="${dureeCafe}"/>
+          </div>
+
+          <div class="form-row">
+            <label>Application tinéraire</label>
             <select id="p-itin">
               <option ${itin==='Google Maps Web' ? 'selected':''}>Google Maps Web</option>
               <option ${itin==='Google Maps App' ? 'selected':''}>Google Maps App</option>
               <option ${itin==='Apple Maps' ? 'selected':''}>Apple Maps</option>
             </select>
+          </div>
+
+          <div class="form-row">
+            <label>Ville par défaut</label>
+            <input id="p-city" type="string" value="${cityDefault}"/>
           </div>
 
           <div class="form-actions">
@@ -4961,23 +4903,13 @@ function openSheetParams(){
         </div>
       `;
 
-      styleSimpleForm(body);
-
       const $deb = body.querySelector('#pp-debut');
       const $fin = body.querySelector('#pp-fin');
-      const $rep = body.querySelector('#p-repas');
       const $mar = body.querySelector('#p-marge');
+      const $rep = body.querySelector('#p-repas');
+      const $caf = body.querySelector('#p-cafe');
       const $it  = body.querySelector('#p-itin');
-
-      const $repPretty = body.querySelector('#p-repas-pretty');
-      const $marPretty = body.querySelector('#p-marge-pretty');
-
-      const syncPretty = () => {
-        $repPretty.textContent = minutesToPretty($rep.value);
-        $marPretty.textContent = minutesToPretty($mar.value);
-      };
-      $rep.addEventListener('input', syncPretty);
-      $mar.addEventListener('input', syncPretty);
+      const $ci  = body.querySelector('#p-city');
 
       body.querySelector('#p-cancel')?.addEventListener('click', close);
 
@@ -4989,16 +4921,20 @@ function openSheetParams(){
           alert('Dates invalides (fin >= début).');
         }
 
-        const repMin = Math.max(0, Number($rep.value||0)|0);
-        const marMin = Math.max(0, Number($mar.value||0)|0);
-        const itinApp = $it.value;
+        const mar = Math.max(0, Number($mar.value||0)|0);
+        const rep = Math.max(0, Number($rep.value||0)|0);
+        const caf = Math.max(0, Number($caf.value||0)|0);
+        const it = $it.value;
+        const ci = $ci.value;
 
         window.ctx?.setMeta({
           periode_a_programmer_debut: d1,
           periode_a_programmer_fin:   d2,
-          DUREE_REPAS_MIN: repMin,
-          MARGE_MIN:       marMin,
-          itineraire_app:  itinApp
+          MARGE:          mar,
+          DUREE_REPAS:    rep,
+          DUREE_CAFE:     caf,
+          itineraire_app: it,
+          city_default:   ci,
         });
 
         // si des calculs/affichages dépendent de ces params :
@@ -5008,31 +4944,6 @@ function openSheetParams(){
       });
     }
   });
-}
-
-function styleSimpleForm(root){
-  // évite de polluer le global: on style seulement l’intérieur de 'root'
-  const css = document.createElement('style');
-  css.textContent = `
-    .form { display: grid; gap: 12px; }
-    .form-row { display:flex; flex-direction:column; gap:6px; }
-    .form-row label { font-size: 12px; color:#6b7280; }
-    .row-inline { display:flex; align-items:center; gap:10px; }
-    .form input[type="date"],
-    .form input[type="number"],
-    .form select {
-      border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px;
-      font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background:#fff; color:#111;
-    }
-    .form .hint { font-size:12px; color:#6b7280; }
-    .form-actions{
-      margin-top: 6px; display:flex; gap:8px; justify-content:flex-end;
-    }
-    .bb-btn.is-primary{ background:#1f6feb; color:#fff; border-color:#1f6feb; }
-    .bb-btn.is-primary:hover{ filter:brightness(1.05); }
-  `;
-  root.appendChild(css);
 }
 
 function openSheetAide() {

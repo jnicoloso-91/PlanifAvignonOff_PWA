@@ -361,7 +361,7 @@ function normalizeText(s) {
 function resolveAddress(lieu) {
   if (!lieu) return '';
   const carnet = window.ctx?.carnet;
-  const cityDefault = window.ctx?.meta?.cityDefault || 'Avignon';
+  const cityDefault = window.ctx?.meta?.city_default || 'Avignon';
 
   const key = normalizeText(lieu);
   let addr = null;
