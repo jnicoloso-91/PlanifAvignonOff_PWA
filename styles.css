@@ -1486,7 +1486,7 @@ main, .page-wrap {
 }
 @supports (-webkit-touch-callout: none) {
   .bb-btn.is-primary {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
   }
 }
 .bb-btn.is-primary:hover  { filter: brightness(1.04); }
