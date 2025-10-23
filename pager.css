@@ -304,6 +304,8 @@ html, body {
   margin-top: calc(-1 * var(--header-top));
   scroll-padding-top: var(--header-top); */
   padding-bottom: calc(3vh + env(safe-area-inset-bottom,0px));
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Contenu vertical : marge intérieure et espacement en % hauteur */
@@ -363,7 +365,10 @@ html, body {
   height: 18vh;                   /* hauteur fluide */
   max-height: 160px;              /* garde-fou desktop */
   min-height: 110px;              /* garde-fou mobile */
-  display: flex; align-items: center; gap: 2.2vh;
+  flex: 1 1 auto;
+  /* display: flex;  */
+  align-items: center; 
+  gap: 2.2vh;
   cursor: pointer;
   user-select: none;
   text-align: left;
