@@ -40,7 +40,29 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
-  // Network-first, fallback cache (bon compromis dev)
+  
+  // Navigation request ? (clic lien / barre d'adresse)
+  const isNavigation = req.mode === 'navigate' ||
+                       (req.destination === '' && req.method === 'GET' && req.headers.get('accept')?.includes('text/html'));
+
+  if (isNavigation) {
+    e.respondWith((async () => {
+      try {
+        const net = await fetch(req);
+        // met en cache au passage
+        const copy = net.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+        return net;
+      } catch {
+        // fallback SPA
+        const cachedIndex = await caches.match('/index.html') || await caches.match('./index.html');
+        return cachedIndex || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' }});
+      }
+    })());
+    return;
+  }
+
+  // Stratégie network-first pour le reste
   e.respondWith(
     fetch(req).then(res => {
       const copy = res.clone();
