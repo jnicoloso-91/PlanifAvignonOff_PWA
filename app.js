@@ -4840,8 +4840,8 @@ function openSheetCarnet() {
 // Feuilles paramètres
 function openSheetParams(){
   const meta = (window.ctx?.meta) || {};
-  const curDeb = meta.periode_a_programmer_debut || null; // dateint
-  const curFin = meta.periode_a_programmer_fin   || null; // dateint
+  const curDeb = meta.periode_a_programmer_debut?.toISOString().slice(0,10) || ''; 
+  const curFin = meta.periode_a_programmer_fin?.toISOString().slice(0,10) || ''; 
   const marge      = Math.max(0, Number(meta.MARGE ?? 10)|0);
   const dureeRepas = Math.max(0, Number(meta.DUREE_REPAS ?? 60)|0);
   const dureeCafe = Math.max(0, Number(meta.DUREE_CAFE ?? 60)|0);
@@ -4859,12 +4859,12 @@ function openSheetParams(){
 
           <div class="form-row">
             <label for="pp-debut">Début de la période de programmation</label>
-            <input id="pp-debut" type="date" value="${curDeb}"/>
+            <input id="pp-debut" type="date"  value="${curDeb}">
           </div>
 
           <div class="form-row">
             <label for="pp-fin">Fin de la période de programmation</label>
-            <input id="pp-fin" type="date" value="${curFin}"/>
+            <input id="pp-fin" type="date"  value="${curFin}">
           </div>
 
           <div class="form-row">

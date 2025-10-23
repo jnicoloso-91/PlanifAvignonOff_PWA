@@ -1405,7 +1405,7 @@ main, .page-wrap {
   font-weight: 500;
   text-align: left;
   margin-right: 1rem;
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 /* --- Champs à droite (valeurs) --- */
 .sheet-wrap .form-row input,
@@ -1421,8 +1421,22 @@ main, .page-wrap {
   box-shadow: 0 1px 1px rgba(0,0,0,0.05);
   box-sizing: border-box;
   transition: border-color .2s, box-shadow .2s;
-  font-size: 0.85rem;
+  font-size: 1rem;
 }
+/* @media (max-width: 768px) {
+  .sheet-wrap .form-row > label,
+  .sheet-wrap .form-row input,
+  .sheet-wrap .form-row select {
+    font-size: 0.9rem;
+  }
+} */
+/* Sur IOS 16px pour eviter le zomm à l'input */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 
 /* --- Focus doux façon iOS --- */
 .sheet-wrap .form-row input:focus,
@@ -1443,20 +1457,6 @@ main, .page-wrap {
   font-size: 0.85rem;
   color: #666;
   text-align: right;
-}
-
-@media (max-width: 768px) {
-  .sheet-wrap .form-row > label {
-    font-size: 0.85rem;
-  }
-  .sheet-wrap .form-row select {
-    font-size: 0.85rem;
-  }
-}
-@supports (-webkit-touch-callout: none) {
-  input, select, textarea, button {
-    font-size: 16px !important;
-  }
 }
 
 .sheet-wrap .form-actions {
@@ -1482,7 +1482,12 @@ main, .page-wrap {
   box-shadow:
   0 8px 24px rgba(0,0,0,0.06),
   0 2px 6px rgba(11,102,255,0.08);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+}
+@supports (-webkit-touch-callout: none) {
+  .bb-btn.is-primary {
+    font-size: 0.8rem;
+  }
 }
 .bb-btn.is-primary:hover  { filter: brightness(1.04); }
 .bb-btn.is-primary:active { transform: translateY(1px); }
