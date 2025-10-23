@@ -346,7 +346,7 @@
 
 	})();
 
-	function openPreferNewTab(u){
+	function openUrl(u){
 		if (!u) return;
 		const url = /^https?:\/\//i.test(u) ? u : ('https://' + u);
 
@@ -367,6 +367,34 @@
 		try { window.location.assign(url); } catch(_) {}
 	}
 
+	function openUrlInNavigator(url) {
+	if (!url) return;
+
+	// Vérifie si on est dans une PWA iOS
+	const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+		|| (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+	const isStandalone = window.navigator.standalone === true
+		|| (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+	// Cas iOS PWA → créer un lien temporaire pour forcer Safari
+	if (isIOS && isStandalone) {
+		const a = document.createElement('a');
+		a.href = url;
+		a.target = '_blank';
+		a.rel = 'noopener,noreferrer';
+		// important : il faut un geste utilisateur pour que le click() fonctionne
+		a.style.display = 'none';
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		return;
+	}
+
+	// Sinon, comportement classique
+	try { window.open(url, '_blank', 'noopener'); }
+	catch { window.location.assign(url); }
+	}	
+	
 	function wireCatalogButtons(){
 		document.querySelectorAll('.catalog-btn[data-url]').forEach(btn => {
 			// Est-ce bien un “button” cliquable
@@ -375,7 +403,7 @@
 				e.stopPropagation(); // évite d’interférer avec le swipe
 				const raw = (btn.dataset.url || '').trim();
 				if (!raw) return;
-				openPreferNewTab(raw);
+				openUrlInNavigator(raw);
 			});
 		});
 		const btnMonProgramme = document.querySelector('#mon-programme.catalog-btn')
