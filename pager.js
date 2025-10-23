@@ -94,6 +94,9 @@
 //   window.pager = { goTo };
 // })();
 
+import {
+  openUrl, 
+} from './utils.js';
 
 (function initTwoPagePager(){
   const pager = document.getElementById('pager');
@@ -345,55 +348,6 @@
 		welcome.addEventListener('click', revealPager, { once: true });
 
 	})();
-
-	function openUrl(u){
-		if (!u) return;
-		const url = /^https?:\/\//i.test(u) ? u : ('https://' + u);
-
-		const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-			|| (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-		// iOS/PWA : ouvrir une fenêtre liée au geste utilisateur
-		try {
-			if (isIOS) {
-				const w = window.open('about:blank', '_blank');
-				if (w) { w.location.href = url; return; }
-			}
-		} catch(_) {}
-
-		// Desktop / Android (ou fallback iOS)
-		try { window.open(url, '_blank', 'noopener'); return; } catch(_) {}
-		try { window.open(url, '_top'); return; } catch(_) {}
-		try { window.location.assign(url); } catch(_) {}
-	}
-
-	function openUrlInNavigator(url) {
-	if (!url) return;
-
-	// Vérifie si on est dans une PWA iOS
-	const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-		|| (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-	const isStandalone = window.navigator.standalone === true
-		|| (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-
-	// Cas iOS PWA → créer un lien temporaire pour forcer Safari
-	// if (isIOS && isStandalone) {
-	// 	const a = document.createElement('a');
-	// 	a.href = url;
-	// 	a.target = '_blank';
-	// 	a.rel = 'noopener,noreferrer';
-	// 	// important : il faut un geste utilisateur pour que le click() fonctionne
-	// 	a.style.display = 'none';
-	// 	document.body.appendChild(a);
-	// 	a.click();
-	// 	document.body.removeChild(a);
-	// 	return;
-	// }
-
-	// Sinon, comportement classique
-	try { window.open(url, '_blank', 'noopener'); }
-	catch { window.location.assign(url); }
-	}	
 	
 	function wireCatalogButtons(){
 		document.querySelectorAll('.catalog-btn[data-url]').forEach(btn => {
@@ -403,7 +357,7 @@
 				e.stopPropagation(); // évite d’interférer avec le swipe
 				const raw = (btn.dataset.url || '').trim();
 				if (!raw) return;
-				openUrlInNavigator(raw);
+				openUrl(raw);
 			});
 		});
 		const btnMonProgramme = document.querySelector('#mon-programme.catalog-btn')

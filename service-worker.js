@@ -13,6 +13,7 @@ const OFFLINE_ASSETS = [
   "./activites.js",
   "./carnet.js",
   "./utils-date.js",
+  "./utils.js",
   "./ag-grid-community.min.js",
   "./ag-grid.css",
   "./lib/idb.mjs",
@@ -40,7 +41,7 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
-  
+
   // Navigation request ? (clic lien / barre d'adresse)
   const isNavigation = req.mode === 'navigate' ||
                        (req.destination === '' && req.method === 'GET' && req.headers.get('accept')?.includes('text/html'));

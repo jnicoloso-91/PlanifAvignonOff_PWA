@@ -11,6 +11,7 @@ import {
   minutesToPretty,
   prettyToMinutes,
 } from './utils-date.js';
+
 import { creerActivitesAPI, sortDf } from './activites.js'; 
 import { sortCarnet } from './carnet.js'; 
 import { AppContext } from './AppContext.js';
@@ -48,32 +49,6 @@ const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la tr
 const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
 
 // ------- Misc Helpers -------
-
-// Crée une mini-console dans la page pour afficher les logs sur iPhone
-function logToPage(...args) {
-  let el = document.getElementById('debug-console');
-  if (!el) {
-    el = document.createElement('pre');
-    el.id = 'debug-console';
-    el.style.position = 'fixed';
-    el.style.bottom = '0';
-    el.style.left = '0';
-    el.style.width = '100%';
-    el.style.maxHeight = '40vh';
-    el.style.overflowY = 'auto';
-    el.style.background = 'rgba(0,0,0,0.75)';
-    el.style.color = '#0f0';
-    el.style.fontSize = '11px';
-    el.style.fontFamily = 'monospace';
-    el.style.padding = '4px 6px';
-    el.style.zIndex = '9999';
-    el.style.whiteSpace = 'pre-wrap';
-    document.body.appendChild(el);
-  }
-  el.textContent += args.map(a => 
-    typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)
-  ).join(' ') + '\n';
-}
 
 const ROW_H=32, HEADER_H=32, PAD=4;
 const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
@@ -2445,7 +2420,7 @@ async function doRedo() {
 // Ajout activité
 async function doAjoutActivite() {
   const nouvelleActivite = await activitesAPI.creerActivite(ctx.df);
-  ctx.mutateDf(rows => sortDf([...rows, nouvelleActivite]));
+  ctx.mutateDf(rows => sortDf([nouvelleActivite, ...rows]));
 
   // Maj des sélections
   setTimeout(() => {
@@ -2458,7 +2433,7 @@ async function doAjoutActivite() {
 // Ajout activité avec collage
 async function doAjoutActiviteAvecCollage() {
   const nouvelleActivite = await activitesAPI.creerActiviteAvecCollage(ctx.df);
-  ctx.mutateDf(rows => sortDf([...rows, nouvelleActivite]));
+  ctx.mutateDf(rows => sortDf([nouvelleActivite, ...rows]));
 
   // Maj des sélections
   setTimeout(() => {
