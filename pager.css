@@ -481,7 +481,9 @@ html, body {
   justify-items: stretch;                              /* boutons = pleine largeur de cellule */
   width: 100%;
   
-  padding-top: var(--header-h, 48px);                  /* distance sous l'en-tête */
+  // padding-top: var(--header-h, 48px);                  /* distance sous l'en-tête */
+  // padding-top: min(7vw, 48px);                   /* distance sous l'en-tête */
+  padding-top: 40px;                   /* distance sous l'en-tête */
   padding-left:  min(6vw, 30px);                       /* padding confortable */
   padding-right: min(6vw, 30px);
   // padding-bottom: max(6vh, 30px, env(safe-area-inset-bottom, 0px));
