@@ -377,18 +377,18 @@
 		|| (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 
 	// Cas iOS PWA → créer un lien temporaire pour forcer Safari
-	if (isIOS && isStandalone) {
-		const a = document.createElement('a');
-		a.href = url;
-		a.target = '_blank';
-		a.rel = 'noopener,noreferrer';
-		// important : il faut un geste utilisateur pour que le click() fonctionne
-		a.style.display = 'none';
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
-		return;
-	}
+	// if (isIOS && isStandalone) {
+	// 	const a = document.createElement('a');
+	// 	a.href = url;
+	// 	a.target = '_blank';
+	// 	a.rel = 'noopener,noreferrer';
+	// 	// important : il faut un geste utilisateur pour que le click() fonctionne
+	// 	a.style.display = 'none';
+	// 	document.body.appendChild(a);
+	// 	a.click();
+	// 	document.body.removeChild(a);
+	// 	return;
+	// }
 
 	// Sinon, comportement classique
 	try { window.open(url, '_blank', 'noopener'); }
