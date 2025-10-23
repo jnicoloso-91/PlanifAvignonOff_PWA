@@ -506,7 +506,7 @@ html, body {
   width: 100%;
 
   /* Hauteur ajustable : modifie la 2e valeur pour plus/moins haut */
-  height: clamp(56px, 16vh, 140px);
+  height: clamp(50px, 16vh, 140px);
 
   // border: none;
   // border-radius: 14px;
