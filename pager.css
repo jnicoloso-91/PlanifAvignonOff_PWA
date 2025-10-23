@@ -284,91 +284,252 @@ html, body {
 /* ---------------------------------
    Page Catalogues
    --------------------------------- */
-/* .page--catalogs {
-  background: linear-gradient(180deg, #66696e 0%, #000000 100%);
-  padding: 16px;
-} */
+// /* .page--catalogs {
+//   background: linear-gradient(180deg, #66696e 0%, #000000 100%);
+//   padding: 16px;
+// } */
 
-#pager .page--catalogs{
-  height: 100vh;
-  overflow: auto;
-  background:
-    radial-gradient(120% 120% at 100% 0%, #1f2937 0%, #0b0f14 35%, #000 70%),
-    #000;
-  color: #fff;
-  padding: 16px;
+// #pager .page--catalogs{
+//   height: 100vh;
+//   overflow: auto;
+//   background:
+//     radial-gradient(120% 120% at 100% 0%, #1f2937 0%, #0b0f14 35%, #000 70%),
+//     #000;
+//   color: #fff;
+//   padding: 16px;
 
-  /* démarre sous le header mais autorise le scroll sous le header */
-  /* --header-top: calc(var(--app-header-height,56px) + env(safe-area-inset-top,0px));
-  padding-top: var(--header-top);
-  margin-top: calc(-1 * var(--header-top));
-  scroll-padding-top: var(--header-top); */
-  padding-bottom: calc(3vh + env(safe-area-inset-bottom,0px));
+//   /* démarre sous le header mais autorise le scroll sous le header */
+//   /* --header-top: calc(var(--app-header-height,56px) + env(safe-area-inset-top,0px));
+//   padding-top: var(--header-top);
+//   margin-top: calc(-1 * var(--header-top));
+//   scroll-padding-top: var(--header-top); */
+//   padding-bottom: calc(3vh + env(safe-area-inset-bottom,0px));
+//   box-sizing: border-box;
+//   overflow: hidden;
+
+//   /* display: flex;
+//   justify-content: center;   /* ✅ centre horizontalement le bloc 
+//   align-items: flex-start;   /* ✅ colle le bloc en haut si tu veux  */
+// }
+
+// /* Contenu vertical : marge intérieure et espacement en % hauteur */
+// .page--catalogs .catalog-wrap{
+//   min-height: 100%;
+//   display: flex;
+
+//   /* flex-direction: column; */
+//   /* justify-content: flex-start; */
+//   /* align-items: stretch; */
+//   justify-content: center;   /* ✅ centre horizontalement le bloc */
+//   align-items: flex-start;   /* ✅ colle le bloc en haut si tu veux  */
+
+//   width: min(90vw, 420px);
+//   gap: 3vh;                 /* espace vertical “fluide” */
+//   padding-top: 6vh;          /* 🔹 espace haut global */
+//   box-sizing: border-box;
+//   padding-inline: 5vw;
+// }
+
+// /* Grille des boutons : 1 col mobile, 2 cols grands écrans */
+// .page--catalogs .catalog-grid{
+//   display: grid;
+//   grid-template-columns: 1fr;
+//   row-gap: 4vh;              /* 🔹 espace vertical entre boutons */
+//   column-gap: 2vw;
+//   width: 100%;
+//   margin-top: 4vh;           /* 🔹 espace entre titre et 1er bouton */
+// }
+// @media (min-width: 960px){
+//   .page--catalogs .catalog-grid{
+//     grid-template-columns: 1fr 1fr;
+//     gap: 3vh 2vw;
+//   }
+// }
+
+// /* .catalog-wrap {
+//   display: flex;
+//   justify-content: center;   /* ✅ centre horizontalement le bloc 
+//   align-items: flex-start;   /* ✅ colle le bloc en haut si tu veux 
+//   width: 100%;
+//   height: 100%;
+//   padding-top: 4vh;          /* optionnel : petit espace haut 
+//   box-sizing: border-box;
+// }
+// .catalog-grid {
+//   display: flex;
+//   flex-direction: column;
+//   justify-content: flex-start;
+//   align-items: stretch;
+//   width: min(90vw, 420px);
+//   gap: 3vh;
+// } */
+
+// /* Titre optionnel */
+// .page--catalogs .catalog-title{
+//   font-weight: 650;
+//   font-size: clamp(18px, 2.4vh, 24px);
+//   letter-spacing: .2px;
+//   color: #e5e7eb;
+// }
+
+// /* gros boutons catalogues */
+// /* .page--catalogs .catalog-buttons { */
+//   /* display: grid; */
+//   /* grid-template-columns: 1fr; */
+//   /* gap: 12px; */
+//   /* max-width: 520px; */
+//   /* margin: 100px; */
+// /* } */
+
+// /* Bouton principal (plein écran, “glass” sombre) */
+// .page--catalogs .catalog-btn{
+//   flex: 1 1 auto;
+//   display: flex; 
+//   align-items: center; 
+
+//   -webkit-tap-highlight-color: transparent;
+//   appearance: none;
+//   border: 1px solid rgba(255,255,255,.16);
+//   background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.12));
+//   color: #f9fafb;
+//   border-radius: 16px;
+//   padding: 3vh 3.5vw;
+//   width: 100%;
+//   height: 18vh;                   
+//   /* max-height: 160px;               */
+//   /* min-height: 110px;               */
+//   gap: 2.2vh;
+
+//   cursor: pointer;
+//   user-select: none;
+//   text-align: left;
+//   box-shadow:
+//     0 6px 20px rgba(0,0,0,.35),
+//     inset 0 1px 0 rgba(255,255,255,.04);
+//   transition: transform .08s ease, background .18s ease, box-shadow .18s ease, border-color .18s ease;
+//   backdrop-filter: saturate(140%) blur(6px);
+// }
+// .page--catalogs .catalog-btn:hover{
+//   border-color: rgba(255,255,255,.22);
+//   background:
+//     linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.10));
+//   box-shadow:
+//     0 10px 28px rgba(0,0,0,.45),
+//     inset 0 1px 0 rgba(255,255,255,.06);
+// }
+// .page--catalogs .catalog-btn:active{
+//   transform: translateY(1px) scale(.996);
+// }
+
+// /* Icône + texte */
+// .page--catalogs .catalog-btn .icon{
+//   flex: 0 0 auto;
+//   width: 28px; height: 28px;
+//   display: inline-flex; align-items:center; justify-content:center;
+//   opacity: .95;
+// }
+// .page--catalogs .catalog-btn .icon svg{
+//   width: 100%; height: 100%;
+//   stroke: currentColor; fill: none; stroke-width: 2;
+// }
+// .page--catalogs .catalog-btn .txt{
+//   display: flex; flex-direction: column; gap: .6vh; min-width: 0;
+// }
+// .page--catalogs .catalog-btn .label{
+//   font-size: clamp(16px, 2.2vh, 22px);
+//   font-weight: 600;
+//   color: #f3f4f6;
+//   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+// }
+// .page--catalogs .catalog-btn .sub{
+//   font-size: clamp(12px, 1.7vh, 14px);
+//   color: #9ca3af;
+// }
+
+// /* Variante “clair” (si tu veux un bouton plus lumineux) */
+// .page--catalogs .catalog-btn.is-bright{
+//   background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
+//   color: #fff;
+//   border-color: rgba(255,255,255,.25);
+// }
+
+/* La page "Catalogues" occupe tout l'espace utile,
+   et se décale du header via --header-h */
+.page--catalogs{
   box-sizing: border-box;
-  overflow: hidden;
-}
+  height: 100%;
+  // padding-top: calc(var(--header-h, 56px) + 20px);                  /* distance sous l'en-tête */
+  // padding-left:  min(5vw, 20px);                       /* padding confortable */
+  // padding-right: min(5vw, 20px);
+  // padding-bottom: max(5vh, 20px, env(safe-area-inset-bottom, 0px));
 
-/* Contenu vertical : marge intérieure et espacement en % hauteur */
-.page--catalogs .catalog-wrap{
-  min-height: 100%;
+  overflow: auto;                                      /* défilement si besoin */
   display: flex;
   flex-direction: column;
-  gap: 3vh;                 /* espace vertical “fluide” */
-  padding-top: 6vh;          /* 🔹 espace haut global */
-  padding-inline: 5vw;
+  
+  background: radial-gradient(120% 120% at 100% 0%, #1f2937 0%, #0b0f14 35%, #000 70%), #000;
+  color: #fff;
+  padding: 16px;
 }
 
-/* Titre optionnel */
-.page--catalogs .catalog-title{
-  font-weight: 650;
-  font-size: clamp(18px, 2.4vh, 24px);
-  letter-spacing: .2px;
-  color: #e5e7eb;
-}
-
-/* Grille des boutons : 1 col mobile, 2 cols grands écrans */
+/* Conteneur de la grille de boutons */
 .page--catalogs .catalog-grid{
   display: grid;
-  grid-template-columns: 1fr;
-  row-gap: 4vh;              /* 🔹 espace vertical entre boutons */
-  column-gap: 2vw;
+  grid-template-columns: 1fr;                          /* 1 colonne par défaut */
+  gap: 4vh 4vw;                                        /* espace vertical / horizontal */
+  align-content: start;                                /* colle en haut */
+  justify-items: stretch;                              /* boutons = pleine largeur de cellule */
   width: 100%;
-  margin-top: 4vh;           /* 🔹 espace entre titre et 1er bouton */
+  
+  padding-top: var(--header-h, 56px);                  /* distance sous l'en-tête */
+  padding-left:  min(6vw, 30px);                       /* padding confortable */
+  padding-right: min(6vw, 30px);
+  // padding-bottom: max(6vh, 30px, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(6vw, 30px, env(safe-area-inset-bottom, 0px));
 }
-@media (min-width: 960px){
+
+/* En paysage → 2 colonnes */
+@media (orientation: landscape){
   .page--catalogs .catalog-grid{
     grid-template-columns: 1fr 1fr;
-    gap: 3vh 2vw;
   }
 }
 
-/* gros boutons catalogues */
-/* .page--catalogs .catalog-buttons { */
-  /* display: grid; */
-  /* grid-template-columns: 1fr; */
-  /* gap: 12px; */
-  /* max-width: 520px; */
-  /* margin: 100px; */
-/* } */
-
-/* Bouton principal (plein écran, “glass” sombre) */
+/* Bouton "catalogue" full-bleed dans sa cellule,
+   hauteur responsive et facilement ajustable */
 .page--catalogs .catalog-btn{
+  display: flex;
+  align-items: center;
+  // justify-content: center;
+  width: 100%;
+
+  /* Hauteur ajustable : modifie la 2e valeur pour plus/moins haut */
+  height: clamp(56px, 16vh, 140px);
+
+  // border: none;
+  // border-radius: 14px;
+  // padding: 12px 16px;
+  // font: 600 1rem/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  // color: #fff;
+  // background: #222;
+  // box-shadow: 0 6px 18px rgba(0,0,0,.15);
+  // cursor: pointer;
+  // transition: transform .08s ease, box-shadow .12s ease, opacity .12s ease;
+
   -webkit-tap-highlight-color: transparent;
   appearance: none;
   border: 1px solid rgba(255,255,255,.16);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.12));
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.12));
   color: #f9fafb;
   border-radius: 16px;
   padding: 3vh 3.5vw;
-  width: 100%;
-  height: 18vh;                   /* hauteur fluide */
-  max-height: 160px;              /* garde-fou desktop */
-  min-height: 110px;              /* garde-fou mobile */
-  flex: 1 1 auto;
-  /* display: flex;  */
-  align-items: center; 
   gap: 2.2vh;
+  
+  // width: 100%;
+  // height: 18vh;                   
+  /* max-height: 160px;               */
+  /* min-height: 110px;               */
+
   cursor: pointer;
   user-select: none;
   text-align: left;
@@ -378,6 +539,22 @@ html, body {
   transition: transform .08s ease, background .18s ease, box-shadow .18s ease, border-color .18s ease;
   backdrop-filter: saturate(140%) blur(6px);
 }
+
+// @media (orientation: landscape){
+//   .page--catalogs .catalog-btn{
+//     height: clamp(56px, 12vh, 120px);                  /* un peu moins haut en paysage */
+//   }
+// }
+
+// /* états */
+// .page--catalogs .catalog-btn:hover{ box-shadow: 0 8px 24px rgba(0,0,0,.20); }
+// .page--catalogs .catalog-btn:active{ transform: translateY(1px) scale(.997); }
+
+// /* variantes de couleur si tu veux différencier */
+// .page--catalogs .catalog-btn--off   { background: linear-gradient(180deg,#5b7cff,#3a57d0); }
+// .page--catalogs .catalog-btn--br    { background: linear-gradient(180deg,#ff6a3d,#d84b1b); }
+// .page--catalogs .catalog-btn--other { background: linear-gradient(180deg,#3d3f42,#000); }
+
 .page--catalogs .catalog-btn:hover{
   border-color: rgba(255,255,255,.22);
   background:
@@ -421,6 +598,7 @@ html, body {
   color: #fff;
   border-color: rgba(255,255,255,.25);
 }
+
 
 /*============================
   Resolution pb de swip sur page catalogue sur IOS
