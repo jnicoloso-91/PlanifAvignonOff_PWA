@@ -1453,10 +1453,15 @@ main, .page-wrap {
     font-size: 0.85rem;
   }
 }
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea, button {
+    font-size: 16px !important;
+  }
+}
 
 .sheet-wrap .form-actions {
   display: flex;
-  justify-content: flex-end;      /* alignés à droite */
+  justify-content: center;     
   gap: 1.6rem;
   padding-top: 1rem;
 }
@@ -1473,7 +1478,10 @@ main, .page-wrap {
   --btn-bg: #0b66ff;              /* bleu “accent” */
   --btn-fg: #fff;
   --btn-bd: rgba(11,102,255,.9);
-  box-shadow: 0 6px 18px rgba(11,102,255,.22), 0 2px 6px rgba(11,102,255,.18);
+  /* box-shadow: 0 6px 18px rgba(11,102,255,.22), 0 2px 6px rgba(11,102,255,.18);  */
+  box-shadow:
+  0 8px 24px rgba(0,0,0,0.06),
+  0 2px 6px rgba(11,102,255,0.08);
   font-size: 0.85rem;
 }
 .bb-btn.is-primary:hover  { filter: brightness(1.04); }
