@@ -493,53 +493,6 @@ export function sortDf(df, opts = {}) {
 }
 
 
-async function _getPeriodeProgrammation(df, {reinit=false}={}) {
-  if (reinit || !_ctx.getMetaParam("periode_a_programmer_debut") ||  !_ctx.getMetaParam("periode_a_programmer_fin")) {
-
-    let periodeDebut = null;
-    let periodeFin   = null;
-
-    // dates valides tirées du df
-    const diList = _getDatesFromRows(df);
-    if (diList.length > 0) {
-      const minDi = Math.min(...diList);
-      const maxDi = Math.max(...diList);
-      const dMin  = dateintToDate(minDi);
-      const dMax  = dateintToDate(maxDi);
-      if (dMin && dMax) {
-        periodeDebut = dMin;
-        periodeFin   = dMax;
-      }
-    }
-
-    // si rien trouvé -> dates du festival
-    if (!periodeDebut || !periodeFin) {
-      const fest = await _getDatesFestival();
-      periodeDebut = fest.debut;
-      periodeFin   = fest.fin;
-    }
-
-    _ctx.updMetaParams({
-      "periode_a_programmer_debut" : periodeDebut, 
-      "periode_a_programmer_fin"   : periodeFin
-    });
-  }
-
-  // garde-fou si pas encore initialisé
-  if (!_ctx.getMetaParam("periode_a_programmer_debut") || !_ctx.getMetaParam("periode_a_programmer_fin")) {
-    const fest = await _getDatesFestival();
-    _ctx.updMetaParams({
-      "periode_a_programmer_debut" : fest.debut, 
-      "periode_a_programmer_fin"   : fest.fin
-    });
-  }
-  
-  return {
-    debut: _ctx.getMetaParam("periode_a_programmer_debut"),
-    fin:   _ctx.getMetaParam("periode_a_programmer_fin")
-  };
-}
-
 /**
  * Indique si une activité est réservée
  * @param {*} row 

@@ -704,6 +704,37 @@ main, .page-wrap {
 }
 
 
+/* ================*/
+/*  Lieu renderer  */
+/* ================*/
+
+.cell-lieu {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.lieu-icon {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 1em;
+}
+.lieu-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lieu-sub {
+  opacity: .7;
+  font-size: .85em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
 /*==================*/
 /*    Bottom bar    */
 /*==================*/
@@ -784,7 +815,9 @@ main, .page-wrap {
   user-select: none;
   touch-action: manipulation;
 }
-.bb-btn:hover { background:#e9ecf0; border-color:#8391b8; }
+
+/* Hover/active (doux) */
+.bb-btn:hover { filter: brightness(1.03); }
 .bb-btn:active { transform: translateY(1px) scale(0.99); }
 .bb-btn.is-active { background:#d1dcf0; border-color:#5e6a85; }
 
@@ -1145,7 +1178,6 @@ main, .page-wrap {
 }
 
 
-
 /* ============================*/
 /* Sheets                      */
 /* ============================*/
@@ -1182,14 +1214,22 @@ main, .page-wrap {
   gap: .5rem;
   padding: 10px 14px;
   border-bottom: 1px solid #e5e7eb;
+  justify-content: center;
+  border-bottom: none;
 }
-.sheet-title{ font-weight: 600; }
+.sheet-title{ 
+  font-weight: 600; 
+}
 .sheet-close{
   margin-left: auto;
   border: none;
   background: transparent;
   cursor: pointer;
   font-size: 18px;
+  position: absolute;
+  right: 1.8rem;
+  top: 1.8rem;
+  font-size: 0.9rem;
 }
 .sheet-body{
   padding: 8px 12px;
@@ -1205,13 +1245,6 @@ main, .page-wrap {
   /* flex: 1; background: rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px); */
   background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);
 }
-
-/* facultatif, évite les clics fantômes pendant transition */
-/* .sheet-wrap * { pointer-events: auto; }             /* normal une fois ouverte */
-
-/* .sheet-wrap.is-closing, */
-/* .sheet-wrap.is-closing * { pointer-events: none; }  /* si tu ajoutes cette classe pendant close */
-
 /* petite poignée centrée, style iOS */
 .sheet-handle{
   display:block;
@@ -1293,27 +1326,6 @@ main, .page-wrap {
 /* marge de sécurité iPhone en bas */
 .sheet-panel { padding-bottom: env(safe-area-inset-bottom, 0); }
 
-/* si tu as un footer/boutons séparé */
-/* .sheet-footer,
-.sheet-actions {
-  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-} */
-
-/* zone scrollable */
-/* .sheet-body{
-  max-height: 66vh;                
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-} */
-
-/* poignée visuelle */
-/* .sheet-handle{
-  width: 44px; height: 4px; border-radius: 999px;
-  background: rgba(0,0,0,.18);
-  margin: 6px auto 10px;
-} */
-
 /* Make sure the scrolling happens in the body, not the whole panel */
 .sheet-body {
   overflow-y: auto;
@@ -1336,33 +1348,9 @@ main, .page-wrap {
 
 
 /************************/
-/* Smooth sheet closing */
+/* Sheet smooth closing */
 /************************/
 
-// /* états */
-// .sheet-wrap { opacity: 1; }
-// .sheet-wrap.is-open .sheet-panel   { transform: translateY(0); }
-// .sheet-wrap.is-open .sheet-backdrop{ opacity: 1; }
-
-// .sheet-panel{
-//   transform: translateY(100%);
-//   transition: transform .24s cubic-bezier(.22,.8,.24,1);
-//   will-change: transform;
-// }
-// .sheet-backdrop{
-//   opacity: 0;
-//   transition: opacity .18s ease;
-//   will-change: opacity;
-// }
-
-// /* fermeture douce */
-// .sheet-wrap.is-closing .sheet-panel   { transform: translateY(100%); }
-// .sheet-wrap.is-closing .sheet-backdrop{ opacity: 0; }
-
-// /* bonus accessibilité */
-// @media (prefers-reduced-motion: reduce){
-//   .sheet-panel,.sheet-backdrop{ transition: none !important; }
-// }
 .sheet-panel{
   transition: transform .25s cubic-bezier(.22,.8,.24,1);
 }
@@ -1383,37 +1371,6 @@ main, .page-wrap {
 .sheet-wrap.is-closing .sheet-backdrop{ opacity: 0; }
 
  
-/* ================*/
-/*  Lieu renderer  */
-/* ================*/
-
-.cell-lieu {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.lieu-icon {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  font-size: 1em;
-}
-.lieu-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.lieu-sub {
-  opacity: .7;
-  font-size: .85em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-
 /* ====================*/
 /*  Sheet paramètres   */
 /* ====================*/
@@ -1448,9 +1405,8 @@ main, .page-wrap {
   font-weight: 500;
   text-align: left;
   margin-right: 1rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
-
 /* --- Champs à droite (valeurs) --- */
 .sheet-wrap .form-row input,
 .sheet-wrap .form-row select {
@@ -1489,66 +1445,87 @@ main, .page-wrap {
   text-align: right;
 }
 
-/* --- Actions en bas --- */
+@media (max-width: 768px) {
+  .sheet-wrap .form-row > label {
+    font-size: 0.85rem;
+  }
+  .sheet-wrap .form-row select {
+    font-size: 0.85rem;
+  }
+}
+
 .sheet-wrap .form-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.8rem;
-  // margin-top: 1.5rem;
-  // border-top: 1px solid rgba(0,0,0,0.08);
+  justify-content: flex-end;      /* alignés à droite */
+  gap: 1.6rem;
   padding-top: 1rem;
 }
-.sheet-wrap .form-actions .bb-btn {
-  font-size: 1rem;
-  padding: 0.55rem 1.2rem;
-  border-radius: 8px;
-  border: none;
-  background: #ddd;
-  color: #000;
-  transition: background .2s, transform .1s;
-}
-.sheet-wrap .form-actions .bb-btn.is-primary {
-  background: var(--accent-color, #007AFF);
-  color: #fff;
-}
-.sheet-wrap .form-actions .bb-btn:active {
-  transform: scale(0.97);
+
+/* --- Icône (SVG) dans le bouton --- */
+.bb-btn svg {
+  width: 18px; height: 18px;
+  stroke: currentColor;
+  flex: 0 0 auto;
 }
 
-/* --- En-tête sheet : centré, propre --- */
-.sheet-wrap .sheet-header {
-  justify-content: center;
-  border-bottom: none;
+/* --- Variante primaire (accent) --- */
+.bb-btn.is-primary {
+  --btn-bg: #0b66ff;              /* bleu “accent” */
+  --btn-fg: #fff;
+  --btn-bd: rgba(11,102,255,.9);
+  box-shadow: 0 6px 18px rgba(11,102,255,.22), 0 2px 6px rgba(11,102,255,.18);
+  font-size: 0.85rem;
 }
-.sheet-wrap .sheet-title {
-  font-weight: 600;
-}
-.sheet-wrap .sheet-close {
-  position: absolute;
-  right: 1rem;
-  top: 0.8rem;
+.bb-btn.is-primary:hover  { filter: brightness(1.04); }
+.bb-btn.is-primary:active { transform: translateY(1px); }
+
+/* --- Variante ghost (fond transparent, bord discret) --- */
+.bb-btn.is-ghost {
+  --btn-bg: transparent;
+  --btn-fg: #111;
+  --btn-bd: rgba(0,0,0,.12);
+  box-shadow: none;
 }
 
-/* --- Responsive vertical (petits écrans) --- */
-// @media (max-width: 600px) {
-//   .sheet-wrap .form-row {
-//     flex-direction: column;
-//     align-items: stretch;
-//     padding: 0.8rem 0;
-//   }
-//   .sheet-wrap .form-row > label {
-//     margin-bottom: 0.35rem;
-//   }
-//   .sheet-wrap .form-row input,
-//   .sheet-wrap .form-row select {
-//     width: 100%;
-//     text-align: left;
-//   }
-//   .sheet-wrap .form-actions {
-//     flex-direction: column;
-//     align-items: stretch;
-//   }
-//   .sheet-wrap .form-actions .bb-btn {
-//     width: 100%;
-//   }
-// }
+/* --- Variante danger (suppression, etc.) --- */
+.bb-btn.is-danger {
+  --btn-bg: #ef4444;
+  --btn-fg: #fff;
+  --btn-bd: #ef4444;
+  box-shadow: 0 6px 18px rgba(239,68,68,.18);
+}
+
+/* --- Disabled visuel (mais garde les events si besoin) --- */
+/* Si tu veux vraiment désactiver les clics, ajoute [disabled] et pointer-events:none */
+.bb-btn.is-disabled,
+.bb-btn[disabled] {
+  opacity: .5;
+  filter: grayscale(.1);
+  cursor: default;
+}
+
+/* Dark mode doux */
+@media (prefers-color-scheme: dark) {
+  .bb-btn {
+    --btn-bg: #22262d;
+    --btn-fg: #e6edf3;
+    --btn-bd: rgba(255,255,255,.08);
+    box-shadow: 0 1px 1.5px rgba(0,0,0,.4);
+  }
+  .bb-btn.is-ghost {
+    --btn-bg: transparent;
+    --btn-bd: rgba(255,255,255,.16);
+  }
+  .bb-btn.is-primary {
+    --btn-bg: #1e7aff;
+    --btn-bd: #1e7aff;
+    box-shadow: 0 8px 20px rgba(30,122,255,.28);
+  }
+  .bb-btn.is-danger {
+    --btn-bg: #f05252;
+    --btn-bd: #f05252;
+  }
+}
+
+.bb-btn.is-compact { padding: .45rem .8rem; font-size: .9rem; border-radius: 9px; }
+

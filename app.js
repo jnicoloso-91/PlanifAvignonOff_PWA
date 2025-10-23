@@ -4850,8 +4850,8 @@ function openSheetParams(){
 
   openSheetExclusive({
     title: 'Paramètres',
-    panelMaxHeight: '72vh',
-    panelHeight: '72vh',
+    panelMaxHeight: '40rem',
+    panelHeight: '40rem',
     replaceExisting: true,
     mount: (body, { close }) => {
       body.innerHTML = `
@@ -4897,9 +4897,19 @@ function openSheetParams(){
           </div>
 
           <div class="form-actions">
-            <button class="bb-btn" id="p-cancel">Annuler</button>
-            <button class="bb-btn is-primary" id="p-save">Enregistrer</button>
+
+            <!-- Bouton Annuler -->
+            <button class="bb-btn is-primary" id="p-cancel">
+              Annuler
+            </button>
+
+            <!-- Bouton Enregistrer -->
+            <button class="bb-btn is-primary" id="p-save">
+              Enregistrer
+            </button>
+
           </div>
+          
         </div>
       `;
 
