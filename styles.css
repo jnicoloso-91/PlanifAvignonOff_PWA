@@ -1421,7 +1421,7 @@ main, .page-wrap {
   box-shadow: 0 1px 1px rgba(0,0,0,0.05);
   box-sizing: border-box;
   transition: border-color .2s, box-shadow .2s;
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 /* @media (max-width: 768px) {
   .sheet-wrap .form-row > label,
