@@ -46,7 +46,7 @@ const PHANTOM_WITH_OFFSET = false;      // effet fantôme avec ou sans offset
 const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la trajectoire de l'effet fantôme
 const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
 
-const overlay = document.getElementById('overlay');
+let overlay = null; 
 
 // ------- Misc Helpers -------
 
@@ -5336,6 +5336,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // await refreshAllGrids();
   // appJustLaunched = false;
 
-  console.log('✅ Application initialisée');
+  overlay = document.getElementById('overlay');
   logToPage(`overlay ${overlay}`)
+
+  console.log('✅ Application initialisée');
 });
