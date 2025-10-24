@@ -304,7 +304,7 @@ html, body {
   padding-top: 40px;                   /* distance sous l'en-tête */
   padding-left:  min(6vw, 30px);                       /* padding confortable */
   padding-right: min(6vw, 30px);
-  // padding-bottom: max(6vh, 30px, env(safe-area-inset-bottom, 0px));
+  /* padding-bottom: max(6vh, 30px, env(safe-area-inset-bottom, 0px)); */
   padding-bottom: max(6vw, 30px, env(safe-area-inset-bottom, 0px));
 }
 
@@ -320,7 +320,7 @@ html, body {
 .page--catalogs .catalog-btn{
   display: flex;
   align-items: center;
-  // justify-content: center;
+  /* justify-content: center; */
   width: 100%;
 
   /* Hauteur ajustable : modifie la 2e valeur pour plus/moins haut */

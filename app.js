@@ -20,7 +20,8 @@ import { LieuRenderer } from './LieuRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 
-const DEBUG = false;
+const DEBUG = true;
+const log = (...a) => { if (DEBUG) console.debug(...a); };
 
 let activitesAPI = null;
 
@@ -720,11 +721,11 @@ function desiredPaneHeightForRows(pane, gridEl, api,  { nbRows=null, maxRows = 5
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
     } else {
-      if (DEBUG) console.log(`nb calculé: no autoresize`);
+      log(`nb calculé: no autoresize`);
       return null;   // pas de resize auto
     }
   } else n = Math.min(maxRows, nbRows);
-  if (DEBUG) console.log(`nb calculé: ${n}`);
+  log(`nb calculé: ${n}`);
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8: 0;
@@ -1372,6 +1373,57 @@ function smoothScrollTo(el, target, duration = 400){
   }
   requestAnimationFrame(animate);
 }
+
+// function scrollBottomIntoView(el, scroller, {pad=8, headerVar='--header-h'} = {}){
+//   if (!el || !scroller) return;
+//   const hdr = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(headerVar)) || 0;
+
+//   const er = el.getBoundingClientRect();
+//   const sr = scroller.getBoundingClientRect();
+
+//   // how far the element’s bottom is below the visible scroller bottom
+//   const overflow = (er.bottom) - (sr.bottom - pad);
+
+//   log(`[scrollBottomIntoView] ${overflow}`);
+
+//   if (overflow > 0){
+//     scroller.scrollTop += overflow;
+//   }
+
+//   // if we’re above the top (rare in this flow), correct upward too
+//   const topOverlap = (er.top - hdr - pad) - sr.top;
+//   if (topOverlap < 0){
+//     scroller.scrollTop += topOverlap;
+//   }
+// }
+
+function scrollBottomIntoView(el, scroller, {
+  pad = 12,              // breathing room above bottom
+  extraPad = 0,          // e.g. bottom bar + safe area
+  overflowStart = 12     // hysteresis: ignore tiny +/- jitter
+} = {}) {
+  if (!el || !scroller) return;
+
+  const er = el.getBoundingClientRect();
+  const sr = scroller.getBoundingClientRect();
+
+  // how far element’s bottom sits below the visible bottom of scroller
+  const overflow = er.bottom - (sr.bottom - pad - extraPad);
+
+  // ignore small jitter
+  // if (overflow <= overflowStart) return;
+
+  // don’t shove past the scroller’s max
+  const maxExtra = (scroller.scrollHeight - scroller.clientHeight) - scroller.scrollTop;
+  // if (maxExtra <= 0) return;
+  if (maxExtra < 0) return;
+
+  const delta = Math.min(overflow, maxExtra);
+  scroller.scrollTop += delta;
+  log(`[scrollBottomIntoView] ${maxExtra} ${delta}`);
+
+}
+
 
 async function scrollExpanderIntoView(exp){
   if (!exp) return;
@@ -2312,7 +2364,7 @@ async function refreshGrid(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
 
-  if (DEBUG) console.log(`RefreshGrid ${gridId}`);
+  log(`RefreshGrid ${gridId}`);
 
   const api = h.api;
 
@@ -2420,6 +2472,648 @@ async function scheduleGlobalRefresh() {
 let isSplitterDragging = false; // pour geler les recalculs ailleurs
 function isFromGrid(e){ return !!e.target?.closest('.ag-root'); }
 
+// function wireExpanderSplitters() {
+//   document.querySelectorAll('.v-splitter').forEach(sp => {
+//     const handle = sp.querySelector('.v-splitter__handle') || sp;
+
+//     const topId = sp.getAttribute('data-top');
+//     const bottomId = sp.getAttribute('data-bottom');
+//     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
+//     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
+//     if (!paneTop || !paneBot) return;
+
+//     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
+//     let prevTransition = '', prevAnimation = '';
+
+//     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
+
+//     function begin(clientY, e) {
+//       const expTop = paneTop.closest('.st-expander');
+//       if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
+
+//       dragging = true;
+//       startY = clientY;
+
+//       // hauteur actuelle du pane du haut
+//       hTop = Math.round(paneTop.getBoundingClientRect().height);
+
+//       // limite haute : on peut tout cacher (header compris)
+//       dyMin = -hTop;
+
+//       // limite basse : contenu (nb rows) ou 1.5 si vide
+//       const maxH = calcMaxHForPane(paneTop);
+//       // const maxH = Number(paneTop.dataset.maxContentHeight) || hTop; // ← toutes lignes
+//       dyMax = Math.max(0, Math.round(maxH - hTop));
+
+//       // couper toute animation pendant le drag (inline + important)
+//       prevTransition = paneTop.style.transition || '';
+//       prevAnimation  = paneTop.style.animation  || '';
+//       paneTop.style.setProperty('transition', 'none', 'important');
+//       paneTop.style.setProperty('animation',  'none', 'important');
+//       paneTop.style.willChange = 'height';
+
+//       // verrou visuel
+//       setH(paneTop, hTop);
+//       document.body.style.userSelect = 'none';
+//       document.body.style.cursor = 'row-resize';
+
+//       // ⚠️ surtout PAS de preventDefault ici (laisser naître le tap→click iOS)
+//       // e?.preventDefault?.();
+//     }
+
+//     function update(clientY, e) {
+//       if (!dragging) return;
+
+//       const dyRaw = clientY - startY;
+//       const dy = Math.max(dyMin, Math.min(dyMax, dyRaw)); // clamp
+//       setH(paneTop, hTop + dy);
+
+//       // notifier la grille du haut pour recalcul
+//       try {
+//         const gridDiv = paneTop.querySelector('div[id^="grid"]');
+//         for (const g of (window.grids?.values?.() || [])) {
+//           if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+//         }
+//       } catch {}
+
+//       // ❌ ne pas faire preventDefault ici non plus
+//       // e?.preventDefault?.();
+//     }
+
+//     let minH = 0, maxH = 0;
+
+//     function finish() {
+//       if (!dragging) return;
+//       dragging = false;
+
+//       // restaurer animations
+//       paneTop.style.removeProperty('transition');
+//       paneTop.style.removeProperty('animation');
+//       if (prevTransition) paneTop.style.transition = prevTransition;
+//       if (prevAnimation)  paneTop.style.animation  = prevAnimation;
+//       paneTop.style.willChange = '';
+
+//       // mémoriser la hauteur
+//       const expTop = paneTop.closest('.st-expander');
+//       if (expTop) {
+//         const h = Math.round(paneTop.getBoundingClientRect().height);
+//         if (h > 0) localStorage.setItem(`paneHeight:${expTop.id}`, String(h));
+//       }
+
+//       document.body.style.userSelect = '';
+//       document.body.style.cursor = '';
+//     }
+
+//     handle.addEventListener('mousedown', e => {
+//       if (e.button !== 0) return;
+//       // if (isFromGrid(e)) return; // pas nécessaire ici, la cible = poignée
+//       begin(e.clientY, e);
+//     });
+
+//     window.addEventListener('mousemove', e => {
+//       if (!dragging) return;                 // 👈 clé: rien si pas en drag
+//       update(e.clientY, e);
+//       // pas de preventDefault ici (souris)
+//     });
+
+//     window.addEventListener('mouseup', finish);
+
+//     // Tactile (splitter)
+//     handle.addEventListener('touchstart', (e) => {
+//       // pas de preventDefault ici
+//       begin(e.touches[0].clientY, e);     // doit mettre dragging=true
+//     }, { passive: true });
+
+//     window.addEventListener('touchmove', (e) => {
+//       if (!dragging) return;              // rien si pas en drag
+//       e.preventDefault();                 // ✅ seulement pendant le drag → bloque le scroll
+//       update(e.touches[0].clientY, e);
+//     }, { passive: false });
+
+//     window.addEventListener('touchend', () => {
+//       finish();                           // doit mettre dragging=false
+//     }, { passive: true });
+//   });
+// }
+
+
+
+
+// function wireBottomSplitter(splitter){
+//   if (!splitter) return;
+//   const isLast = splitter.dataset.last === '1'; // ← seulement pour le dernier
+//   const container = document.querySelector('#pager .page.is-active') || document.body;
+
+//   let dragging = false;
+//   let lastY = 0;
+//   let autoRAF = null;
+//   let autoMode = null; // 'grow' | 'shrink' | null
+
+//   // util: applique la nouvelle hauteur selon ta logique existante
+//   function applyDeltaPixels(dy){
+//     // Exemple: agrandir le pane du bas de dy pixels.
+//     // Remplace par ta logique réelle (calc des 2 panneaux + clamp).
+//     const bottomPane = document.getElementById(splitter.dataset.bottom);
+//     const pane = bottomPane?.querySelector('.st-expander-body');
+//     if (!pane) return;
+//     const cur = parseFloat(getComputedStyle(pane).height) || 0;
+//     const max = container.getBoundingClientRect().height; // ajuste si besoin
+//     const next = Math.max(0, Math.min(max, cur + dy));
+//     pane.style.height = `${next}px`;
+//   }
+
+//   function autoStep(){
+//     if (!dragging || !autoMode){ autoRAF = null; return; }
+
+//     const rect = container.getBoundingClientRect();
+//     const safe = (parseFloat(getComputedStyle(document.documentElement)
+//                   .getPropertyValue('env(safe-area-inset-bottom)')) || 0);
+//     const bottomThreshold = rect.bottom - (safe + 12); // zone proche du bas
+//     const topThreshold    = rect.top + 12;             // proche du haut
+
+//     // Si on n'est plus dans la zone, arrêter l'auto-mode
+//     if (autoMode === 'grow' && lastY < bottomThreshold) { autoMode = null; autoRAF = null; return; }
+//     if (autoMode === 'shrink' && lastY > topThreshold)  { autoMode = null; autoRAF = null; return; }
+
+//     // Vitesse (px/frame) – accélère un peu jusqu’à une limite
+//     const SPEED = 10; // ajuste: 6–16 est agréable
+//     applyDeltaPixels(autoMode === 'grow' ? +SPEED : -SPEED);
+
+//     autoRAF = requestAnimationFrame(autoStep);
+//   }
+
+//   function startAuto(mode){
+//     if (!isLast) return;         // on ne fait ça que pour le dernier splitter
+//     if (autoRAF) cancelAnimationFrame(autoRAF);
+//     autoMode = mode;
+//     autoRAF = requestAnimationFrame(autoStep);
+//   }
+//   function stopAuto(){
+//     if (autoRAF) cancelAnimationFrame(autoRAF);
+//     autoRAF = null;
+//     autoMode = null;
+//   }
+
+//   splitter.addEventListener('pointerdown', (e) => {
+//     dragging = true;
+//     lastY = e.clientY;
+//     splitter.setPointerCapture?.(e.pointerId);
+//     document.body.classList.add('dragging-splitter');
+//     stopAuto(); // reset
+//   });
+
+//   window.addEventListener('pointermove', (e) => {
+//     if (!dragging) return;
+//     lastY = e.clientY;
+
+//     // comportement normal: si y bouge dans la zone utile, on suit la souris
+//     // (tu peux garder ton applySplitterAtY(lastY) ici si tu veux)
+//     // Mais on regarde aussi si on doit déclencher l’auto-mode :
+//     const rect = container.getBoundingClientRect();
+//     const safe = (parseFloat(getComputedStyle(document.documentElement)
+//                   .getPropertyValue('env(safe-area-inset-bottom)')) || 0);
+//     const nearBottom = lastY >= (rect.bottom - (safe + 12));
+//     const nearTop    = lastY <= (rect.top + 12);
+
+//     if (isLast && nearBottom) {
+//       startAuto('grow');   // continuer à grandir tant que pressé
+//     } else if (isLast && nearTop) {
+//       startAuto('shrink'); // symétrique si tu veux remonter
+//     } else {
+//       // hors zones → pas d’auto
+//       stopAuto();
+//       // Et tu appliques ta logique directe basée sur Y si utile :
+//       // applySplitterAtY(lastY);
+//     }
+//   }, { passive: true });
+
+//   window.addEventListener('pointerup', (e) => {
+//     if (!dragging) return;
+//     dragging = false;
+//     stopAuto();
+//     splitter.releasePointerCapture?.(e.pointerId);
+//     document.body.classList.remove('dragging-splitter');
+//     // snap/persist si besoin
+//   }, { passive: true });
+
+// }
+
+// // Utilitaires
+// function getSafeBottomPX(){
+//   const v = getComputedStyle(document.documentElement)
+//               .getPropertyValue('env(safe-area-inset-bottom)');
+//   // parse "0px" -> nombre
+//   const m = /([\d.]+)px/.exec(v || '');
+//   return m ? parseFloat(m[1]) : 0;
+// }
+// function getBottomBarHeightPX(){
+//   const bar = document.querySelector('.bottom-bar');
+//   if (!bar) return 0;
+//   const r = bar.getBoundingClientRect();
+//   // si cachée, r.height peut être 0 ; on peut fallback sur style/offset si besoin
+//   return Math.max(0, Math.round(r.height));
+// }
+
+// // Stocke les bornes sur l’élément pour que le handler de drag s’en serve
+// function updateBottomSplitterBounds(splitterEl, opts = {}){
+//   if (!splitterEl) return;
+
+//   const idTop    = splitterEl.dataset.top;
+//   const idBottom = splitterEl.dataset.bottom;
+//   const topExp   = document.getElementById(idTop);
+//   const botExp   = document.getElementById(idBottom);
+//   const paneTop  = topExp?.querySelector('.st-expander-body');
+//   const paneBot  = botExp?.querySelector('.st-expander-body');
+//   if (!paneTop || !paneBot) return;
+
+//   // Options / défauts
+//   const {
+//     minTop     = 80,   // min hauteur (px) du pane du haut
+//     minBottom  = 80,   // min hauteur (px) du pane du bas
+//     extraPad   = 6,    // petit coussin
+//   } = opts;
+
+//   // Géométries
+//   const docH   = window.innerHeight || document.documentElement.clientHeight || 0;
+//   const safeB  = getSafeBottomPX();
+//   const barH   = getBottomBarHeightPX();
+//   const floorY = docH - (barH + safeB + extraPad); // butée visuelle réelle
+
+//   // Position et hauteur actuelles des panes
+//   const rectTop = paneTop.getBoundingClientRect();
+//   const rectBot = paneBot.getBoundingClientRect();
+
+//   const totalStackTop   = rectTop.top;       // y de départ “absolu” dans le viewport
+//   const currentTopH     = rectTop.height;
+//   const currentBotH     = rectBot.height;
+
+//   // La ligne de split (centre du handle) est à la frontière entre les panes :
+//   const currentSplitY = rectTop.bottom;      // y actuel du splitter
+
+//   // Bornes : où peut se déplacer la ligne de split ?
+//   // - ne pas monter au-delà de: top + minTop
+//   const minY = totalStackTop + minTop;
+
+//   // - ne pas descendre au-delà de: floorY - minBottom
+//   //   (et aussi tenir compte de la hauteur actuelle du bas si floorY < bottom actuel)
+//   const maxY = Math.min(
+//     floorY - minBottom,
+//     currentSplitY + (currentBotH - minBottom) // borne "géométrique" locale
+//   );
+
+//   // Sécurise
+//   const lo = Math.max(minY, totalStackTop + 16); // un mini 16px pour éviter le “collage”
+//   const hi = Math.max(lo, maxY);
+
+//   // Stocke les bornes & état courant pour le handler de drag
+//   splitterEl.__bounds = {
+//     minY: lo,
+//     maxY: hi,
+//     floorY,
+//     currentSplitY,
+//     totalStackTop,
+//     barH, safeB
+//   };
+// }
+
+// function wireBottomSplitter(splitterEl){
+//   if (!splitterEl || splitterEl.__wired) return;
+//   splitterEl.__wired = true;
+
+//   const idTop    = splitterEl.dataset.top;
+//   const idBottom = splitterEl.dataset.bottom;
+//   const topExp   = document.getElementById(idTop);
+//   const botExp   = document.getElementById(idBottom);
+//   const paneTop  = topExp?.querySelector('.st-expander-body');
+//   const paneBot  = botExp?.querySelector('.st-expander-body');
+//   if (!paneTop || !paneBot) return;
+
+//   const handle = splitterEl.querySelector('.v-splitter__handle') || splitterEl;
+
+//   const recalc = () => updateBottomSplitterBounds(splitterEl);
+//   recalc();
+//   window.addEventListener('resize', recalc);
+//   window.addEventListener('orientationchange', recalc);
+
+//   let dragging = false, startY = 0, startTopH = 0, startBotH = 0;
+
+//   const onStart = (e) => {
+//     const t = e.touches ? e.touches[0] : e;
+//     startY = t.clientY;
+//     startTopH = paneTop.getBoundingClientRect().height;
+//     startBotH = paneBot.getBoundingClientRect().height;
+//     dragging = true;
+//     document.body.classList.add('is-dragging-splitter');
+//     // pas d’animation pendant drag
+//     paneTop.style.transition = 'none';
+//     paneBot.style.transition = 'none';
+//   };
+//   const onMove = (e) => {
+//     if (!dragging) return;
+//     const t = e.touches ? e.touches[0] : e;
+//     const dy = t.clientY - startY;     // +dy = on tire vers le bas
+
+//     // somme constante : on grossit le bas en tirant vers le bas
+//     const totalH = startTopH + startBotH;
+//     let newTopH = startTopH - dy;
+//     // bornes: le haut ne descend pas sous minTop, et on garde minBottom au bas
+//     const minTop = 80;     // adapte à ton besoin
+//     const minBottom = 80;  // idem
+//     newTopH = Math.max(minTop, Math.min(totalH - minBottom, newTopH));
+//     const newBotH = totalH - newTopH;
+
+//     paneTop.style.height = `${Math.max(0, newTopH)}px`;
+//     paneBot.style.height = `${Math.max(0, newBotH)}px`;
+
+//     // On peut garder e.preventDefault pour bloquer le scroll pendant le drag
+//     e.preventDefault?.();
+//   };
+//   const onEnd = () => {
+//     if (!dragging) return;
+//     dragging = false;
+//     document.body.classList.remove('is-dragging-splitter');
+//     // réactive transitions douces
+//     paneTop.style.transition = '';
+//     paneBot.style.transition = '';
+//     // recalcule les bornes avec les nouvelles hauteurs
+//     updateBottomSplitterBounds(splitterEl);
+//   };
+
+//   if (window.PointerEvent) {
+//     handle.addEventListener('pointerdown', onStart, { passive: true });
+//     window.addEventListener('pointermove', onMove, { passive: false });
+//     window.addEventListener('pointerup',   onEnd,  { passive: true });
+//     window.addEventListener('pointercancel', onEnd, { passive: true });
+//   } else {
+//     handle.addEventListener('touchstart', onStart, { passive: true });
+//     window.addEventListener('touchmove',  onMove,  { passive: false });
+//     window.addEventListener('touchend',   onEnd,   { passive: true });
+//     handle.addEventListener('mousedown',  onStart, true);
+//     window.addEventListener('mousemove',  onMove,  true);
+//     window.addEventListener('mouseup',    onEnd,   true);
+//   }
+// }
+
+// function wireBottomLikeSplitters() {
+//   document.querySelectorAll('.v-splitter').forEach(split => {
+//     const topId = split.getAttribute('data-top');
+//     const bottomId = split.getAttribute('data-bottom');
+//     const isLast = bottomId === '__end__' || split.dataset.last === '1';
+
+//     const topExp = document.getElementById(topId);
+//     const topPane = topExp?.querySelector('.st-expander-body');
+//     if (!topPane) return;
+
+//     let startY = 0, startH = 0, raf = null, dragging = false, lastY = 0;
+
+//     const applyHeight = (h) => {
+//       const minH = 40;           // tu peux affiner
+//       const maxH = 9999;         // pas de plafond “viewport”
+//       const nh = Math.max(minH, Math.min(h, maxH));
+//       topPane.style.height = `${Math.round(nh)}px`;
+//       // si tu stockes la hauteur:
+//       localStorage.setItem(`paneHeight:${topExp.id}`, String(Math.round(nh)));
+//     };
+
+//     const onMove = () => {
+//       if (!dragging) return;
+//       const dy = lastY - startY;
+//       applyHeight(startH + dy);
+//       raf = requestAnimationFrame(onMove);
+//     };
+
+//     const onPointerDown = (e) => {
+//       // on capte “depuis la poignée” uniquement si tu veux
+//       const handle = split.querySelector('.v-splitter__handle') || split;
+//       if (e.target !== handle && !handle.contains(e.target)) return;
+
+//       dragging = true;
+//       startY   = (e.touches ? e.touches[0] : e).clientY;
+//       lastY    = startY;
+//       startH   = parseFloat(getComputedStyle(topPane).height) || topPane.offsetHeight || 0;
+
+//       document.body.classList.add('is-resizing');
+//       // empêcher la page de scroller pendant le drag
+//       document.addEventListener('touchmove', blockScroll, { passive: false });
+//       window.addEventListener('pointermove', onPointerMove, { passive: false });
+//       window.addEventListener('touchmove',  onPointerMove, { passive: false });
+//       window.addEventListener('mousemove',  onPointerMove, { passive: false });
+//       window.addEventListener('pointerup',  onPointerUp,   { passive: true });
+//       window.addEventListener('touchend',   onPointerUp,   { passive: true });
+
+//       // boucle RAF pour “continuer” même si le pointeur bute sur la bottom bar
+//       raf = requestAnimationFrame(onMove);
+//       e.preventDefault?.();
+//     };
+
+//     const onPointerMove = (e) => {
+//       if (!dragging) return;
+//       const t = e.touches ? e.touches[0] : e;
+//       lastY = t.clientY; // on lit la position globale du pointeur
+//       e.preventDefault?.(); // bloque le scroll
+//     };
+
+//     const onPointerUp = () => {
+//       dragging = false;
+//       document.body.classList.remove('is-resizing');
+//       document.removeEventListener('touchmove', blockScroll);
+//       window.removeEventListener('pointermove', onPointerMove);
+//       window.removeEventListener('touchmove',  onPointerMove);
+//       window.removeEventListener('mousemove',  onPointerMove);
+//       window.removeEventListener('pointerup',  onPointerUp);
+//       window.removeEventListener('touchend',   onPointerUp);
+//       if (raf) cancelAnimationFrame(raf), raf = null;
+//     };
+
+//     const blockScroll = (e) => { e.preventDefault?.(); };
+
+//     // branchement
+//     // si c’est un splitter “normal”, tu gardes ton code existant.
+//     // si c’est le dernier, on utilise ce handler spécial
+//     if (isLast) {
+//       if (window.PointerEvent) {
+//         split.addEventListener('pointerdown', onPointerDown, { passive: false });
+//       } else {
+//         split.addEventListener('touchstart', onPointerDown, { passive: false });
+//         split.addEventListener('mousedown',  onPointerDown, false);
+//       }
+//     }
+//   });
+// }
+
+// function wireExpanderSplitters() {
+//   document.querySelectorAll('.v-splitter').forEach(sp => {
+//     const handle = sp.querySelector('.v-splitter__handle') || sp;
+
+//     const topId = sp.getAttribute('data-top');
+//     const bottomId = sp.getAttribute('data-bottom');
+//     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
+//     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
+//     // 🆕 on autorise l’absence de paneBot si c’est le dernier
+//     const isLast = sp.dataset.last === '1' || bottomId === '__end__';
+//     if (!paneTop || (!paneBot && !isLast)) return;
+
+//     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
+//     let prevTransition = '', prevAnimation = '';
+
+//     // 🆕 auto-grow state
+//     let autoGrowRaf = null;
+//     let autoGrowActive = false;
+//     let lastClientY = 0;
+//     let growAccum = 0; // pixels synthétiques ajoutés quand on “coince” en bas
+
+//     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
+
+//     function begin(clientY, e) {
+//       const expTop = paneTop.closest('.st-expander');
+//       if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
+
+//       dragging = true;
+//       startY = clientY;
+//       lastClientY = clientY;           // 🆕
+//       growAccum = 0;                   // 🆕
+
+//       hTop = Math.round(paneTop.getBoundingClientRect().height);
+
+//       // limite haute : on peut tout cacher (header compris)
+//       dyMin = -hTop;
+
+//       // limite basse : borne “contenu max” (nb de lignes)
+//       const maxH = calcMaxHForPane(paneTop); // ← ta fonction existante
+//       dyMax = Math.max(0, Math.round(maxH - hTop));
+
+//       // couper les anims pendant le drag
+//       prevTransition = paneTop.style.transition || '';
+//       prevAnimation  = paneTop.style.animation  || '';
+//       paneTop.style.setProperty('transition', 'none', 'important');
+//       paneTop.style.setProperty('animation',  'none', 'important');
+//       paneTop.style.willChange = 'height';
+
+//       setH(paneTop, hTop);
+//       document.body.style.userSelect = 'none';
+//       document.body.style.cursor = 'row-resize';
+//     }
+
+//     // 🆕 boucle d’auto-grow quand on est “coincé” en bas du viewport
+//     function tickAutoGrow() {
+//       if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
+
+//       // vitesse de croissance (pixels/frame) – ajuste à ton goût
+//       const SPEED = 6;
+
+//       growAccum += SPEED;
+//       const dyRaw = (lastClientY - startY) + growAccum;
+//       const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+
+//       setH(paneTop, hTop + dy);
+
+//       // notify AG Grid haut
+//       try {
+//         const gridDiv = paneTop.querySelector('div[id^="grid"]');
+//         for (const g of (window.grids?.values?.() || [])) {
+//           if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+//         }
+//       } catch {}
+
+//       // stop si on touche la borne haute
+//       if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
+
+//       autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+//     }
+
+//     function maybeAutoGrow(clientY){
+//       lastClientY = clientY;
+
+//       if (!isLast || !dragging) return;
+
+//       // marge depuis le bas pour déclencher l’auto-grow
+//       const safeInset =  Math.max(0, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0', 10)) || 0;
+//       const MARGIN = 16 + safeInset; // px au-dessus du bas de l’écran
+//       const nearBottom = clientY >= (window.innerHeight - MARGIN);
+
+//       if (nearBottom && !autoGrowActive) {
+//         autoGrowActive = true;
+//         if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+//       } else if (!nearBottom && autoGrowActive) {
+//         // on est remonté : on arrête l’auto-grow
+//         autoGrowActive = false;
+//         if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+//         growAccum = 0;
+//       }
+//     }
+
+//     function update(clientY, e) {
+//       if (!dragging) return;
+
+//       const dyRaw = clientY - startY + (isLast ? growAccum : 0); // 🆕 accumulé si last
+//       const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+//       setH(paneTop, hTop + dy);
+
+//       // notifier la grille du haut
+//       try {
+//         const gridDiv = paneTop.querySelector('div[id^="grid"]');
+//         for (const g of (window.grids?.values?.() || [])) {
+//           if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+//         }
+//       } catch {}
+
+//       // 🆕 déclenche/arrête auto-grow si besoin
+//       maybeAutoGrow(clientY);
+//     }
+
+//     function finish() {
+//       if (!dragging) return;
+//       dragging = false;
+
+//       // 🆕 coupe l’auto-grow
+//       autoGrowActive = false;
+//       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+//       growAccum = 0;
+
+//       // restaurer anims
+//       paneTop.style.removeProperty('transition');
+//       paneTop.style.removeProperty('animation');
+//       if (prevTransition) paneTop.style.transition = prevTransition;
+//       if (prevAnimation)  paneTop.style.animation  = prevAnimation;
+//       paneTop.style.willChange = '';
+
+//       // mémoriser la hauteur
+//       const expTop = paneTop.closest('.st-expander');
+//       if (expTop) {
+//         const h = Math.round(paneTop.getBoundingClientRect().height);
+//         if (h > 0) localStorage.setItem(`paneHeight:${expTop.id}`, String(h));
+//       }
+
+//       document.body.style.userSelect = '';
+//       document.body.style.cursor = '';
+//     }
+
+//     // Souris
+//     handle.addEventListener('mousedown', e => {
+//       if (e.button !== 0) return;
+//       begin(e.clientY, e);
+//     });
+//     window.addEventListener('mousemove', e => {
+//       if (!dragging) return;
+//       update(e.clientY, e);
+//     });
+//     window.addEventListener('mouseup', finish);
+
+//     // Tactile
+//     handle.addEventListener('touchstart', (e) => {
+//       begin(e.touches[0].clientY, e);
+//     }, { passive: true });
+
+//     window.addEventListener('touchmove', (e) => {
+//       if (!dragging) return;
+//       e.preventDefault(); // bloque le scroll pendant le drag
+//       update(e.touches[0].clientY, e);
+//     }, { passive: false });
+
+//     window.addEventListener('touchend', () => { finish(); }, { passive: true });
+//   });
+// }
+
 function wireExpanderSplitters() {
   document.querySelectorAll('.v-splitter').forEach(sp => {
     const handle = sp.querySelector('.v-splitter__handle') || sp;
@@ -2428,55 +3122,74 @@ function wireExpanderSplitters() {
     const bottomId = sp.getAttribute('data-bottom');
     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
-    if (!paneTop || !paneBot) return;
+    // 🆕 on autorise l’absence de paneBot si c’est le dernier
+    const isLast = sp.dataset.last === '1' || bottomId === '__end__';
+    if (!paneTop || (!paneBot && !isLast)) return;
+
+    const expTop = paneTop.closest('.st-expander');        // parent expander (top)
+    const scroller = (typeof getScrollContainer === 'function')
+      ? getScrollContainer(expTop)
+      : expTop.closest('.page') || document.scrollingElement || document.documentElement;
 
     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
     let prevTransition = '', prevAnimation = '';
+    let lastHFrame = null;  // previous frame paneTop height (px) during drag
+
+    // 🆕 auto-grow state
+    let autoGrowRaf = null;
+    let autoGrowActive = false;
+    let lastClientY = 0;
+    let growAccum = 0; // pixels synthétiques ajoutés quand on “coince” en bas
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
     function begin(clientY, e) {
-      const expTop = paneTop.closest('.st-expander');
+      // const expTop = paneTop.closest('.st-expander');
       if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
 
       dragging = true;
       startY = clientY;
+      lastClientY = clientY;           // 🆕
+      growAccum = 0;                   // 🆕
 
-      // hauteur actuelle du pane du haut
       hTop = Math.round(paneTop.getBoundingClientRect().height);
+      lastHFrame = hTop;
 
       // limite haute : on peut tout cacher (header compris)
       dyMin = -hTop;
 
-      // limite basse : contenu (nb rows) ou 1.5 si vide
-      const maxH = calcMaxHForPane(paneTop);
-      // const maxH = Number(paneTop.dataset.maxContentHeight) || hTop; // ← toutes lignes
+      // limite basse : borne “contenu max” (nb de lignes)
+      const maxH = calcMaxHForPane(paneTop); // ← ta fonction existante
       dyMax = Math.max(0, Math.round(maxH - hTop));
 
-      // couper toute animation pendant le drag (inline + important)
+      // couper les anims pendant le drag
       prevTransition = paneTop.style.transition || '';
       prevAnimation  = paneTop.style.animation  || '';
       paneTop.style.setProperty('transition', 'none', 'important');
       paneTop.style.setProperty('animation',  'none', 'important');
       paneTop.style.willChange = 'height';
 
-      // verrou visuel
       setH(paneTop, hTop);
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
-
-      // ⚠️ surtout PAS de preventDefault ici (laisser naître le tap→click iOS)
-      // e?.preventDefault?.();
     }
 
-    function update(clientY, e) {
-      if (!dragging) return;
+    // 🆕 boucle d’auto-grow quand on est “coincé” en bas du viewport
+    function tickAutoGrow() {
+      if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
 
-      const dyRaw = clientY - startY;
-      const dy = Math.max(dyMin, Math.min(dyMax, dyRaw)); // clamp
+      // vitesse de croissance (pixels/frame) – ajuste à ton goût
+      const SPEED = 6;
+
+      growAccum += SPEED;
+      const dyRaw = (lastClientY - startY) + growAccum;
+      const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+
       setH(paneTop, hTop + dy);
 
-      // notifier la grille du haut pour recalcul
+      scrollBottomIntoView(expTop, scroller, { pad: 12 });
+
+      // notify AG Grid haut
       try {
         const gridDiv = paneTop.querySelector('div[id^="grid"]');
         for (const g of (window.grids?.values?.() || [])) {
@@ -2484,17 +3197,81 @@ function wireExpanderSplitters() {
         }
       } catch {}
 
-      // ❌ ne pas faire preventDefault ici non plus
-      // e?.preventDefault?.();
+      // stop si on touche la borne haute
+      if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
+
+      autoGrowRaf = requestAnimationFrame(tickAutoGrow);
     }
 
-    let minH = 0, maxH = 0;
+    function maybeAutoGrow(clientY){
+      lastClientY = clientY;
+
+      if (!isLast || !dragging) return;
+
+      // marge depuis le bas pour déclencher l’auto-grow
+      const safeInset =  Math.max(0, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0', 10)) || 0;
+      const MARGIN = 16 + safeInset; // px au-dessus du bas de l’écran
+      const nearBottom = clientY >= (window.innerHeight - MARGIN);
+
+      if (nearBottom && !autoGrowActive) {
+        autoGrowActive = true;
+        if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+      } else if (!nearBottom && autoGrowActive) {
+        // on est remonté : on arrête l’auto-grow
+        autoGrowActive = false;
+        if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+        growAccum = 0;
+      }
+    }
+
+    function update(clientY, e) {
+      if (!dragging) return;
+
+      const dyRaw = clientY - startY + (isLast ? growAccum : 0); // 🆕 accumulé si last
+      const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+      setH(paneTop, hTop + dy);
+      
+      // scrollBottomIntoView(expTop, scroller, { pad: 12 });
+
+      // notifier la grille du haut
+      try {
+        const gridDiv = paneTop.querySelector('div[id^="grid"]');
+        for (const g of (window.grids?.values?.() || [])) {
+          if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+        }
+      } catch {}
+
+      const hNow = Math.round(paneTop.getBoundingClientRect().height);
+      const isGrowing = (lastHFrame == null) ? true : (hNow > lastHFrame);
+      lastHFrame = hNow;
+
+      // Only auto-scroll when pane grows (dy > 0), and ONLY for the last splitter
+      if (isLast && isGrowing) {
+        // bottom breathing space = bottom bar height + iOS safe-area if you want
+        const extraPad =
+          (typeof getSafeBottom === 'function' ? parseFloat(getSafeBottom()) || 0 : 0) +
+          (document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0);
+
+        scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+          pad: 12, extraPad, overflowStart: 10
+        });
+      }
+
+      // 🆕 déclenche/arrête auto-grow si besoin
+      maybeAutoGrow(clientY);
+    }
 
     function finish() {
       if (!dragging) return;
       dragging = false;
+      lastHFrame = null;
 
-      // restaurer animations
+      // 🆕 coupe l’auto-grow
+      autoGrowActive = false;
+      if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+      growAccum = 0;
+
+      // restaurer anims
       paneTop.style.removeProperty('transition');
       paneTop.style.removeProperty('animation');
       if (prevTransition) paneTop.style.transition = prevTransition;
@@ -2512,37 +3289,33 @@ function wireExpanderSplitters() {
       document.body.style.cursor = '';
     }
 
+    // Souris
     handle.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
-      // if (isFromGrid(e)) return; // pas nécessaire ici, la cible = poignée
       begin(e.clientY, e);
     });
-
     window.addEventListener('mousemove', e => {
-      if (!dragging) return;                 // 👈 clé: rien si pas en drag
+      if (!dragging) return;
       update(e.clientY, e);
-      // pas de preventDefault ici (souris)
     });
-
     window.addEventListener('mouseup', finish);
 
-    // Tactile (splitter)
+    // Tactile
     handle.addEventListener('touchstart', (e) => {
-      // pas de preventDefault ici
-      begin(e.touches[0].clientY, e);     // doit mettre dragging=true
+      begin(e.touches[0].clientY, e);
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-      if (!dragging) return;              // rien si pas en drag
-      e.preventDefault();                 // ✅ seulement pendant le drag → bloque le scroll
+      if (!dragging) return;
+      e.preventDefault(); // bloque le scroll pendant le drag
       update(e.touches[0].clientY, e);
     }, { passive: false });
 
-    window.addEventListener('touchend', () => {
-      finish();                           // doit mettre dragging=false
-    }, { passive: true });
+    window.addEventListener('touchend', () => { finish(); }, { passive: true });
   });
 }
+
+
 
 function wireGrids() {
   // 1) Activités Programmées
@@ -5336,6 +6109,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   // await refreshAllGrids();
   // appJustLaunched = false;
 
-  logToPage(`overlay apres ${overlay}`)
   console.log('✅ Application initialisée');
 });
