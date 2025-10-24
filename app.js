@@ -23,7 +23,6 @@ import { WebRenderer } from './WebRenderer.js';
 const DEBUG = false;
 
 let activitesAPI = null;
-// let appJustLaunched = true;
 
 // ===== Multi-grilles =====
 const grids = new Map();           // id -> { api, el, loader }
@@ -69,6 +68,31 @@ const capitalizeFirst = (str) => {
   const s = String(str ?? '').trim();
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function logToPage(...args) {
+  let el = document.getElementById('debug-console');
+  if (!el) {
+    el = document.createElement('pre');
+    el.id = 'debug-console';
+    el.style.position = 'fixed';
+    el.style.bottom = '0';
+    el.style.left = '0';
+    el.style.width = '100%';
+    el.style.maxHeight = '40vh';
+    el.style.overflowY = 'auto';
+    el.style.background = 'rgba(0,0,0,0.75)';
+    el.style.color = '#0f0';
+    el.style.fontSize = '11px';
+    el.style.fontFamily = 'monospace';
+    el.style.padding = '4px 6px';
+    el.style.zIndex = '9999';
+    el.style.whiteSpace = 'pre-wrap';
+    document.body.appendChild(el);
+  }
+  el.textContent += args.map(a => 
+    typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)
+  ).join(' ') + '\n';
 }
 
 /**
@@ -5313,4 +5337,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   // appJustLaunched = false;
 
   console.log('✅ Application initialisée');
+  logToPage(`overlay ${overlay}`)
 });
