@@ -20,8 +20,7 @@ import { LieuRenderer } from './LieuRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 
-const DEBUG = true;
-const dlog = (...args)=>DEBUG && console.log('[FLIGHT]', ...args);
+const DEBUG = false;
 
 let activitesAPI = null;
 // let appJustLaunched = true;
@@ -54,6 +53,7 @@ const ROW_H=32, HEADER_H=32, PAD=4;
 const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
 
 const $ = id => document.getElementById(id);
+const waitAF = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
 const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 
@@ -1249,23 +1249,178 @@ function getScrollContainer(el) {
 }
 
 // scrolle l'expander en tenant compte du header
-function scrollExpanderIntoView(exp) {
+// function scrollExpanderIntoView(exp) {
+//   if (!exp) return;
+//   const scroller = getScrollContainer(exp);
+
+//   // lis ar CSS --header-h (fallback 48px) + petit coussin
+//   const headerH = parseFloat(
+//     getComputedStyle(document.documentElement).getPropertyValue('--header-h')
+//   ) || 48;
+//   const cushion = 8;
+
+//   const expRect = exp.getBoundingClientRect();
+//   const scRect  = scroller.getBoundingClientRect();
+
+//   // position cible = position actuelle du scroll + delta - header - coussin
+//   const targetTop = scroller.scrollTop + (expRect.top - scRect.top) - headerH - cushion;
+
+//   console.log(`scrollTop ${scroller.scrollTop}`);
+//   console.log(`expRect.top ${expRect.top}`);
+//   console.log(`scRect.top ${scRect.top}`);
+//   console.log(`targetTop ${targetTop}`);
+
+//   const maxTop = scroller.scrollHeight - scroller.clientHeight;
+//   console.log({scrollTop: scroller.scrollTop, maxTop, targetTop});
+//   console.log(scroller.scrollHeight, scroller.clientHeight);
+
+//   scroller.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+// }
+
+// function offsetTopWithin(el, ancestor){
+//   let top = 0, n = el;
+//   while (n && n !== ancestor){
+//     top += n.offsetTop;
+//     n = n.offsetParent;
+//   }
+//   return top;
+// }
+
+// const raf = () => new Promise(r => requestAnimationFrame(r));
+
+// async function scrollExpanderIntoView(exp){
+//   if (!exp) return;
+
+//   const scroller = getScrollContainer(exp);
+//   const cs = getComputedStyle(document.documentElement);
+//   const headerH = parseFloat(cs.getPropertyValue('--header-h')) || 48;
+//   const cushion = 8;
+
+//   // position basée sur la hiérarchie réelle (plus fiable que getBoundingClientRect)
+//   const targetRaw = offsetTopWithin(exp, scroller) - headerH - cushion;
+
+//   const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+//   const targetTop = Math.max(0, Math.min(maxTop, targetRaw));
+
+//   if (Math.abs(scroller.scrollTop - targetTop) < 1) return;
+
+//   // 🔧 On désactive temporairement scroll-snap et overflow-anchor
+//   const prevSnap   = scroller.style.scrollSnapType;
+//   const prevAnchor = scroller.style.overflowAnchor;
+//   scroller.style.scrollSnapType = 'none';
+//   scroller.style.overflowAnchor = 'none';
+
+//   // Double scroll : saut instantané puis lissé (le lissé seul peut être ignoré)
+//   scroller.scrollTo({ top: targetTop, behavior: 'auto' });
+//   await raf();
+//   scroller.scrollTo({ top: targetTop, behavior: 'smooth' });
+
+//   // Rétablir les propriétés
+//   await raf();
+//   scroller.style.scrollSnapType = prevSnap || '';
+//   scroller.style.overflowAnchor = prevAnchor || '';
+// }
+
+
+function offsetTopWithin(el, ancestor){
+  let top = 0, n = el;
+  while (n && n !== ancestor){
+    top += n.offsetTop;
+    n = n.offsetParent;
+  }
+  return top;
+}
+
+function smoothScrollTo(el, target, duration = 400){
+  const start = el.scrollTop;
+  const change = target - start;
+  const startTime = performance.now();
+
+  function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
+
+  function animate(now){
+    const elapsed = now - startTime;
+    const t = Math.min(1, elapsed / duration);
+    el.scrollTop = start + change * easeOutCubic(t);
+    if (t < 1) requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+}
+
+async function scrollExpanderIntoView(exp){
   if (!exp) return;
   const scroller = getScrollContainer(exp);
-
-  // lis ta var CSS --header-h (fallback 48px) + petit coussin
-  const headerH = parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue('--header-h')
-  ) || 48;
+  const cs = getComputedStyle(document.documentElement);
+  const headerH = parseFloat(cs.getPropertyValue('--header-h')) || 48;
   const cushion = 8;
 
-  const expRect = exp.getBoundingClientRect();
-  const scRect  = scroller.getBoundingClientRect();
+  const targetRaw = offsetTopWithin(exp, scroller) - headerH - cushion;
+  const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+  const targetTop = Math.max(0, Math.min(maxTop, targetRaw));
 
-  // position cible = position actuelle du scroll + delta - header - coussin
-  const targetTop = scroller.scrollTop + (expRect.top - scRect.top) - headerH - cushion;
+  // désactivation temporaire du scroll-snap et de l'ancrage
+  const prevSnap = scroller.style.scrollSnapType;
+  const prevAnchor = scroller.style.overflowAnchor;
+  scroller.style.scrollSnapType = 'none';
+  scroller.style.overflowAnchor = 'none';
 
-  scroller.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+  smoothScrollTo(scroller, targetTop, 500); // 🔹 durée 500 ms, easing custom
+
+  // réactivation
+  setTimeout(() => {
+    scroller.style.scrollSnapType = prevSnap || '';
+    scroller.style.overflowAnchor = prevAnchor || '';
+  }, 600);
+}
+
+// centre l'expander dans le viewport (en tenant compte du header),
+// sauf si l'expander est plus grand que le viewport -> aligne sous le header.
+async function scrollExpanderIntoViewCentered(exp, {
+  headerVar = '--header-h',   // CSS var du header (px)
+  cushion   = 8,              // petit coussin
+  duration  = 500             // durée de l’anim
+} = {}){
+  if (!exp) return;
+
+  const scroller = getScrollContainer(exp);
+  const cs = getComputedStyle(document.documentElement);
+  const headerH = parseFloat(cs.getPropertyValue(headerVar)) || 48;
+
+  const expTop   = offsetTopWithin(exp, scroller);
+  const expH     = exp.offsetHeight || exp.getBoundingClientRect().height || 0;
+  const vpH      = scroller.clientHeight;
+
+  // cas “expander > viewport” → aligne sous le header (comme avant)
+  let targetRaw;
+  if (expH >= vpH - headerH - cushion*2){
+    targetRaw = expTop - headerH - cushion;
+  } else {
+    // centre : place le milieu de l’expander au milieu de la zone visible sous le header
+    const visibleH = vpH - headerH;                 // zone utile sous le header
+    const centerOffset = (visibleH - expH) / 2;     // marge pour centrer
+    targetRaw = expTop - headerH - Math.max(cushion, centerOffset);
+  }
+
+  const maxTop   = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+  const targetTop = Math.max(0, Math.min(maxTop, Math.round(targetRaw)));
+
+  // désactive temporairement scroll-snap/ancrage pour éviter les “retours”
+  const prevSnap   = scroller.style.scrollSnapType;
+  const prevAnchor = scroller.style.overflowAnchor;
+  scroller.style.scrollSnapType = 'none';
+  scroller.style.overflowAnchor = 'none';
+
+  smoothScrollTo(scroller, targetTop, duration);
+
+  setTimeout(() => {
+    scroller.style.scrollSnapType = prevSnap || '';
+    scroller.style.overflowAnchor = prevAnchor || '';
+  }, duration + 120);
+}
+
+async function scrollExpanderIntoViewCenteredAsync(exp, opts){
+  await scrollExpanderIntoViewCentered(exp, opts); // si elle ne renvoie pas de promesse, ajoute `await waitAF()`
+  await waitAF();
 }
 
 // Rend visible un expander
@@ -1274,7 +1429,16 @@ function scrollToExpander(expId) {
   if (!exp) return;
   // exp.scrollIntoView({ behavior: 'smooth', block: 'center' });
   // exp.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-  scrollExpanderIntoView(exp);
+  scrollExpanderIntoViewCentered(exp);
+}
+
+// Rend visible un expander
+function scrollToExpanderAsync(expId) {
+  const exp = document.getElementById(expId);
+  if (!exp) return;
+  // exp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // exp.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  scrollExpanderIntoViewCenteredAsync(exp);
 }
 
 // Ouvre un expander
@@ -1285,6 +1449,23 @@ function openExpander(expId){
     if (typeof openExp === 'function') openExp(exp);
     else exp.classList.add('open');
   }
+}
+
+function openExpanderAsync(id){
+  const exp  = document.getElementById(id);
+  if (!exp) return Promise.resolve();
+  if (exp.classList.contains('open')) return Promise.resolve();
+
+  return new Promise(resolve => {
+    const pane = exp.querySelector('.st-expander-body');
+    const onEnd = (ev) => {
+      if (ev.propertyName !== 'height') return;
+      pane.removeEventListener('transitionend', onEnd);
+      resolve();
+    };
+    pane.addEventListener('transitionend', onEnd);
+    openExp(exp); // ← ta fonction existante
+  });
 }
 
 // Sélectionne + rend visible + retourne DOM de la ligne si possible
@@ -1893,9 +2074,31 @@ async function loadGridActivitesProgrammables(){
 
 // ===== Handlers de grilles =====
 
+async function dropRowFromSrcGridToDstGrid(srcGrid, dstExp, dstGrid, srcUuid, dstUuid) {
+
+  // 1) sélectionne le voisin dans la source (pas besoin de center ici)
+  selectRowByUuid(srcGrid, srcUuid, { ensure: null, flash: null });
+
+  // 2) ouvre l’expander cible et scrolle jusqu’à lui
+  await openExpanderAsync(dstExp);
+  await scrollExpanderIntoViewCenteredAsync(document.getElementById(dstExp), { duration: 400 });
+
+  // 3) sélectionne la ligne cible dans la grille destination
+  selectRowByUuid(dstGrid, dstUuid, { ensure: null, flash: false });
+
+  // 4) centre VRAIMENT la ligne dans la grille et récupère son élément DOM
+  const { rowEl } = await ensureRowVisibleAndGetEl(dstGrid, dstUuid, { ensure: 'center' });
+  await waitAF(); // laisse le layout se stabiliser
+
+  // 5) lance le phantom flight vers l’élément centré
+  doPhantomFlight(srcGrid, dstGrid, rowEl); // adapte si ta signature prend (fromId, toId, targetEl)
+}
+
+
 // Quand on édite la date d'une activité programmée
 async function onProgGridDateCommitted(params) {
   if (params.colDef.field !== 'Date') return;
+  if (prettyToDateint(params.newValue) === params.oldValue) return;
 
   const uuid = params.node.id;
   if (!uuid) return;
@@ -1921,12 +2124,14 @@ async function onProgGridDateCommitted(params) {
   // - sélectionne la ligne voisine dans la grille de départ
   // - ouvre l’expander de la grille de destination et sélectionne la ligne
   if (params.newValue == "") {
-    setTimeout(() => {
-      selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
-      openExpander?.('exp-non-programmees');
-      selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
-      doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
-    }, 50);
+    // setTimeout(() => {
+    //   selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
+    //   scrollToExpander?.('exp-non-programmees');
+    //   openExpander?.('exp-non-programmees');
+    //   selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
+    //   doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
+    // }, 50);
+    dropRowFromSrcGridToDstGrid('grid-programmees', 'exp-non-programmees', 'grid-non-programmees', uuidVoisin, uuid);
   }
   else {
     await ensureRowVisibleAndGetEl("grid-programmees", uuid);
@@ -1935,6 +2140,7 @@ async function onProgGridDateCommitted(params) {
 
 async function onNonProgGridDateCommitted(params) {
   if (params.colDef.field !== 'Date') return;
+  if (prettyToDateint(params.newValue) === params.oldValue) return;
 
   const uuid = params.node.id;
   if (!uuid) return;
@@ -1956,15 +2162,41 @@ async function onNonProgGridDateCommitted(params) {
 
   // Si drop dans une autre grille: 
   // - sélectionne la ligne voisine dans la grille de départ
-  // - ouvre l’expander de la grille de destination et sélectionne la ligne
-  if (params.newValue != "" && params.newValue) {
-    setTimeout(() => {
-      selectRowByUuid('grid-non-programmees', uuidVoisin, { ensure: 'center', flash: null });
-      openExpander?.('exp-programmees');
-      selectRowByUuid('grid-programmees', uuid, { ensure: 'center', flash: true });
-      doPhantomFlight("grid-non-programmees", "grid-programmees", "exp-programmees");
-    }, 50);
-  }
+  // - ouvre l’expander de la grille de destination et sélectionne la 
+  
+  // if (params.newValue != "" && params.newValue) {
+  //   setTimeout(() => {
+  //     selectRowByUuid('grid-non-programmees', uuidVoisin, { ensure: 'center', flash: null });
+  //     scrollToExpander?.('exp-programmees');
+  //     openExpander?.('exp-programmees');
+  //     selectRowByUuid('grid-programmees', uuid, { ensure: 'center', flash: true });
+  //     doPhantomFlight("grid-non-programmees", "grid-programmees", "exp-programmees");
+  //   }, 50);
+  // }
+
+  // (async () => {
+  //   const srcGrid = 'grid-non-programmees';
+  //   const dstExp  = 'exp-programmees';
+  //   const dstGrid = 'grid-programmees';
+
+  //   // 1) sélectionne le voisin dans la source (pas besoin de center ici)
+  //   selectRowByUuid(srcGrid, uuidVoisin, { ensure: null, flash: null });
+
+  //   // 2) ouvre l’expander cible et scrolle jusqu’à lui
+  //   await openExpanderAsync(dstExp);
+  //   await scrollExpanderIntoViewCenteredAsync(document.getElementById(dstExp), { duration: 400 });
+
+  //   // 3) sélectionne la ligne cible dans la grille destination
+  //   selectRowByUuid(dstGrid, uuid, { ensure: null, flash: false });
+
+  //   // 4) centre VRAIMENT la ligne dans la grille et récupère son élément DOM
+  //   const { rowEl } = await ensureRowVisibleAndGetEl(dstGrid, uuid, { ensure: 'center' });
+  //   await waitAF(); // laisse le layout se stabiliser
+
+  //   // 5) lance le phantom flight vers l’élément centré
+  //   doPhantomFlight(srcGrid, dstGrid, rowEl); // adapte si ta signature prend (fromId, toId, targetEl)
+  // })();
+  dropRowFromSrcGridToDstGrid('grid-non-programmees', 'exp-programmees', 'grid-programmees', uuidVoisin, uuid);
 }
 
 function onCreneauxSelectionChanged(){
