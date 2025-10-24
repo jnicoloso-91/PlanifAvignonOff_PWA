@@ -47,6 +47,8 @@ const PHANTOM_WITH_OFFSET = false;      // effet fantôme avec ou sans offset
 const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la trajectoire de l'effet fantôme
 const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
 
+const overlay = document.getElementById('overlay');
+
 // ------- Misc Helpers -------
 
 const ROW_H=32, HEADER_H=32, PAD=4;
@@ -3271,6 +3273,8 @@ function wireHiddenFileInput(){
     const f = ev.target.files?.[0];
     if (!f) return;
     try {
+      overlay.hidden = false;
+
       const buf = await f.arrayBuffer();
       const wb  = XLSX.read(buf, { type: 'array' });
       const ws  = wb.Sheets[wb.SheetNames[0]];
@@ -3372,6 +3376,7 @@ function wireHiddenFileInput(){
       console.error('❌ Import Excel KO', e);
       alert('Import échoué : ' + e.message);
     } finally {
+      overlay.hidden = true;
       ev.target.value = '';
     }
   });

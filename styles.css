@@ -47,6 +47,32 @@ body:not(.hide-app-header) header.app-header {
 }
 
 
+/* =============================== */
+/* Overlay attente                 */
+/* =============================== */
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+#overlay[hidden] { 
+  display: none !important; 
+}
+
+.overlay-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #999;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+   
 /*=============================== */
 /* App Header                     */
 /* ============================== */
@@ -709,6 +735,20 @@ main, .page-wrap {
     currentColor 0 0.5px,   
     transparent 0.5px 3px
   );
+}
+
+/* Normal : overflow masqué pour un scroll performant */
+.ag-center-cols-viewport,
+.ag-body-viewport,
+.ag-root-wrapper-body {
+  overflow: auto; /* ou hidden selon ton cas */
+}
+
+/* Pour assurer que les popup menus des grilles ne soient pas masqués par la coloration des rows */
+.ag-overflow-visible .ag-center-cols-viewport,
+.ag-overflow-visible .ag-body-viewport,
+.ag-overflow-visible .ag-root-wrapper-body {
+  overflow: visible !important;
 }
 
 
@@ -1550,23 +1590,3 @@ main, .page-wrap {
 
 .bb-btn.is-compact { padding: .45rem .8rem; font-size: .9rem; border-radius: 9px; }
 
-/* Evite que le popup soit rogné par la viewport centrale */
-/* .ag-center-cols-viewport,
-.ag-body-viewport,
-.ag-root-wrapper-body {
-  overflow: visible !important;
-} */
-
-/* Normal : overflow masqué pour un scroll performant */
-.ag-center-cols-viewport,
-.ag-body-viewport,
-.ag-root-wrapper-body {
-  overflow: auto; /* ou hidden selon ton cas */
-}
-
-/* Pendant l'édition : débride le clipping */
-.ag-overflow-visible .ag-center-cols-viewport,
-.ag-overflow-visible .ag-body-viewport,
-.ag-overflow-visible .ag-root-wrapper-body {
-  overflow: visible !important;
-}
