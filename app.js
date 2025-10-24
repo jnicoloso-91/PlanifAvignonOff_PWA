@@ -5336,8 +5336,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // await refreshAllGrids();
   // appJustLaunched = false;
 
+  logToPage(`overlay avant ${overlay}`)
   overlay = document.getElementById('overlay');
-  logToPage(`overlay ${overlay}`)
+  logToPage(`overlay apres ${overlay}`)
 
   console.log('✅ Application initialisée');
 });
