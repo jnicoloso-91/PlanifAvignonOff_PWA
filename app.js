@@ -1980,11 +1980,11 @@ function gridOptionsCommon(gridId, el) {
     },
     onCellFocused: () => setActiveGrid(gridId),
     onGridSizeChanged: () => safeSizeToFitFor(gridId),
-    getRowStyle: p => {
-      const bg = colorDate(p.data?.Date);
-      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
-      return { '--day-bg': bg, 'color': c };
-    },
+    // getRowStyle: p => {
+    //   const bg = colorDate(p.data?.Date);
+    //   const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
+    //   return { '--day-bg': bg, 'color': c };
+    // },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
@@ -2014,10 +2014,10 @@ const gridOptionsActivitesProgrammees = {
 }
 
 const gridOptionsActivitesNonProgrammees = {
-  getRowStyle: p => {
-    const bg = colorActiviteProgrammable(p.data);
-    return bg ? { '--day-bg': bg } : {};
-  },
+  // getRowStyle: p => {
+  //   const bg = colorActiviteProgrammable(p.data);
+  //   return bg ? { '--day-bg': bg } : {};
+  // },
   onSelectionChanged: (p) => {
     const hasSel = !!p.api.getSelectedRows()?.length;
     document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);
@@ -2173,29 +2173,6 @@ async function onNonProgGridDateCommitted(params) {
   //     doPhantomFlight("grid-non-programmees", "grid-programmees", "exp-programmees");
   //   }, 50);
   // }
-
-  // (async () => {
-  //   const srcGrid = 'grid-non-programmees';
-  //   const dstExp  = 'exp-programmees';
-  //   const dstGrid = 'grid-programmees';
-
-  //   // 1) sélectionne le voisin dans la source (pas besoin de center ici)
-  //   selectRowByUuid(srcGrid, uuidVoisin, { ensure: null, flash: null });
-
-  //   // 2) ouvre l’expander cible et scrolle jusqu’à lui
-  //   await openExpanderAsync(dstExp);
-  //   await scrollExpanderIntoViewCenteredAsync(document.getElementById(dstExp), { duration: 400 });
-
-  //   // 3) sélectionne la ligne cible dans la grille destination
-  //   selectRowByUuid(dstGrid, uuid, { ensure: null, flash: false });
-
-  //   // 4) centre VRAIMENT la ligne dans la grille et récupère son élément DOM
-  //   const { rowEl } = await ensureRowVisibleAndGetEl(dstGrid, uuid, { ensure: 'center' });
-  //   await waitAF(); // laisse le layout se stabiliser
-
-  //   // 5) lance le phantom flight vers l’élément centré
-  //   doPhantomFlight(srcGrid, dstGrid, rowEl); // adapte si ta signature prend (fromId, toId, targetEl)
-  // })();
   dropRowFromSrcGridToDstGrid('grid-non-programmees', 'exp-programmees', 'grid-programmees', uuidVoisin, uuid);
 }
 
