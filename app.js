@@ -1803,9 +1803,13 @@ function buildColumnsActivitesProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
+    onCellEditingStarted() {
+      document.body.classList.add('ag-overflow-visible');
+    },
+    onCellEditingStopped() {
+      document.body.classList.remove('ag-overflow-visible');
+    },
     cellEditor: 'agSelectCellEditor',
-    cellEditorPopup: true,
-    popupParent: document.body,
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
       return { values: values.map(String), valueListMaxHeight: 300 };   // 👈 must be an array
@@ -1844,6 +1848,12 @@ function buildColumnsActivitesNonProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
+    onCellEditingStarted() {
+      document.body.classList.add('ag-overflow-visible');
+    },
+    onCellEditingStopped() {
+      document.body.classList.remove('ag-overflow-visible');
+    },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteNonProgrammee(p.data) || [];
@@ -2074,14 +2084,14 @@ async function loadGridActivitesProgrammables(){
 
 // ===== Handlers de grilles =====
 
-async function dropRowFromSrcGridToDstGrid(srcGrid, dstExp, dstGrid, srcUuid, dstUuid) {
+async function dropRowFromSrcGridToDstGrid(srcGrid, dstGrid, dstExp, srcUuid, dstUuid, scroll=true) {
 
   // 1) sélectionne le voisin dans la source (pas besoin de center ici)
   selectRowByUuid(srcGrid, srcUuid, { ensure: null, flash: null });
 
   // 2) ouvre l’expander cible et scrolle jusqu’à lui
   await openExpanderAsync(dstExp);
-  await scrollExpanderIntoViewCenteredAsync(document.getElementById(dstExp), { duration: 400 });
+  if (scroll) await scrollExpanderIntoViewCenteredAsync(document.getElementById(dstExp), { duration: 400 });
 
   // 3) sélectionne la ligne cible dans la grille destination
   selectRowByUuid(dstGrid, dstUuid, { ensure: null, flash: false });
@@ -2091,7 +2101,7 @@ async function dropRowFromSrcGridToDstGrid(srcGrid, dstExp, dstGrid, srcUuid, ds
   await waitAF(); // laisse le layout se stabiliser
 
   // 5) lance le phantom flight vers l’élément centré
-  doPhantomFlight(srcGrid, dstGrid, rowEl); // adapte si ta signature prend (fromId, toId, targetEl)
+  doPhantomFlight(srcGrid, dstGrid, dstExp); 
 }
 
 
@@ -2131,7 +2141,7 @@ async function onProgGridDateCommitted(params) {
     //   selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
     //   doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
     // }, 50);
-    dropRowFromSrcGridToDstGrid('grid-programmees', 'exp-non-programmees', 'grid-non-programmees', uuidVoisin, uuid);
+    dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, scroll=false);
   }
   else {
     await ensureRowVisibleAndGetEl("grid-programmees", uuid);
@@ -2173,7 +2183,7 @@ async function onNonProgGridDateCommitted(params) {
   //     doPhantomFlight("grid-non-programmees", "grid-programmees", "exp-programmees");
   //   }, 50);
   // }
-  dropRowFromSrcGridToDstGrid('grid-non-programmees', 'exp-programmees', 'grid-programmees', uuidVoisin, uuid);
+  dropRowFromSrcGridToDstGrid('grid-non-programmees', 'grid-programmees', 'exp-programmees', uuidVoisin, uuid, scroll=true);
 }
 
 function onCreneauxSelectionChanged(){
@@ -2739,12 +2749,13 @@ async function doDeprogrammerActivite() {
   });
 
   // Maj des sélections
-  setTimeout(() => {
-    selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
-    openExpander?.('exp-non-programmees');
-    selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
-    doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
-  }, 50);
+  // setTimeout(() => {
+  //   selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
+  //   openExpander?.('exp-non-programmees');
+  //   selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
+  //   doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
+  // }, 50);
+  dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, scroll=false);
 }
 
 // Programmation de l'activité sélectionnée dans la grille des activités programmables
@@ -2759,6 +2770,7 @@ async function doProgrammerActivite() {
   const uuid = sel.__uuid;
   const dateInt = toDateint(sel.Date);
   if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
+  const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-programmables'), uuid);
 
   // 1) pré-check (lecture instantanée en RAM)
   const exists = (ctx.df || []).some(r => r.__uuid === uuid);
@@ -2794,7 +2806,8 @@ async function doProgrammerActivite() {
     }
   }));
 
-  doPhantomFlight('grid-programmables', 'grid-programmees', 'exp-programmees');
+  // doPhantomFlight('grid-programmables', 'grid-programmees', 'exp-programmees');
+  dropRowFromSrcGridToDstGrid('grid-programmables', 'grid-programmees', 'exp-programmees', uuidVoisin, uuid, scroll=true);
 }
 
 // Rechargement des grilles depuis contexte

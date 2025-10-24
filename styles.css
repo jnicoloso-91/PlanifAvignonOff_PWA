@@ -1551,8 +1551,22 @@ main, .page-wrap {
 .bb-btn.is-compact { padding: .45rem .8rem; font-size: .9rem; border-radius: 9px; }
 
 /* Evite que le popup soit rogné par la viewport centrale */
+/* .ag-center-cols-viewport,
+.ag-body-viewport,
+.ag-root-wrapper-body {
+  overflow: visible !important;
+} */
+
+/* Normal : overflow masqué pour un scroll performant */
 .ag-center-cols-viewport,
 .ag-body-viewport,
 .ag-root-wrapper-body {
+  overflow: auto; /* ou hidden selon ton cas */
+}
+
+/* Pendant l'édition : débride le clipping */
+.ag-overflow-visible .ag-center-cols-viewport,
+.ag-overflow-visible .ag-body-viewport,
+.ag-overflow-visible .ag-root-wrapper-body {
   overflow: visible !important;
 }
