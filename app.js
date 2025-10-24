@@ -1623,9 +1623,11 @@ function buildColumnsActivitesProgrammees() {
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
     cellEditor: 'agSelectCellEditor',
+    cellEditorPopup: true,
+    popupParent: document.body,
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
-      return { values: values.map(String) };   // 👈 must be an array
+      return { values: values.map(String), valueListMaxHeight: 300 };   // 👈 must be an array
     },
     onCellValueChanged: onProgGridDateCommitted,
   };
@@ -1975,6 +1977,57 @@ function onCreneauxSelectionChanged(){
   refreshGrid('grid-programmables');
 }
 
+// function autoOpenSelectOnEdit(api) {
+//   api.addEventListener('cellEditingStarted', (e) => {
+//     const isRich = e.colDef.cellEditor === 'agRichSelectCellEditor';
+//     const isSel  = e.colDef.cellEditor === 'agSelectCellEditor';
+//     if (!isRich && !isSel) return;
+
+//     // Laisse AG Grid instancier l’éditeur, puis ouvre la liste
+//     setTimeout(() => {
+//       const [ed] = e.api.getCellEditorInstances({
+//         rowIndex: e.rowIndex,
+//         column: e.column
+//       }) || [];
+//       if (!ed) return;
+
+//       const el = ed.getGui?.() || null;
+
+//       // 1) Tenter une touche ↓ (ouvre la liste dans AG Grid)
+//       if (el) {
+//         const ev = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true });
+//         el.dispatchEvent(ev);
+//       }
+
+//       // 2) Fallback : “cliquer” sur l’icône du picker (rich/select)
+//       const btn = el?.querySelector?.('.ag-picker-field-icon, .ag-rich-select .ag-picker-field-icon');
+//       if (btn) {
+//         // petit délai utile sur iOS
+//         setTimeout(() => btn.dispatchEvent(new MouseEvent('click', { bubbles: true })), 20);
+//       }
+//     }, 30);
+//   });
+// }
+function autoOpenSelectOnEdit(api){
+  api.addEventListener('cellEditingStarted', (e) => {
+    const isRich = e.colDef.cellEditor === 'agRichSelectCellEditor';
+    if (!isRich) return;
+
+    setTimeout(() => {
+      const [ed] = e.api.getCellEditorInstances({ rowIndex:e.rowIndex, column:e.column }) || [];
+      const el = ed?.getGui?.();
+      if (!el) return;
+
+      // Tenter “↓” (AG Grid ouvre la liste)
+      el.dispatchEvent(new KeyboardEvent('keydown', { key:'ArrowDown', bubbles:true }));
+
+      // Fallback : cliquer sur l’icône du picker
+      const btn = el.querySelector?.('.ag-picker-field-icon');
+      if (btn) setTimeout(() => btn.dispatchEvent(new MouseEvent('click', { bubbles:true })), 16);
+    }, 30);
+  });
+}
+
 // ===== Contrôleur de grille =====
 function createGridController({ gridId, elementId, loader, columnsBuilder, optionsPatch = {}}) {
   if (grids.has(gridId)) return grids.get(gridId);
@@ -1995,6 +2048,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
+  autoOpenSelectOnEdit(api);
   el.__agApi = api; // ⟵ pour retrouver l’API depuis le pane
   const handle = { id: gridId, el, api, loader, columnsBuilder };
   grids.set(gridId, handle);

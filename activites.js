@@ -249,14 +249,18 @@ export function creerActivitesAPI(ctx) {
      * @returns 
      */
     getOptionsDateForActiviteProgrammee(row) {
-      if (_estActiviteReservee(row)) return [];
+      // if (_estActiviteReservee(row)) return [];
       const cur = row?.Date != null ? dateintToPretty(row.Date) : '';
       const jours = _getJoursPossibles(row);     
       const pretty = _toPrettyArray(jours);
 
       let opts = [];
-      if (pretty.length) opts = [cur, ...pretty, ''];
-      else               opts = [cur, ''];
+      if (_estActiviteReservee(row)) {
+        opts = [cur];
+      } else {
+        if (pretty.length) opts = [cur, ...pretty, ''];
+        else               opts = [cur, ''];
+      }
       // nettoie doublons/vides consécutifs
       opts = opts.filter((v,i,self)=> i===0 || v!==self[i-1]);
       return opts;

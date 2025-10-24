@@ -681,6 +681,14 @@ main, .page-wrap {
   border-color: transparent !important;
 }
 
+/* s'assure que le popup s’affiche au-dessus de tout */
+.ag-theme-quartz .ag-popup,
+.ag-theme-quartz .ag-select-popup,
+.ag-theme-quartz .ag-rich-select,
+.ag-theme-quartz .ag-menu {
+  z-index: 9999 !important;
+}
+
 /* iOS tap highlight */
 .ag-theme-quartz { -webkit-tap-highlight-color: transparent; }
 
