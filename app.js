@@ -1980,11 +1980,11 @@ function gridOptionsCommon(gridId, el) {
     },
     onCellFocused: () => setActiveGrid(gridId),
     onGridSizeChanged: () => safeSizeToFitFor(gridId),
-    // getRowStyle: p => {
-    //   const bg = colorDate(p.data?.Date);
-    //   const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
-    //   return { '--day-bg': bg, 'color': c };
-    // },
+    getRowStyle: p => {
+      const bg = colorDate(p.data?.Date);
+      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
+      return { '--day-bg': bg, 'color': c };
+    },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
@@ -2014,10 +2014,10 @@ const gridOptionsActivitesProgrammees = {
 }
 
 const gridOptionsActivitesNonProgrammees = {
-  // getRowStyle: p => {
-  //   const bg = colorActiviteProgrammable(p.data);
-  //   return bg ? { '--day-bg': bg } : {};
-  // },
+  getRowStyle: p => {
+    const bg = colorActiviteProgrammable(p.data);
+    return bg ? { '--day-bg': bg } : {};
+  },
   onSelectionChanged: (p) => {
     const hasSel = !!p.api.getSelectedRows()?.length;
     document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);

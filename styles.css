@@ -1550,3 +1550,9 @@ main, .page-wrap {
 
 .bb-btn.is-compact { padding: .45rem .8rem; font-size: .9rem; border-radius: 9px; }
 
+/* Evite que le popup soit rogné par la viewport centrale */
+.ag-center-cols-viewport,
+.ag-body-viewport,
+.ag-root-wrapper-body {
+  overflow: visible !important;
+}
