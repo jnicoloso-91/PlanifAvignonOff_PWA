@@ -2,7 +2,6 @@
 import {
   MIN_DAY, 
   MAX_DAY, 
-  MARGE,
   dateintToDate, 
   dateToDateint,
   mmToHHhMM, 
@@ -13,12 +12,14 @@ import {
 } from './utils-date.js';
 
 let _ctx = null;
+let _MARGE = null;
 let _compteurNouvelleActivite = null;
 
 export function creerActivitesAPI(ctx) {
 
   // Enregistrement local de la référence de contexte
-  if (!_ctx) {_ctx = ctx};
+  if (!_ctx) { _ctx = ctx };
+  if (!_MARGE) { _MARGE = ctx.meta.MARGE };
 
   // ---------- API publique ----------
   return {
@@ -309,7 +310,8 @@ export function creerActivitesAPI(ctx) {
           Duree: "1h00",
           Activite: nouveauNom, 
           Lieu: null, 
-          Relache: null, 
+          Sessions: null,
+          Relaches: null, 
           Reserve: null, 
           Priorite: null, 
           Hyperlien: `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
@@ -349,7 +351,8 @@ export function creerActivitesAPI(ctx) {
           Duree: parsed.Duree || "1h00",
           Activite: nouveauNom, 
           Lieu: parsed.Lieu || null, 
-          Relache: parsed.Relache || null, 
+          Sessions: parsed.Sessions || null,
+          Relaches: parsed.Relaches || null, 
           Reserve: null, 
           Priorite: null, 
           Hyperlien: parsed.Hyperlien || `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
@@ -378,23 +381,22 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
-     * Indique si une valeur est valide pour le champ Relache d'une activité
+     * Indique si une valeur est valide pour le champ Sessions d'une activité
      * - vide => true
      * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
      * ───────────────────────────────────────────────────────────
-     * Format(s) acceptés, séparés par des virgules de “haut niveau” :
+     * Format(s) acceptés, séparés par des virgules :
      *  - "9", "09" (mois courant et année courante implicites), 
      *  - "9/7", "09/07" (année courante implicite) , 
      *  - "09/07/25" ou "09/07/2025"
-     *  - "(9, 16, 23)/7" pour énumérer des dates de relâche du même mois
-     *  - "[9-12]/07", [30/07-01/08] pour une période de relâche
-     *  - "<5-26>/7" pour une période de validité
+     *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
+     *  - "[9-12]/07", [30/07-01/08] pour une période
      *  - "jours pairs" | "jours impairs"
-     *  - (chaîne vide => OK)
+     *  - chaîne vide => tous les jours de la période programmation
      * On valide que *tous* les tokens sont valides.
      * ───────────────────────────────────────────────────────────
      */
-    estRelacheValide(val, { default_year = null, default_month = null } = {}) {
+    estSessionsValide(val, { default_year = null, default_month = null } = {}) {
       const s = String(val ?? '').trim();
       if (s === '') return true;               // vide = OK (pas de relâche)
       
@@ -406,7 +408,38 @@ export function creerActivitesAPI(ctx) {
       const defaultMonth = now.getMonth() + 1;
 
       // Tous les tokens doivent être valides
-      return tokens.every(tok => _parseOneRelacheToken(tok, { defaultMonth, defaultYear }));
+      return tokens.every(tok => _parseOneRelachesToken(tok, { defaultMonth, defaultYear }));
+    },
+
+    /**
+     * Indique si une valeur est valide pour le champ Relaches d'une activité
+     * - vide => true
+     * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
+     * ───────────────────────────────────────────────────────────
+     * Format(s) acceptés, séparés par des virgules :
+     *  - "9", "09" (mois courant et année courante implicites), 
+     *  - "9/7", "09/07" (année courante implicite) , 
+     *  - "09/07/25" ou "09/07/2025"
+     *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
+     *  - "[9-12]/07", [30/07-01/08] pour une période
+     *  - "jours pairs" | "jours impairs"
+     *  - chaîne vide => pas de jours de relâche
+     * On valide que *tous* les tokens sont valides.
+     * ───────────────────────────────────────────────────────────
+     */
+    estRelachesValide(val, { default_year = null, default_month = null } = {}) {
+      const s = String(val ?? '').trim();
+      if (s === '') return true;               // vide = OK (pas de relâche)
+      
+      const tokens = _tokenizeSpecs(s);
+      if (!tokens.length) return false;
+
+      const now = new Date();
+      const defaultYear = now.getFullYear();
+      const defaultMonth = now.getMonth() + 1;
+
+      // Tous les tokens doivent être valides
+      return tokens.every(tok => _parseOneRelachesToken(tok, { defaultMonth, defaultYear }));
     },
 
     /**
@@ -522,8 +555,7 @@ function _existActivitesProgrammables(activitesNonProgrammees, dateRef, traiter_
   if (!Array.isArray(activitesNonProgrammees) || activitesNonProgrammees.length === 0) return false;
 
   return activitesNonProgrammees.some(r => {
-    const relache = r?.Relache ?? r?.RELACHE ?? r?.relache ?? '';
-    return _estHorsRelache(relache, dateRef);
+    return _estHorsRelaches(r.Sessions, r.Relaches, dateRef);
   });
 }
 
@@ -669,7 +701,7 @@ function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, tra
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
     const h_debut = d, h_fin = d + du;
 
-    if (h_debut >= (debut_min + MARGE) && h_fin <= (fin_max - MARGE) && _estHorsRelache(row, ligneRef.Date)) {
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estHorsRelaches(row.Sessions, row.Relaches, ligneRef.Date)) {
       const nouvelle = { ...row }; delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -703,8 +735,8 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
     const h_debut = d, h_fin = d + du;
 
-    const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - MARGE);
-    if (h_debut >= (debut_min + MARGE) && h_fin <= borneHaute && _estHorsRelache(row, ligneRef.Date)) {
+    const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - _MARGE);
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estHorsRelaches(row.Sessions, row.Relaches, ligneRef.Date)) {
       const nouvelle = { ...row }; delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -801,13 +833,13 @@ function _estCreneauValide(creneau) {
 /**
  * Détermine si une date est "hors relâche" (jour jouable).
  * 
- * @param {string|null} relacheVal - Description des relâches (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
+ * @param {string|null} relachesVal - Description des relâches (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
  * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
  * @param {Date} [today] - Date de référence pour l'année/mois par défaut
  * @returns {boolean} - true = jour jouable / false = relâche
  */
-function _estHorsRelache(relacheVal, dateVal, today = new Date()) {
-  if (!relacheVal || !String(relacheVal).trim() || dateVal == null) return true;
+function _estHorsRelaches(sessionsVal, relachesVal, dateVal, today = new Date()) {
+  if (!relachesVal || !String(relachesVal).trim() || dateVal == null) return true;
 
   const dv = Number(dateVal);
   if (!Number.isFinite(dv)) return true;
@@ -817,7 +849,8 @@ function _estHorsRelache(relacheVal, dateVal, today = new Date()) {
   const dd = dv % 100;
   const defY = today.getFullYear();
   const defM = today.getMonth() + 1;
-  const txt = String(relacheVal).trim().toLowerCase();
+  const sessionsTxt = String(sessionsVal).trim().toLowerCase();
+  const relachesTxt = String(relachesVal).trim().toLowerCase();
 
   // --- Helpers internes ---
   const y2k = y => (y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
@@ -833,28 +866,17 @@ function _estHorsRelache(relacheVal, dateVal, today = new Date()) {
   };
 
   // --- Parité ---
-  let pariteRelache = null;
-  if (/\brel[aâ]che\s+jours?\s+pairs?\b/.test(txt) || /\bjours?\s+pairs?\b/.test(txt)) pariteRelache = "pair";
-  if (/\brel[aâ]che\s+jours?\s+impairs?\b/.test(txt) || /\bjours?\s+impairs?\b/.test(txt)) pariteRelache = "impair";
+  let pariteRelaches = null;
+  if (/\brel[aâ]che\s+jours?\s+pairs?\b/.test(relachesTxt) || /\bjours?\s+pairs?\b/.test(relachesTxt)) pariteRelaches = "pair";
+  if (/\brel[aâ]che\s+jours?\s+impairs?\b/.test(relachesTxt) || /\bjours?\s+impairs?\b/.test(relachesTxt)) pariteRelaches = "impair";
 
-  const closedIntervals = []; // [A-B] = relâche
-  const openIntervals = [];   // <A-B> = fenêtres de jeu
-  const regroupDays = [];     // (a,b,c) = relâche
+  const openIntervals = []; // [A-B] de sessionsTxt = fenêtres de représentation
+  const regroupSessionsDays = []; // (a,b,c) de sessionsTxt = jours de représentation
+  const closedIntervals = []; // [A-B] de relachesTxt = fenêtres de relâche
+  const regroupRelacheDays = []; // (a,b,c) de relachesTxt = jours de relâche
 
-  // --- (1) Intervalles fermés [A-B]
-  for (const m of txt.matchAll(/\[\s*([0-9/]+)\s*-\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-    const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
-    const mmDef = mmTxt ? Number(mmTxt) : defM;
-    const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-    const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
-    const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
-    const aDi = mkDateInt(Ay, Am, Ad);
-    const bDi = mkDateInt(By, Bm, Bd);
-    closedIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
-  }
-
-  // --- (2) Fenêtres de jeu <A-B>
-  for (const m of txt.matchAll(/<\s*([0-9/]+)\s*-\s*([0-9/]+)\s*>\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+  // --- Fenêtres de représentation [A-B] de sessionsTxt
+  for (const m of sessionsTxt.matchAll(/\[\s*([0-9/]+)\s*-\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
@@ -865,17 +887,17 @@ function _estHorsRelache(relacheVal, dateVal, today = new Date()) {
     openIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
   }
 
-  // --- (3) Regroupements (a,b,c)
-  for (const m of txt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+  // --- Jours de représentation (a,b,c) de sessionsTxt
+  for (const m of sessionsTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, joursTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
     const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(Boolean);
-    for (const jd of jours) regroupDays.push(mkDateInt(yyDef, mmDef, jd));
+    for (const jd of jours) regroupSessionsDays.push(mkDateInt(yyDef, mmDef, jd));
   }
 
-  // --- (4) Jours isolés de relâche (hors parenthèses)
-  for (const part of txt.split(",").map(p => p.trim())) {
+    // --- Jours isolés de représentation (hors parenthèses)
+  for (const part of sessionsTxt.split(",").map(p => p.trim())) {
     if (!part || /jour/.test(part)) continue;
     if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
     const mday = part.match(/^(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?$/);
@@ -883,24 +905,63 @@ function _estHorsRelache(relacheVal, dateVal, today = new Date()) {
     const d = Number(mday[1]);
     const mm = mday[2] ? Number(mday[2]) : defM;
     const yy = mday[3] ? y2k(Number(mday[3])) : defY;
-    regroupDays.push(mkDateInt(yy, mm, d));
+    regroupSessionsDays.push(mkDateInt(yy, mm, d));
   }
 
-  // --- (1) relâche explicite
+// --- Fenêtres de relâche [A-B] de relachesTxt
+  for (const m of relachesTxt.matchAll(/\[\s*([0-9/]+)\s*-\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+    const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
+    const mmDef = mmTxt ? Number(mmTxt) : defM;
+    const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
+    const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
+    const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
+    const aDi = mkDateInt(Ay, Am, Ad);
+    const bDi = mkDateInt(By, Bm, Bd);
+    closedIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
+  }
+
+  // --- Jours de relâche (a,b,c) de relachesTxt
+  for (const m of relachesTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+    const [_, joursTxt, mmTxt, yyTxt] = m;
+    const mmDef = mmTxt ? Number(mmTxt) : defM;
+    const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
+    const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(Boolean);
+    for (const jd of jours) regroupRelacheDays.push(mkDateInt(yyDef, mmDef, jd));
+  }
+
+  // --- Jours isolés de relâche (hors parenthèses)
+  for (const part of relachesTxt.split(",").map(p => p.trim())) {
+    if (!part || /jour/.test(part)) continue;
+    if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
+    const mday = part.match(/^(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?$/);
+    if (!mday) continue;
+    const d = Number(mday[1]);
+    const mm = mday[2] ? Number(mday[2]) : defM;
+    const yy = mday[3] ? y2k(Number(mday[3])) : defY;
+    regroupRelacheDays.push(mkDateInt(yy, mm, d));
+  }
+
+  // --- relâche explicite
   for (const [lo, hi] of closedIntervals) {
     if (lo <= dv && dv <= hi) return false;
   }
-  if (regroupDays.includes(dv)) return false;
-  if (pariteRelache === "pair" || pariteRelache === "impair") {
+  if (regroupRelacheDays.includes(dv)) return false;
+  if (pariteRelaches === "pair" || pariteRelaches === "impair") {
     const isEven = dd % 2 === 0;
-    if ((pariteRelache === "pair" && isEven) || (pariteRelache === "impair" && !isEven)) return false;
+    if ((pariteRelaches === "pair" && isEven) || (pariteRelaches === "impair" && !isEven)) return false;
   }
 
-  // --- (2) fenêtres de jeu présentes ? -> on ne joue QUE dedans
+  // --- fenêtres de représentations ? -> on ne joue QUE dedans
   if (openIntervals.length > 0) {
     for (const [lo, hi] of openIntervals) {
       if (lo <= dv && dv <= hi) return true;
     }
+    return false;
+  }
+
+  // --- jours de représentations ? -> on ne joue QUE dedans
+  if (regroupSessionsDays.length > 0) {
+    if (i in regroupSessionsDays) return true;
     return false;
   }
 
@@ -934,7 +995,7 @@ function _getJoursPossibles(rowActivite) {
   const finAct   = debutMinute + duree;
 
   for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
-    if (!_estHorsRelache(rowActivite['Relache'], jour)) continue;
+    if (!_estHorsRelaches(rowActivite.Sessions, rowActivite.Relaches, jour)) continue;
 
     const jList = _ActivitesProgrammeesDuJourTriees(jour);
     if (jList.length === 0) { // journée libre
@@ -946,7 +1007,7 @@ function _getJoursPossibles(rowActivite) {
     const first = jList[0];
     const borne_inf = 0;           // 00:00
     const borne_sup = first._min;  // début de la 1ère activité
-    if (debutMinute >= borne_inf && finAct <= (borne_sup - MARGE)) {
+    if (debutMinute >= borne_inf && finAct <= (borne_sup - _MARGE)) {
       jours.push(jour);
       continue;
     }
@@ -955,8 +1016,8 @@ function _getJoursPossibles(rowActivite) {
     let ok = false;
     for (const ref of jList) {
       const [debut_min, fin_max ] = _getCreneauBoundsApres(jList, ref);
-      const afterMin = debut_min + MARGE;
-      const beforeMax = (fin_max == null) ? null : (fin_max - MARGE);
+      const afterMin = debut_min + _MARGE;
+      const beforeMax = (fin_max == null) ? null : (fin_max - _MARGE);
       const fits = (debutMinute >= afterMin) && (beforeMax == null ? true : finAct <= beforeMax);
       if (fits) { ok = true; break; }
     }
@@ -970,7 +1031,7 @@ function _toPrettyArray(arrInt){
 }
 
 /**
- * Renvoie les activités programmables sur une journée entière donc les activités qui ne sont pas relache ce jour
+ * Renvoie les activités programmables sur une journée entière donc les activités qui ne sont pas relaches ce jour
  * @param {*} dateRef 
  * @param {*} traiterPauses 
  * @returns 
@@ -980,7 +1041,7 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
   const nonProgrammees = window.ctx?.df?.filter(r => !r.Date) || [];  // équiv. activites_non_programmees
 
   for (const row of nonProgrammees) {
-    if (_estHorsRelache(row.Relache, dateRef)) {
+    if (_estHorsRelaches(row.Sessions, row.Relaches, dateRef)) {
       const nouvelleLigne = { ...row };
       delete nouvelleLigne.Debut_dt;
       delete nouvelleLigne.Duree_dt;
@@ -1006,7 +1067,7 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
       ...ligne,
       Date: dateRef,
       Reserve: '',
-      Relache: '',
+      Relaches: '',
       Priorite: '',
       Lieu: '',
     });
@@ -1069,7 +1130,7 @@ const MOIS = {
 const _PARSED_DEFAULT = {
     Activite: null,
     Lieu: null,
-    Relache: null,
+    Relaches: null,
     Debut: null,    // "HHhMM"
     Duree: null,    // "HhMM"
     Hyperlien: null
@@ -1188,7 +1249,7 @@ function _parseTextAvignonOff(text) {
       const d1 = parseInt(m[1],10);
       const d2 = parseInt(m[2],10);
       const moisTxt = m[3]?.toLowerCase();
-      const isRelachePrefix = !!m[4];
+      const isRelachesPrefix = !!m[4];
       let parite = m[5] ? m[5].trim().toLowerCase() : null;
 
       const moisNum = MOIS[moisTxt];
@@ -1198,10 +1259,10 @@ function _parseTextAvignonOff(text) {
         if (parite) {
           const isPairs = /pairs?/.test(parite);
           // Si parité décrite = jours joués (pas "relâche ..."), on inverse pour obtenir la relâche
-          const pariteRelache = isRelachePrefix
+          const pariteRelaches = isRelachesPrefix
             ? parite
             : (isPairs ? 'jours impairs' : 'jours pairs');
-          part = `${part}, ${pariteRelache}`;
+          part = `${part}, ${pariteRelaches}`;
         }
         periode_jouee = part;
       }
@@ -1226,7 +1287,7 @@ function _parseTextAvignonOff(text) {
   }
 
   if (periode_jouee) relParts.push(periode_jouee);
-  if (relParts.length) res.Relache = relParts.join(', ');
+  if (relParts.length) res.Relaches = relParts.join(', ');
 
   return res;
 }
@@ -1247,6 +1308,21 @@ function _normalizeDuree(hhmm) {
   const h = String(parseInt(m[1],10));
   const mm = String(parseInt(m[2],10)).padStart(2,'0');
   return `${h}h${mm}`;
+}
+
+/** Extrait les dates de représentation en token */
+function _parseSessions(text) {
+  const t = _norm(text || "");
+  const m = /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)/i.exec(t);
+  if (!m) return null;
+
+  const d1 = parseInt(m[1], 10);
+  const d2 = parseInt(m[2], 10);
+  const moisTxt = m[3];
+  const mois = MOIS[moisTxt] || null;
+  if (!mois) return null;
+
+  return `[${d1}-${d2}]/${mois}`;
 }
 
 // "(9,16,23)/7"
@@ -1270,42 +1346,31 @@ function _invertParite(parite /* "jours pairs" | "jours impairs" */) {
   return /pairs?/.test(parite) ? "jours impairs" : "jours pairs";
 }
 
-// "<5-26>/7" ou "<5-26>/7, jours pairs|impairs" (déjà côté RELÂCHE)
-function _parsePeriodeEtParite(text) {
-  const t = _norm(text);
-  // capture : du 5 au 26 juillet [, (relâche )? (jours pairs|jours impairs)]
-  const m = /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)\s*(?:,\s*(rel[aâ]che\s+)?(jours?\s+pairs?|jours?\s+impairs?))?/i.exec(t);
+/** Extrait les dates de relâche exprimées sous la forme ("jours pairs" / "jours impairs").
+ *    Règle : 
+ *    - si texte contient "relâche jours X" -> renvoie "jours X"
+ *    - si texte contient "jours X" (joués) -> renvoie l'inverse pour la relâche
+ */
+function _parseRelachesAvecParite(text) {
+  const t = _norm(text || "");
+  // cherche "... , relâche jours X" OU "... , jours X"
+  const m = /(?:^|,|\s)(rel[aâ]che\s+)?(jours?\s+pairs?|jours?\s+impairs?)(?:\s|$)/i.exec(t);
   if (!m) return null;
 
-  const d1 = parseInt(m[1],10);
-  const d2 = parseInt(m[2],10);
-  const moisTxt = m[3];
-  const hadRelachePrefix = !!m[4];           // "relâche ..." était présent ?
-  const pariteFound = m[5] ? m[5].trim().toLowerCase() : null; // "jours pairs|impairs"
-
-  const mois = MOIS[moisTxt] || null;
-  if (!mois) return null;
-
-  // Base = intervalle de jours joués
-  let part = `<${d1}-${d2}>/${mois}`;
-
-  if (pariteFound) {
-    // Si "relâche jours X" → garder X ; sinon c'était "jours X" joués → relâche = inverse(X)
-    const relacheParite = hadRelachePrefix ? pariteFound : _invertParite(pariteFound);
-    if (relacheParite) part = `${part}, ${relacheParite}`;
-  }
-  return part;
+  const hadRelachesPrefix = !!m[1];
+  const pariteFound = m[2].trim().toLowerCase(); // "jours pairs" | "jours impairs"
+  return hadRelachesPrefix ? pariteFound : _invertParite(pariteFound);
 }
 
 /**
  * parseListingHtml(html, { url })
  * @param {string} html
  * @param {{url?: string}} opts
- * @return {{Activite:string|null, Lieu:string|null, Relache:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
+ * @return {{Activite:string|null, Lieu:string|null, Relaches:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
  */
 // ----------------- Parser du HTML d'une page de description de spectacle du catalogue Avignon Off -----------------
 function _parseHTMLAvignonOff(html, { url=null } = {}) {
-  const res = { Activite:null, Lieu:null, Relache:null, Debut:null, Duree:null, Hyperlien:url||null };
+  const res = { Activite:null, Lieu:null, Sessions:null, Relaches:null, Debut:null, Duree:null, Hyperlien:url||null };
   if (!html || typeof html !== 'string') return res;
 
   let doc;
@@ -1354,11 +1419,14 @@ function _parseHTMLAvignonOff(html, { url=null } = {}) {
     const explicite = _parseRelaches(bigText);
     if (explicite) parts.push(explicite);
 
-    const periode = _parsePeriodeEtParite(bigText);
-    if (periode) parts.push(periode);
+    const relachesParite = _parseRelachesAvecParite(bigText);
+    if (relachesParite) parts.push(relachesParite);
 
-    if (parts.length) res.Relache = parts.join(', ');
-  }
+    if (parts.length) res.Relaches = parts.join(', ');
+  
+    const sessions = _parseSessions(bigText);
+    if (sessions && sessions.length) res.Sessions = sessions;
+}
 
   return res;
 }
@@ -1413,7 +1481,7 @@ function _isIntInRange(x, min, max) {
   return Number.isInteger(n) && n >= min && n <= max;
 }
 
-function _parseOneRelacheToken(tok, { defaultMonth } = {}) {
+function _parseOneRelachesToken(tok, { defaultMonth } = {}) {
   const t = String(tok || '').toLowerCase().trim();
   if (!t) return false;
 

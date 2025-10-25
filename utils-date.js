@@ -4,9 +4,6 @@
 export const MIN_DAY = 0;                 // 00:00
 export const MAX_DAY = 23 * 60 + 59;      // 23:59
 
-// Petite marge (métier) — ajuste si besoin
-export const MARGE = 30;                   // en minutes
-
 // yyyymmdd -> {y,m,d}
 export function dateintToYmd(di) {
   const y = Math.floor(di / 10000);
@@ -303,3 +300,39 @@ export function prettyToMinutes(s){
   if (!m) return 0;
   return (Number(m[1])|0)*60 + (Number(m[2])|0);
 }
+
+// 0) Date → "YYYY-MM-DD"  (toujours le jour local, sans décalage UTC)
+export function localDateToIsoDate(d) {
+  if (!(d instanceof Date)) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// 1) Objet Date en LOCAL (00:00 locale)
+export function isoDateToLocalDate(s) {
+  if (!s) return null;
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// 2) Timestamp UTC (ms) à minuit UTC
+export function isoDateToUtcMs(s) {
+  if (!s) return null;
+  const [y, m, d] = s.split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+// 3) "dateint" compact (YYYYMMDD, number)
+export function isoDateToInt(s) {
+  return s ? Number(s.replaceAll('-', '')) : null;
+}
+
+// (inverse utile pour repeupler un <input type="date"> depuis un int)
+export function intToIsoDate(n) {
+  if (!n) return '';
+  const s = String(n);
+  return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+}
+

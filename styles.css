@@ -1485,7 +1485,6 @@ main, .page-wrap {
   }
 }
 
-
 /* --- Focus doux façon iOS --- */
 .sheet-wrap .form-row input:focus,
 .sheet-wrap .form-row select:focus {
@@ -1511,7 +1510,7 @@ main, .page-wrap {
   display: flex;
   justify-content: center;     
   gap: 1.6rem;
-  padding-top: 1rem;
+  padding-top: 2rem;
 }
 
 /* --- Icône (SVG) dans le bouton --- */

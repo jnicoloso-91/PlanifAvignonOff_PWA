@@ -7,9 +7,9 @@ import {
   ymdToDateint, 
   safeDateint, 
   toDateint,
-  dateintToInput,
-  minutesToPretty,
-  prettyToMinutes,
+  dateToDateint,
+  isoDateToLocalDate,
+  localDateToIsoDate,
 } from './utils-date.js';
 
 import { creerActivitesAPI, sortDf } from './activites.js'; 
@@ -19,9 +19,6 @@ import { ActiviteRenderer } from './ActiviteRenderer.js';
 import { LieuRenderer } from './LieuRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
-
-const DEBUG = true;
-const log = (...a) => { if (DEBUG) console.debug(...a); };
 
 let activitesAPI = null;
 
@@ -48,6 +45,21 @@ const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la tr
 const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
 
 const overlay = document.getElementById('overlay');
+
+// ------- Debug -------
+
+const DEBUG = true;
+function getCaller(depth = 2) {
+  try {
+    throw new Error();
+  } catch (e) {
+    const stack = e.stack?.split("\n")[depth] || "";
+    let match = stack.match(/at\s+(.*?)\s/);
+    if (!match) { match = stack.match(/^([^\s@]+)/); }
+    return match ? match[1] : "anonymous";
+  }
+}
+const log = (...a) => { if (DEBUG) console.debug(`[${getCaller(2)}]`, ...a); };
 
 // ------- Misc Helpers -------
 
@@ -194,8 +206,8 @@ const CANON = {
   'activite': 'Activite',
   'lieu': 'Lieu',
   'hyperlien': 'Hyperlien',
-  'relache': 'Relache',
-  'relache(s)': 'Relache',
+  'relache': 'Relaches',
+  'relaches(s)': 'Relaches',
   'reserve': 'Reserve',
   'priorite': 'Priorite',
   // tolérances diverses
@@ -1926,9 +1938,11 @@ function buildColumnsActivitesCommon(){
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin',   width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu',  minWidth:160, flex:1, cellRenderer: LieuRenderer },
-    { field:'Relache', headerName: 'Relâche', minWidth:60, flex:.5, valueParser: valueParserRelache },
+    { field:'Sessions', headerName: 'Sessions', minWidth:60, flex:.5, valueParser: valueParserSessions },
+    { field:'Relaches', headerName: 'Relâches', minWidth:60, flex:.5, valueParser: valueParserRelaches },
+    { field:'Style', headerName: 'Style', minWidth:60, flex:.5, valueParser: valueParserRelaches },
     { field:'Reserve', headerName: 'Réservé', minWidth:60, flex:.5, valueParser: valueParserReserve },
-    { field:'Priorite', headerName: 'Priorité',minWidth:60, flex:.5, valueParser: valueParserNumerique },
+    { field:'Priorite', headerName: 'Priorité',minWidth:50, flex:.42, valueParser: valueParserNumerique },
     { field:'Hyperlien', minWidth:120, flex:2 }
   ];
 }
@@ -2074,9 +2088,32 @@ function valueParserDuree (params) {
   }
   else return params.newValue;
 }
-function valueParserRelache (params) {
-  if (!activitesAPI.estRelacheValide(params.newValue)) {
-    alert("⛔ Format attendu : voir Aide / Format des données");
+function valueParserSessions (params) {
+  if (!activitesAPI.estSessionsValide(params.newValue)) {
+    alert(`⛔ Format attendu = suite d'expressions suivantes, séparées par des virgules :
+     - "9", "09" (mois courant et année courante implicites), 
+     - "9/7", "09/07" (année courante implicite) , 
+     - "09/07/25" ou "09/07/2025"
+     - "(9, 16, 23)/7" pour énumérer des dates du même mois
+     - "[9-12]/07", [30/07-01/08] pour une période
+     - "jours pairs" | "jours impairs"
+     - chaîne vide => tous les jours de la période de programmation
+    `);
+    return params.oldValue;
+  }
+  else return params.newValue;
+}
+function valueParserRelaches (params) {
+  if (!activitesAPI.estRelachesValide(params.newValue)) {
+    alert(`⛔ Format attendu = suite d'expressions suivantes, séparées par des virgules :
+     - "9", "09" (mois courant et année courante implicites), 
+     - "9/7", "09/07" (année courante implicite) , 
+     - "09/07/25" ou "09/07/2025"
+     - "(9, 16, 23)/7" pour énumérer des dates du même mois
+     - "[9-12]/07", [30/07-01/08] pour une période
+     - "jours pairs" | "jours impairs"
+     - chaîne vide => pas de jours de relâche
+    `);
     return params.oldValue;
   }
   else return params.newValue;
@@ -5994,8 +6031,8 @@ function openSheetCarnet() {
 // Feuilles paramètres
 function openSheetParams(){
   const meta = (window.ctx?.meta) || {};
-  const curDeb = meta.periode_a_programmer_debut?.toISOString().slice(0,10) || ''; 
-  const curFin = meta.periode_a_programmer_fin?.toISOString().slice(0,10) || ''; 
+  const curDeb = localDateToIsoDate(meta.periode_a_programmer_debut) || ''; 
+  const curFin = localDateToIsoDate(meta.periode_a_programmer_fin) || ''; 
   const marge      = Math.max(0, Number(meta.MARGE ?? 10)|0);
   const dureeRepas = Math.max(0, Number(meta.DUREE_REPAS ?? 60)|0);
   const dureeCafe = Math.max(0, Number(meta.DUREE_CAFE ?? 60)|0);
@@ -6078,8 +6115,8 @@ function openSheetParams(){
       body.querySelector('#p-cancel')?.addEventListener('click', close);
 
       body.querySelector('#p-save')?.addEventListener('click', () => {
-        const d1 = $deb.value;
-        const d2 = $fin.value;
+        const d1 = isoDateToLocalDate($deb.value);
+        const d2 = isoDateToLocalDate($fin.value);
 
         if (!d1 || !d2 || d2 < d1) {
           alert('Dates invalides (fin >= début).');
