@@ -1397,33 +1397,97 @@ function smoothScrollTo(el, target, duration = 400){
 //   }
 // }
 
-function scrollBottomIntoView(el, scroller, {
-  pad = 12,              // breathing room above bottom
-  extraPad = 0,          // e.g. bottom bar + safe area
-  overflowStart = 12     // hysteresis: ignore tiny +/- jitter
-} = {}) {
-  if (!el || !scroller) return;
+// function scrollBottomIntoView(el, scroller, {
+//   pad = 12,              // breathing room above bottom
+//   extraPad = 0,          // e.g. bottom bar + safe area
+//   overflowStart = 12     // hysteresis: ignore tiny +/- jitter
+// } = {}) {
+//   if (!el || !scroller) return;
 
-  const er = el.getBoundingClientRect();
-  const sr = scroller.getBoundingClientRect();
+//   const er = el.getBoundingClientRect();
+//   const sr = scroller.getBoundingClientRect();
 
-  // how far element’s bottom sits below the visible bottom of scroller
-  const overflow = er.bottom - (sr.bottom - pad - extraPad);
+//   // how far element’s bottom sits below the visible bottom of scroller
+//   const overflow = er.bottom - (sr.bottom - pad - extraPad);
 
-  // ignore small jitter
-  // if (overflow <= overflowStart) return;
+//   // ignore small jitter
+//   // if (overflow <= overflowStart) return;
 
-  // don’t shove past the scroller’s max
-  const maxExtra = (scroller.scrollHeight - scroller.clientHeight) - scroller.scrollTop;
-  // if (maxExtra <= 0) return;
-  if (maxExtra < 0) return;
+//   // don’t shove past the scroller’s max
+//   const maxExtra = (scroller.scrollHeight - scroller.clientHeight) - scroller.scrollTop;
+//   // if (maxExtra <= 0) return;
+//   // if (maxExtra < 0) return;
 
-  const delta = Math.min(overflow, maxExtra);
-  scroller.scrollTop += delta;
-  log(`[scrollBottomIntoView] ${maxExtra} ${delta}`);
+//   const delta = Math.min(overflow, maxExtra);
+//   scroller.scrollTop += delta;
+//   log(`[scrollBottomIntoView] ${maxExtra} ${delta}`);
 
+// }
+
+
+function findPageScroller(fromEl){
+  if (!fromEl) return document.scrollingElement || document.documentElement;
+
+  // Tout ce qui est scroller *interne* à AG Grid (à ignorer)
+  const AG_DENY = [
+    '.ag-root',
+    '.ag-body-viewport',
+    '.ag-center-cols-viewport',
+    '.ag-theme-quartz',
+  ];
+
+  // remonte dans la hiérarchie
+  let el = fromEl;
+  while (el && el !== document.documentElement){
+    // si on tombe sur la page du pager → c'est notre scroller cible
+    if (el.classList?.contains('page')) return el;
+
+    // si c'est un scroller "valide" mais pas AG Grid → ok
+    const style = el instanceof Element ? getComputedStyle(el) : null;
+    if (style && /(auto|scroll)/.test(style.overflowY || '')){
+      const isAg = AG_DENY.some(sel => el.matches?.(sel));
+      if (!isAg) return el;
+    }
+    el = el.parentElement || el.parentNode;
+  }
+  // fallback : document
+  return document.scrollingElement || document.documentElement;
+}
+function scrollBottomIntoView(target, scroller, {
+  pad = 8,            // coussin visuel
+  extraPad = 0,       // safe-area + bottom-bar, etc.
+  behavior = 'smooth',
+} = {}){
+  if (!target) return;
+
+  // Choisit le bon scroller si non fourni
+  const sc = scroller || findPageScroller(target);
+
+  const tRect = target.getBoundingClientRect();
+  const sRect = sc.getBoundingClientRect();
+
+  // combien "dépasse" le bas du target par rapport au bas visible du scroller
+  const overflow = (tRect.bottom + pad) - (sRect.bottom - extraPad);
+
+  if (overflow <= 0) return; // déjà visible
+
+  const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+  const newTop = Math.min(maxTop, sc.scrollTop + overflow);
+
+  // document vs élément : choisir le bon appel
+  if (sc === document.scrollingElement || sc === document.documentElement || sc === document.body) {
+    window.scrollTo({ top: newTop, behavior });
+  } else {
+    sc.scrollTo({ top: newTop, behavior });
+  }
 }
 
+function getSafeBottomPx(){
+  // si tu as déjà getSafeBottom(), réutilise-la
+  const s = getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)');
+  const v = parseFloat(s) || 0;
+  return v;
+}
 
 async function scrollExpanderIntoView(exp){
   if (!exp) return;
@@ -3127,9 +3191,11 @@ function wireExpanderSplitters() {
     if (!paneTop || (!paneBot && !isLast)) return;
 
     const expTop = paneTop.closest('.st-expander');        // parent expander (top)
-    const scroller = (typeof getScrollContainer === 'function')
-      ? getScrollContainer(expTop)
-      : expTop.closest('.page') || document.scrollingElement || document.documentElement;
+    // const scroller = (typeof getScrollContainer === 'function')
+    //   ? getScrollContainer(expTop)
+    //   : expTop.closest('.page') || document.scrollingElement || document.documentElement;
+    const scroller = findPageScroller(paneTop);
+    const bottomBarH = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
 
     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
     let prevTransition = '', prevAnimation = '';
@@ -3187,7 +3253,12 @@ function wireExpanderSplitters() {
 
       setH(paneTop, hTop + dy);
 
-      scrollBottomIntoView(expTop, scroller, { pad: 12 });
+      // scrollBottomIntoView(expTop, scroller, { pad: 12 });
+      scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+        pad: 12,
+        extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
+        behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
+      });
 
       // notify AG Grid haut
       try {
@@ -3252,8 +3323,13 @@ function wireExpanderSplitters() {
           (typeof getSafeBottom === 'function' ? parseFloat(getSafeBottom()) || 0 : 0) +
           (document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0);
 
+        // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+        //   pad: 12, extraPad, overflowStart: 10
+        // });
         scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-          pad: 12, extraPad, overflowStart: 10
+          pad: 12,
+          extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
+          behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
         });
       }
 
