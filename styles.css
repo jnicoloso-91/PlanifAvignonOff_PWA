@@ -1489,7 +1489,9 @@ main, .page-wrap {
 } */
 /* Sur IOS 16px pour eviter le zomm à l'input */
 @supports (-webkit-touch-callout: none) {
-  input, select, textarea {
+  .form-row input, 
+  .form-row select, 
+  .form-row textarea {
     font-size: 16px !important;
   }
 }
