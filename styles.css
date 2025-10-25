@@ -940,22 +940,6 @@ main, .page-wrap {
 /* Boutons de la bottom bar */
 /*==========================*/
 
-/* .bb-icon-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: #111;
-  padding: 4px 8px;
-  border-radius: 8px;
-  min-width: 72px;
-  cursor: pointer;
-  transition: transform .1s ease, background .15s ease;
-  -webkit-tap-highlight-color: transparent;
-} */
-
 /* Normaliser boutons iOS */
 .bb-icon-btn {
   -webkit-appearance: none; /* iOS: enlève le style natif */
@@ -964,7 +948,7 @@ main, .page-wrap {
   border: 0;
   box-shadow: none;
   outline: none;
-  padding: 4px 8px;
+  padding: 2px;  /* Jouer sur ce paramètre pour diminuer la taille des icones */
   border-radius: 8px;
   min-width: 72px;
   display: inline-flex;
@@ -975,6 +959,11 @@ main, .page-wrap {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform .1s ease, background .15s ease;
+}
+@media (max-width: 768px) {
+  .bb-icon-btn {
+    padding: 4px;
+  }
 }
 
 .bb-icon-btn .bb-icon {
@@ -1480,13 +1469,7 @@ main, .page-wrap {
   transition: border-color .2s, box-shadow .2s;
   font-size: 0.9rem;
 }
-/* @media (max-width: 768px) {
-  .sheet-wrap .form-row > label,
-  .sheet-wrap .form-row input,
-  .sheet-wrap .form-row select {
-    font-size: 0.9rem;
-  }
-} */
+
 /* Sur IOS 16px pour eviter le zomm à l'input */
 @supports (-webkit-touch-callout: none) {
   .form-row input, 
