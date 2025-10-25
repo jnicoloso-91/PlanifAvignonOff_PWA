@@ -753,12 +753,12 @@ main, .page-wrap {
 
 /* Dans les grilles : autoriser le pan vertical, bloquer le pan horizontal
    → le swipe du pager ne se déclenchera pas depuis la grille */
-.ag-root,
+/* .ag-root,
 .ag-root-wrapper,
 .ag-center-cols-viewport,
 .ag-body-viewport {
   touch-action: pan-y !important;
-}
+} */
 
 
 /* ================*/
