@@ -420,5 +420,6 @@ html, body {
   background: transparent;               /* fond transparent */
   padding: 4px 10px;
   font: inherit;
+  font-size: 1.5rem;
 }
 

@@ -3806,14 +3806,24 @@ function wireBottomBar() {
 }
 
 // Appelle le menu contextuel ou la bottom sheet selon la taille d’écran
+// function openFileMenuOrSheet(anchorBtn) {
+//   if (window.matchMedia('(max-width: 768px)').matches) {
+//     openFileSheet(); // version mobile
+//   } else {
+//     openFileMenuDesktop(anchorBtn);  // version desktop
+//   }
+// }
 function openFileMenuOrSheet(anchorBtn) {
-  if (window.matchMedia('(max-width: 768px)').matches) {
-    openFileSheet(); // version mobile
+  const isSmallScreen = window.matchMedia('(max-width: 768px)').matches;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.userAgent.includes('Mac') && 'ontouchend' in document); // iPadOS 13+
+
+  if (isSmallScreen || isIOS) {
+    openFileSheet(); // version mobile et iPad
   } else {
     openFileMenuDesktop(anchorBtn);  // version desktop
   }
 }
-
 // Menu contextuel au-dessus du bouton "Fichier"
 // function openFileMenu(anchorBtn, opts = {}) {
 //   const btn = anchorBtn;
