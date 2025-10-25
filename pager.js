@@ -162,13 +162,31 @@ import {
   // btnPrev?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
   btnNext?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
 
-// Drag
+	// Drag
   const DEADZONE = 10;   // px
   const THRESH   = 0.18; // 18% largeur
 
+	// Sélecteurs “interactifs” où le pager NE doit PAS se déclencher
+	const NO_SWIPE_START = [
+		'.ag-root', '.ag-root-wrapper', '.ag-header', '.ag-header-cell', '.ag-cell',
+		'.ag-header-cell-resize', '.ag-column-resize', // poignées de resize colonnes
+		'.sheet-panel', '.sheet-header',               // si tu as des sheets
+		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
+		'.st-expander-header'                          // si tu veux aussi ignorer ces headers
+	].join(',');
+
+	function isInNoSwipeZone(evTarget){
+		return !!(evTarget && evTarget.closest && evTarget.closest(NO_SWIPE_START));
+	}
+
   function onStart(ev){
     const t = ev.touches ? ev.touches[0] : ev;
-    startX = curX = t.clientX;
+
+		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
+		const target = ev.target;
+		if (isInNoSwipeZone(target)) return;
+
+		startX = curX = t.clientX;
     startY = t.clientY;
     dragging = true; engaged = false;
     track.style.transition = 'none';
