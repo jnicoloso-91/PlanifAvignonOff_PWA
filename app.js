@@ -2482,6 +2482,9 @@ async function refreshGrid(gridId) {
 
   // 1) recharge les données
   const rows = await h.loader?.();
+
+  if (gridId == 'grid-programmables') logToPage(`refreshGrid: nbRows ${rows.length}`);
+
   api.setGridOption?.('rowData', rows || []);
 
   // 2) après peinture → reselect ou fallback 1ère ligne, puis resize + autosize pane
