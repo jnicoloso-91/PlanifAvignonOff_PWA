@@ -733,13 +733,13 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, max
   if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-    } else {
+    } else if (nbRows <= h.nbRowsPred) {
 
       if (gridId === 'grid-programmables') {
         logToPage(`nb calculé pour grid-programmables: no autoresize`);
       }
 
-      return null;   // pas de resize auto
+      return null;        // pas de resize auto
     }
   } else n = Math.min(maxRows, nbRows);
 
@@ -1166,7 +1166,7 @@ async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paint
   const cssEscape = (window.CSS && CSS.escape) ? CSS.escape : (s) => String(s).replace(/["\\#:.%]/g, '\\$&');
 
   const h = grids.get(gridId);
-  if (!h || !uuid) return { api: null, node: null, rowEl: null, el: h?.el || null };
+  if (!h || !uuid) return { api: null, node: null, rowEl: null, el: h?.el || null, nbRowsPred: null };
 
   const api = h.api;
   let node = null;
@@ -2212,7 +2212,7 @@ const gridOptionsActivitesNonProgrammees = {
 }
 
 const gridOptionsCreneaux = {
-  onSelectionChanged: (e) => onCreneauxSelectionChanged(e),
+  onSelectionChanged: () => onCreneauxSelectionChanged(),
 }
 
 const gridOptionsActivitesProgrammables = {
@@ -2363,8 +2363,8 @@ async function onNonProgGridDateCommitted(params) {
   dropRowFromSrcGridToDstGrid('grid-non-programmees', 'grid-programmees', 'exp-programmees', uuidVoisin, uuid, scroll=true);
 }
 
-function onCreneauxSelectionChanged(e){
-  if (e.source === 'programmatic') return; // ignorer les sélections internes
+function onCreneauxSelectionChanged(){
+  // if (e.source === 'programmatic') return; // ignorer les sélections internes
   const g = grids.get('grid-creneaux');
   if (!g?.api) return;
   const sel = g.api.getSelectedRows?.() || [];
@@ -2449,7 +2449,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   const api = window.agGrid.createGrid(el, gridOptions);
   autoOpenSelectOnEdit(api);
   el.__agApi = api; // ⟵ pour retrouver l’API depuis le pane
-  const handle = { id: gridId, el, api, loader, columnsBuilder };
+  const handle = { id: gridId, el, api, loader, columnsBuilder, nbRowsPred: null };
   grids.set(gridId, handle);
   if (!activeGridId) setActiveGrid(gridId);
   return handle;
@@ -2470,12 +2470,15 @@ async function refreshGrid(gridId) {
 
   const api = h.api;
 
-  // 0) mémorise la sélection actuelle (par __uuid)
+  // 0.0) mémorise la sélection actuelle (par __uuid)
   let prevUuid = null;
   try {
     const prevSel = api.getSelectedRows?.() || [];
     prevUuid = prevSel[0]?.__uuid ?? null;
   } catch {}
+
+  // 0.1) mémorise le nbRows avant rechargement des données pour le calcul de hauteur fait ulterieurement par autoSizePanelFromRowCount
+  h.nbRowsPred = api.getGridOption('rowData')?.length;
 
   // 1) recharge les données
   const rows = await h.loader?.();
@@ -2498,17 +2501,17 @@ async function refreshGrid(gridId) {
     autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:rows.length});
   };
 
-function selectRowSilently(api, rowNode) {
-  if (!rowNode) return;
-  api.setNodesSelected({
-    nodes: [rowNode],
-    newValue: true,
-    clearSelection: true,
-    source: 'programmatic'
-  });
-  // Appel des selectionChanged
-  queueMicrotask(() => api.dispatchEvent({ type: 'selectionChanged', source: 'manual' }));
-}
+// function selectRowSilently(api, rowNode) {
+//   if (!rowNode) return;
+//   api.setNodesSelected({
+//     nodes: [rowNode],
+//     newValue: true,
+//     clearSelection: true,
+//     source: 'programmatic'
+//   });
+//   // Appel des selectionChanged
+//   queueMicrotask(() => api.dispatchEvent({ type: 'selectionChanged', source: 'manual' }));
+// }
 
   const selectAfterPaint = () => {
     // si déjà sélectionné (préservé via getRowId) -> ne rien faire
@@ -2529,8 +2532,8 @@ function selectRowSilently(api, rowNode) {
     }
 
     // (select, clearOther)
-    // node?.setSelected?.(true, true);
-    selectRowSilently (api, node);
+    node?.setSelected?.(true, true);
+    // selectRowSilently (api, node);
 
     if (gridId === 'grid-creneaux') {
       logToPage(`selectAfterPaint: node ${node}`);
