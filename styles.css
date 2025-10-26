@@ -741,8 +741,8 @@ main, .page-wrap {
 .ag-center-cols-viewport,
 .ag-body-viewport,
 .ag-root-wrapper-body {
-  /*overflow: auto; /* ou hidden */
-  overflow: visible !important; 
+  overflow: auto; /* ou hidden */
+  /* overflow: visible !important;  */
 }
 
 /* Assure que les popup menus des grilles ne soient pas masqués par la coloration des rows (pb notemment sur IPad */
