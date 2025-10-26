@@ -6253,4 +6253,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   // appJustLaunched = false;
 
   console.log('✅ Application initialisée');
+  logToPage('✅ Application initialisée');
 });
