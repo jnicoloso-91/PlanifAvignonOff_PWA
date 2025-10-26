@@ -92,7 +92,7 @@ function logToPage(...args) {
     el.style.bottom = '0';
     el.style.left = '0';
     el.style.width = '100%';
-    el.style.maxHeight = '40vh';
+    el.style.maxHeight = '60vh';
     el.style.overflowY = 'auto';
     el.style.background = 'rgba(0,0,0,0.5)';
     el.style.color = '#0f0';
@@ -2536,7 +2536,7 @@ async function refreshGrid(gridId) {
     // selectRowSilently (api, node);
 
     if (gridId === 'grid-creneaux') {
-      logToPage(`selectAfterPaint: node ${node}`);
+      logToPage(`SELECTAFTERPAINT: node ${node}`);
     }
 
     finish();
