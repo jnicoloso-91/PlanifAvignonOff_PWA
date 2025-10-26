@@ -1964,9 +1964,6 @@ function buildColumnsActivitesProgrammees() {
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
     cellEditor: 'agSelectCellEditor',
-// cellEditor: 'agRichSelect' /* ou ton éditeur date */,
-// cellEditorPopup: true,                       // ← rend l’éditeur en popup
-// cellEditorPopupPosition: 'under',            // ← positionne proprement
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
       return { values: values.map(String), valueListMaxHeight: 300 };   // 👈 must be an array
@@ -2146,8 +2143,8 @@ function gridOptionsCommon(gridId, el) {
     defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
     rowData: [],
     getRowId: p => p.data?.__uuid,
-// popupParent: document.body,
-// suppressRowTransform: true, // IPad
+    popupParent: document.body, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
+    suppressRowTransform: true, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
     onGridReady: async (p) => {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
@@ -2172,28 +2169,6 @@ function gridOptionsCommon(gridId, el) {
       return { '--day-bg': bg, 'color': c };
     },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
-    // onCellEditingStarted: (p) => {
-    //   // document.body.classList.add('ag-overflow-visible')
-
-    //   // const gridId = p.context?.gridId;
-    //   // const api = grids.get(gridId)?.api;// || p.api;
-    //   // const root = api.getGui();
-
-    //   const root = p.api.gridBodyCtrl?.eBodyViewport?.closest('.ag-root') ||
-    //                   document.querySelector('.ag-root');
-    //   root.classList.add('ag-overflow-visible')
-    // },
-    // onCellEditingStopped: (p) => {
-    //   // document.body.classList.remove('ag-overflow-visible')
-
-    //   // const gridId = p.context?.gridId;
-    //   // const api = grids.get(gridId)?.api;// || p.api;
-    //   // const root = api.getGui();
-
-    //   const root = p.api.gridBodyCtrl?.eBodyViewport?.closest('.ag-root') ||
-    //                   document.querySelector('.ag-root');
-    //   root.classList.remove('ag-overflow-visible')
-    // },
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
@@ -6253,5 +6228,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   // appJustLaunched = false;
 
   console.log('✅ Application initialisée');
-  logToPage('✅ Application initialisée');
+  // logToPage('✅ Application initialisée');
 });
