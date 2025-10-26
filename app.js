@@ -1963,10 +1963,10 @@ function buildColumnsActivitesProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    // cellEditor: 'agSelectCellEditor',
-cellEditor: 'agRichSelect' /* ou ton éditeur date */,
-cellEditorPopup: true,                       // ← rend l’éditeur en popup
-cellEditorPopupPosition: 'under',            // ← positionne proprement
+    cellEditor: 'agSelectCellEditor',
+// cellEditor: 'agRichSelect' /* ou ton éditeur date */,
+// cellEditorPopup: true,                       // ← rend l’éditeur en popup
+// cellEditorPopupPosition: 'under',            // ← positionne proprement
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
       return { values: values.map(String), valueListMaxHeight: 300 };   // 👈 must be an array
@@ -2147,6 +2147,7 @@ function gridOptionsCommon(gridId, el) {
     rowData: [],
     getRowId: p => p.data?.__uuid,
 popupParent: document.body,
+suppressRowTransforme: true, // IPad
     onGridReady: async (p) => {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
@@ -2165,11 +2166,11 @@ popupParent: document.body,
     },
     onCellFocused: () => setActiveGrid(gridId),
     onGridSizeChanged: () => safeSizeToFitFor(gridId),
-    // getRowStyle: p => {
-    //   const bg = colorDate(p.data?.Date);
-    //   const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
-    //   return { '--day-bg': bg, 'color': c };
-    // },
+    getRowStyle: p => {
+      const bg = colorDate(p.data?.Date);
+      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
+      return { '--day-bg': bg, 'color': c };
+    },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
     // onCellEditingStarted: (p) => {
     //   // document.body.classList.add('ag-overflow-visible')
