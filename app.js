@@ -2166,11 +2166,11 @@ suppressRowTransform: true, // IPad
     },
     onCellFocused: () => setActiveGrid(gridId),
     onGridSizeChanged: () => safeSizeToFitFor(gridId),
-    // getRowStyle: p => {
-    //   const bg = colorDate(p.data?.Date);
-    //   const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
-    //   return { '--day-bg': bg, 'color': c };
-    // },
+    getRowStyle: p => {
+      const bg = colorDate(p.data?.Date);
+      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
+      return { '--day-bg': bg, 'color': c };
+    },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
     // onCellEditingStarted: (p) => {
     //   // document.body.classList.add('ag-overflow-visible')
@@ -6253,5 +6253,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   // appJustLaunched = false;
 
   console.log('✅ Application initialisée');
-  logToPage('✅ Application initialisée');
+  // logToPage('✅ Application initialisée');
 });
