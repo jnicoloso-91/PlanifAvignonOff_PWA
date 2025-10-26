@@ -1869,7 +1869,7 @@ function addExpanderButtons() {
   //     </span>
   //     <span class="exp-label">Coller</span>
   //   `,
-  //   onClick: async () => {await doAjoutActiviteAvecCollage();}
+  //   onClick: async () => {await doAjoutActivitesParCollage();}
   // });
 
   // Bouton Ajouter
@@ -1959,12 +1959,12 @@ function buildColumnsActivitesProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    onCellEditingStarted() {
-      document.body.classList.add('ag-overflow-visible');
-    },
-    onCellEditingStopped() {
-      document.body.classList.remove('ag-overflow-visible');
-    },
+    // onCellEditingStarted() {
+    //   document.body.classList.add('ag-overflow-visible');
+    // },
+    // onCellEditingStopped() {
+    //   document.body.classList.remove('ag-overflow-visible');
+    // },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
@@ -2004,12 +2004,12 @@ function buildColumnsActivitesNonProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    onCellEditingStarted() {
-      document.body.classList.add('ag-overflow-visible');
-    },
-    onCellEditingStopped() {
-      document.body.classList.remove('ag-overflow-visible');
-    },
+    // onCellEditingStarted() {
+    //   document.body.classList.add('ag-overflow-visible');
+    // },
+    // onCellEditingStopped() {
+    //   document.body.classList.remove('ag-overflow-visible');
+    // },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteNonProgrammee(p.data) || [];
@@ -3616,15 +3616,15 @@ async function doAjoutActivite() {
 }
 
 // Ajout activité avec collage
-async function doAjoutActiviteAvecCollage() {
-  const nouvelleActivite = await activitesAPI.creerActiviteAvecCollage(ctx.df);
-  ctx.mutateDf(rows => sortDf([nouvelleActivite, ...rows]));
+async function doAjoutActivitesParCollage() {
+  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df);
+  ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
 
   // Maj des sélections
   setTimeout(() => {
     scrollToExpander?.('exp-non-programmees');
     openExpander?.('exp-non-programmees');
-    selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
+    selectRowByUuid('grid-non-programmees', ctx.df[0].__uuid, { ensure: 'center', flash: null });
   }, 50);
 }
 
@@ -3761,7 +3761,7 @@ function wireBottomBar() {
   // --- Ajouter avec collage ---
   $('btn-paste')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
-    doAjoutActiviteAvecCollage();
+    doAjoutActivitesParCollage();
   });
 
   // --- Ajouter ---
