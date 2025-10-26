@@ -740,7 +740,7 @@ main, .page-wrap {
 .ag-center-cols-viewport,
 .ag-body-viewport,
 .ag-root-wrapper-body {
-  overflow: hidden; /* ou hidden */
+  overflow: auto; /* ou hidden */
   /* overflow: visible !important;  */
 }
 
