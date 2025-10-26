@@ -747,11 +747,11 @@ main, .page-wrap {
 }
 
 /* Assure que les popup menus des grilles ne soient pas masqués par la coloration des rows (pb notemment sur IPad */
-.ag-overflow-visible .ag-center-cols-viewport,
+/* .ag-overflow-visible .ag-center-cols-viewport,
 .ag-overflow-visible .ag-body-viewport,
 .ag-overflow-visible .ag-root-wrapper-body {
   overflow: visible !important;
-}
+} */
 
 /* DEBUG IPad */
 /* Ta coloration de ligne : garder mais passer en dessous de tout */
@@ -762,22 +762,23 @@ main, .page-wrap {
   pointer-events: none;        /* pas d'interception */
 }
 /* Inline editing (dans la cellule) */
-.ag-cell-inline-editing,
-.ag-cell-inline-editing .ag-input-field-input,
-.ag-cell-inline-editing .ag-cell-editor {
-  position: relative;          /* crée un stacking context local */
-  z-index: 3;                  /* au-dessus du z-index:0 des overlays */
-}
+/* .ag-cell-inline-editing, */
+/* .ag-cell-inline-editing .ag-input-field-input, */
+/* .ag-cell-inline-editing .ag-cell-editor { */
+/*  position: relative;          /* crée un stacking context local */
+/*  z-index: 3;                  /* au-dessus du z-index:0 des overlays */
+/* } */
 
 /* Popups (rich select, menus, tooltips) */
-.ag-popup,
-.ag-popup-editor,
-.ag-rich-select,
-.ag-rich-select-list,
-.ag-menu,
-.ag-tooltip {
-  z-index: 99999 !important;   /* au-dessus de tout */
-}/* DEBUG IPad */
+/* .ag-popup, */
+/* .ag-popup-editor, */
+/* .ag-rich-select, */
+/* .ag-rich-select-list, */
+/* .ag-menu, */
+/* .ag-tooltip { */
+/*  z-index: 99999 !important;   /* au-dessus de tout */
+/*}
+/* DEBUG IPad */
 
 
 /* Dans les grilles : autoriser le pan vertical, bloquer le pan horizontal
