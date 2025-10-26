@@ -2146,8 +2146,8 @@ function gridOptionsCommon(gridId, el) {
     defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
     rowData: [],
     getRowId: p => p.data?.__uuid,
-popupParent: document.body,
-suppressRowTransforme: true, // IPad
+// popupParent: document.body,
+// suppressRowTransform: true, // IPad
     onGridReady: async (p) => {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
