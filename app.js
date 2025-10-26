@@ -2147,7 +2147,7 @@ function gridOptionsCommon(gridId, el) {
     rowData: [],
     getRowId: p => p.data?.__uuid,
 popupParent: document.body,
-// suppressRowTransform: true, // IPad
+suppressRowTransform: true, // IPad
     onGridReady: async (p) => {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
