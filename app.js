@@ -2506,8 +2506,8 @@ function selectRowSilently(api, rowNode) {
     clearSelection: true,
     source: 'programmatic'
   });
-  // on peut ensuite émettre un event manuel si besoin
-  // queueMicrotask(() => api.dispatchEvent({ type: 'selectionChanged', source: 'manual' }));
+  // Appel des selectionChanged
+  queueMicrotask(() => api.dispatchEvent({ type: 'selectionChanged', source: 'manual' }));
 }
 
   const selectAfterPaint = () => {
