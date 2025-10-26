@@ -734,13 +734,18 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, max
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
     } else {
-      if (gridId === 'grid-programmables') logToPage(`nb calculé pour grid-programmables: no autoresize (displayed < nbRows && nbRows > 5)`);
-      // log(`nb calculé: no autoresize`);
+
+      if (gridId === 'grid-programmables') {
+        logToPage(`nb calculé pour grid-programmables: no autoresize`);
+      }
+
       return null;   // pas de resize auto
     }
   } else n = Math.min(maxRows, nbRows);
-  if (gridId === 'grid-programmables') logToPage(`nb calculé pour grid-programmables: ${n}`);
-  // log(`nb calculé: ${n}`);
+
+  if (gridId === 'grid-programmables') {
+    logToPage(`nb calculé pour grid-programmables: ${n} nbRows: ${nbRows}`);
+  }
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8: 0;
@@ -2364,6 +2369,8 @@ function onCreneauxSelectionChanged(){
   const sel = g.api.getSelectedRows?.() || [];
   selectedSlot = sel[0] || null;
 
+  logToPage(`onCreneauxSelectionChanged: selection ${sel}`);
+
   // rafraîchir la grille 4 (programmables)
   refreshGrid('grid-programmables');
 }
@@ -2478,29 +2485,14 @@ async function refreshGrid(gridId) {
     // repaint + grid size (AG Grid v29+)
     api.refreshCells?.({ force: true });
 
-    //--------------- DEBUG ---------------
+    // sur la grille des activités non programmées nécessaire de faire un redrawRaws pour appliquer correctement la colo (don't know why...) 
     if (gridId == 'grid-non-programmees') {
       api.redrawRows();  // ré-évalue getRowStyle
-      // api.forEachNode(n => {
-      //   const bg = colorActiviteProgrammable(n.data);
-      //   n.setRowStyle(bg ? { '--day-bg': bg } : null);      
-      // })
-      // api.forEachNode(node => {
-      //   const bg = colorActiviteProgrammable(node.data);
-      //   const rowEl = node?.rowIndex != null
-      //     ? document.querySelector(`.ag-row[aria-rowindex="${node.rowIndex + 1}"]`)
-      //     : null;
-      //   if (rowEl) {
-      //     if (bg) rowEl.style.setProperty('--day-bg', bg);
-      //     else rowEl.style.removeProperty('--day-bg');
-      //   }
-      // });
     }
-    //--------------- DEBUG ---------------
 
     api.dispatchEvent?.({ type: 'gridSizeChanged' });
 
-    // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
+    // autosize pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
     autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:rows.length});
   };
@@ -2523,7 +2515,9 @@ async function refreshGrid(gridId) {
       if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
     }
 
-    node?.setSelected?.(true, true); // (select, clearOther)
+    // (select, clearOther)
+    node?.setSelected?.(true, true); 
+
     finish();
   };
 
