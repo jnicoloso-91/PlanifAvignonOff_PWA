@@ -735,13 +735,15 @@ main, .page-wrap {
 .ag-theme-quartz .ag-menu {
   z-index: 9999 !important;
 }
+.ag-popup, .ag-rich-select, .ag-tooltip {
+  z-index: 9999; /* au besoin */
+}
 
 /* Normal : overflow masqué pour un scroll performant */
 .ag-center-cols-viewport,
 .ag-body-viewport,
 .ag-root-wrapper-body {
   overflow: auto; /* ou hidden */
-  /* overflow: visible !important;  */
 }
 
 /* Assure que les popup menus des grilles ne soient pas masqués par la coloration des rows (pb notemment sur IPad */
