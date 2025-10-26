@@ -20,7 +20,10 @@ import { LieuRenderer } from './LieuRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 
+// ------------ DEBUG
 let currentGridInRefresh = null;
+// ------------ DEBUG
+
 let activitesAPI = null;
 
 // ===== Multi-grilles =====
@@ -734,11 +737,11 @@ function desiredPaneHeightForRows(pane, gridEl, api,  { nbRows=null, maxRows = 5
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
     } else {
-      log(`nb calculé: no autoresize`);
+      if (currentGridInRefresh === 'grid-programmables') log(`nb calculé: no autoresize`);
       return null;   // pas de resize auto
     }
   } else n = Math.min(maxRows, nbRows);
-  log(`nb calculé: ${n}`);
+  if (currentGridInRefresh === 'grid-programmables') log(`nb calculé: ${n}`);
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8: 0;
@@ -1960,7 +1963,10 @@ function buildColumnsActivitesProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    cellEditor: 'agSelectCellEditor',
+    // cellEditor: 'agSelectCellEditor',
+  cellEditor: 'agRichSelect' /* ou ton éditeur date */,
+  cellEditorPopup: true,                       // ← rend l’éditeur en popup
+  cellEditorPopupPosition: 'under',            // ← positionne proprement
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
       return { values: values.map(String), valueListMaxHeight: 300 };   // 👈 must be an array
@@ -2164,8 +2170,28 @@ function gridOptionsCommon(gridId, el) {
       return { '--day-bg': bg, 'color': c };
     },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
-    onCellEditingStarted: (p) => document.body.classList.add('ag-overflow-visible'),
-    onCellEditingStopped: (p) => document.body.classList.remove('ag-overflow-visible'),
+    // onCellEditingStarted: (p) => {
+    //   // document.body.classList.add('ag-overflow-visible')
+
+    //   // const gridId = p.context?.gridId;
+    //   // const api = grids.get(gridId)?.api;// || p.api;
+    //   // const root = api.getGui();
+
+    //   const root = p.api.gridBodyCtrl?.eBodyViewport?.closest('.ag-root') ||
+    //                   document.querySelector('.ag-root');
+    //   root.classList.add('ag-overflow-visible')
+    // },
+    // onCellEditingStopped: (p) => {
+    //   // document.body.classList.remove('ag-overflow-visible')
+
+    //   // const gridId = p.context?.gridId;
+    //   // const api = grids.get(gridId)?.api;// || p.api;
+    //   // const root = api.getGui();
+
+    //   const root = p.api.gridBodyCtrl?.eBodyViewport?.closest('.ag-root') ||
+    //                   document.querySelector('.ag-root');
+    //   root.classList.remove('ag-overflow-visible')
+    // },
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
@@ -2457,6 +2483,7 @@ async function refreshGrid(gridId) {
   if (!h) return;
 
   log(`RefreshGrid ${gridId}`);
+  currentGridInRefresh = gridId;
 
   const api = h.api;
 
