@@ -697,27 +697,8 @@ main, .page-wrap {
   --ag-cell-focus-border: none;
 }
 
-/* Belt & suspenders: nuke any remaining outline/box-shadow */
-.ag-theme-quartz .ag-cell-focus,
-.ag-theme-quartz .ag-cell:focus,
-.ag-theme-quartz .ag-cell:focus-within,
-.ag-theme-quartz .ag-cell.ag-cell-inline-editing {
-  outline: none !important;
-  box-shadow: none !important;
-  border-color: transparent !important;
-}
-
-/* s'assure que le popup s’affiche au-dessus de tout */
-.ag-theme-quartz .ag-popup,
-.ag-theme-quartz .ag-select-popup,
-.ag-theme-quartz .ag-rich-select,
-.ag-theme-quartz .ag-menu {
-  z-index: 9999 !important;
-}
-
 /* iOS tap highlight */
 .ag-theme-quartz { -webkit-tap-highlight-color: transparent; }
-
 
 /* Sélection de row : hachurée translucide au-dessus du fond coloré */
 .ag-theme-quartz.compact {
@@ -737,11 +718,29 @@ main, .page-wrap {
   );
 }
 
+/* Nuke any remaining outline/box-shadow */
+.ag-theme-quartz .ag-cell-focus,
+.ag-theme-quartz .ag-cell:focus,
+.ag-theme-quartz .ag-cell:focus-within,
+.ag-theme-quartz .ag-cell.ag-cell-inline-editing {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* s'assure que le popup s’affiche au-dessus de tout */
+.ag-theme-quartz .ag-popup,
+.ag-theme-quartz .ag-select-popup,
+.ag-theme-quartz .ag-rich-select,
+.ag-theme-quartz .ag-menu {
+  z-index: 9999 !important;
+}
+
 /* Normal : overflow masqué pour un scroll performant */
 .ag-center-cols-viewport,
 .ag-body-viewport,
 .ag-root-wrapper-body {
-  overflow: auto; /* ou hidden */
+  overflow: hidden; /* ou hidden */
   /* overflow: visible !important;  */
 }
 

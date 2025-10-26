@@ -20,6 +20,7 @@ import { LieuRenderer } from './LieuRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 
+let currentGridInRefresh = null;
 let activitesAPI = null;
 
 // ===== Multi-grilles =====
