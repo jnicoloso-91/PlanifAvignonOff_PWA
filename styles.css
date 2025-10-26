@@ -762,12 +762,12 @@ main, .page-wrap {
   pointer-events: none;        /* pas d'interception */
 }
 /* Inline editing (dans la cellule) */
-/* .ag-cell-inline-editing, */
-/* .ag-cell-inline-editing .ag-input-field-input, */
-/* .ag-cell-inline-editing .ag-cell-editor { */
-/*  position: relative;          /* crée un stacking context local */
-/*  z-index: 3;                  /* au-dessus du z-index:0 des overlays */
-/* } */
+.ag-cell-inline-editing,
+.ag-cell-inline-editing .ag-input-field-input,
+.ag-cell-inline-editing .ag-cell-editor {
+  position: relative;          /* crée un stacking context local */
+  z-index: 3;                  /* au-dessus du z-index:0 des overlays */
+}
 
 /* Popups (rich select, menus, tooltips) */
 /* .ag-popup, */
