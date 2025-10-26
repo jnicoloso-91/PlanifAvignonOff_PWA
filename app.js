@@ -705,7 +705,7 @@ function visibleRowsInPane(pane, gridEl){
 }
 
 // Calcul de la hauteur idéale : on ne dépasse pas rowCount et on autosize si rowCount < 5
-function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, maxRows = 5 } = {}) {
+function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!gridEl) return null;
 
   // header
@@ -729,22 +729,22 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, max
 
   // nb à prendre en compte : min(displayed, 5) ; si vide et tu veux ~1,5 ligne visible, mets 1.5
   // const n = Math.min(displayed, maxRows);
-  let n = 0;
+  let n = Math.min(maxRows, nbRows);
   if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-    } else if (nbRows <= h.nbRowsPred) {
+    } else if (nbRows <= nbRowsPred) {
 
       // if (gridId === 'grid-programmables') {
-      //   logToPage(`nb calculé pour grid-programmables: no autoresize`);
+      //   logToPage(`nb calculé pour grid-programmables: no autoresize nbRows: ${nbRows} nbRowsPred: ${nbRowsPred}`);
       // }
 
       return null;        // pas de resize auto
     }
-  } else n = Math.min(maxRows, nbRows);
+  } 
 
   // if (gridId === 'grid-programmables') {
-  //   logToPage(`nb calculé pour grid-programmables: ${n} nbRows: ${nbRows}`);
+  //   logToPage(`nb calculé pour grid-programmables: ${n} nbRows: ${nbRows} nbRowsPred: ${nbRowsPred}`);
   // }
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
@@ -755,7 +755,7 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, max
 }
 
 // Retaille en fonction du row count
-function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, maxRows = 5 } = {}) {
+function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!pane || !gridEl) return;
 
   const exp = pane.closest('.st-expander');
@@ -764,7 +764,7 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, max
   const userSized = pane.dataset.userSized === '1';
 
   // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
-  const h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows,  maxRows });
+  const h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows, nbRowsPred,  maxRows });
   if (h == null) return;
 
   pane.dataset.maxContentHeight = String(h);
@@ -1166,7 +1166,7 @@ async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paint
   const cssEscape = (window.CSS && CSS.escape) ? CSS.escape : (s) => String(s).replace(/["\\#:.%]/g, '\\$&');
 
   const h = grids.get(gridId);
-  if (!h || !uuid) return { api: null, node: null, rowEl: null, el: h?.el || null, nbRowsPred: null };
+  if (!h || !uuid) return { api: null, node: null, rowEl: null, el: h?.el || null }; //, nbRowsPred: null };
 
   const api = h.api;
   let node = null;
@@ -1929,7 +1929,8 @@ function addExpanderButtons() {
 // ===== Builders de colonnes de grilles =====
 // Colonnes des grilles d'activités programmées et non programmées
 function buildColumnsActivitesCommon(){
-  let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 90;
+  let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 80;
+  let widthSR = window.matchMedia("(max-width: 750px)").matches ? 70 : 90;
   return [
     { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
       valueFormatter:p=>dateintToPretty(p.value),
@@ -1942,16 +1943,17 @@ function buildColumnsActivitesCommon(){
         return ma-mb;
       }
     },
-    { field:'Activite', headerName: 'Activité', minWidth:200, flex:1, cellRenderer: ActiviteRenderer },
+    { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
-    { field:'Fin',   width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
-    { field:'Lieu',  minWidth:160, flex:1, cellRenderer: LieuRenderer },
-    { field:'Sessions', headerName: 'Sessions', minWidth:60, flex:.5, valueParser: valueParserSessions },
-    { field:'Relaches', headerName: 'Relâches', minWidth:60, flex:.5, valueParser: valueParserRelaches },
-    { field:'Style', headerName: 'Style', minWidth:60, flex:.5, valueParser: valueParserRelaches },
-    { field:'Reserve', headerName: 'Réservé', minWidth:60, flex:.5, valueParser: valueParserReserve },
-    { field:'Priorite', headerName: 'Priorité',minWidth:50, flex:.42, valueParser: valueParserNumerique },
-    { field:'Hyperlien', minWidth:120, flex:2 }
+    { field:'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
+    { field:'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
+    { field:'Sessions', headerName: 'Sessions', width:widthSR, minWidth:widthSR, valueParser: valueParserSessions },
+    { field:'Relaches', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelaches },
+    { field:'Style', headerName: 'Style', minWidth:100, flex:0.6 },
+    { field:'Orga', headerName: 'Orga', width, minWidth:width },
+    { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
+    { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique },
+    { field:'Hyperlien', minWidth:120, flex:1 }
   ];
 }
 
@@ -2449,7 +2451,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   const api = window.agGrid.createGrid(el, gridOptions);
   autoOpenSelectOnEdit(api);
   el.__agApi = api; // ⟵ pour retrouver l’API depuis le pane
-  const handle = { id: gridId, el, api, loader, columnsBuilder, nbRowsPred: null };
+  const handle = { id: gridId, el, api, loader, columnsBuilder }; //, nbRowsPred: null };
   grids.set(gridId, handle);
   if (!activeGridId) setActiveGrid(gridId);
   return handle;
@@ -2470,18 +2472,17 @@ async function refreshGrid(gridId) {
 
   const api = h.api;
 
-  // 0.0) mémorise la sélection actuelle (par __uuid)
+  // 0) mémorise la sélection actuelle (par __uuid)
   let prevUuid = null;
   try {
     const prevSel = api.getSelectedRows?.() || [];
     prevUuid = prevSel[0]?.__uuid ?? null;
   } catch {}
 
-  // 0.1) mémorise le nbRows avant rechargement des données pour le calcul de hauteur fait ulterieurement par autoSizePanelFromRowCount
-  h.nbRowsPred = api.getGridOption('rowData')?.length;
-
   // 1) recharge les données
+  const nbRowsPred = api.getGridOption('rowData')?.length;
   const rows = await h.loader?.();
+  const nbRows = rows.length;
 
   // if (gridId == 'grid-programmables') {
   //   logToPage(`refreshGrid: nbRows ${rows.length}`);
@@ -2503,7 +2504,8 @@ async function refreshGrid(gridId) {
 
     // autosize pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
-    autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:api.getGridOption('rowData').length});
+    // autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:api.getGridOption('rowData').length, nbRowsPred:nbRowsPred });
+    autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:nbRows, nbRowsPred:nbRowsPred });
   };
 
 // function selectRowSilently(api, rowNode) {
