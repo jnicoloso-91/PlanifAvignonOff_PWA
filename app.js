@@ -2483,7 +2483,9 @@ async function refreshGrid(gridId) {
   // 1) recharge les données
   const rows = await h.loader?.();
 
-  if (gridId == 'grid-programmables') logToPage(`refreshGrid: nbRows ${rows.length}`);
+  // if (gridId == 'grid-programmables') {
+  //   logToPage(`refreshGrid: nbRows ${rows.length}`);
+  // }
 
   api.setGridOption?.('rowData', rows || []);
 
