@@ -20,10 +20,6 @@ import { LieuRenderer } from './LieuRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 
-// ------------ DEBUG
-let currentGridInRefresh = null;
-// ------------ DEBUG
-
 let activitesAPI = null;
 
 // ===== Multi-grilles =====
@@ -98,13 +94,14 @@ function logToPage(...args) {
     el.style.width = '100%';
     el.style.maxHeight = '40vh';
     el.style.overflowY = 'auto';
-    el.style.background = 'rgba(0,0,0,0.75)';
+    el.style.background = 'rgba(0,0,0,0.5)';
     el.style.color = '#0f0';
     el.style.fontSize = '11px';
     el.style.fontFamily = 'monospace';
     el.style.padding = '4px 6px';
     el.style.zIndex = '9999';
     el.style.whiteSpace = 'pre-wrap';
+    el.style.pointerEvents = 'none';
     document.body.appendChild(el);
   }
   el.textContent += args.map(a => 
@@ -708,7 +705,7 @@ function visibleRowsInPane(pane, gridEl){
 }
 
 // Calcul de la hauteur idéale : on ne dépasse pas rowCount et on autosize si rowCount < 5
-function desiredPaneHeightForRows(pane, gridEl, api,  { nbRows=null, maxRows = 5 } = {}) {
+function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, maxRows = 5 } = {}) {
   if (!gridEl) return null;
 
   // header
@@ -737,11 +734,13 @@ function desiredPaneHeightForRows(pane, gridEl, api,  { nbRows=null, maxRows = 5
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
     } else {
-      if (currentGridInRefresh === 'grid-programmables') log(`nb calculé: no autoresize`);
+      if (gridId === 'grid-programmables') logToPage(`nb calculé pour grid-programmables: no autoresize (displayed < nbRows && nbRows > 5)`);
+      // log(`nb calculé: no autoresize`);
       return null;   // pas de resize auto
     }
   } else n = Math.min(maxRows, nbRows);
-  if (currentGridInRefresh === 'grid-programmables') log(`nb calculé: ${n}`);
+  if (gridId === 'grid-programmables') logToPage(`nb calculé pour grid-programmables: ${n}`);
+  // log(`nb calculé: ${n}`);
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8: 0;
@@ -751,7 +750,7 @@ function desiredPaneHeightForRows(pane, gridEl, api,  { nbRows=null, maxRows = 5
 }
 
 // Retaille en fonction du row count
-function autoSizePanelFromRowCount(pane, gridEl, api, { nbRows=null, maxRows = 5 } = {}) {
+function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, maxRows = 5 } = {}) {
   if (!pane || !gridEl) return;
 
   const exp = pane.closest('.st-expander');
@@ -760,7 +759,7 @@ function autoSizePanelFromRowCount(pane, gridEl, api, { nbRows=null, maxRows = 5
   const userSized = pane.dataset.userSized === '1';
 
   // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
-  const h = desiredPaneHeightForRows(pane, gridEl, api, { nbRows,  maxRows });
+  const h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows,  maxRows });
   if (h == null) return;
 
   pane.dataset.maxContentHeight = String(h);
@@ -2460,7 +2459,6 @@ async function refreshGrid(gridId) {
   if (!h) return;
 
   log(`RefreshGrid ${gridId}`);
-  currentGridInRefresh = gridId;
 
   const api = h.api;
 
@@ -2504,7 +2502,7 @@ async function refreshGrid(gridId) {
 
     // auto-taille pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
-    autoSizePanelFromRowCount(pane, h.el, api, { nbRows:rows.length});
+    autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:rows.length});
   };
 
   const selectAfterPaint = () => {
@@ -6231,5 +6229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // appJustLaunched = false;
 
   console.log('✅ Application initialisée');
+
+  // Pour DEBUG
   // logToPage('✅ Application initialisée');
 });
