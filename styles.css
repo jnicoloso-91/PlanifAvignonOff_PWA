@@ -770,14 +770,14 @@ main, .page-wrap {
 }
 
 /* Popups (rich select, menus, tooltips) */
-/* .ag-popup, */
-/* .ag-popup-editor, */
-/* .ag-rich-select, */
-/* .ag-rich-select-list, */
-/* .ag-menu, */
-/* .ag-tooltip { */
-/*  z-index: 99999 !important;   /* au-dessus de tout */
-/*}
+.ag-popup,
+.ag-popup-editor,
+.ag-rich-select,
+.ag-rich-select-list,
+.ag-menu,
+.ag-tooltip {
+  z-index: 99999 !important;   /* au-dessus de tout */
+ }
 /* DEBUG IPad */
 
 
