@@ -2498,7 +2498,7 @@ async function refreshGrid(gridId) {
 
     // autosize pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
-    autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:rows.length});
+    autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:api.getGridOption('rowData').length});
   };
 
 // function selectRowSilently(api, rowNode) {
