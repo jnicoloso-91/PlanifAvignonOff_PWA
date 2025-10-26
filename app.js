@@ -735,17 +735,17 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, max
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
     } else if (nbRows <= h.nbRowsPred) {
 
-      if (gridId === 'grid-programmables') {
-        logToPage(`nb calculé pour grid-programmables: no autoresize`);
-      }
+      // if (gridId === 'grid-programmables') {
+      //   logToPage(`nb calculé pour grid-programmables: no autoresize`);
+      // }
 
       return null;        // pas de resize auto
     }
   } else n = Math.min(maxRows, nbRows);
 
-  if (gridId === 'grid-programmables') {
-    logToPage(`nb calculé pour grid-programmables: ${n} nbRows: ${nbRows}`);
-  }
+  // if (gridId === 'grid-programmables') {
+  //   logToPage(`nb calculé pour grid-programmables: ${n} nbRows: ${nbRows}`);
+  // }
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8: 0;
@@ -2370,7 +2370,7 @@ function onCreneauxSelectionChanged(){
   const sel = g.api.getSelectedRows?.() || [];
   selectedSlot = sel[0] || null;
 
-  logToPage(`onCreneauxSelectionChanged: selection ${sel}`);
+  // logToPage(`onCreneauxSelectionChanged: selection ${sel}`);
 
   // rafraîchir la grille 4 (programmables)
   refreshGrid('grid-programmables');
@@ -2540,9 +2540,9 @@ async function refreshGrid(gridId) {
     node?.setSelected?.(true, true);
     // selectRowSilently (api, node);
 
-    if (gridId === 'grid-creneaux') {
-      logToPage(`SELECTAFTERPAINT: node ${node}`);
-    }
+    // if (gridId === 'grid-creneaux') {
+    //   logToPage(`SELECTAFTERPAINT: node ${node}`);
+    // }
 
     finish();
   };
