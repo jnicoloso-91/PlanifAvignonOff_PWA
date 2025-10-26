@@ -3313,7 +3313,10 @@ function wireExpanderSplitters() {
 
       // marge depuis le bas pour déclencher l’auto-grow
       const safeInset =  Math.max(0, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0', 10)) || 0;
-      const MARGIN = 16 + safeInset; // px au-dessus du bas de l’écran
+      // const MARGIN = 16 + safeInset; // px au-dessus du bas de l’écran
+      const bottomBar = document.getElementById('bottomBar');
+      const bottomBarHeight = bottomBar?.offsetHeight || 0;
+      const MARGIN = bottomBarHeight + safeInset; // px au-dessus du bas de l’écran
       const nearBottom = clientY >= (window.innerHeight - MARGIN);
 
       if (nearBottom && !autoGrowActive) {
