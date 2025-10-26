@@ -1959,12 +1959,6 @@ function buildColumnsActivitesProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    // onCellEditingStarted() {
-    //   document.body.classList.add('ag-overflow-visible');
-    // },
-    // onCellEditingStopped() {
-    //   document.body.classList.remove('ag-overflow-visible');
-    // },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteProgrammee(p.data) || [];
@@ -2004,12 +1998,6 @@ function buildColumnsActivitesNonProgrammees() {
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
-    // onCellEditingStarted() {
-    //   document.body.classList.add('ag-overflow-visible');
-    // },
-    // onCellEditingStopped() {
-    //   document.body.classList.remove('ag-overflow-visible');
-    // },
     cellEditor: 'agSelectCellEditor',
     cellEditorParams: (p) => {
       const values = activitesAPI.getOptionsDateForActiviteNonProgrammee(p.data) || [];
@@ -2175,6 +2163,8 @@ function gridOptionsCommon(gridId, el) {
       return { '--day-bg': bg, 'color': c };
     },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
+    onCellEditingStarted: (p) => document.body.classList.add('ag-overflow-visible'),
+    onCellEditingStopped: (p) => document.body.classList.remove('ag-overflow-visible'),
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
