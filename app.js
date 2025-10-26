@@ -2212,7 +2212,7 @@ const gridOptionsActivitesNonProgrammees = {
 }
 
 const gridOptionsCreneaux = {
-  onSelectionChanged: () => onCreneauxSelectionChanged(),
+  onSelectionChanged: (e) => onCreneauxSelectionChanged(e),
 }
 
 const gridOptionsActivitesProgrammables = {
@@ -2363,7 +2363,8 @@ async function onNonProgGridDateCommitted(params) {
   dropRowFromSrcGridToDstGrid('grid-non-programmees', 'grid-programmees', 'exp-programmees', uuidVoisin, uuid, scroll=true);
 }
 
-function onCreneauxSelectionChanged(){
+function onCreneauxSelectionChanged(e){
+  if (e.source === 'programmatic') return; // ignorer les sélections internes
   const g = grids.get('grid-creneaux');
   if (!g?.api) return;
   const sel = g.api.getSelectedRows?.() || [];
@@ -2497,6 +2498,18 @@ async function refreshGrid(gridId) {
     autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:rows.length});
   };
 
+function selectRowSilently(api, rowNode) {
+  if (!rowNode) return;
+  api.setNodesSelected({
+    nodes: [rowNode],
+    newValue: true,
+    clearSelection: true,
+    source: 'programmatic'
+  });
+  // on peut ensuite émettre un event manuel si besoin
+  // queueMicrotask(() => api.dispatchEvent({ type: 'selectionChanged', source: 'manual' }));
+}
+
   const selectAfterPaint = () => {
     // si déjà sélectionné (préservé via getRowId) -> ne rien faire
     const already = api.getSelectedNodes?.();
@@ -2516,7 +2529,12 @@ async function refreshGrid(gridId) {
     }
 
     // (select, clearOther)
-    node?.setSelected?.(true, true); 
+    // node?.setSelected?.(true, true);
+    selectRowSilently (api, node);
+
+    if (gridId === 'grid-creneaux') {
+      logToPage(`selectAfterPaint: node ${node}`);
+    }
 
     finish();
   };
