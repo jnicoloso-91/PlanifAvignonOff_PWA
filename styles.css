@@ -753,6 +753,33 @@ main, .page-wrap {
   overflow: visible !important;
 }
 
+/* DEBUG IPad */
+/* Ta coloration de ligne : garder mais passer en dessous de tout */
+.ag-row::before,
+.ag-row::after,
+.ag-row .row-overlay {
+  z-index: 0 !important;      /* clé n°1 : sous les éditeurs */
+  pointer-events: none;        /* pas d'interception */
+}
+/* Inline editing (dans la cellule) */
+.ag-cell-inline-editing,
+.ag-cell-inline-editing .ag-input-field-input,
+.ag-cell-inline-editing .ag-cell-editor {
+  position: relative;          /* crée un stacking context local */
+  z-index: 3;                  /* au-dessus du z-index:0 des overlays */
+}
+
+/* Popups (rich select, menus, tooltips) */
+.ag-popup,
+.ag-popup-editor,
+.ag-rich-select,
+.ag-rich-select-list,
+.ag-menu,
+.ag-tooltip {
+  z-index: 99999 !important;   /* au-dessus de tout */
+}/* DEBUG IPad */
+
+
 /* Dans les grilles : autoriser le pan vertical, bloquer le pan horizontal
    → le swipe du pager ne se déclenchera pas depuis la grille */
 /* .ag-root,
