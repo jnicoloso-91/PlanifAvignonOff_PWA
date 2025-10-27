@@ -18,8 +18,10 @@ import {
   parseAvignonOffSpecPageText, 
   parseAvignonOffSpecPageHtml, 
   parseAvignonOffCatPageText,
+  parseAvignonInCatPageText,
   isAvignonOffCatPageText,
   isAvignonOffSpecPageText,
+  isAvignonInCatPageText,
 } from './parsers.js';
 
 let _ctx = null;
@@ -337,38 +339,53 @@ export function creerActivitesAPI(ctx) {
      * @param {*} df  -> utilisé pour créer un nom d'activité unique qui ne soit pas déja alloué dans df
      * @returns nouvelleActivite
      */
-    async creerActivitesParCollage(df) {
+    async creerActivitesParCollage(df, parser=null) {
       let raw = null;
       try { raw = await _getClipBoardText(); } catch {}
 
       let parsed = null;
-      if (_looksLikeUrl(raw)) { 
-        if (raw.includes("www.festivaloffavignon.com/spectacles")) {
-          try {
-            const html = await _fetchViaAllOrigins(raw);
-            parsed = parseAvignonOffSpecPageHtml(html);
-            parsed.Hyperlien = raw;
-          } catch (err) {
-            console.error('fetch failed', err);
-            alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
+
+      if (!parser) {
+        if (_looksLikeUrl(raw)) { 
+          if (raw.includes("www.festivaloffavignon.com/spectacles")) {
+            try {
+              const html = await _fetchViaAllOrigins(raw);
+              parsed = parseAvignonOffSpecPageHtml(html);
+              parsed.Hyperlien = raw;
+            } catch (err) {
+              console.error('fetch failed', err);
+              alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
+              parsed = [{...PARSED_DEFAULT}];
+            }
+          } else {
             parsed = [{...PARSED_DEFAULT}];
           }
         } else {
-          parsed = [{...PARSED_DEFAULT}];
+          switch (true) {
+            case isAvignonOffSpecPageText(raw):
+              parsed = parseAvignonOffSpecPageText(raw);
+              break;
+            case isAvignonOffCatPageText(raw):
+              parsed = parseAvignonOffCatPageText(raw);
+              break;
+            case isAvignonInCatPageText(raw):
+              parsed = parseAvignonInCatPageText(raw);
+              break;
+            default:
+              parsed = [{...PARSED_DEFAULT}];
+          }
         }
       } else {
-        switch (true) {
-          case isAvignonOffSpecPageText(raw):
-            parsed = parseAvignonOffSpecPageText(raw);
-            break;
-          case isAvignonOffCatPageText(raw):
-            parsed = parseAvignonOffCatPageText(raw);
-            break;
-          default:
-            parsed = [{...PARSED_DEFAULT}];
+        if (parser == 'parseAvignonOffCatPage') {
+          parsed = parseAvignonOffCatPageText(raw);
+        } else if (parser == 'parseAvignonInCatPage') {
+          parsed = parseAvignonInCatPageText(raw);
+        } 
+        if (Object.values(parsed).every(v => v == null)) {
+          alert('Aucune valeur valide à coller. Commencer par aller dans le catalogue, afficher le programme et copier le texte de la page');
         }
       }
-      
+
       const nouvellesActivites = [];
       if (!parsed) parsed = [{...PARSED_DEFAULT}];
 

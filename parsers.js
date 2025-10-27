@@ -287,7 +287,7 @@ export function parseAvignonOffSpecPageHtml(html, { url=null } = {}) {
 }
 
 /**
- * Parse le texte brut des pages catégorie Avignon Off.
+ * Parse le texte brut de la page catalogue Avignon Off.
  * Recherche des séquences du type :
  *   Affiche du spectacle : <Titre>
  *   <Titre>                (parfois répété)
@@ -297,250 +297,6 @@ export function parseAvignonOffSpecPageHtml(html, { url=null } = {}) {
  *
  * Renvoie: Array<{...PARSED_DEFAULT}>
  */
-// export function parseAvignonOffCatPageText(text) {
-//   if (!text) return [];
-
-//   // Normalisation douce : CRLF -> LF, trim des lignes
-//   const lines = String(text)
-//     .replace(/\r\n?/g, '\n')
-//     .split('\n')
-//     .map(l => l.replace(/\s+/g, ' ').trim());
-
-//   const results = [];
-//   const isAffiche = (s) => /affiche du spectacle\s*:?/i.test(s);
-//   const isEmpty = (s) => !s || s === '';
-
-//   for (let i = 0; i < lines.length; i++) {
-//     if (!isAffiche(lines[i])) continue;
-
-//     // ----- 1) ACTIVITÉ (titre)
-//     // Titre peut être sur la même ligne après ":" ou à la ligne suivante
-//     let activite = null;
-//     const mSameLine = lines[i].match(/affiche du spectacle\s*:?\s*(.+)$/i);
-//     if (mSameLine && mSameLine[1] && mSameLine[1].trim()) {
-//       activite = mSameLine[1].trim();
-//     }
-
-//     // Cherche la première ligne non vide suivante si pas trouvé (ou si doublon)
-//     let j = i + 1;
-//     while (!activite && j < lines.length && isEmpty(lines[j])) j++;
-//     if (!activite && j < lines.length) {
-//       activite = lines[j];
-//       j++;
-//     } else {
-//       // On saute la ligne suivante si elle répète le titre tel quel
-//       if (j < lines.length && lines[j] && activite && lines[j].toLowerCase() === activite.toLowerCase()) {
-//         j++;
-//       }
-//     }
-
-//     // ----- 2) LIEU + DATES + HEURE + DURÉE (sur une même ligne en général)
-//     // Exemple : "PETIT CHIEN (THÉÂTRE LE) du 5 au 26 19h05 1h10"
-//     // On accepte des variantes : accents, espaces, ordre souple pour HHhMM & HhMM.
-//     let lieu = null, debut = null, duree = null, sessions = null;
-
-//     // Avance jusqu’à la prochaine ligne non vide plausible
-//     while (j < lines.length && isEmpty(lines[j])) j++;
-
-//     if (j < lines.length) {
-//       const line = lines[j];
-
-//       // Détection "du X au Y" (X,Y = 1..31) – assez permissif
-//       // On capture le lieu avant " du " ; on cherche ensuite heure et durée n’importe où.
-//       const duAu = line.match(/\bdu\s+(\d{1,2})\b.*?\bau\s+(\d{1,2})\b/i);
-//       // Heure type 19h05
-//       const mHeure = line.match(/\b(\d{1,2}h\d{2})\b/);
-//       // Durée type 1h10 (on prend la *deuxième* occurrence h/mm si deux h:mm sur la ligne)
-//       const hTokens = [...line.matchAll(/\b(\d{1,2}h\d{2})\b/g)].map(x => x[1]);
-
-//       // Lieu = tout avant " du " si présent, sinon la ligne jusqu’à l’heure
-//       let lieuCandidate = line;
-//       const idxDu = line.toLowerCase().indexOf(' du ');
-//       if (idxDu > 0) {
-//         lieuCandidate = line.slice(0, idxDu).trim();
-//       } else if (mHeure) {
-//         lieuCandidate = line.slice(0, line.indexOf(mHeure[0])).trim();
-//       }
-//       if (lieuCandidate) lieu = lieuCandidate;
-
-//       if (mHeure) {
-//         // S'il y a deux h:mm, on suppose 1) heure début, 2) durée
-//         if (hTokens.length >= 2) {
-//           debut = hTokens[0];
-//           duree = hTokens[1];
-//         } else {
-//           debut = mHeure[1];
-//           // Durée absente : on laisse à null
-//         }
-//       }
-
-//       if (duAu) {
-//         const d1 = _pad3(duAu[1]);
-//         const d2 = _pad3(duAu[2]);
-//         // Par convention Off : juillet → "/07"
-//         sessions = `[${d1}-${d2}]/07`;
-//       }
-
-//       j++;
-//     }
-
-//     // ----- 3) STYLE : ligne suivante non vide qui n’est pas un mot-clé (Ticket'Off, etc.)
-//     let style = null;
-//     while (j < lines.length && isEmpty(lines[j])) j++;
-//     if (j < lines.length) {
-//       const cand = lines[j];
-//       if (!/^ticket'?off\b/i.test(cand) && !isAffiche(cand)) {
-//         style = cand;
-//         j++;
-//       }
-//     }
-
-//     // (Relâches, Hyperlien : non fournis dans l’exemple → null)
-//     const item = {
-//       ...PARSED_DEFAULT,
-//       Activite: activite || null,
-//       Debut: debut || null,
-//       Duree: duree || null,
-//       Lieu: lieu || null,
-//       Sessions: sessions || null,
-//       Relaches: null,
-//       Style: style || null,
-//       Hyperlien: null
-//     };
-
-//     // Ajoute l’item si on a au moins un titre ou un lieu détecté
-//     if (item.Activite || item.Lieu) {
-//       results.push(item);
-//     }
-
-//     // Continue la boucle principale à partir de j (mais i++ reprendra de toute façon)
-//     // On n’avance pas i ici pour rester simple; coût négligeable.
-//   }
-
-//   return results;
-// }
-
-// export function parseAvignonOffCatPageText(text) {
-//   if (!text) return [];
-//   const lines = String(text).replace(/\r\n?/g, '\n').split('\n').map(l => l.trim());
-//   const results = [];
-//   const reAffiche = /affiche du spectacle\b/i;
-//   const reDuAu = /\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i;
-
-//   for (let i = 0; i < lines.length; i++) {
-//     if (!reAffiche.test(lines[i])) continue;
-
-//     // --- 1) ACTIVITÉ : toujours la 1re ligne non vide APRÈS "Affiche du spectacle ..."
-//     let j = i + 1;
-//     while (j < lines.length && !lines[j]) j++;
-//     if (j >= lines.length) continue;
-
-//     const activite = _stripQuotes(lines[j]);
-//     const activiteN = _norm(activite);
-//     j++; // avance après le titre
-
-//     // --- 2) SAUTER les lignes qui répètent/étendent le titre (ex: Titre "sous-titre")
-//     while (j < lines.length) {
-//       const l = lines[j];
-//       if (!l) { j++; continue; }
-//       const lN = _norm(_stripQuotes(l));
-//       if (lN === activiteN || lN.startsWith(activiteN + ' ')) { j++; continue; }
-//       break;
-//     }
-
-//     // --- 3) LIEU + DATES + HEURE/DURÉE (chercher la prochaine ligne contenant "du <d1> au <d2>")
-//     let lieu = null, debut = null, duree = null, sessions = null;
-//     let k = j, foundIdx = -1;
-//     const mmToHHhMM = (mins) => {
-//       const m = Math.max(0, Number(mins) || 0);
-//       const hh = Math.floor(m / 60);
-//       const mm = m % 60;
-//       return `${String(hh).padStart(1, '0')}h${String(mm).padStart(2, '0')}`;
-//     };
-
-//     for (; k < lines.length; k++) {
-//       const l = lines[k];
-//       if (!l) continue;
-//       if (reAffiche.test(l)) break; // nouveau bloc → stop
-//       if (reDuAu.test(l)) { foundIdx = k; break; }
-//     }
-//     if (foundIdx !== -1) {
-//       const l = lines[foundIdx];
-
-//       // Lieu = tout avant " du "
-//       const idxDu = l.toLowerCase().indexOf(' du ');
-//       lieu = (idxDu > 0 ? l.slice(0, idxDu) : l).trim();
-
-//       // Sessions [DD-DD]/07 (ou branche vers extractPeriodeJouee si tu veux le mois réel)
-//       const mDates = l.match(reDuAu);
-//       if (mDates) {
-//         const d1 = _pad3(+mDates[1]);
-//         const d2 = _pad3(+mDates[2]);
-//         sessions = `[${d1}-${d2}]/07`;
-//       }
-
-//       // Heures & Durée
-//       //  - hTokens : "14h55", "1h20" …
-//       //  - mTokens : "55min", "75 min", "90mins" …
-//       const hTokens = [...l.matchAll(/\b(\d{1,2})h(\d{2})\b/gi)]
-//         .map(m => ({ t: `${m[1].padStart(2,'0')}h${m[2]}`, idx: m.index }));
-//       const mTokens = [...l.matchAll(/\b(\d{1,3})\s*m(?:in)?s?\b/gi)]
-//         .map(m => ({ mins: Number(m[1]), idx: m.index }));
-
-//       // Début = 1er token "HHhMM" rencontré
-//       if (hTokens.length >= 1) {
-//         debut = hTokens[0].t;
-//       }
-
-//       // Durée : priorité au 2e "hToken" après l'heure de début, sinon à un "minToken" après
-//       if (debut) {
-//         const startIdx = hTokens[0].idx ?? 0;
-//         const durH = hTokens.find((x, i) => i > 0 && x.idx > startIdx);
-//         if (durH) {
-//           duree = durH.t; // ex. "1h20"
-//         } else {
-//           const durM = mTokens.find(x => x.idx > startIdx) || mTokens[0];
-//           if (durM) duree = mmToHHhMM(durM.mins);
-//         }
-//       } else {
-//         // Cas très rare : pas d'heure de début trouvée mais une durée en minutes présente
-//         if (mTokens.length) {
-//           duree = mmToHHhMM(mTokens[0].mins);
-//         }
-//       }
-
-//       j = foundIdx + 1;
-//     }
-
-//     // --- 4) STYLE : 1re ligne non vide qui suit (hors Ticket'Off / nouveau bloc)
-//     let style = null;
-//     while (j < lines.length) {
-//       const l = lines[j];
-//       if (!l) { j++; continue; }
-//       if (/^ticket'?off\b/i.test(l)) { j++; continue; }
-//       if (reAffiche.test(l)) break;
-//       style = l;
-//       j++;
-//       break;
-//     }
-
-//     results.push({
-//       ...PARSED_DEFAULT,
-//       Activite: activite || null,
-//       Debut: debut || null,
-//       Duree: duree || null,
-//       Lieu: lieu || null,
-//       Sessions: sessions || null,
-//       Relaches: null,
-//       Style: style || null,
-//       Hyperlien: null
-//     });
-//   }
-
-//   return results;
-// }
-
-
 export function parseAvignonOffCatPageText(text) {
   if (!text) return [];
   const rawLines = String(text).replace(/\r\n?/g, '\n').split('\n');
@@ -595,9 +351,121 @@ export function parseAvignonOffCatPageText(text) {
   return out;
 }
 
+/**
+ * Parse le texte brut de la page catalogue Avignon In.
+ * @param {*} text 
+ * @returns 
+ */
+export function parseAvignonInCatPageText(text) {
+  if (!text) return [];
+
+  // ---- Découpage en blocs (entre 2 lignes "Archive YYYY") ----
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n'); // on garde les lignes vides
+  const reArchive = /^archive\s+\d{4}$/i;
+
+  // indices des lignes "Archive YYYY"
+  const archIdx = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (reArchive.test(lines[i]?.trim())) archIdx.push(i);
+  }
+  if (!archIdx.length) return [];
+
+  const results = [];
+
+  for (let a = 0; a < archIdx.length; a++) {
+    const endIdx = archIdx[a];                        // position de "Archive YYYY"
+    const startIdx = (a > 0 ? archIdx[a - 1] + 1 : 0); // début de bloc = après l'archive précédente
+
+    // extrait les lignes du bloc (sans l'archive de fin)
+    const block = lines.slice(startIdx, endIdx);
+
+    // indices des lignes non vides du bloc
+    const nonEmptyIdx = [];
+    for (let i = 0; i < block.length; i++) {
+      if (_isNonEmpty(block[i])) nonEmptyIdx.push(i);
+    }
+    if (nonEmptyIdx.length < 3) continue; // bloc trop court pour être fiable
+
+    // --- TITRE : première non-vide du bloc ---
+    const iTitre = nonEmptyIdx[0];
+    const Activite = _stripQuotes(block[iTitre]);
+
+    // --- DATES : chercher depuis le bas la 1re ligne qui parse comme dates ---
+    let iDate = -1, Sessions = null;
+    for (let k = nonEmptyIdx.length - 1; k >= 0; k--) {
+      const idx = nonEmptyIdx[k];
+      const parsed = _parseDates(block[idx]);
+      if (parsed && parsed.sessions) {
+        iDate = idx;
+        Sessions = parsed.sessions;
+        break;
+      }
+    }
+    if (iDate < 0) continue; // sans dates, on ignore le bloc
+
+    // --- LIEU : 1re non-vide **sous** la ligne des dates ---
+    let iLieu = -1;
+    for (let i = iDate + 1; i < block.length; i++) {
+      if (_isNonEmpty(block[i])) { iLieu = i; break; }
+    }
+    if (iLieu < 0) continue;
+    const Lieu = block[iLieu].trim();
+
+    // --- DURÉE (optionnelle) : d’abord sous le lieu (bas de bloc), sinon entre lieu et dates ---
+    let Duree = null;
+    // zone sous le lieu
+    for (let i = block.length - 1; i > iLieu; i--) {
+      const t = block[i]?.trim(); if (!t) continue;
+      const d = _parseDuree(t);
+      if (d) { Duree = d; break; }
+    }
+    // fallback entre lieu et dates (rare)
+    if (!Duree) {
+      for (let i = iLieu - 1; i > iDate; i--) {
+        const t = block[i]?.trim(); if (!t) continue;
+        const d = _parseDuree(t);
+        if (d) { Duree = d; break; }
+      }
+    }
+
+    // --- STYLE : remonter **au-dessus** des dates, ignorer "Avec ..." et les lignes longues ---
+    let iStyle = -1;
+    for (let i = iDate - 1; i >= 0; i--) {
+      const t = block[i];
+      if (!_isNonEmpty(t)) continue;
+      if (/^avec\b/i.test(t)) continue;
+      if (!_looksLikeStyle(t)) continue;
+      iStyle = i;
+      break;
+    }
+    // fallback : 1re non-vide au-dessus des dates si l'heuristique échoue
+    if (iStyle < 0) {
+      for (let i = iDate - 1; i >= 0; i--) {
+        if (_isNonEmpty(block[i])) { iStyle = i; break; }
+      }
+    }
+    const Style = iStyle >= 0 ? block[iStyle].trim() : null;
+
+    results.push({
+      ...PARSED_DEFAULT,
+      Activite,
+      Style,
+      Lieu,
+      Duree: Duree || null,
+      Sessions: Sessions || null,
+      Debut: null,
+      Relaches: null,
+      Orga: 'In',
+      Hyperlien: null
+    });
+  }
+
+  return results;
+}
+
 
 /**
- * Détermine si le texte correspond à une page CATEGORIE
+ * Détermine si le texte correspond à une page CATALOGUE du Off
  * (ex : "festival Off Avignon  > Programme")
  */
 export function isAvignonOffCatPageText(text) {
@@ -610,7 +478,7 @@ export function isAvignonOffCatPageText(text) {
 }
 
 /**
- * Détermine si le texte correspond à une page SPECTACLE
+ * Détermine si le texte correspond à une page SPECTACLE du Off
  * (ex : "festival Off Avignon  > Programme > Cache Cache")
  */
 export function isAvignonOffSpecPageText(text) {
@@ -622,6 +490,55 @@ export function isAvignonOffSpecPageText(text) {
   return lines.some(l => /^festival Off Avignon\s*>\s*Programme\s*>\s*\S/.test(l));
 }
 
+/**
+ * Détermine si le texte correspond à une page CATALOGUE du In
+ * @param {*} text 
+ * @returns 
+ */
+export function isAvignonInCatPageText(text) {
+  if (!text) return false;
+
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n').map(l => l.trim());
+  const reArchive = /^archive\s+\d{4}$/i;
+
+  // remonte de N “niveaux” en ignorant les lignes vides
+  const pickAbove = (start, steps = 1) => {
+    let idx = start;
+    for (let s = 0; s < steps; s++) {
+      idx--;
+      while (idx >= 0 && !lines[idx]) idx--; // saute vides
+    }
+    return { idx, text: idx >= 0 ? lines[idx] : null };
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!reArchive.test(lines[i])) continue;
+
+    const { text: tDuree } = pickAbove(i, 1); // Durée : 2 lignes au-dessus (avec vides)
+    const { text: tLieu  } = pickAbove(i, 2); // Lieu
+    const { text: tDate  } = pickAbove(i, 3); // Dates
+    /* const { text: tAvec } = */ pickAbove(i, 4); // (ignorer)
+    const { text: tStyle } = pickAbove(i, 5); // Style
+    /* const { text: tSous  } = */ pickAbove(i, 6); // (ignorer)
+    const { text: tTitre } = pickAbove(i, 7); // Titre
+
+    // Vérifs avec TES helpers
+    const okTitre = !!(tTitre && _norm(tTitre));
+    const okStyle = !!(tStyle && _norm(tStyle));
+    const okLieu  = !!(tLieu  && _norm(tLieu));
+    const okDuree = !!(tDuree && _parseDuree(tDuree));               // renvoie une durée normalisée ou null
+    const d = tDate ? _parseDates(tDate) : null;                      // { sessions, year }
+    const okDate  = !!(d && d.sessions);
+
+    if (okTitre && okStyle && okLieu && okDuree && okDate) {
+      return true; // trouvé au moins un bloc valide
+    }
+  }
+
+  return false;
+}
+
+
 // --- helpers ---
 
 const MOIS = {
@@ -630,11 +547,18 @@ const MOIS = {
   'septembre': 9, 'octobre': 10, 'novembre': 11, 'decembre': 12, 'décembre': 12
 };
 
+const _isNonEmpty = s => !!(s && String(s).trim());
+
 function _norm(s) {
   return String(s || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève accents
     .replace(/\s+/g, ' ')                             // espaces multiples -> simple
     .trim();
+}
+
+function _normSpaces(s) {
+  // remplace NBSP, fines insécables, etc. par des spaces
+  return String(s || '').replace(/[\u00A0\u2000-\u200B]/g, ' ');
 }
 
 const _strip = s => String(s || '').trim();
@@ -779,3 +703,83 @@ function _parseInfoLine(line, defaultMonth = '07') {
   return { Lieu, Sessions, Debut, Duree };
 }
 
+function _parseDuree(line) {
+  if (!line) return null;
+  const txt = line.toLowerCase().trim().replace(/^duree?\s*:/, '').trim();
+  // "HhMM" ou "Hh" / "H h MM"
+  const mH = txt.match(/(\d{1,2})\s*h\s*(\d{0,2})\b/);
+  if (mH) {
+    const h = Number(mH[1]) || 0;
+    const mm = mH[2] ? Number(mH[2]) : 0;
+    return `${String(h)}h${String(mm).padStart(2, '0')}`;
+  }
+  // "75 min", "90mins"
+  const mM = txt.match(/(\d{1,3})\s*m(?:in)?s?\b/);
+  if (mM) return mmToHHhMM(Number(mM[1]));
+  return null;
+}
+
+/**
+ * "vendredi 11 juillet 2025"      -> { sessions:"11/07", year:"2025" }
+ * "8, 9, 10, …, 26 juillet 2025"  -> { sessions:"08,09,...,26/07", year:"2025" }
+ * "9, 10 et 11 juillet 2025"      -> { sessions:"09,10,11/07", year:"2025" }
+ */
+function _parseDates(line) {
+  if (!line) return { sessions: null, year: null };
+
+  const raw = _normSpaces(line).trim();
+
+  // repère "<mois> <année>"
+  const reMonthYear = /\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b\s+(\d{4})/i;
+  const mMY = raw.match(reMonthYear);
+  if (!mMY) return { sessions: null, year: null };
+
+  const monthTxt = mMY[1].toLowerCase();
+  const year = mMY[2];
+  const mNum = MOIS[monthTxt];
+  if (!mNum) return { sessions: null, year: null };
+
+  // ⚙️ ici on met le mois sur 2 chiffres sans modifier la const MOIS d’origine
+  const mm = _pad3(Number(mNum));
+
+  const before = raw.slice(0, mMY.index).trim();
+
+  // extrait toutes les occurrences de jours
+  const daySeq = before
+    .replace(/\bet\b/gi, ',')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(x => x.match(/\d{1,2}$/)?.[0])
+    .filter(Boolean)
+    .map(n => _pad3(+n));
+
+  const seen = new Set();
+  const days = daySeq.filter(d => (seen.has(d) ? false : (seen.add(d), true)));
+
+  if (days.length === 0) return { sessions: null, year };
+
+  if (days.length === 1) {
+    return { sessions: `${days[0]}/${mm}`, year };
+  } else {
+    return { sessions: `(${days.join(',')})/${mm}`, year };
+  }
+}
+
+// “Un cran” = sauter blanc(s) puis prendre la non-vide suivante
+function _stepUp(lines, fromIdx, startIdx) {
+  let i = fromIdx - 1;
+  // sauter >= 0 blancs
+  while (i > startIdx && !lines[i]?.trim()) i--;
+  return (i > startIdx && lines[i]?.trim()) ? i : -1;
+}
+
+const _looksLikeStyle = (line) => {
+    const t = (line || '').trim();
+    if (!t) return false;
+    if (/^avec\b/i.test(t)) return false;    // ignore "Avec ..."
+    if (t.length > 60) return false;         // lignes trop longues = descriptions
+    const words = t.split(/\s+/);
+    if (words.length > 8) return false;      // heuristique simple
+    return true;
+  };

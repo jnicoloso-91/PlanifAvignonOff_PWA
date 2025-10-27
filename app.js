@@ -1,4 +1,5 @@
 // app.js (module)
+
 import { 
   parseHHhMM, 
   excelSerialToYMD, 
@@ -3581,6 +3582,32 @@ async function doImportExcel() {
   if (fi) fi.click();
 }
 
+// Import depuis catalogue du Off
+async function doImportFromCatOff() {
+  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonOffCatPage');
+  ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
+
+  // Maj des sélections
+  setTimeout(() => {
+    scrollToExpander?.('exp-non-programmees');
+    openExpander?.('exp-non-programmees');
+    selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
+  }, 50);
+}
+
+// Import depuis catalogue du In
+async function doImportFromCatIn() {
+  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonInCatPage');
+  ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
+
+  // Maj des sélections
+  setTimeout(() => {
+    scrollToExpander?.('exp-non-programmees');
+    openExpander?.('exp-non-programmees');
+    selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
+  }, 50);
+}
+
 // Export Excel
 async function doExportExcel() {
   try {
@@ -3658,7 +3685,7 @@ async function doAjoutActivitesParCollage() {
   setTimeout(() => {
     scrollToExpander?.('exp-non-programmees');
     openExpander?.('exp-non-programmees');
-    selectRowByUuid('grid-non-programmees', ctx.df[0].__uuid, { ensure: 'center', flash: null });
+    selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
   }, 50);
 }
 
@@ -3987,8 +4014,10 @@ function openFileMenuDesktop(anchorBtn) {
   // items
   const items = [
     { id:'new',  label:'Nouveau programme'     },
-    { id:'open', label:'Importer programme depuis Excel'      },
-    { id:'save', label:'Exporter programme depuis Excel' },
+    { id:'open', label:'Importer depuis Excel'      },
+    { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
+    { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
+    { id:'save', label:'Exporter vers Excel' },
   ];
   for (const it of items) {
     const b = document.createElement('button');
@@ -4015,6 +4044,8 @@ function openFileMenuDesktop(anchorBtn) {
     close();
     if (act === 'new')  doNouveauContexte?.();
     if (act === 'open') doImportExcel?.();
+    if (act === 'importCatOff') doImportFromCatOff?.();
+    if (act === 'importCatIn') doImportFromCatIn?.();
     if (act === 'save') doExportExcel?.();
   });
 
@@ -4055,14 +4086,28 @@ function openFileSheet() {
           <li class="file-sheet__item" data-action="open">
             <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
             <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Importer planning depuis Excel</span>
+              <span class="file-sheet__titleText">Importer depuis Excel</span>
               <span class="file-sheet__subtitle">Choisissez un fichier Excel contenant une liste d'activités</span>
+            </div>
+          </li>
+          <li class="file-sheet__item" data-action="doImportFromCatOff">
+            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+            <div class="file-sheet__text">
+              <span class="file-sheet__titleText">Importer depuis le catalogue du Off</span>
+              <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du Off</span>
+            </div>
+          </li>
+          <li class="file-sheet__item" data-action="doImportFromCatIn">
+            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+            <div class="file-sheet__text">
+              <span class="file-sheet__titleText">Importer depuis le catalogue du In</span>
+              <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du In</span>
             </div>
           </li>
           <li class="file-sheet__item" data-action="save">
             <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
             <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Exporter planning vers Excel</span>
+              <span class="file-sheet__titleText">Exporter vers Excel</span>
               <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier Excel</span>
             </div>
           </li>
@@ -4100,6 +4145,8 @@ function openFileSheet() {
       close();
       if (act === 'new')  doNouveauContexte?.();
       if (act === 'open') doImportExcel?.();
+      if (act === 'importCatOff') doImportFromCatOff?.();
+      if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'save') doExportExcel?.();
     });
   });
