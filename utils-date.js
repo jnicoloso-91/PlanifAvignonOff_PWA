@@ -336,3 +336,32 @@ export function intToIsoDate(n) {
   return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
 }
 
+/**
+ * Recalcule la colonne Fin d'une activité en fonction des colonnes Debut et Duree
+ * @param {*} row 
+ * @returns 
+ */
+export function recalcFin(row) {
+  if (!row?.Debut || !row?.Duree) return null;
+
+  const [h1, m1] = row.Debut.split("h").map(Number);
+  const [h2, m2] = row.Duree.split("h").map(Number);
+
+  const total = h1 * 60 + m1 + h2 * 60 + m2;
+  const hh = Math.floor((total / 60) % 24);
+  const mm = total % 60;
+
+  return `${String(hh).padStart(2, "0")}h${String(mm).padStart(2, "0")}`;
+}
+
+/**
+ * Recalcule la colonne Fin d'un tableau d'activités en fonction des colonnes Debut et Duree
+ * @param {*} df 
+ * @returns 
+ */
+export function recalcFinForAll(rows) {
+  for (const r of rows) {
+    r.Fin = recalcFin(r);
+  }
+  return rows;
+}

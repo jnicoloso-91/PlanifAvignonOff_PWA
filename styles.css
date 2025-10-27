@@ -425,7 +425,8 @@ main, .page-wrap {
   --ag-background-color: #fff;
   --ag-foreground-color: #111827;
   --ag-border-color: #e5e7eb;
-  --ag-row-hover-color: #f9fafb;
+  /* --ag-row-hover-color: #f9fafb; */
+  --ag-row-hover-color: transparent; /* neutralise le hover pour garder la couleur de fond */
   --ag-header-background-color: #f3f4f6;
   --ag-header-foreground-color: #111827;
 }
@@ -433,11 +434,6 @@ main, .page-wrap {
 /* Applique la couleur par jour à toutes les cellules de la ligne */
 .ag-theme-quartz .ag-row .ag-cell {
   background-color: var(--day-bg, transparent) !important;
-}
-
-/* (optionnel) neutraliser le hover si tu veux garder la couleur de fond */
-.ag-theme-quartz {
-  --ag-row-hover-color: transparent;
 }
 
 .ag-theme-quartz.compact { 
@@ -450,6 +446,22 @@ main, .page-wrap {
   --ag-font-size: 13px; 
   --ag-row-height:30px; 
   --ag-header-height:32px;  
+}
+
+/* Padding sur cells */
+.ag-theme-quartz .ag-cell,
+/* .ag-theme-quartz .ag-cell.col-icon, */
+.ag-theme-quartz .ag-cell-wrapper,
+.ag-theme-quartz .ag-cell-value {
+  padding-left: 8px !important;   
+  padding-right: 8px !important;
+}
+
+/* Padding sur entêtes */
+.ag-theme-quartz .ag-header-cell,
+.ag-theme-quartz .ag-header-group-cell {
+  padding-left: 8px !important;
+  padding-right: 8px !important;
 }
 
 @media (max-width: 768px) {

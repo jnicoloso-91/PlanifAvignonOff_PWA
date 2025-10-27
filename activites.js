@@ -9,7 +9,18 @@ import {
   debutMinute, 
   dureeMinute, 
   dateintToPretty,
+  recalcFin,
+  recalcFinForAll,
 } from './utils-date.js';
+
+import {
+  PARSED_DEFAULT, 
+  parseAvignonOffSpecPageText, 
+  parseAvignonOffSpecPageHtml, 
+  parseAvignonOffCatPageText,
+  isAvignonOffCatPageText,
+  isAvignonOffSpecPageText,
+} from './parsers.js';
 
 let _ctx = null;
 let _MARGE = null;
@@ -312,10 +323,12 @@ export function creerActivitesAPI(ctx) {
           Lieu: null, 
           Sessions: null,
           Relaches: null, 
+          Style: null,
           Reserve: null, 
           Priorite: null, 
           Hyperlien: `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
         }
+      nouvelleActivite.Fin = recalcFin(nouvelleActivite);
       return nouvelleActivite;
     },
 
@@ -324,40 +337,62 @@ export function creerActivitesAPI(ctx) {
      * @param {*} df  -> utilisé pour créer un nom d'activité unique qui ne soit pas déja alloué dans df
      * @returns nouvelleActivite
      */
-    async creerActiviteAvecCollage(df) {
+    async creerActivitesParCollage(df) {
       let raw = null;
       try { raw = await _getClipBoardText(); } catch {}
 
       let parsed = null;
       if (_looksLikeUrl(raw)) { 
-        try {
-          const html = await _fetchViaAllOrigins(raw);
-          parsed = _parseHTMLAvignonOff(html);
-          parsed.Hyperlien = raw;
-        } catch (err) {
-          console.error('fetch failed', err);
-          alert("⚠️ Le collage depuis Partager/Copier a échoué, essayer en copiant le texte de la page.");
-          parsed = {..._PARSED_DEFAULT};
+        if (raw.includes("www.festivaloffavignon.com/spectacles")) {
+          try {
+            const html = await _fetchViaAllOrigins(raw);
+            parsed = parseAvignonOffSpecPageHtml(html);
+            parsed.Hyperlien = raw;
+          } catch (err) {
+            console.error('fetch failed', err);
+            alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
+            parsed = [{...PARSED_DEFAULT}];
+          }
+        } else {
+          parsed = [{...PARSED_DEFAULT}];
         }
       } else {
-        parsed = _parseTextAvignonOff(raw);
+        switch (true) {
+          case isAvignonOffSpecPageText(raw):
+            parsed = parseAvignonOffSpecPageText(raw);
+            break;
+          case isAvignonOffCatPageText(raw):
+            parsed = parseAvignonOffCatPageText(raw);
+            break;
+          default:
+            parsed = [{...PARSED_DEFAULT}];
+        }
       }
       
-      const nouveauNom = _getNomNouvelleActivite(df, parsed.Activite);
-      const nouvelleActivite =     {
-          __uuid: crypto.randomUUID?.() || String(Date.now()),
-          Date: null, 
-          Debut: parsed.Debut || "09h00", 
-          Duree: parsed.Duree || "1h00",
-          Activite: nouveauNom, 
-          Lieu: parsed.Lieu || null, 
-          Sessions: parsed.Sessions || null,
-          Relaches: parsed.Relaches || null, 
-          Reserve: null, 
-          Priorite: null, 
-          Hyperlien: parsed.Hyperlien || `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
-        }
-      return nouvelleActivite;
+      const nouvellesActivites = [];
+      if (!parsed) parsed = [{...PARSED_DEFAULT}];
+
+      for (const row of parsed) {
+        const nouveauNom = _getNomNouvelleActivite(df, row.Activite);
+        const nouvelleActivite = {
+            __uuid: crypto.randomUUID?.() || String(Date.now()),
+            Date: null, 
+            Debut: row.Debut || "09h00", 
+            Duree: row.Duree || "1h00",
+            Activite: nouveauNom, 
+            Lieu: row.Lieu || null, 
+            Sessions: row.Sessions || null,
+            Relaches: row.Relaches || null, 
+            Style: row.Style || null,
+            Orga: row.Orga || null,
+            Reserve: null, 
+            Priorite: null, 
+            Hyperlien: row.Hyperlien || `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
+          }
+          nouvellesActivites.push(nouvelleActivite);
+      }
+      recalcFinForAll(nouvellesActivites);
+      return nouvellesActivites;
     },
 
     /** 
@@ -408,7 +443,7 @@ export function creerActivitesAPI(ctx) {
       const defaultMonth = now.getMonth() + 1;
 
       // Tous les tokens doivent être valides
-      return tokens.every(tok => _parseOneRelachesToken(tok, { defaultMonth, defaultYear }));
+      return tokens.every(tok => _parseOneToken(tok, { defaultMonth, defaultYear }));
     },
 
     /**
@@ -427,7 +462,7 @@ export function creerActivitesAPI(ctx) {
      * On valide que *tous* les tokens sont valides.
      * ───────────────────────────────────────────────────────────
      */
-    estRelachesValide(val, { default_year = null, default_month = null } = {}) {
+    estRelachesValide(val) {
       const s = String(val ?? '').trim();
       if (s === '') return true;               // vide = OK (pas de relâche)
       
@@ -439,7 +474,7 @@ export function creerActivitesAPI(ctx) {
       const defaultMonth = now.getMonth() + 1;
 
       // Tous les tokens doivent être valides
-      return tokens.every(tok => _parseOneRelachesToken(tok, { defaultMonth, defaultYear }));
+      return tokens.every(tok => _parseOneToken(tok, { defaultMonth, defaultYear }));
     },
 
     /**
@@ -555,7 +590,7 @@ function _existActivitesProgrammables(activitesNonProgrammees, dateRef, traiter_
   if (!Array.isArray(activitesNonProgrammees) || activitesNonProgrammees.length === 0) return false;
 
   return activitesNonProgrammees.some(r => {
-    return _estHorsRelaches(r.Sessions, r.Relaches, dateRef);
+    return _estDateProgrammable(r.Sessions, r.Relaches, dateRef);
   });
 }
 
@@ -701,7 +736,7 @@ function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, tra
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
     const h_debut = d, h_fin = d + du;
 
-    if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estHorsRelaches(row.Sessions, row.Relaches, ligneRef.Date)) {
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estDateProgrammable(row.Sessions, row.Relaches, ligneRef.Date)) {
       const nouvelle = { ...row }; delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -736,7 +771,7 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
     const h_debut = d, h_fin = d + du;
 
     const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - _MARGE);
-    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estHorsRelaches(row.Sessions, row.Relaches, ligneRef.Date)) {
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estDateProgrammable(row.Sessions, row.Relaches, ligneRef.Date)) {
       const nouvelle = { ...row }; delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -831,15 +866,15 @@ function _estCreneauValide(creneau) {
 }
 
 /**
- * Détermine si une date est "hors relâche" (jour jouable).
+ * Détermine si une date est programmable, ie. est dans Sessions et pas dans Relaches.
  * 
  * @param {string|null} relachesVal - Description des relâches (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
  * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
  * @param {Date} [today] - Date de référence pour l'année/mois par défaut
  * @returns {boolean} - true = jour jouable / false = relâche
  */
-function _estHorsRelaches(sessionsVal, relachesVal, dateVal, today = new Date()) {
-  if (!relachesVal || !String(relachesVal).trim() || dateVal == null) return true;
+function _estDateProgrammable(sessionsVal, relachesVal, dateVal, today = new Date()) {
+  if (dateVal == null) return true;
 
   const dv = Number(dateVal);
   if (!Number.isFinite(dv)) return true;
@@ -849,34 +884,29 @@ function _estHorsRelaches(sessionsVal, relachesVal, dateVal, today = new Date())
   const dd = dv % 100;
   const defY = today.getFullYear();
   const defM = today.getMonth() + 1;
-  const sessionsTxt = String(sessionsVal).trim().toLowerCase();
-  const relachesTxt = String(relachesVal).trim().toLowerCase();
 
-  // --- Helpers internes ---
-  const y2k = y => (y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
+  const y2k = y => (Number.isFinite(y) && y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
   const mkDateInt = (y, m, d) => (y * 10000 + m * 100 + d);
   const parseDayMaybeDmY = (s, yy, mm) => {
     const parts = s.split("/").map(x => x.trim());
     let d, m = mm, y = yy;
-    if (parts.length === 3) [d, m, y] = parts.map(Number);
-    else if (parts.length === 2) [d, m] = parts.map(Number);
+    if (parts.length === 3) [d, m, y] = parts.map(n => Number(n));
+    else if (parts.length === 2) [d, m] = parts.map(n => Number(n));
     else if (parts.length === 1) d = Number(parts[0]);
     y = y2k(y);
     return [y, m, d];
   };
 
-  // --- Parité ---
-  let pariteRelaches = null;
-  if (/\brel[aâ]che\s+jours?\s+pairs?\b/.test(relachesTxt) || /\bjours?\s+pairs?\b/.test(relachesTxt)) pariteRelaches = "pair";
-  if (/\brel[aâ]che\s+jours?\s+impairs?\b/.test(relachesTxt) || /\bjours?\s+impairs?\b/.test(relachesTxt)) pariteRelaches = "impair";
+  const sessionsTxt = String(sessionsVal || '').trim().toLowerCase();
+  const relachesTxt  = String(relachesVal  || '').trim().toLowerCase();
 
-  const openIntervals = []; // [A-B] de sessionsTxt = fenêtres de représentation
-  const regroupSessionsDays = []; // (a,b,c) de sessionsTxt = jours de représentation
-  const closedIntervals = []; // [A-B] de relachesTxt = fenêtres de relâche
-  const regroupRelacheDays = []; // (a,b,c) de relachesTxt = jours de relâche
+  const openIntervals = [];
+  const regroupSessionsDays = [];
+  const closedIntervals = [];
+  const regroupRelacheDays = [];
 
-  // --- Fenêtres de représentation [A-B] de sessionsTxt
-  for (const m of sessionsTxt.matchAll(/\[\s*([0-9/]+)\s*-\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+  // --- Fenêtres de représentation [A–B]  
+  for (const m of sessionsTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
@@ -884,19 +914,21 @@ function _estHorsRelaches(sessionsVal, relachesVal, dateVal, today = new Date())
     const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
     const aDi = mkDateInt(Ay, Am, Ad);
     const bDi = mkDateInt(By, Bm, Bd);
-    openIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
+    if (Number.isFinite(aDi) && Number.isFinite(bDi)) {
+      openIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
+    }
   }
 
-  // --- Jours de représentation (a,b,c) de sessionsTxt
+  // --- Jours de représentation (a,b,c)
   for (const m of sessionsTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, joursTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-    const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(Boolean);
+    const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(n => Number.isFinite(n));
     for (const jd of jours) regroupSessionsDays.push(mkDateInt(yyDef, mmDef, jd));
   }
 
-    // --- Jours isolés de représentation (hors parenthèses)
+  // --- Jours isolés de représentation
   for (const part of sessionsTxt.split(",").map(p => p.trim())) {
     if (!part || /jour/.test(part)) continue;
     if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
@@ -905,11 +937,18 @@ function _estHorsRelaches(sessionsVal, relachesVal, dateVal, today = new Date())
     const d = Number(mday[1]);
     const mm = mday[2] ? Number(mday[2]) : defM;
     const yy = mday[3] ? y2k(Number(mday[3])) : defY;
-    regroupSessionsDays.push(mkDateInt(yy, mm, d));
+    if (Number.isFinite(d) && Number.isFinite(mm) && Number.isFinite(yy)) {
+      regroupSessionsDays.push(mkDateInt(yy, mm, d));
+    }
   }
 
-// --- Fenêtres de relâche [A-B] de relachesTxt
-  for (const m of relachesTxt.matchAll(/\[\s*([0-9/]+)\s*-\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+  // --- Parité représentations
+  let pariteSessions = null;
+  if (/\bjours?\s+pairs?\b/.test(sessionsTxt))  pariteSessions = "pair";
+  if (/\bjours?\s+impairs?\b/.test(sessionsTxt)) pariteSessions = "impair";
+
+  // --- Fenêtres de relâche [A–B]
+  for (const m of relachesTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
@@ -917,19 +956,21 @@ function _estHorsRelaches(sessionsVal, relachesVal, dateVal, today = new Date())
     const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
     const aDi = mkDateInt(Ay, Am, Ad);
     const bDi = mkDateInt(By, Bm, Bd);
-    closedIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
+    if (Number.isFinite(aDi) && Number.isFinite(bDi)) {
+      closedIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
+    }
   }
 
-  // --- Jours de relâche (a,b,c) de relachesTxt
+  // --- Jours de relâche (a,b,c)
   for (const m of relachesTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, joursTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-    const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(Boolean);
+    const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(n => Number.isFinite(n));
     for (const jd of jours) regroupRelacheDays.push(mkDateInt(yyDef, mmDef, jd));
   }
 
-  // --- Jours isolés de relâche (hors parenthèses)
+  // --- Jours isolés de relâche
   for (const part of relachesTxt.split(",").map(p => p.trim())) {
     if (!part || /jour/.test(part)) continue;
     if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
@@ -938,34 +979,40 @@ function _estHorsRelaches(sessionsVal, relachesVal, dateVal, today = new Date())
     const d = Number(mday[1]);
     const mm = mday[2] ? Number(mday[2]) : defM;
     const yy = mday[3] ? y2k(Number(mday[3])) : defY;
-    regroupRelacheDays.push(mkDateInt(yy, mm, d));
+    if (Number.isFinite(d) && Number.isFinite(mm) && Number.isFinite(yy)) {
+      regroupRelacheDays.push(mkDateInt(yy, mm, d));
+    }
   }
 
-  // --- relâche explicite
+  // --- Parité relâches
+  let pariteRelaches = null;
+  if (/\bjours?\s+pairs?\b/.test(relachesTxt))  pariteRelaches = "pair";
+  if (/\bjours?\s+impairs?\b/.test(relachesTxt)) pariteRelaches = "impair";
+
+  // ===== Étape 1 : exclusions (relâches), si présentes
   for (const [lo, hi] of closedIntervals) {
     if (lo <= dv && dv <= hi) return false;
   }
-  if (regroupRelacheDays.includes(dv)) return false;
-  if (pariteRelaches === "pair" || pariteRelaches === "impair") {
+  if (regroupRelacheDays.length && regroupRelacheDays.includes(dv)) return false;
+  if (pariteRelaches) {
     const isEven = dd % 2 === 0;
     if ((pariteRelaches === "pair" && isEven) || (pariteRelaches === "impair" && !isEven)) return false;
   }
 
-  // --- fenêtres de représentations ? -> on ne joue QUE dedans
-  if (openIntervals.length > 0) {
-    for (const [lo, hi] of openIntervals) {
-      if (lo <= dv && dv <= hi) return true;
-    }
-    return false;
+  // ===== Étape 2 : inclusions (sessions)
+  for (const [lo, hi] of openIntervals) {
+    if (lo <= dv && dv <= hi) return true;
+  }
+  if (regroupSessionsDays.length && regroupSessionsDays.includes(dv)) return true;
+  if (pariteSessions) {
+    const isEven = dd % 2 === 0;
+    if ((pariteSessions === "pair" && isEven) || (pariteSessions === "impair" && !isEven)) return true;
   }
 
-  // --- jours de représentations ? -> on ne joue QUE dedans
-  if (regroupSessionsDays.length > 0) {
-    if (i in regroupSessionsDays) return true;
-    return false;
-  }
-
-  // --- (3) par défaut : joué
+  // ===== Étape 3 : défaut
+  // S'il y a AU MOINS une contrainte de sessions et aucune ne matche -> false (non programmable)
+  if (openIntervals.length || regroupSessionsDays.length || pariteSessions) return false;
+  // Sinon, aucune contrainte de sessions -> true (programmable par défaut)
   return true;
 }
 
@@ -995,7 +1042,7 @@ function _getJoursPossibles(rowActivite) {
   const finAct   = debutMinute + duree;
 
   for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
-    if (!_estHorsRelaches(rowActivite.Sessions, rowActivite.Relaches, jour)) continue;
+    if (!_estDateProgrammable(rowActivite.Sessions, rowActivite.Relaches, jour)) continue;
 
     const jList = _ActivitesProgrammeesDuJourTriees(jour);
     if (jList.length === 0) { // journée libre
@@ -1038,10 +1085,10 @@ function _toPrettyArray(arrInt){
  */
 function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = true) {
   const proposables = [];
-  const nonProgrammees = window.ctx?.df?.filter(r => !r.Date) || [];  // équiv. activites_non_programmees
+  const nonProgrammees = _ctx?.df?.filter(r => !r.Date) || [];  // équiv. activites_non_programmees
 
   for (const row of nonProgrammees) {
-    if (_estHorsRelaches(row.Sessions, row.Relaches, dateRef)) {
+    if (_estDateProgrammable(row.Sessions, row.Relaches, dateRef)) {
       const nouvelleLigne = { ...row };
       delete nouvelleLigne.Debut_dt;
       delete nouvelleLigne.Duree_dt;
@@ -1052,7 +1099,7 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
   }
 
   if (traiterPauses) {
-    const DUREE_REPAS = window.ctx?.meta?.DUREE_REPAS ?? 3600000; // 1h par défaut (ms)
+    const DUREE_REPAS = _ctx?.meta?.DUREE_REPAS ?? 3600000; // 1h par défaut (ms)
     const BASE_DATE = new Date(2000, 0, 1);
 
     // --- fonction d'aide pour formater une durée en "1h30" ---
@@ -1120,319 +1167,6 @@ function _getNomNouvelleActivite(df, prefix='Activité') {
   }
 }
 
-// ----------------- Helpers pour parser de texte -----------------
-const MOIS = {
-  'janvier': 1, 'fevrier': 2, 'février': 2, 'mars': 3, 'avril': 4,
-  'mai': 5, 'juin': 6, 'juillet': 7, 'aout': 8, 'août': 8,
-  'septembre': 9, 'octobre': 10, 'novembre': 11, 'decembre': 12, 'décembre': 12
-};
-
-const _PARSED_DEFAULT = {
-    Activite: null,
-    Lieu: null,
-    Relaches: null,
-    Debut: null,    // "HHhMM"
-    Duree: null,    // "HhMM"
-    Hyperlien: null
-};
-
-function _norm(s) {
-  return String(s || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève accents
-    .replace(/\s+/g, ' ')                             // espaces multiples -> simple
-    .trim();
-}
-
-function _clean_lieu(s) {
-  return String(s || '')
-    .replace(/^(lieu\s*[:\-]\s*)/i, '')
-    .replace(/^(theatre|théâtre)\s*[:\-]\s*/i, '')
-    .trim();
-}
-
-function _pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
-
-// ----------------- Parser du texte d'une page de description de spectacle du catalogue Avignon Off -----------------
-function _parseTextAvignonOff(text) {
-  const res = {..._PARSED_DEFAULT};
-  if (!text) return res;
-
-  const txt = String(text).trim();
-  const txtNorm = _norm(txt).toLowerCase();
-
-  // --- Activité : 1re ligne après "programme >" sinon 1re ligne non vide ---
-  {
-    const m = txt.match(/programme\s*>\s*(.+)/i);
-    if (m) {
-      const line = m[1].trim().split(/\r?\n/)[0]?.trim();
-      if (line) res.Activite = line;
-    }
-    if (!res.Activite) {
-      const lines = txt.split(/\r?\n/);
-      for (let raw of lines) {
-        const line = raw.trim();
-        if (!line) continue;
-        if (/festival\s+off\s+avignon\s*>\s*programme/i.test(line)) continue; // saute l'entête
-        res.Activite = line;
-        break;
-      }
-    }
-  }
-
-  // --- Lieu : première ligne après 'lieu' jugée pertinente ---
-  {
-    const m = txt.match(/\blieu\b(.*)/is);
-    if (m) {
-      const tail = m[1] || '';
-      const lines = tail.split(/\r?\n/);
-      for (let raw of lines) {
-        const cand = raw.trim();
-        if (!cand) continue;
-        if (/nom de la salle|nombre de places|t[eé]l[eé]phone|programmation|voir toute/i.test(cand)) continue;
-        if (cand.length >= 3) {
-          res.Lieu = _clean_lieu(cand);
-          break;
-        }
-      }
-    }
-  }
-
-  // --- Début : première occurrence HHhMM ---
-  {
-    const m = txtNorm.match(/\b(\d{1,2})h(\d{2})\b/i);
-    if (m) {
-      const [_, h, mm] = m;
-      res.Debut = `${_pad2(h)}h${_pad2(mm)}`;
-    }
-  }
-
-  // --- Durée : première occurrence HhMM (sans confondre avec "Début") ---
-  {
-    const m = txtNorm.match(/\b(\d{1,2})h(\d{2})\b/i);
-    if (m) {
-      const h = parseInt(m[1],10), mm = parseInt(m[2],10);
-      const cand = `${h}h${_pad2(mm)}`;
-
-      if (res.Debut && res.Debut.toLowerCase() === `${_pad2(h)}h${_pad2(mm)}`) {
-        // chercher une 2e occurrence
-        const m2 = txtNorm.match(/\b(\d{1,2})h(\d{2})\b.*?\b(\d{1,2})h(\d{2})\b/is);
-        if (m2) {
-          const h2 = parseInt(m2[3],10), mm2 = parseInt(m2[4],10);
-          res.Duree = `${h2}h${_pad2(mm2)}`;
-        }
-      } else {
-        res.Duree = cand;
-      }
-    }
-  }
-
-  // --- Hyperlien : ligne commençant par "Hyperlien <url...>" ---
-  {
-    const m = txt.match(/^\s*hyperlien\s+([^\s].*)$/gim);
-    if (m && m.length > 0) {
-      const line = m[0]; // 1ère correspondance
-      const url = line.replace(/^\s*hyperlien\s+/i, '').trim();
-      if (url) res.Hyperlien = url;
-    }
-  }
-
-  // -------- Relâche --------
-  const relParts = [];
-  let periode_jouee = null;
-
-  // Intervalle : “du X au Y <mois>” + parité optionnelle (jours pairs/impairs)
-  {
-    const m = txtNorm.match(
-      /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)\s*(?:,\s*(rel[aâ]che\s+)?(jours?\s+pairs?|jours?\s+impairs?))?/i
-    );
-    if (m) {
-      const d1 = parseInt(m[1],10);
-      const d2 = parseInt(m[2],10);
-      const moisTxt = m[3]?.toLowerCase();
-      const isRelachesPrefix = !!m[4];
-      let parite = m[5] ? m[5].trim().toLowerCase() : null;
-
-      const moisNum = MOIS[moisTxt];
-      if (moisNum) {
-        let part = `<${d1}-${d2}>/${moisNum}`;
-
-        if (parite) {
-          const isPairs = /pairs?/.test(parite);
-          // Si parité décrite = jours joués (pas "relâche ..."), on inverse pour obtenir la relâche
-          const pariteRelaches = isRelachesPrefix
-            ? parite
-            : (isPairs ? 'jours impairs' : 'jours pairs');
-          part = `${part}, ${pariteRelaches}`;
-        }
-        periode_jouee = part;
-      }
-    }
-  }
-
-  // Liste explicite : “relâche les 9, 16, 23 juillet”
-  {
-    const m = txtNorm.match(/rel[aâ]che\s+les\s+([0-9,\s]+)\s+([a-zéû]+)/i);
-    if (m) {
-      const joursStr = m[1] || '';
-      const moisTxt = (m[2] || '').toLowerCase();
-      const moisNum = MOIS[moisTxt];
-      if (moisNum) {
-        const jours = joursStr.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s));
-        if (jours.length) {
-          const part = `(${jours.map(j => String(parseInt(j,10))).join(',')})/${moisNum}`;
-          relParts.push(part);
-        }
-      }
-    }
-  }
-
-  if (periode_jouee) relParts.push(periode_jouee);
-  if (relParts.length) res.Relaches = relParts.join(', ');
-
-  return res;
-}
-
-// --- helpers pour parser HTML ---
-const _clean = s => (s ?? "").toString().replace(/\s+/g, " ").trim();
-
-function _normalizeHeure(hhmm) {
-  const m = /(\d{1,2})h(\d{1,2})/.exec(_norm(hhmm));
-  if (!m) return null;
-  const h = String(parseInt(m[1],10)).padStart(2,'0');
-  const mm = String(parseInt(m[2],10)).padStart(2,'0');
-  return `${h}h${mm}`;
-}
-function _normalizeDuree(hhmm) {
-  const m = /(\d{1,2})h(\d{1,2})/.exec(_norm(hhmm));
-  if (!m) return null;
-  const h = String(parseInt(m[1],10));
-  const mm = String(parseInt(m[2],10)).padStart(2,'0');
-  return `${h}h${mm}`;
-}
-
-/** Extrait les dates de représentation en token */
-function _parseSessions(text) {
-  const t = _norm(text || "");
-  const m = /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)/i.exec(t);
-  if (!m) return null;
-
-  const d1 = parseInt(m[1], 10);
-  const d2 = parseInt(m[2], 10);
-  const moisTxt = m[3];
-  const mois = MOIS[moisTxt] || null;
-  if (!mois) return null;
-
-  return `[${d1}-${d2}]/${mois}`;
-}
-
-// "(9,16,23)/7"
-function _parseRelaches(text) {
-  const t = _norm(text);
-  const m = /rel[aâ]che\s+les\s+([0-9,\s]+)\s+([a-zéû]+)/i.exec(t);
-  if (!m) return null;
-  const jours = (m[1] || "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean)
-    .map(s => String(parseInt(s,10)));
-  const mois = MOIS[m[2]] || null;
-  if (!jours.length || !mois) return null;
-  return `(${jours.join(",")})/${mois}`;
-}
-
-// Inversion de parité pour passer "jours joués" -> "relâche"
-function _invertParite(parite /* "jours pairs" | "jours impairs" */) {
-  if (!parite) return null;
-  return /pairs?/.test(parite) ? "jours impairs" : "jours pairs";
-}
-
-/** Extrait les dates de relâche exprimées sous la forme ("jours pairs" / "jours impairs").
- *    Règle : 
- *    - si texte contient "relâche jours X" -> renvoie "jours X"
- *    - si texte contient "jours X" (joués) -> renvoie l'inverse pour la relâche
- */
-function _parseRelachesAvecParite(text) {
-  const t = _norm(text || "");
-  // cherche "... , relâche jours X" OU "... , jours X"
-  const m = /(?:^|,|\s)(rel[aâ]che\s+)?(jours?\s+pairs?|jours?\s+impairs?)(?:\s|$)/i.exec(t);
-  if (!m) return null;
-
-  const hadRelachesPrefix = !!m[1];
-  const pariteFound = m[2].trim().toLowerCase(); // "jours pairs" | "jours impairs"
-  return hadRelachesPrefix ? pariteFound : _invertParite(pariteFound);
-}
-
-/**
- * parseListingHtml(html, { url })
- * @param {string} html
- * @param {{url?: string}} opts
- * @return {{Activite:string|null, Lieu:string|null, Relaches:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
- */
-// ----------------- Parser du HTML d'une page de description de spectacle du catalogue Avignon Off -----------------
-function _parseHTMLAvignonOff(html, { url=null } = {}) {
-  const res = { Activite:null, Lieu:null, Sessions:null, Relaches:null, Debut:null, Duree:null, Hyperlien:url||null };
-  if (!html || typeof html !== 'string') return res;
-
-  let doc;
-  try { doc = new DOMParser().parseFromString(html, 'text/html'); }
-  catch { return res; }
-
-  // Activité
-  const titleTxt = _clean(doc.querySelector('title')?.textContent || "");
-  if (titleTxt) {
-    const part = titleTxt.split('–')[0].split('-')[0].trim();
-    res.Activite = part || titleTxt;
-  }
-
-  // Lieu
-  const lieuSection = doc.querySelector('section.lieu-spectacle');
-  if (lieuSection) {
-    const aTheatre = lieuSection.querySelector('a[href*="/theatres/"]') || lieuSection.querySelector('a');
-    const lieuTxt = _clean(aTheatre?.textContent || "");
-    if (lieuTxt) res.Lieu = lieuTxt;
-  }
-
-  // Infos (Relâche / Début / Durée)
-  const infos = doc.querySelector('section.infos-spectacle');
-  if (infos) {
-    const spans = Array.from(infos.querySelectorAll('span'))
-      .map(s => _clean(s.textContent || ''))
-      .filter(Boolean);
-
-    // Concat pour matcher les patterns "du X au Y..., (relâche )? jours pairs/impairs"
-    const bigText = spans.join(' • ');
-
-    // Heures
-    for (const s of spans) {
-      if (!res.Debut) {
-        const h = _normalizeHeure(s);
-        if (h) { res.Debut = h; continue; }
-      }
-      if (!res.Duree) {
-        const d = _normalizeDuree(s);
-        if (d) { res.Duree = d; continue; }
-      }
-    }
-
-    // Relâche = (liste explicite) + (période + parité interprétée)
-    const parts = [];
-    const explicite = _parseRelaches(bigText);
-    if (explicite) parts.push(explicite);
-
-    const relachesParite = _parseRelachesAvecParite(bigText);
-    if (relachesParite) parts.push(relachesParite);
-
-    if (parts.length) res.Relaches = parts.join(', ');
-  
-    const sessions = _parseSessions(bigText);
-    if (sessions && sessions.length) res.Sessions = sessions;
-}
-
-  return res;
-}
-
-//-----------------
-
 async function _getClipBoardText() {
   try {
     const txt = await navigator.clipboard.readText();
@@ -1481,7 +1215,11 @@ function _isIntInRange(x, min, max) {
   return Number.isInteger(n) && n >= min && n <= max;
 }
 
-function _parseOneRelachesToken(tok, { defaultMonth } = {}) {
+/**
+ * @param {string} tok
+ * @param {{ defaultMonth?: number, defaultYear?: number }} [opts]
+ */
+function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
   const t = String(tok || '').toLowerCase().trim();
   if (!t) return false;
 
@@ -1511,9 +1249,9 @@ function _parseOneRelachesToken(tok, { defaultMonth } = {}) {
     }
   }
 
-  // 4) Intervalle: "<5-26>", "[5-26]", "<5-26>/7", "[5-26]/7"
+  // 4) Intervalle: "[5-26]", "[5-26]/7"
   {
-    const m = t.match(/^[<\[]\s*(\d{1,2})\s*-\s*(\d{1,2})\s*[>\]](?:\/(0?[1-9]|1[0-2]))?$/);
+    const m = t.match(/^\[\s*(\d{1,2})\s*-\s*(\d{1,2})\s*\](?:\/(0?[1-9]|1[0-2]))?$/);    
     if (m) {
       const [, d1, d2, mm] = m;
       const M = mm ? Number(mm) : (defaultMonth ?? null);
@@ -1525,5 +1263,4 @@ function _parseOneRelachesToken(tok, { defaultMonth } = {}) {
 
   return false;
 }
-
 

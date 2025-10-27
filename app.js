@@ -10,6 +10,8 @@ import {
   dateToDateint,
   isoDateToLocalDate,
   localDateToIsoDate,
+  recalcFinForAll,
+  recalcFin,
 } from './utils-date.js';
 
 import { creerActivitesAPI, sortDf } from './activites.js'; 
@@ -1980,11 +1982,13 @@ function buildColumnsActivitesProgrammees() {
   cols[iDebut] = {
     ...cols[iDebut] ,
     editable: (p) => !activitesAPI.estActiviteReservee(p.data),
+    onCellValueChanged: (p) => p.data.Fin = recalcFin(p.data),
   };
 
   cols[iDuree] = {
     ...cols[iDuree] ,
     editable: (p) => !activitesAPI.estActiviteReservee(p.data),
+    onCellValueChanged: (p) => p.data.Fin = recalcFin(p.data),
   };
 
   cols[iReserve] = {
@@ -2002,6 +2006,8 @@ function buildColumnsActivitesProgrammees() {
 function buildColumnsActivitesNonProgrammees() {
   const cols = buildColumnsActivitesCommon();
   let iDate = cols.findIndex(c => c.field === 'Date');
+  let iDebut = cols.findIndex(c => c.field === 'Debut');
+  let iDuree = cols.findIndex(c => c.field === 'Duree');
 
   cols[iDate] = {
     ...cols[0],
@@ -2014,6 +2020,16 @@ function buildColumnsActivitesNonProgrammees() {
       return { values: values.map(String) };   // 👈 must be an array
     },
     onCellValueChanged: onNonProgGridDateCommitted,
+  };
+
+  cols[iDebut] = {
+    ...cols[iDebut] ,
+    onCellValueChanged: (p) => p.data.Fin = recalcFin(p.data),
+  };
+
+  cols[iDuree] = {
+    ...cols[iDuree] ,
+    onCellValueChanged: (p) => p.data.Fin = recalcFin(p.data),
   };
 
   return cols
@@ -4298,10 +4314,13 @@ function wireHiddenFileInput(){
         console.log('✅ Import ca OK', caRows.length, 'lignes');
       }
 
-      // 10) Initialisation de la période programmation
+      // Recalcul de la colonne Fin
+      recalcFinForAll(dfRows);
+
+      // 11) Initialisation de la période programmation
       activitesAPI.initPeriodeProgrammation(dfRows);      
 
-      // 11) Enregistrement des données dans le contexte
+      // 12) Enregistrement des données dans le contexte
       ctx.beginAction('import');
       try {
         ctx.setDf(dfRows);     
@@ -6208,8 +6227,14 @@ function wireContext() {
   // Initialisation de la periode de programmation si contexte vide
   if (!ctx.df) activitesAPI.initPeriodeProgrammation();
 
-  ctx.on('df:changed',        () => refreshActivitesGrids()); // scheduleGlobalRefresh());
-  // ctx.on('carnet:changed',    () => refreshCarnetGrid()); // scheduleGlobalRefresh());
+  ctx.on('df:changed',        () => {
+    refreshActivitesGrids(); // scheduleGlobalRefresh());
+  });
+
+  // ctx.on('carnet:changed',    () => {
+  //   refreshCarnetGrid(); // scheduleGlobalRefresh());
+  // });
+
   ctx.on('history:change', ({ domain, ...st })  => {
     if (domain === 'df') {
       document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
