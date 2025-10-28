@@ -31,12 +31,19 @@ export function durationStrToMinutes(s) {
   return H * 60 + M;
 }
 
+const pad2 = n => String(Number(n) || 0).padStart(2, '0');
+
 // minutes -> "HHhMM"
-export function mmToHHhMM(m) {
-  const mm = Math.max(0, Math.min(MAX_DAY, Math.floor(m ?? 0)));
-  const hh = Math.floor(mm / 60);
-  const mi = mm % 60;
-  return `${String(hh).padStart(2, '0')}h${String(mi).padStart(2, '0')}`;
+export function mmToHHhMM(mins) {
+//   const mm = Math.max(0, Math.min(MAX_DAY, Math.floor(m ?? 0)));
+//   const hh = Math.floor(mm / 60);
+//   const mi = mm % 60;
+//   return `${String(hh).padStart(2, '0')}h${String(mi).padStart(2, '0')}`;
+// }
+  const m = Math.max(0, Number(mins) || 0);
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${h}h${pad2(mm)}`;
 }
 
 export function mmFromHHhMM(s) {

@@ -297,59 +297,191 @@ export function parseAvignonOffSpecPageHtml(html, { url=null } = {}) {
  *
  * Renvoie: Array<{...PARSED_DEFAULT}>
  */
+// export function parseAvignonOffCatPageText(text) {
+//   if (!text) return [];
+//   const rawLines = String(text).replace(/\r\n?/g, '\n').split('\n');
+//   const lines = rawLines.map(s => _strip(s)); // on garde les vides pour sauter proprement
+//   const out = [];
+
+//   for (let i = 0; i < lines.length; i++) {
+//     const l1 = lines[i];
+//     if (!/^\s*affiche du spectacle\b/i.test(l1)) continue;
+
+//     // Ligne 2 : Titre (première ligne non vide après l1)
+//     let j = i + 1;
+//     while (j < lines.length && !lines[j]) j++;
+//     if (j >= lines.length) break;
+//     const Activite = _stripQuotes(lines[j]);
+//     j++;
+
+//     // Ligne 3 : Info (première ligne non vide après)
+//     while (j < lines.length && !lines[j]) j++;
+//     if (j >= lines.length) break;
+//     const infoLine = lines[j];
+//     const { Lieu, Sessions, Debut, Duree } = _parseInfoLine(infoLine);
+//     j++;
+
+//     // Ligne 4 : Style (première ligne non vide après)
+//     while (j < lines.length && !lines[j]) j++;
+//     let Style = null;
+//     if (j < lines.length) {
+//       const s = lines[j];
+//       if (!/^ticket'?off\b/i.test(s) && !/^\s*affiche du spectacle\b/i.test(s)) {
+//         Style = s;
+//       }
+//     }
+
+//     out.push({
+//       ...PARSED_DEFAULT,
+//       Activite,
+//       Lieu: Lieu || null,
+//       Sessions: Sessions || null,
+//       Debut: Debut || null,
+//       Duree: Duree || null,
+//       Style: Style || null,
+//       Relaches: null,
+//       Orga: "Off",
+//       Hyperlien: null
+//     });
+
+//     // Avancer i jusqu'au début du prochain bloc pour éviter rescan inutile
+//     i = j;
+//   }
+
+//   return out;
+// }
 export function parseAvignonOffCatPageText(text) {
   if (!text) return [];
-  const rawLines = String(text).replace(/\r\n?/g, '\n').split('\n');
-  const lines = rawLines.map(s => _strip(s)); // on garde les vides pour sauter proprement
+  const lines = String(text).replace(/\r\n?/g, '\n').split('\n').map(l => l.trim());
   const out = [];
 
+  const reAffiche = /\baffiche du spectacle\b/i;
+  const reDuAu    = /\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i;
+  const reLe      = /\ble\s+(\d{1,2})\b/i;
+
   for (let i = 0; i < lines.length; i++) {
-    const l1 = lines[i];
-    if (!/^\s*affiche du spectacle\b/i.test(l1)) continue;
+    const l = lines[i];
+    const isBlockStart = reAffiche.test(l) || _isImageLine(l);
+    if (!isBlockStart) continue;
 
-    // Ligne 2 : Titre (première ligne non vide après l1)
+    // --- 1) ACTIVITÉ : 1ère ligne non vide après le marqueur (sauter images) ---
     let j = i + 1;
-    while (j < lines.length && !lines[j]) j++;
+    while (j < lines.length && (!lines[j] || _isImageLine(lines[j]))) j++;
     if (j >= lines.length) break;
-    const Activite = _stripQuotes(lines[j]);
+    const activite = lines[j].replace(/^["«]+|["»]+$/g, '').trim();
     j++;
 
-    // Ligne 3 : Info (première ligne non vide après)
-    while (j < lines.length && !lines[j]) j++;
-    if (j >= lines.length) break;
-    const infoLine = lines[j];
-    const { Lieu, Sessions, Debut, Duree } = _parseInfoLine(infoLine);
-    j++;
+    // Skip répétition/variante du titre
+    const activiteNorm = activite.toLowerCase();
+    while (j < lines.length) {
+      const l2 = lines[j];
+      if (!l2) { j++; continue; }
+      if (_isImageLine(l2)) { j++; continue; }
+      const l2n = l2.replace(/^["«]+|["»]+$/g, '').trim().toLowerCase();
+      if (l2n === activiteNorm || l2n.startsWith(activiteNorm + ' ')) { j++; continue; }
+      break;
+    }
 
-    // Ligne 4 : Style (première ligne non vide après)
-    while (j < lines.length && !lines[j]) j++;
-    let Style = null;
-    if (j < lines.length) {
-      const s = lines[j];
-      if (!/^ticket'?off\b/i.test(s) && !/^\s*affiche du spectacle\b/i.test(s)) {
-        Style = s;
+    // --- 2) LIEU + DATES + HEURE/DURÉE : prochaine ligne "info" ---
+    let lieu = null, debut = null, duree = null, sessions = null;
+    let foundIdx = -1;
+    for (let k = j; k < lines.length; k++) {
+      const lk = lines[k];
+      if (!lk) continue;
+      if (reAffiche.test(lk) || _isImageLine(lk)) break; // nouveau bloc
+      if (reDuAu.test(lk) || reLe.test(lk) || /\b\d{1,2}h\d{0,2}\b/i.test(lk) || /\b\d{1,3}\s*m(?:in)?s?\b/i.test(lk)) {
+        foundIdx = k; break;
       }
+    }
+
+    if (foundIdx !== -1) {
+      const info = lines[foundIdx];
+
+      // Lieu = avant " du " / " le " ; sinon avant 1ère heure
+      const loTxt = info.toLowerCase();
+      let cut = -1;
+      const loDu = loTxt.indexOf(' du ');
+      const loLe = loTxt.indexOf(' le ');
+      if (loDu > -1) cut = loDu;
+      else if (loLe > -1) cut = loLe;
+      if (cut === -1) {
+        const mH = info.match(/\b\d{1,2}h\d{0,2}\b/i);
+        if (mH) cut = info.indexOf(mH[0]);
+      }
+      lieu = (cut > 0 ? info.slice(0, cut) : info).trim();
+
+      // Mois/année réels
+      const { mm } = _parseMonthYear(info);
+      const monthOut = mm || '07';
+
+      // Sessions
+      const mDuAu = info.match(reDuAu);
+      const mLe   = info.match(reLe);
+      if (mDuAu) {
+        const d1 = _pad3(+mDuAu[1]);
+        const d2 = _pad3(+mDuAu[2]);
+        sessions = `[${d1}-${d2}]/${monthOut}`;
+      } else if (mLe) {
+        const d = _pad3(+mLe[1]);
+        sessions = `[${d}-${d}]/${monthOut}`;
+      }
+
+      // Heures & Durée
+      const hTokens = [...info.matchAll(/\b(\d{1,2})h(\d{0,2})\b/gi)]
+        .map(m => ({ t: _normalizeHhmmLoose(`${m[1]}h${m[2] ?? ''}`), idx: m.index }))
+        .filter(x => x.t); // garde uniquement ceux normalisés correctement
+
+      const mTokens = [...info.matchAll(/\b(\d{1,3})\s*m(?:in)?s?\b/gi)]
+        .map(m => ({ mins: Number(m[1]), idx: m.index }));
+
+      if (hTokens.length >= 1) {
+        // premier "HhMM" = Début
+        debut = hTokens[0].t;
+        const startPos = hTokens[0].idx ?? 0;
+
+        // chercher une seconde "HhMM" après le début pour la Durée, sinon "NN min"
+        const durH = hTokens.find((x, n) => n > 0 && x.idx > startPos);
+        if (durH) {
+          duree = durH.t; // déjà normalisé
+        } else {
+          const durM = mTokens.find(x => x.idx > startPos) || mTokens[0];
+          if (durM) duree = mmToHHhMM(durM.mins);
+        }
+      } else if (mTokens.length) {
+        // pas d'heure, mais une durée en minutes présente
+        duree = mmToHHhMM(mTokens[0].mins);
+      }
+
+      j = foundIdx + 1;
+    }
+
+    // --- 3) STYLE : 1ère non-vide après, en sautant Ticket'Off/images ---
+    let style = null;
+    for (let k = j; k < lines.length; k++) {
+      const lk = lines[k];
+      if (!lk) continue;
+      if (/^ticket'?off\b/i.test(lk)) continue;
+      if (reAffiche.test(lk) || _isImageLine(lk)) break; // prochain bloc
+      style = lk.trim();
+      break;
     }
 
     out.push({
       ...PARSED_DEFAULT,
-      Activite,
-      Lieu: Lieu || null,
-      Sessions: Sessions || null,
-      Debut: Debut || null,
-      Duree: Duree || null,
-      Style: Style || null,
+      Activite: activite || null,
+      Lieu: lieu || null,
+      Sessions: sessions || null,
+      Debut: debut || null,        // "HhMM" normalisé (ex: 9h00, 10h05)
+      Duree: duree || null,        // "HhMM" normalisé (ex: 0h55, 1h20)
+      Style: style || null,
       Relaches: null,
-      Orga: "Off",
       Hyperlien: null
     });
-
-    // Avancer i jusqu'au début du prochain bloc pour éviter rescan inutile
-    i = j;
   }
 
   return out;
 }
+
 
 /**
  * Parse le texte brut de la page catalogue Avignon In.
@@ -783,3 +915,34 @@ const _looksLikeStyle = (line) => {
     if (words.length > 8) return false;      // heuristique simple
     return true;
   };
+
+  // Extrait mois/année depuis la ligne info (ex: "... juillet 2025")
+// normalise "HhM?" / "Hh" -> "HhMM" (H sans zéro initial, MM sur 2 chiffres)
+function _normalizeHhmmLoose(s) {
+  if (!s) return null;
+  const m = String(s).match(/^(\d{1,2})h(\d{0,2})$/i);
+  if (!m) return null;
+  const h = Number(m[1]);                 // jamais padder l'heure
+  const mm = m[2] === undefined || m[2] === '' ? 0 : Number(m[2]);
+  return `${h}h${_pad3(mm)}`;
+}
+
+function _isImageLine(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return false;
+  if (/!\[[^\]]*\]\([^)]+\)/i.test(s)) return true;                         // Markdown
+  if (/<img\b[^>]*\bsrc\s*=\s*["'][^"']+["']/i.test(s)) return true;        // HTML
+  if (/^https?:\/\/\S+\.(png|jpe?g|gif|webp|svg)(\?\S*)?$/i.test(s)) return true; // URL
+  if (/^data:image\/(png|jpe?g|gif|webp|svg);base64,/i.test(s)) return true;     // data URI
+  return false;
+}
+
+function _parseMonthYear(info) {
+  const m = String(info || '')
+    .toLowerCase()
+    .match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b(?:\s+(\d{4}))?/i);
+  if (!m) return { mm: null, yyyy: null };
+  const mm = MOIS[m[1]] ? _pad3(MOIS[m[1]]) : null;
+  const yyyy = m[2] || null;
+  return { mm, yyyy };
+}
