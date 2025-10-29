@@ -15,13 +15,17 @@ import {
 
 import {
   PARSED_DEFAULT, 
-  parseAvignonOffSpecPageText, 
+  parseAvignonInProgPageHtml, 
+  parseAvignonOffProgPageHtml, 
   parseAvignonOffSpecPageHtml, 
-  parseAvignonOffCatPageText,
-  parseAvignonInCatPageText,
-  isAvignonOffCatPageText,
+
+  parseAvignonInProgPageText,
+  parseAvignonOffProgPageText,
+  parseAvignonOffSpecPageText, 
+  
+  isAvignonInProgPageText,
+  isAvignonOffProgPageText,
   isAvignonOffSpecPageText,
-  isAvignonInCatPageText,
 } from './parsers.js';
 
 let _ctx = null;
@@ -341,7 +345,9 @@ export function creerActivitesAPI(ctx) {
      */
     async creerActivitesParCollage(df, parser=null) {
       let raw = null;
-      try { raw = await _getClipBoardText(); } catch {}
+      try { raw = await _getClipBoardText(); } catch { return null; }
+
+      if (raw == null) return;
 
       let parsed = null;
 
@@ -355,39 +361,69 @@ export function creerActivitesAPI(ctx) {
             } catch (err) {
               console.error('fetch failed', err);
               alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
-              parsed = [{...PARSED_DEFAULT}];
+              return null;
             }
-          } else {
-            parsed = [{...PARSED_DEFAULT}];
+          } 
+          else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
+            try {
+              const html = await _fetchViaAllOrigins(raw);
+              parsed = parseAvignonOffProgPageHtml(html);
+              parsed.Hyperlien = raw;
+            } catch (err) {
+              console.error('fetch failed', err);
+              alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
+              return null;
+            }
+          } 
+          else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation")) {
+            try {
+              const html = await _fetchViaAllOrigins(raw);
+              parsed = parseAvignonInProgPageHtml(html);
+              parsed.Hyperlien = raw;
+            } catch (err) {
+              console.error('fetch failed', err);
+              alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
+              return null;
+            }
+          } 
+          else {
+            alert("Il n'existe pas de parser pour cette adresse");
           }
         } else {
           switch (true) {
             case isAvignonOffSpecPageText(raw):
               parsed = parseAvignonOffSpecPageText(raw);
               break;
-            case isAvignonOffCatPageText(raw):
-              parsed = parseAvignonOffCatPageText(raw);
+            case isAvignonOffProgPageText(raw):
+              parsed = parseAvignonOffProgPageText(raw);
               break;
-            case isAvignonInCatPageText(raw):
-              parsed = parseAvignonInCatPageText(raw);
+            case isAvignonInProgPageText(raw):
+              parsed = parseAvignonInProgPageText(raw);
               break;
-            default:
-              parsed = [{...PARSED_DEFAULT}];
           }
         }
-      } else {
-        if (parser == 'parseAvignonOffCatPage') {
-          parsed = parseAvignonOffCatPageText(raw);
-        } else if (parser == 'parseAvignonInCatPage') {
-          parsed = parseAvignonInCatPageText(raw);
-        } 
-        if (Object.values(parsed).every(v => v == null)) {
-          alert('Aucune valeur valide à coller. Commencer par aller dans le catalogue, afficher le programme et copier le texte de la page');
+        if (!parsed || parsed.length == 0) {
+          alert("Aucune valeur valide à coller. Commencer par aller dans un catalogues, afficher le programme ou la page d'un spectacle et copier le texte de la page");
+          return null;
         }
+      } else {
+        if (parser == 'parseAvignonOffProgPage') {
+          parsed = parseAvignonOffProgPageText(raw);
+          if (!parsed || parsed.length == 0) {
+            alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+            return null;
+          }
+        } else if (parser == 'parseAvignonInProgPage') {
+          parsed = parseAvignonInProgPageText(raw);
+          if (!parsed || parsed.length == 0) {
+            alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du In, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+            return null;
+          }
+        } 
       }
 
       const nouvellesActivites = [];
-      if (!parsed) parsed = [{...PARSED_DEFAULT}];
+      if (!parsed || parsed.length == 0) parsed = [{...PARSED_DEFAULT}];
 
       for (const row of parsed) {
         const nouveauNom = _getNomNouvelleActivite(df, row.Activite);

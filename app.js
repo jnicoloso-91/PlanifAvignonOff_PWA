@@ -1929,6 +1929,28 @@ function addExpanderButtons() {
   
 }
 
+// function updateBadgeFromGrid(api, badgeEl, { showTotal=false } = {}) {
+//   if (!api || !badgeEl) return;
+//   const displayed = api.getDisplayedRowCount ? api.getDisplayedRowCount() : api.getModel().getRowCount();
+//   if (!showTotal) {
+//     badgeEl.textContent = String(displayed);
+//     return;
+//   }
+//   const total = api.getModel()?.getRowCount?.() ?? displayed;
+//   badgeEl.textContent = `${displayed} / ${total}`;
+// }
+function updateBadgeFromGrid(api, badgeEl) {
+  if (!api || !badgeEl) return;
+
+  const displayed = api.getDisplayedRowCount
+    ? api.getDisplayedRowCount()
+    : api.getModel().getRowCount();
+
+  const total = api.getModel()?.rootNode?.allLeafChildren?.length ?? displayed;
+  badgeEl.textContent = `${displayed} / ${total}`;
+}
+
+
 // ===== Builders de colonnes de grilles =====
 // Colonnes des grilles d'activités programmées et non programmées
 function buildColumnsActivitesCommon(){
@@ -1952,7 +1974,7 @@ function buildColumnsActivitesCommon(){
     { field:'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
     { field:'Sessions', headerName: 'Sessions', width:widthSR, minWidth:widthSR, valueParser: valueParserSessions },
     { field:'Relaches', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelaches },
-    { field:'Style', headerName: 'Style', minWidth:100, flex:0.6 },
+    { field:'Style', headerName: 'Style', minWidth:160, flex:0.6 },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique },
@@ -2228,6 +2250,7 @@ const gridOptionsActivitesNonProgrammees = {
     const hasSel = !!p.api.getSelectedRows()?.length;
     document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);
   },
+  onFilterChanged: p => updateBadgeFromGrid(p.api, document.getElementById('badge-non-prog')),
 }
 
 const gridOptionsCreneaux = {
@@ -2515,6 +2538,7 @@ async function refreshGrid(gridId) {
     // sur la grille des activités non programmées nécessaire de faire un redrawRaws pour appliquer correctement la colo (don't know why...) 
     if (gridId == 'grid-non-programmees') {
       api.redrawRows();  // ré-évalue getRowStyle
+      updateBadgeFromGrid(api, document.getElementById('badge-non-prog'));
     }
 
     api.dispatchEvent?.({ type: 'gridSizeChanged' });
@@ -3584,7 +3608,7 @@ async function doImportExcel() {
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
-  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonOffCatPage');
+  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonOffProgPage');
   ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
 
   // Maj des sélections
@@ -3597,7 +3621,7 @@ async function doImportFromCatOff() {
 
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
-  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonInCatPage');
+  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonInProgPage');
   ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
 
   // Maj des sélections
@@ -3679,6 +3703,7 @@ async function doAjoutActivite() {
 // Ajout activité avec collage
 async function doAjoutActivitesParCollage() {
   const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df);
+  if (!nouvellesActivites || nouvellesActivites.length == 0) return;
   ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
 
   // Maj des sélections

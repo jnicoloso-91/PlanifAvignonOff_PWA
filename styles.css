@@ -415,6 +415,17 @@ main, .page-wrap {
   stroke: #888;
 }
 
+.exp-badge {
+  padding: 0 .5rem;
+  border-radius: 999px;
+  background: rgba(0,0,0,.08);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  min-width: 2ch;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
 
 /* =============================*/
 /* Ag Grid                      */
@@ -450,7 +461,6 @@ main, .page-wrap {
 
 /* Padding sur cells */
 .ag-theme-quartz .ag-cell,
-/* .ag-theme-quartz .ag-cell.col-icon, */
 .ag-theme-quartz .ag-cell-wrapper,
 .ag-theme-quartz .ag-cell-value {
   padding-left: 8px !important;   
