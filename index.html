@@ -95,6 +95,15 @@
       </div>
     </div>
 
+    <!-- Popup clipboard (masquée par défaut) -->
+    <div id="paste-popup" aria-hidden="true">
+      <div class="pp-backdrop"></div>
+      <div class="pp-dialog" role="dialog" aria-modal="true">
+        <p class="pp-msg">Touchez la zone puis « Coller »</p>
+        <div id="paste-proxy" contenteditable="true" spellcheck="false"></div>
+      </div>
+    </div>
+
     <!-- Languette dela Bottom Bar -->
     <!-- <button id="toggleBar" class="bar-toggle" aria-label="Montrer ou cacher la barre">^</button> -->
     
