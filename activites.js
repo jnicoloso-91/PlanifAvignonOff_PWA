@@ -31,6 +31,10 @@ import {
   isAvignonOffSpecPageText,
 } from './parsers.js';
 
+import {
+  logToPage,
+} from './utils.js';
+
 let _ctx = null;
 let _MARGE = null;
 let _compteurNouvelleActivite = null;
@@ -352,20 +356,26 @@ export function creerActivitesAPI(ctx) {
 
       if (raw == null) return;
 
+      logToPage(`Coller: ${raw}`);
+
       let parsed = null;
 
       if (!parser) {
         if (_looksLikeUrl(raw)) { 
           if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
+            logToPage(`parseAvignonInProgPageUrl`);
             parsed = await _asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
           } 
           else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/")) {
+            logToPage(`parseAvignonInSpecPageUrl`);
             parsed = await _asyncCallAvecOverlayAttente(parseAvignonInSpecPageUrl, raw, 'Echec collage');
           } 
           else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
+            logToPage(`parseAvignonOffProgPageUrl`);
             parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
           } 
           else if (raw.includes("www.festivaloffavignon.com/spectacles")) {
+            logToPage(`parseAvignonOffSpecPageUrl`);
             parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
           } 
           else {
