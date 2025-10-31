@@ -50,7 +50,7 @@ body:not(.hide-app-header) header.app-header {
 /* =============================== */
 /* Overlay attente                 */
 /* =============================== */
-#overlay {
+#overlay-attente {
   position: fixed;
   inset: 0;
   background: rgba(255,255,255,0.5);
@@ -60,7 +60,7 @@ body:not(.hide-app-header) header.app-header {
   z-index: 9999;
 }
 
-#overlay[hidden] { 
+#overlay-attente[hidden] { 
   display: none !important; 
 }
 

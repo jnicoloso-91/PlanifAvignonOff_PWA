@@ -47,7 +47,7 @@ const PHANTOM_WITH_OFFSET = false;      // effet fantôme avec ou sans offset
 const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la trajectoire de l'effet fantôme
 const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
 
-const overlay = document.getElementById('overlay');
+const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
 
 // ------- Debug -------
 
@@ -632,7 +632,7 @@ function computeContentHeight(pane) {
     }
   } catch {}
 
-  const rowsWanted = (displayedRows > 0) ? displayedRows : 2; // ✅ 2 lignes si vide (overlay visible)
+  const rowsWanted = (displayedRows > 0) ? displayedRows : 2; // ✅ 2 lignes si vide 
   const pad = 0; // ajuste si tu as un padding interne sur le pane
 
   return headerH + rowsWanted * rowH + pad;
@@ -3703,6 +3703,7 @@ async function doAjoutActivite() {
 // Ajout activité avec collage
 async function doAjoutActivitesParCollage() {
   const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df);
+
   if (!nouvellesActivites || nouvellesActivites.length == 0) return;
   ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
 
@@ -4299,7 +4300,7 @@ function wireHiddenFileInput(){
     const f = ev.target.files?.[0];
     if (!f) return;
     try {
-      overlay.hidden = false;
+      overlayAttente.hidden = false; // Affiche l'overlay d'attente
 
       const buf = await f.arrayBuffer();
       const wb  = XLSX.read(buf, { type: 'array' });
@@ -4403,9 +4404,9 @@ function wireHiddenFileInput(){
     }
     catch (e) {
       console.error('❌ Import Excel KO', e);
-      alert('Import échoué : ' + e.message);
+      alert("Echec de l'import : " + e.message);
     } finally {
-      overlay.hidden = true;
+      overlayAttente.hidden = true; // Masque l'overlay d'attente
       ev.target.value = '';
     }
   });

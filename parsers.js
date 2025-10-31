@@ -2,6 +2,9 @@
 
 import { 
   mmToHHhMM,
+  mmToHhmm,
+  pad2,
+  parseDurationToHhmm,
 } from './utils-date.js';
 
 /**
@@ -20,481 +23,50 @@ export const PARSED_DEFAULT = {
 };
 
 /**
- * Parser HTML d'une page programme du catalogue Avignon In
+ * Parser d'une page programme du catalogue Avignon In donnée par son URL
  * @param {*} doc 
  * @returns 
  */
-export function parseAvignonInProgPageHtml(doc) {
-  const pad2 = n => String(Number(n)||0).padStart(2,'0');
-
-  // petits utilitaires
-  const getText = sel => doc.querySelector(sel)?.textContent || '';
-  const pickMonth = s => {
-    const m = String(s).toLowerCase().match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/);
-    return m ? pad2(MOIS[m[1]]) : null;
-  };
-  const minutesToHhmm = (mins) => {
-    const m = Math.max(0, Number(mins)||0), h = Math.floor(m/60), mm = m%60;
-    return `${h}h${String(mm).padStart(2,'0')}`;
-  };
-
-  const results = [];
-  // Heuristique: blocs contenant "Archive 20xx"
-  doc.querySelectorAll('section, article, .bloc, .card').forEach(bloc => {
-    const txt = bloc.textContent.replace(/\s+/g,' ').trim();
-    if (!/\bArchive\s+\d{4}\b/i.test(txt)) return;
-
-    // Titre = premier Hx dans le bloc
-    const activite = bloc.querySelector('h1,h2,h3')?.textContent.trim() || null;
-
-    // Dates = ligne avec "<jour(s)> <mois> <année>"
-    const lineDates = [...bloc.querySelectorAll('p, li, div, span')]
-      .map(x=>x.textContent.trim())
-      .find(s => /\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b\s+\d{4}/i.test(s));
-
-    let Sessions = null;
-    if (lineDates) {
-      const mm = pickMonth(lineDates) || '07';
-      const before = lineDates.split(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/i)[0]
-        .replace(/\bet\b/gi, ',').replace(/[·\.]/g, ',');
-      const days = before.split(',').map(x => (x.match(/(\d{1,2})\s*$/)||[])[1]).filter(Boolean).map(d=>pad2(d));
-      if (days.length === 1) Sessions = `${days[0]}/${mm}`;
-      else if (days.length > 1) Sessions = `(${days.join(',')})/${mm}`;
-    }
-
-    // Lieu = un élément “lieu/salle” (à affiner selon DOM réel)
-    const Lieu = bloc.querySelector('[class*="salle"], [class*="lieu"], [class*="site"]')?.textContent.trim() || null;
-
-    // Durée
-    let Duree = null;
-    const durLine = [...bloc.querySelectorAll('p, li, div, span')]
-      .map(x=>x.textContent)
-      .find(s => /dur[ée]e?\s*:|(\d{1,3})\s*m(?:in)?s?\b|\b\d{1,2}h(\d{0,2})\b/i.test(s||''));
-    if (durLine) {
-      const mH = durLine.match(/(\d{1,2})\s*h\s*(\d{0,2})\b/i);
-      const mM = durLine.match(/(\d{1,3})\s*m(?:in)?s?\b/i);
-      if (mH) {
-        const h = Number(mH[1])||0, mm = mH[2] ? Number(mH[2]) : 0;
-        Duree = `${h}h${String(mm).padStart(2,'0')}`;
-      } else if (mM) {
-        Duree = minutesToHhmm(Number(mM[1])||0);
-      }
-    }
-
-    // Style (tags)
-    const Style = [...bloc.querySelectorAll('.liste-tags .tag, .tags .tag')]
-      .map(x => x.textContent.trim())
-      .filter(Boolean)
-      .join(' ') || null;
-
-    if (activite && (Sessions || Lieu || Duree)) {
-      results.push({ 
-        ...PARSED_DEFAULT, 
-        Activite: activite, 
-        Sessions, 
-        Lieu, 
-        Duree, 
-        Style, 
-        Orga:'In',
-      });
-    }
-  });
-
-  return results;
+export async function parseAvignonInProgPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
+  const res  = await fetcher(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+  const html = await res.text();
+  const doc  = new DOMParser().parseFromString(html, 'text/html');
+  return parseAvignonInProgPageDom(doc, url);
 }
 
 /**
- * Parser HTML d'une page programme du catalogue Avignon Off 
+ * Parser d'une page programme du catalogue Avignon In donnée par son Dom
  * @param {*} doc 
  * @returns 
  */
-export function parseAvignonOffProgPageHtml(doc) {
-  const pad2 = n => String(Number(n)||0).padStart(2,'0');
+export function parseAvignonInProgPageDom(doc, pageUrl = '') {
+  const out = [];
+  const comps = [...doc.querySelectorAll('program-by-category')];
+  if (!comps.length) return out;
 
-  const minutesToHhmm = (mins) => {
-    const m = Math.max(0, Number(mins)||0), h = Math.floor(m/60), mm = m%60;
-    return `${h}h${String(mm).padStart(2,'0')}`;
-  };
-  const normalizeHhmmLoose = (s) => {
-    const m = String(s||'').match(/^(\d{1,2})h(\d{0,2})$/i);
-    if (!m) return null;
-    return `${Number(m[1])}h${String(m[2] ? Number(m[2]) : 0).padStart(2,'0')}`;
-  };
-  const parseMonthYear = (s) => {
-    const m = String(s||'').toLowerCase().match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b(?:\s+(\d{4}))?/i);
-    if (!m) return {mm:null, yyyy:null};
-    return { mm: MOIS[m[1]] ? pad2(MOIS[m[1]]) : null, yyyy: m[2] || null };
-  };
-
-  const items = [];
-  // Sélecteurs assez permissifs sur OFF cat
-  doc.querySelectorAll('.vignette-spectacle, .carte-spectacle, article, .spectacle').forEach(card => {
-    // 1) Titre
-    const titre = card.querySelector('h2, h3, .titre, .card-title')?.textContent.trim() || null;
-
-    // 2) Ligne info (Lieu + dates + heures)
-    const infoNode = card.querySelector('.lieu-dates, .meta, .salle-date, .infos, .baseline');
-    const info = infoNode?.textContent.replace(/\s+/g,' ').trim() || '';
-
-    // 3) Style (tags)
-    const style = [...card.querySelectorAll('.liste-tags .tag, .tags .tag')]
-      .map(t => t.textContent.trim())
-      .filter(Boolean)
-      .join(' ') || null;
-
-    // 4) Hyperlien (si dispo)
-    const href = card.querySelector('a[href]')?.getAttribute('href') || null;
-
-    // 5) Extraire Lieu / Sessions / Heures / Durée
-    let lieu = info;
-    // couper avant " du " / " le " / 1er horaire
-    const low = info.toLowerCase();
-    let cut = -1;
-    const iDu = low.indexOf(' du '), iLe = low.indexOf(' le ');
-    if (iDu > -1) cut = iDu; else if (iLe > -1) cut = iLe;
-    if (cut === -1) {
-      const mH = info.match(/\b\d{1,2}h\d{0,2}\b/i);
-      if (mH) cut = info.indexOf(mH[0]);
+  for (const el of comps) {
+    const payload = _extractEventsPayload(el);
+    if (!payload?.length) continue;
+    for (const ev of payload) {
+      const mapped = _mapEventToRow(ev, pageUrl);
+      if (mapped) out.push(mapped);
     }
-    if (cut > 0) lieu = info.slice(0, cut).trim();
-
-    // sessions
-    const { mm } = parseMonthYear(info);
-    const monthOut = mm || '07';
-    let sessions = null;
-    const mDuAu = info.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
-    const mLe   = info.match(/\ble\s+(\d{1,2})\b/i);
-    if (mDuAu) {
-      sessions = `[${pad2(+mDuAu[1])}-${pad2(+mDuAu[2])}]/${monthOut}`;
-    } else if (mLe) {
-      const d = pad2(+mLe[1]);
-      sessions = `[${d}-${d}]/${monthOut}`;
-    }
-
-    // heures & durée
-    let Debut = null, Duree = null;
-    const hTokens = [...info.matchAll(/\b(\d{1,2})h(\d{0,2})\b/gi)]
-      .map(m => ({ t: normalizeHhmmLoose(`${m[1]}h${m[2]??''}`), idx: m.index }))
-      .filter(x => x.t);
-    const mTokens = [...info.matchAll(/\b(\d{1,3})\s*m(?:in)?s?\b/gi)]
-      .map(m => ({ mins: Number(m[1]), idx: m.index }));
-
-    if (hTokens.length) {
-      Debut = hTokens[0].t;
-      const startPos = hTokens[0].idx ?? 0;
-      const durH = hTokens.find((x,i)=> i>0 && x.idx > startPos);
-      if (durH) Duree = durH.t;
-      else if (mTokens.length) Duree = minutesToHhmm(mTokens.find(x=>x.idx>startPos)?.mins ?? mTokens[0].mins);
-    } else if (mTokens.length) {
-      Duree = minutesToHhmm(mTokens[0].mins);
-    }
-
-    // push
-    if (titre) {
-      items.push({
-        ...PARSED_DEFAULT,
-        Activite: titre,
-        Lieu: lieu || null,
-        Sessions: sessions,
-        Debut: Debut,
-        Duree: Duree,
-        Style: style,
-        Orga: 'Off',
-        Hyperlien: href
-      });
-    }
-  });
-
-  return items;
+  }
+  return out;
 }
-
-/**
- * Parser HTML d'une page spectacle du catalogue Avignon Off 
- * parseListingHtml(html, { url })
- * @param {string} html
- * @param {{url?: string}} opts
- * @return {{Activite:string|null, Lieu:string|null, Relaches:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
- */
-export function parseAvignonOffSpecPageHtml(html, { url=null } = {}) {
-  const res = {...PARSED_DEFAULT};
-  if (!html || typeof html !== 'string') return res;
-
-  let doc;
-  try { doc = new DOMParser().parseFromString(html, 'text/html'); }
-  catch { return res; }
-
-  // Activité
-  const titleTxt = _clean(doc.querySelector('title')?.textContent || "");
-  if (titleTxt) {
-    const part = titleTxt.split('–')[0].split('-')[0].trim();
-    res.Activite = part || titleTxt;
-  }
-
-  // Style = 1er tag dans .intro-spectacle > .liste-tags
-  {
-    const tagEl = doc.querySelector('.intro-spectacle .liste-tags .tag');
-    if (tagEl) {
-      const styleTxt = tagEl.textContent.trim().replace(/\s+/g, ' ');
-      if (styleTxt) res.Style = styleTxt;
-    }
-  }
-
-  // Lieu
-  const lieuSection = doc.querySelector('section.lieu-spectacle');
-  if (lieuSection) {
-    const aTheatre = lieuSection.querySelector('a[href*="/theatres/"]') || lieuSection.querySelector('a');
-    const lieuTxt = _clean(aTheatre?.textContent || "");
-    if (lieuTxt) res.Lieu = lieuTxt;
-  }
-
-  // Infos (Relâche / Début / Durée)
-  const infos = doc.querySelector('section.infos-spectacle');
-  if (infos) {
-    const spans = Array.from(infos.querySelectorAll('span'))
-      .map(s => _clean(s.textContent || ''))
-      .filter(Boolean);
-
-    // Concat pour matcher les patterns "du X au Y..., (relâche )? jours pairs/impairs"
-    const bigText = spans.join(' • ');
-
-    // Heures
-    for (const s of spans) {
-      if (!res.Debut) {
-        const h = _normalizeHeure(s);
-        if (h) { res.Debut = h; continue; }
-      }
-      if (!res.Duree) {
-        const d = _normalizeDuree(s);
-        if (d) { res.Duree = d; continue; }
-      }
-    }
-
-    // Relâche = (liste explicite) + (période + parité interprétée)
-    const parts = [];
-    const explicite = _parseRelaches(bigText);
-    if (explicite) parts.push(explicite);
-
-    const relachesParite = _parseRelachesAvecParite(bigText);
-    if (relachesParite) parts.push(relachesParite);
-
-    if (parts.length) res.Relaches = parts.join(', ');
-  
-    const sessions = _parseSessions(bigText);
-    if (sessions && sessions.length) res.Sessions = sessions;
-  }
-
-  res.Orga = "Off";
-
-  return [res];
-}
-
-
 
 /**
  * Parse le texte brut de la page catalogue Avignon In.
  * @param {*} text 
  * @returns 
  */
-// export function parseAvignonInProgPageText(text) {
-//   if (!text) return [];
-
-//   // ---- Découpage en blocs (entre 2 lignes "Archive YYYY") ----
-//   const lines = String(text).replace(/\r\n?/g, '\n').split('\n'); // on garde les lignes vides
-//   const reArchive = /^archive\s+\d{4}$/i;
-
-//   // indices des lignes "Archive YYYY"
-//   const archIdx = [];
-//   for (let i = 0; i < lines.length; i++) {
-//     if (reArchive.test(lines[i]?.trim())) archIdx.push(i);
-//   }
-//   if (!archIdx.length) return [];
-
-//   const results = [];
-
-//   for (let a = 0; a < archIdx.length; a++) {
-//     const endIdx = archIdx[a];                        // position de "Archive YYYY"
-//     const startIdx = (a > 0 ? archIdx[a - 1] + 1 : 0); // début de bloc = après l'archive précédente
-
-//     // extrait les lignes du bloc (sans l'archive de fin)
-//     const block = lines.slice(startIdx, endIdx);
-
-//     // indices des lignes non vides du bloc
-//     const nonEmptyIdx = [];
-//     for (let i = 0; i < block.length; i++) {
-//       if (_isNonEmpty(block[i])) nonEmptyIdx.push(i);
-//     }
-//     if (nonEmptyIdx.length < 3) continue; // bloc trop court pour être fiable
-
-//     // --- TITRE : première non-vide du bloc ---
-//     const iTitre = nonEmptyIdx[0];
-//     const Activite = _stripQuotes(block[iTitre]);
-
-//     // --- DATES : chercher depuis le bas la 1re ligne qui parse comme dates ---
-//     let iDate = -1, Sessions = null;
-//     for (let k = nonEmptyIdx.length - 1; k >= 0; k--) {
-//       const idx = nonEmptyIdx[k];
-//       const parsed = _parseDates(block[idx]);
-//       if (parsed && parsed.sessions) {
-//         iDate = idx;
-//         Sessions = parsed.sessions;
-//         break;
-//       }
-//     }
-//     if (iDate < 0) continue; // sans dates, on ignore le bloc
-
-//     // --- LIEU : 1re non-vide **sous** la ligne des dates ---
-//     let iLieu = -1;
-//     for (let i = iDate + 1; i < block.length; i++) {
-//       if (_isNonEmpty(block[i])) { iLieu = i; break; }
-//     }
-//     if (iLieu < 0) continue;
-//     const Lieu = block[iLieu].trim();
-
-//     // --- DURÉE (optionnelle) : d’abord sous le lieu (bas de bloc), sinon entre lieu et dates ---
-//     let Duree = null;
-//     // zone sous le lieu
-//     for (let i = block.length - 1; i > iLieu; i--) {
-//       const t = block[i]?.trim(); if (!t) continue;
-//       const d = _parseDuree(t);
-//       if (d) { Duree = d; break; }
-//     }
-//     // fallback entre lieu et dates (rare)
-//     if (!Duree) {
-//       for (let i = iLieu - 1; i > iDate; i--) {
-//         const t = block[i]?.trim(); if (!t) continue;
-//         const d = _parseDuree(t);
-//         if (d) { Duree = d; break; }
-//       }
-//     }
-
-//     // --- STYLE : remonter **au-dessus** des dates, ignorer "Avec ..." et les lignes longues ---
-//     // let iStyle = -1;
-//     // for (let i = iDate - 1; i >= 0; i--) {
-//     //   const t = block[i];
-//     //   if (!_isNonEmpty(t)) continue;
-//     //   if (/^avec\b/i.test(t)) continue;
-//     //   if (!_looksLikeStyle(t)) continue;
-//     //   iStyle = i;
-//     //   break;
-//     // }
-//     // 
-//     // // fallback : 1re non-vide au-dessus des dates si l'heuristique échoue
-//     // if (iStyle < 0) {
-//     //   for (let i = iDate - 1; i >= 0; i--) {
-//     //     if (_isNonEmpty(block[i])) { iStyle = i; break; }
-//     //   }
-//     // }
-//     // const Style = iStyle >= 0 ? block[iStyle].trim() : null;
-
-
-//     // --- STYLE --- (gère PC : 1 ligne, et iPhone : bloc de puces)
-//     const isBulletLine = (t) => /^[\u2022•\-\*]\s+/.test(t); // •, -, *
-//     const bulletText = (t) => t.replace(/^[\u2022•\-\*]\s+/, '').trim();
-//     const isAvecLine = (t) => /^avec\b/i.test(t);
-//     const isReadMore = (t) => /^en savoir plus\b/i.test(t);
-
-//     // Heuristique “nom de personne” : 2+ mots, chacun Capitalisé (gère accents et tirets)
-//     const isPersonName = (t) => {
-//       const w = t.trim().split(/\s+/);
-//       if (w.length < 2) return false;
-//       const rxWord = /^[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸ][a-zàâäçéèêëîïôöùûüÿ'’\-]+$/;
-//       return w.every(s => rxWord.test(s));
-//     };
-
-//     // Mise en forme : première majuscule, reste en minuscule
-//     const normalizeStyleCase = (s) => {
-//       const parts = s.trim().split(/\s+/);
-//       if (!parts.length) return s.trim();
-//       const head = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-//       const tail = parts.slice(1).map(x => x.toLowerCase());
-//       return [head, ...tail].join(' ');
-//     };
-
-//     let Style = null;
-
-//     // 1) Chercher un bloc de puces CONTIGÜ juste au-dessus des dates (format iPhone)
-//     let topBullet = -1, bottomBullet = -1;
-//     for (let i = iDate - 1; i >= 0; i--) {
-//       const t = block[i] && block[i].trim();
-//       if (!t || isReadMore(t)) continue;            // saute vides et "En savoir plus"
-//       if (isBulletLine(t)) {
-//         // étendre vers le haut tant que c'est des puces (pour attraper le bloc entier)
-//         bottomBullet = (bottomBullet === -1) ? i : bottomBullet;
-//         topBullet = i;
-//         continue;
-//       }
-//       // si on a déjà vu des puces et on tombe sur autre chose -> on s'arrête
-//       if (bottomBullet !== -1) break;
-//     }
-
-//     if (bottomBullet !== -1) {
-//       // on a un bloc [topBullet..bottomBullet] de puces : extraire les items
-//       const items = [];
-//       for (let i = topBullet; i <= bottomBullet; i++) {
-//         const t = bulletText(block[i].trim());
-//         if (!t || isAvecLine(t)) continue;
-//         items.push(t);
-//       }
-
-//       // garder les items jusqu’au premier “nom de personne”
-//       const styleTokens = [];
-//       for (const it of items) {
-//         if (isPersonName(it)) break;           // stop à l’auteur
-//         styleTokens.push(it);
-//       }
-
-//       if (styleTokens.length) {
-//         Style = normalizeStyleCase(styleTokens.join(' ')); // ex. "Spectacle pluridisciplinaire"
-//       }
-//     }
-
-//     // 2) Fallback PC : une seule ligne “style” directement au-dessus des dates
-//     if (!Style) {
-//       // heuristique “ligne courte, pas 'Avec', pas bullet, pas read-more”
-//       for (let i = iDate - 1; i >= 0; i--) {
-//         const t = block[i] && block[i].trim();
-//         if (!t) continue;
-//         if (isReadMore(t) || isBulletLine(t) || isAvecLine(t)) continue;
-//         if (t.length > 60) continue;                // trop descriptif
-//         if (isPersonName(t)) continue;              // éviter l’auteur
-//         Style = normalizeStyleCase(t);
-//         break;
-//       }
-//     }
-
-//     // fallback ultime : prendre la 1re non-vide au-dessus des dates (si rien trouvé)
-//     if (!Style) {
-//       for (let i = iDate - 1; i >= 0; i--) {
-//         const t = block[i] && block[i].trim();
-//         if (t && !isReadMore(t)) { Style = t; break; }
-//       }
-//     }
-//     // Fin STYLES
-
-//     results.push({
-//       ...PARSED_DEFAULT,
-//       Activite,
-//       Style,
-//       Lieu,
-//       Duree: Duree || null,
-//       Sessions: Sessions || null,
-//       Debut: null,
-//       Relaches: null,
-//       Orga: 'In',
-//       Hyperlien: null
-//     });
-//   }
-
-//   return results;
-// }
-// ===== PARSEUR AVIGNON IN – compatible PC & iPhone (puces) =====
-
 export function parseAvignonInProgPageText(text) {
 
   if (!text) return [];
 
   // ---- Helpers locaux ----
-  // const _pad3 = n => String(Number(n) || 0).padStart(2, '0');
+  // const pad2 = n => String(Number(n) || 0).padStart(2, '0');
   // const _normSpaces = s => String(s || '').replace(/[\u00A0\u2000-\u200B]/g, ' ');
   // const _stripQuotes = s => String(s || '').replace(/^[\s"'«]+|[\s"'»]+$/g, '').trim();
   // const _isNonEmpty = s => !!(s && String(s).trim());
@@ -522,13 +94,13 @@ export function parseAvignonInProgPageText(text) {
     if (mh) {
       const h = Number(mh[1]) || 0;
       const mm = mh[2] ? Number(mh[2]) : 0;
-      return `${h}h${_pad3(mm)}`;
+      return `${h}h${pad2(mm)}`;
     }
     const mm = txt.match(/(\d{1,3})\s*m(?:in)?s?\b/);
     if (mm) {
       const mins = Number(mm[1]) || 0;
       const h = Math.floor(mins / 60), m = mins % 60;
-      return `${h}h${_pad3(m)}`;
+      return `${h}h${pad2(m)}`;
     }
     return null;
   };
@@ -550,7 +122,7 @@ export function parseAvignonInProgPageText(text) {
     const year = mMY[2];
     const mNum = MOIS[monthTxt];
     if (!mNum) return { sessions: null, year: null };
-    const mm = _pad3(mNum);
+    const mm = pad2(mNum);
 
     const before = raw.slice(0, mMY.index)
       .replace(/\bet\b/gi, ',')
@@ -562,7 +134,7 @@ export function parseAvignonInProgPageText(text) {
       .filter(Boolean)
       .map(x => x.match(/(\d{1,2})\s*$/)?.[1])
       .filter(Boolean)
-      .map(n => _pad3(n));
+      .map(n => pad2(n));
 
     if (daySeq.length === 0) return { sessions: null, year };
 
@@ -740,6 +312,307 @@ export function parseAvignonInProgPageText(text) {
 }
 
 /**
+ * Parser d'une page spectacle du catalogue Avignon In donnée par son URL
+ * @param {*} doc 
+ * @returns 
+ */
+export async function parseAvignonInSpecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
+  const res  = await fetcher(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+  const html = await res.text();
+  const doc  = new DOMParser().parseFromString(html, 'text/html');
+  return parseAvignonInSpecPageDom(doc, url);
+}
+
+/**
+ * Parser d'une page spectacle du catalogue Avignon In donnée par son Dom
+ * @param {*} doc 
+ * @returns 
+ */
+export function parseAvignonInSpecPageDom(doc, pageUrl = null) {
+
+  const text = s => (s || '').replace(/\s+/g, ' ').trim();
+
+  // --- Titre / Activité
+  const Activite = text(
+    doc.querySelector('.event-titling h1[itemprop="name"]')?.textContent
+  ) || null;
+
+  // --- Style (catégories)
+  const cats = [...doc.querySelectorAll('ul.list_categories li')]
+    .map(li => text(li.textContent))
+    .filter(Boolean);
+  const Style = cats.length ? cats.join(' / ') : null;
+
+  // --- Durée (gère les <abbr>h</abbr>)
+  const dureeContainer = doc.querySelector('.additional_info__text');
+  const dureeTxt = _plainifyWithAbbr(dureeContainer);   // ex. "Durée : 2h10"
+  const Duree = parseDurationToHhmm(dureeTxt);
+
+  // --- Lieu
+  // ex. <div itemprop="location" ...><a ...><span class="title_link">Chartreuse ...</span> ...
+  let Lieu = text(doc.querySelector('[itemprop="location"] .title_link')?.textContent)
+          || text(doc.querySelector('[itemprop="location"] [itemprop="name"]')?.textContent)
+          || null;
+
+  // --- Hyperlien (optionnel)
+  const Hyperlien = pageUrl || null;
+
+  const out = [{ ...PARSED_DEFAULT, Activite, Style, Duree, Lieu, Orga: 'In', Hyperlien }];
+  // Si vraiment rien, renvoie null pour signaler l'échec
+  if (Object.values(out).every(v => v == null)) return null;
+  return out;
+}
+
+/**
+ * Parser d'une page spectacle du catalogue Avignon In donnée par son texte
+ * @param {*} doc 
+ * @returns 
+ */
+export function parseAvignonInSpecPageText(text) {
+  if (!text) return null;
+
+  const lines = String(text)
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(l => l.replace(/\u00A0/g, ' ').trim()) // remplace NBSP
+    .filter(l => l.length);
+
+  const norm = s => String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const findIndex = (re) => lines.findIndex(l => re.test(norm(l)));
+  const nextNonEmpty = (i, offs = 1) => {
+    let j = i + offs;
+    while (j < lines.length && !lines[j]) j++;
+    return j < lines.length ? lines[j] : null;
+  };
+
+  let Activite = null;
+  let Style = null;
+  let Lieu = null;
+  let Duree = null;
+
+  // 1) Titre : ligne juste après "Partager"
+  const shareIdx = findIndex(/^partager$/i);
+  if (shareIdx >= 0) {
+    Activite = nextNonEmpty(shareIdx, 1);
+    // 2) Style : la ligne suivante si ce n'est pas "Archive 20xx"
+    const maybeStyle = nextNonEmpty(shareIdx, 2);
+    if (maybeStyle && !/^archive\s+\d{4}$/i.test(norm(maybeStyle))) {
+      Style = maybeStyle;
+    }
+  }
+
+  // 3) Lieu & Durée : dans le bloc "Infos pratiques"
+  const infosIdx = findIndex(/^infos? pratiques?$/i);
+  if (infosIdx >= 0) {
+    // Lieu = ligne après, + éventuellement la ligne suivante si elle ressemble à une adresse
+    const l1 = nextNonEmpty(infosIdx, 1);
+    const l2 = nextNonEmpty(infosIdx, 2);
+    const isAddressLike = s => !!s && /(\b\d{2,5}\b|\bavignon\b|rue|place|boulevard|avenue|cours)/i.test(s);
+    if (l1 && isAddressLike(l2)) {
+      Lieu = `${l1} ${l2}`.replace(/\s+/g, ' ').trim();
+    } else {
+      Lieu = l1 || null;
+    }
+
+    // Durée : cherche la première ligne "Durée :" APRÈS "Infos pratiques"
+    for (let j = infosIdx + 1; j < lines.length; j++) {
+      const ln = lines[j];
+      if (/^photos$|^audiovisuel$|^presentation$|^présentation$/i.test(norm(ln))) break; // fin de section
+      if (/^dure[eé]\s*:/.test(norm(ln)) || /dure[eé]/i.test(ln)) {
+        Duree = parseDurationToHhmm(ln);
+        if (Duree) break;
+      }
+    }
+  }
+
+  const out = [{ ...PARSED_DEFAULT, Activite, Style, Duree, Lieu, Orga: 'In', }];
+  return Object.values(out).every(v => v == null) ? null : out;
+}
+
+/**
+ * Parser d'une page programme du catalogue Avignon Off donnée par son URL
+ * @param {string} url - URL du programme (ex: https://www.festivaloffavignon.com/programme)
+ * @param {object}  opts
+ * @param {number}  opts.maxPages   - sécurité (par défaut 50)
+ * @param {number}  opts.delayMs    - pause entre requêtes (120ms par défaut)
+ * @param {boolean} opts.verbose    - logs console
+ * @returns {Promise<Array>}        - liste d’objets parsés (Activite, Lieu, Sessions, Debut, Duree, Style, Hyperlien)
+ */
+export async function parseAvignonOffProgPageUrl(url, { maxPages = 50, delayMs = 120, verbose = false } = {}) {
+  const seen = new Set();
+  const all  = [];
+
+  // 1) Page initiale (GET)
+  const res0 = await _fetchViaCloudFlareWorker(url);
+  const html0 = await res0.text();
+  const doc0 = _parseHTML(html0);
+
+  // 2) Parser la page 1
+  const pushItems = (items) => {
+    let added = 0;
+    for (const it of (items || [])) {
+      const key = _makeKey(it);
+      if (!seen.has(key)) { seen.add(key); all.push(it); added++; }
+    }
+    return added;
+  };
+
+  let added = pushItems(parseAvignonOffProgPageDom(doc0));
+  if (verbose) console.debug('[OFF] page 1:', { added, total: all.length });
+
+  // 3) Lire le formulaire & les champs
+  const form = doc0.querySelector('#js-form-filtres');
+  if (!form) {
+    if (verbose) console.warn('[OFF] Form #js-form-filtres introuvable – on retourne la page 1 uniquement.');
+    return all;
+  }
+
+  const pageField   = _detectPageField(form);               // 'page' | 'current_page' | 'paged'
+  let currentPage   = _readCurrentPage(form, pageField);    // ex. 1
+  let nextPage      = currentPage + 1;
+
+  // 4) Boucle pages suivantes (POST même URL)
+  for (let i = 2; i <= maxPages; i++, nextPage++) {
+    // reconstruire les params à chaque tour (garde tous les filtres)
+    const params = _formToParams(form);
+    _setNextPageParams(params, pageField, nextPage);
+
+    // (optionnel) si le site exige un token/nonce, il sera déjà dans le form
+    const res = await _fetchViaCloudFlareWorker(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: params.toString()
+    });
+
+    const html = await res.text();
+    const doc  = _parseHTML(html);
+
+    const items = parseAvignonOffProgPageDom(doc) || [];
+    const nAdded = pushItems(items);
+
+    if (verbose) console.debug(`[OFF] page ${nextPage}:`, { added: nAdded, total: all.length });
+    if (nAdded === 0) break;                // plus rien de nouveau → fin
+
+    // mettre à jour 'form' à partir de la nouvelle page (les filtres/valeurs peuvent évoluer)
+    const newForm = doc.querySelector('#js-form-filtres');
+    if (newForm) {
+      // On repartira au tour suivant avec les derniers champs
+      // (au cas où la page renvoie un nouveau current_page, un nouveau nonce, etc.)
+      form.innerHTML = newForm.innerHTML;
+    }
+
+    if (delayMs) await new Promise(r => setTimeout(r, delayMs));
+  }
+
+  return all;
+}
+
+/**
+ * Parser d'une page programme du catalogue Avignon Off donnée par son Dom
+ * @param {*} doc 
+ * @returns 
+ */
+export function parseAvignonOffProgPageDom(doc) {
+
+  // mois par défaut si non indiqué sur la carte (OFF = juillet)
+  const DEFAULT_MM = '07';
+
+  // "du 5 au 26"  -> "[05-26]/07"
+  // "le 17"       -> "[17-17]/07"
+  const parseSessions = (txt) => {
+    if (!txt) return null;
+    const s = String(txt).toLowerCase().replace(/\s+/g, ' ').trim();
+
+    // optionnel: essayer de capter un mois dans la ligne
+    const mMonth = s.match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/);
+    const moisNum = mMonth ? ({
+      janvier:1, fevrier:2, 'février':2, mars:3, avril:4, mai:5, juin:6,
+      juillet:7, aout:8, 'août':8, septembre:9, octobre:10, novembre:11,
+      decembre:12, 'décembre':12
+    }[mMonth[1]] || 7) : 7;
+
+    const mm = pad2(moisNum || 7);
+
+    const mDuAu = s.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
+    if (mDuAu) {
+      const d1 = pad2(mDuAu[1]), d2 = pad2(mDuAu[2]);
+      return `[${d1}-${d2}]/${mm}`;
+    }
+    const mLe = s.match(/\ble\s+(\d{1,2})\b/i);
+    if (mLe) {
+      const d = pad2(mLe[1]);
+      return `[${d}-${d}]/${mm}`;
+    }
+    // si juste "5-26" sans "du/au"
+    const mDash = s.match(/\b(\d{1,2})\s*-\s*(\d{1,2})\b/);
+    if (mDash) {
+      const d1 = pad2(mDash[1]), d2 = pad2(mDash[2]);
+      return `[${d1}-${d2}]/${mm}`;
+    }
+    return null;
+  };
+
+  const items = [];
+
+  doc.querySelectorAll('.global-card.spectacle-card, .spectacle-card').forEach(card => {
+    // Titre & lien
+    const aTitle = card.querySelector('a.card-nom');
+    const Activite = aTitle?.textContent?.trim() || null;
+    const Hyperlien = aTitle?.getAttribute('href') || null;
+
+    // Lieu
+    const Lieu = card.querySelector('.card-content .theatre')?.textContent?.replace(/\s+/g,' ')?.trim() || null;
+
+    // Sessions (dates)
+    const dateTxt = card.querySelector('.card-content .date')?.textContent || '';
+    const Sessions = parseSessions(dateTxt) || null;
+
+    // Heures & durée
+    const debutTxt = card.querySelector('.horaire-c .heure')?.textContent?.trim() || '';
+    const Debut = _normalizeHhmmLoose(debutTxt) || null;
+
+    let Duree = null;
+    const dureeTxt = card.querySelector('.horaire-c .duree')?.textContent?.trim() || '';
+    if (dureeTxt) {
+      const mH = dureeTxt.match(/(\d{1,2})h(\d{0,2})/i);
+      const mM = dureeTxt.match(/(\d{1,3})\s*m(?:in)?s?/i);
+      if (mH) {
+        Duree = _normalizeHhmmLoose(`${mH[1]}h${mH[2] ?? ''}`);
+      } else if (mM) {
+        Duree = mmToHhmm(Number(mM[1]) || 0);
+      }
+    }
+
+    // Style (prendre uniquement les <span class="tag">, ignorer le <a class="tag tag-orange"> Ticket'Off)
+    const styleSpans = card.querySelectorAll('.liste-tags > span.tag');
+    const Style = styleSpans.length
+      ? Array.from(styleSpans).map(el => el.textContent.trim()).filter(Boolean).join(' ')
+      : null;
+
+    if (Activite) {
+      items.push({
+        ...PARSED_DEFAULT,
+        Activite,
+        Lieu,
+        Sessions: Sessions || null,                 // si null et tu veux forcer juillet : mettre DEFAULT_MM
+        Debut,
+        Duree,
+        Style,
+        Orga: 'Off',
+        Hyperlien
+      });
+    }
+  });
+
+  return items;
+}
+
+/**
  * Parse le texte brut de la page catalogue Avignon Off.
  * Recherche des séquences du type :
  *   Affiche du spectacle : <Titre>
@@ -750,190 +623,6 @@ export function parseAvignonInProgPageText(text) {
  *
  * Renvoie: Array<{...PARSED_DEFAULT}>
  */
-// export function parseAvignonOffProgPageText(text) {
-//   if (!text) return [];
-//   const rawLines = String(text).replace(/\r\n?/g, '\n').split('\n');
-//   const lines = rawLines.map(s => _strip(s)); // on garde les vides pour sauter proprement
-//   const out = [];
-
-//   for (let i = 0; i < lines.length; i++) {
-//     const l1 = lines[i];
-//     if (!/^\s*affiche du spectacle\b/i.test(l1)) continue;
-
-//     // Ligne 2 : Titre (première ligne non vide après l1)
-//     let j = i + 1;
-//     while (j < lines.length && !lines[j]) j++;
-//     if (j >= lines.length) break;
-//     const Activite = _stripQuotes(lines[j]);
-//     j++;
-
-//     // Ligne 3 : Info (première ligne non vide après)
-//     while (j < lines.length && !lines[j]) j++;
-//     if (j >= lines.length) break;
-//     const infoLine = lines[j];
-//     const { Lieu, Sessions, Debut, Duree } = _parseInfoLine(infoLine);
-//     j++;
-
-//     // Ligne 4 : Style (première ligne non vide après)
-//     while (j < lines.length && !lines[j]) j++;
-//     let Style = null;
-//     if (j < lines.length) {
-//       const s = lines[j];
-//       if (!/^ticket'?off\b/i.test(s) && !/^\s*affiche du spectacle\b/i.test(s)) {
-//         Style = s;
-//       }
-//     }
-
-//     out.push({
-//       ...PARSED_DEFAULT,
-//       Activite,
-//       Lieu: Lieu || null,
-//       Sessions: Sessions || null,
-//       Debut: Debut || null,
-//       Duree: Duree || null,
-//       Style: Style || null,
-//       Relaches: null,
-//       Orga: "Off",
-//       Hyperlien: null
-//     });
-
-//     // Avancer i jusqu'au début du prochain bloc pour éviter rescan inutile
-//     i = j;
-//   }
-
-//   return out;
-// }
-// export function parseAvignonOffProgPageText(text) {
-//   if (!text) return [];
-//   const lines = String(text).replace(/\r\n?/g, '\n').split('\n').map(l => l.trim());
-//   const out = [];
-
-//   const reAffiche = /\baffiche du spectacle\b/i;
-//   const reDuAu    = /\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i;
-//   const reLe      = /\ble\s+(\d{1,2})\b/i;
-
-//   for (let i = 0; i < lines.length; i++) {
-//     const l = lines[i];
-//     const isBlockStart = reAffiche.test(l) || _isImageLine(l);
-//     if (!isBlockStart) continue;
-
-//     // --- 1) ACTIVITÉ : 1ère ligne non vide après le marqueur (sauter images) ---
-//     let j = i + 1;
-//     while (j < lines.length && (!lines[j] || _isImageLine(lines[j]))) j++;
-//     if (j >= lines.length) break;
-//     const activite = lines[j].replace(/^["«]+|["»]+$/g, '').trim();
-//     j++;
-
-//     // Skip répétition/variante du titre
-//     const activiteNorm = activite.toLowerCase();
-//     while (j < lines.length) {
-//       const l2 = lines[j];
-//       if (!l2) { j++; continue; }
-//       if (_isImageLine(l2)) { j++; continue; }
-//       const l2n = l2.replace(/^["«]+|["»]+$/g, '').trim().toLowerCase();
-//       if (l2n === activiteNorm || l2n.startsWith(activiteNorm + ' ')) { j++; continue; }
-//       break;
-//     }
-
-//     // --- 2) LIEU + DATES + HEURE/DURÉE : prochaine ligne "info" ---
-//     let lieu = null, debut = null, duree = null, sessions = null;
-//     let foundIdx = -1;
-//     for (let k = j; k < lines.length; k++) {
-//       const lk = lines[k];
-//       if (!lk) continue;
-//       if (reAffiche.test(lk) || _isImageLine(lk)) break; // nouveau bloc
-//       if (reDuAu.test(lk) || reLe.test(lk) || /\b\d{1,2}h\d{0,2}\b/i.test(lk) || /\b\d{1,3}\s*m(?:in)?s?\b/i.test(lk)) {
-//         foundIdx = k; break;
-//       }
-//     }
-
-//     if (foundIdx !== -1) {
-//       const info = lines[foundIdx];
-
-//       // Lieu = avant " du " / " le " ; sinon avant 1ère heure
-//       const loTxt = info.toLowerCase();
-//       let cut = -1;
-//       const loDu = loTxt.indexOf(' du ');
-//       const loLe = loTxt.indexOf(' le ');
-//       if (loDu > -1) cut = loDu;
-//       else if (loLe > -1) cut = loLe;
-//       if (cut === -1) {
-//         const mH = info.match(/\b\d{1,2}h\d{0,2}\b/i);
-//         if (mH) cut = info.indexOf(mH[0]);
-//       }
-//       lieu = (cut > 0 ? info.slice(0, cut) : info).trim();
-
-//       // Mois/année réels
-//       const { mm } = _parseMonthYear(info);
-//       const monthOut = mm || '07';
-
-//       // Sessions
-//       const mDuAu = info.match(reDuAu);
-//       const mLe   = info.match(reLe);
-//       if (mDuAu) {
-//         const d1 = _pad3(+mDuAu[1]);
-//         const d2 = _pad3(+mDuAu[2]);
-//         sessions = `[${d1}-${d2}]/${monthOut}`;
-//       } else if (mLe) {
-//         const d = _pad3(+mLe[1]);
-//         sessions = `[${d}-${d}]/${monthOut}`;
-//       }
-
-//       // Heures & Durée
-//       const hTokens = [...info.matchAll(/\b(\d{1,2})h(\d{0,2})\b/gi)]
-//         .map(m => ({ t: _normalizeHhmmLoose(`${m[1]}h${m[2] ?? ''}`), idx: m.index }))
-//         .filter(x => x.t); // garde uniquement ceux normalisés correctement
-
-//       const mTokens = [...info.matchAll(/\b(\d{1,3})\s*m(?:in)?s?\b/gi)]
-//         .map(m => ({ mins: Number(m[1]), idx: m.index }));
-
-//       if (hTokens.length >= 1) {
-//         // premier "HhMM" = Début
-//         debut = hTokens[0].t;
-//         const startPos = hTokens[0].idx ?? 0;
-
-//         // chercher une seconde "HhMM" après le début pour la Durée, sinon "NN min"
-//         const durH = hTokens.find((x, n) => n > 0 && x.idx > startPos);
-//         if (durH) {
-//           duree = durH.t; // déjà normalisé
-//         } else {
-//           const durM = mTokens.find(x => x.idx > startPos) || mTokens[0];
-//           if (durM) duree = mmToHHhMM(durM.mins);
-//         }
-//       } else if (mTokens.length) {
-//         // pas d'heure, mais une durée en minutes présente
-//         duree = mmToHHhMM(mTokens[0].mins);
-//       }
-
-//       j = foundIdx + 1;
-//     }
-
-//     // --- 3) STYLE : 1ère non-vide après, en sautant Ticket'Off/images ---
-//     let style = null;
-//     for (let k = j; k < lines.length; k++) {
-//       const lk = lines[k];
-//       if (!lk) continue;
-//       if (/^ticket'?off\b/i.test(lk)) continue;
-//       if (reAffiche.test(lk) || _isImageLine(lk)) break; // prochain bloc
-//       style = lk.trim();
-//       break;
-//     }
-
-//     out.push({
-//       ...PARSED_DEFAULT,
-//       Activite: activite || null,
-//       Lieu: lieu || null,
-//       Sessions: sessions || null,
-//       Debut: debut || null,        // "HhMM" normalisé (ex: 9h00, 10h05)
-//       Duree: duree || null,        // "HhMM" normalisé (ex: 0h55, 1h20)
-//       Style: style || null,
-//       Relaches: null,
-//       Hyperlien: null
-//     });
-//   }
-
-//   return out;
-// }
 export function parseAvignonOffProgPageText(text) {
   if (!text) return [];
   const lines = String(text).replace(/\r\n?/g, '\n').split('\n').map(l => l.trim());
@@ -1001,11 +690,11 @@ export function parseAvignonOffProgPageText(text) {
       const mDuAu = info.match(reDuAu);
       const mLe   = info.match(reLe);
       if (mDuAu) {
-        const d1 = _pad3(+mDuAu[1]);
-        const d2 = _pad3(+mDuAu[2]);
+        const d1 = pad2(+mDuAu[1]);
+        const d2 = pad2(+mDuAu[2]);
         sessions = `[${d1}-${d2}]/${monthOut}`;
       } else if (mLe) {
-        const d = _pad3(+mLe[1]);
+        const d = pad2(+mLe[1]);
         sessions = `[${d}-${d}]/${monthOut}`;
       }
 
@@ -1066,6 +755,94 @@ export function parseAvignonOffProgPageText(text) {
   }
 
   return out;
+}
+
+/**
+ * Parser d'une page spectacle du catalogue Avignon Off donnée par son URL
+ * @param {*} doc 
+ * @returns 
+ */
+export async function parseAvignonOffSpecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
+  const res  = await fetcher(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+  const html = await res.text();
+  const doc  = new DOMParser().parseFromString(html, 'text/html');
+  return parseAvignonOffSpecPageDom(doc, url);
+}
+
+/**
+ * Parser d'une page spectacle du catalogue Avignon Off donnée par son Dom
+ * parseListingHtml(html, { url })
+ * @param {string} html
+ * @param {{url?: string}} opts
+ * @return {{Activite:string|null, Lieu:string|null, Relaches:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
+ */
+export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
+  const res = {...PARSED_DEFAULT};
+
+  // Activité
+  const titleTxt = _clean(doc.querySelector('title')?.textContent || "");
+  if (titleTxt) {
+    const part = titleTxt.split('–')[0].split('-')[0].trim();
+    res.Activite = part || titleTxt;
+  }
+
+  // Style = 1er tag dans .intro-spectacle > .liste-tags
+  {
+    const tagEl = doc.querySelector('.intro-spectacle .liste-tags .tag');
+    if (tagEl) {
+      const styleTxt = tagEl.textContent.trim().replace(/\s+/g, ' ');
+      if (styleTxt) res.Style = styleTxt;
+    }
+  }
+
+  // Lieu
+  const lieuSection = doc.querySelector('section.lieu-spectacle');
+  if (lieuSection) {
+    const aTheatre = lieuSection.querySelector('a[href*="/theatres/"]') || lieuSection.querySelector('a');
+    const lieuTxt = _clean(aTheatre?.textContent || "");
+    if (lieuTxt) res.Lieu = lieuTxt;
+  }
+
+  // Infos (Relâche / Début / Durée)
+  const infos = doc.querySelector('section.infos-spectacle');
+  if (infos) {
+    const spans = Array.from(infos.querySelectorAll('span'))
+      .map(s => _clean(s.textContent || ''))
+      .filter(Boolean);
+
+    // Concat pour matcher les patterns "du X au Y..., (relâche )? jours pairs/impairs"
+    const bigText = spans.join(' • ');
+
+    // Heures
+    for (const s of spans) {
+      if (!res.Debut) {
+        const h = _normalizeHeure(s);
+        if (h) { res.Debut = h; continue; }
+      }
+      if (!res.Duree) {
+        const d = _normalizeDuree(s);
+        if (d) { res.Duree = d; continue; }
+      }
+    }
+
+    // Relâche = (liste explicite) + (période + parité interprétée)
+    const parts = [];
+    const explicite = _parseRelaches(bigText);
+    if (explicite) parts.push(explicite);
+
+    const relachesParite = _parseRelachesAvecParite(bigText);
+    if (relachesParite) parts.push(relachesParite);
+
+    if (parts.length) res.Relaches = parts.join(', ');
+  
+    const sessions = _parseSessions(bigText);
+    if (sessions && sessions.length) res.Sessions = sessions;
+  }
+
+  res.Orga = "Off";
+
+  return [res];
 }
 
 /**
@@ -1164,7 +941,7 @@ export function parseAvignonOffSpecPageText(text) {
     const m = txtNorm.match(/\b(\d{1,2})h(\d{2})\b/i);
     if (m) {
       const [_, h, mm] = m;
-      res.Debut = `${_pad2(h)}h${_pad2(mm)}`;
+      res.Debut = `${pad2(h)}h${pad2(mm)}`;
     }
   }
 
@@ -1173,14 +950,14 @@ export function parseAvignonOffSpecPageText(text) {
     const m = txtNorm.match(/\b(\d{1,2})h(\d{2})\b/i);
     if (m) {
       const h = parseInt(m[1],10), mm = parseInt(m[2],10);
-      const cand = `${h}h${_pad2(mm)}`;
+      const cand = `${h}h${pad2(mm)}`;
 
-      if (res.Debut && res.Debut.toLowerCase() === `${_pad2(h)}h${_pad2(mm)}`) {
+      if (res.Debut && res.Debut.toLowerCase() === `${pad2(h)}h${pad2(mm)}`) {
         // chercher une 2e occurrence
         const m2 = txtNorm.match(/\b(\d{1,2})h(\d{2})\b.*?\b(\d{1,2})h(\d{2})\b/is);
         if (m2) {
           const h2 = parseInt(m2[3],10), mm2 = parseInt(m2[4],10);
-          res.Duree = `${h2}h${_pad2(mm2)}`;
+          res.Duree = `${h2}h${pad2(mm2)}`;
         }
       } else {
         res.Duree = cand;
@@ -1262,48 +1039,6 @@ export function parseAvignonOffSpecPageText(text) {
  * @param {*} text 
  * @returns 
  */
-// export function isAvignonInProgPageText(text) {
-//   if (!text) return false;
-
-//   const lines = String(text).replace(/\r\n?/g, '\n').split('\n').map(l => l.trim());
-//   const reArchive = /^archive\s+\d{4}$/i;
-
-//   // remonte de N “niveaux” en ignorant les lignes vides
-//   const pickAbove = (start, steps = 1) => {
-//     let idx = start;
-//     for (let s = 0; s < steps; s++) {
-//       idx--;
-//       while (idx >= 0 && !lines[idx]) idx--; // saute vides
-//     }
-//     return { idx, text: idx >= 0 ? lines[idx] : null };
-//   };
-
-//   for (let i = 0; i < lines.length; i++) {
-//     if (!reArchive.test(lines[i])) continue;
-
-//     const { text: tDuree } = pickAbove(i, 1); // Durée : 2 lignes au-dessus (avec vides)
-//     const { text: tLieu  } = pickAbove(i, 2); // Lieu
-//     const { text: tDate  } = pickAbove(i, 3); // Dates
-//     /* const { text: tAvec } = */ pickAbove(i, 4); // (ignorer)
-//     const { text: tStyle } = pickAbove(i, 5); // Style
-//     /* const { text: tSous  } = */ pickAbove(i, 6); // (ignorer)
-//     const { text: tTitre } = pickAbove(i, 7); // Titre
-
-//     // Vérifs avec TES helpers
-//     const okTitre = !!(tTitre && _norm(tTitre));
-//     const okStyle = !!(tStyle && _norm(tStyle));
-//     const okLieu  = !!(tLieu  && _norm(tLieu));
-//     const okDuree = !!(tDuree && _parseDuree(tDuree));               // renvoie une durée normalisée ou null
-//     const d = tDate ? _parseDates(tDate) : null;                      // { sessions, year }
-//     const okDate  = !!(d && d.sessions);
-
-//     if (okTitre && okStyle && okLieu && okDuree && okDate) {
-//       return true; // trouvé au moins un bloc valide
-//     }
-//   }
-
-//   return false;
-// }
 export function isAvignonInProgPageText(text) {
   if (!text) return false;
 
@@ -1394,17 +1129,54 @@ export function isAvignonInProgPageText(text) {
 }
 
 /**
+ * Détermine si le texte correspond à une page Spectacle du In
+ * @param {*} text 
+ * @returns 
+ */
+export function isAvignonInSpecPageText(text) {
+  if (!text) return false;
+
+  // Prépare les lignes (sans vides), et une normalisation "accents/espaces"
+  const lines = String(text)
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(l => l.replace(/\u00A0/g, ' ').trim())
+    .filter(l => l.length);
+
+  const norm = s => String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const findIndex = (re) => lines.findIndex(l => re.test(norm(l)));
+
+  // Ancres clés (ordre logique attendu sur ces pages)
+  const shareIdx   = findIndex(/^partager$/i);                  // "Partager"
+  const infosIdx   = findIndex(/^infos? pratiques?$/i);         // "Infos pratiques"
+  const archiveIdx = findIndex(/^archive\s+\d{4}$/i);           // "Archive 2025" (souvent présent)
+
+  if (shareIdx < 0 || infosIdx < 0) return false;               // minimum requis
+
+  // Il doit y avoir un "titre" juste après "Partager"
+  const titleLine = lines[shareIdx + 1] || '';
+  if (!titleLine || /^archive\s+\d{4}$/i.test(norm(titleLine))) return false;
+
+  // Une "Durée" doit apparaître 
+  const hasDuree    = lines.some(l => /^dure[eé]\s*:/i.test(norm(l)));
+
+  // Bonus (souple) : "Archive 20xx" après le titre (quand présent)
+  // if (archiveIdx >= 0 && archiveIdx <= shareIdx) {
+  //   // "Archive 20xx" ne devrait pas être avant le bloc principal
+  //   return false;
+  // }
+
+  return true;
+}
+
+/**
  * Détermine si le texte correspond à une page CATALOGUE du Off
  * (ex : "festival Off Avignon  > Programme")
  */
-// export function isAvignonOffProgPageText(text) {
-//   if (!text) return false;
-//   const lines = String(text)
-//     .replace(/\r\n?/g, '\n')
-//     .split('\n')
-//     .map(l => l.trim());
-//   return lines.some(l => l === 'festival Off Avignon  > Programme');
-// }
 export function isAvignonOffProgPageText(text) {
   if (!text) return false;
 
@@ -1457,8 +1229,7 @@ export function isAvignonOffSpecPageText(text) {
 }
 
 
-
-// --- helpers ---
+// --- helpers généraux ---
 
 const MOIS = {
   'janvier': 1, 'fevrier': 2, 'février': 2, 'mars': 3, 'avril': 4,
@@ -1490,10 +1261,6 @@ function _clean_lieu(s) {
     .replace(/^(theatre|théâtre)\s*[:\-]\s*/i, '')
     .trim();
 }
-
-function _pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
-
-function _pad3(n) { return String(n).padStart(2, '0'); }
 
 const _clean = s => (s ?? "").toString().replace(/\s+/g, " ").trim();
 
@@ -1589,11 +1356,11 @@ function _parseInfoLine(line, defaultMonth = '07') {
   const mDuAu = l.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
   const mLe   = l.match(/\ble\s+(\d{1,2})\b/i);
   if (mDuAu) {
-    const d1 = _pad3(+mDuAu[1]);
-    const d2 = _pad3(+mDuAu[2]);
+    const d1 = pad2(+mDuAu[1]);
+    const d2 = pad2(+mDuAu[2]);
     Sessions = `[${d1}-${d2}]/${moisNum}`;
   } else if (mLe) {
-    const d = _pad3(+mLe[1]);
+    const d = pad2(+mLe[1]);
     Sessions = `[${d}-${d}]/${moisNum}`;
   }
 
@@ -1659,7 +1426,7 @@ function _parseDates(line) {
   if (!mNum) return { sessions: null, year: null };
 
   // ⚙️ ici on met le mois sur 2 chiffres sans modifier la const MOIS d’origine
-  const mm = _pad3(Number(mNum));
+  const mm = pad2(Number(mNum));
 
   const before = raw.slice(0, mMY.index).trim();
 
@@ -1671,7 +1438,7 @@ function _parseDates(line) {
     .filter(Boolean)
     .map(x => x.match(/\d{1,2}$/)?.[0])
     .filter(Boolean)
-    .map(n => _pad3(+n));
+    .map(n => pad2(+n));
 
   const seen = new Set();
   const days = daySeq.filter(d => (seen.has(d) ? false : (seen.add(d), true)));
@@ -1685,25 +1452,7 @@ function _parseDates(line) {
   }
 }
 
-// “Un cran” = sauter blanc(s) puis prendre la non-vide suivante
-function _stepUp(lines, fromIdx, startIdx) {
-  let i = fromIdx - 1;
-  // sauter >= 0 blancs
-  while (i > startIdx && !lines[i]?.trim()) i--;
-  return (i > startIdx && lines[i]?.trim()) ? i : -1;
-}
-
-const _looksLikeStyle = (line) => {
-    const t = (line || '').trim();
-    if (!t) return false;
-    if (/^avec\b/i.test(t)) return false;    // ignore "Avec ..."
-    if (t.length > 60) return false;         // lignes trop longues = descriptions
-    const words = t.split(/\s+/);
-    if (words.length > 8) return false;      // heuristique simple
-    return true;
-  };
-
-  // Extrait mois/année depuis la ligne info (ex: "... juillet 2025")
+// Extrait mois/année depuis la ligne info (ex: "... juillet 2025")
 // normalise "HhM?" / "Hh" -> "HhMM" (H sans zéro initial, MM sur 2 chiffres)
 function _normalizeHhmmLoose(s) {
   if (!s) return null;
@@ -1711,7 +1460,7 @@ function _normalizeHhmmLoose(s) {
   if (!m) return null;
   const h = Number(m[1]);                 // jamais padder l'heure
   const mm = m[2] === undefined || m[2] === '' ? 0 : Number(m[2]);
-  return `${h}h${_pad3(mm)}`;
+  return `${h}h${pad2(mm)}`;
 }
 
 function _isImageLine(raw) {
@@ -1729,7 +1478,263 @@ function _parseMonthYear(info) {
     .toLowerCase()
     .match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b(?:\s+(\d{4}))?/i);
   if (!m) return { mm: null, yyyy: null };
-  const mm = MOIS[m[1]] ? _pad3(MOIS[m[1]]) : null;
+  const mm = MOIS[m[1]] ? pad2(MOIS[m[1]]) : null;
   const yyyy = m[2] || null;
   return { mm, yyyy };
 }
+
+
+
+// ==== Fetchers ====
+
+// Fetcher AllOrigins en mode raw (renvoie du HTML/texte sans CORS)
+async function _fetchViaAllOriginsRaw(urlToFetch) {
+  const encoded = encodeURIComponent(urlToFetch);
+  const apiUrl = `https://api.allorigins.win/raw?url=${encoded}`; // ou /get?url=... pour JSON {contents,...}
+  const res = await fetch(apiUrl);          // HTTPS obligatoire
+  if (!res.ok) throw new Error(`AllOrigins error ${res.status}`);
+  const text = await res.text();           // HTML / texte de la page
+  return text;
+}
+
+// Fetcher perso via worker CloudFlare 
+const PROXY = 'https://off-proxy.joel-nicoloso.workers.dev';
+
+export async function _fetchViaCloudFlareWorker(url, options = {}) {
+  const isExternal = /^https?:\/\//i.test(url) && !url.includes(location.host);
+  const finalUrl = isExternal ? `${PROXY}/?url=${encodeURIComponent(url)}` : url;
+  const res = await fetch(finalUrl, options);
+  if (!res.ok) throw new Error(`_fetchViaCloudFlareWorker failed ${res.status}`);
+  return res;
+}
+
+
+
+// ==== Helpers ProgPageOff (soumet #js-form-filtres comme le site) ====
+
+function _parseHTML(html) {
+  return new DOMParser().parseFromString(html, 'text/html');
+}
+
+// Convertit un <form> en URLSearchParams (en gardant tous les filtres actifs)
+function _formToParams(formEl) {
+  // FormData gère inputs/checkbox/radios/select multiples
+  const fd = new FormData(formEl);
+  const params = new URLSearchParams();
+  for (const [k, v] of fd.entries()) params.append(k, v);
+  return params;
+}
+
+// Détecte le nom du champ "page" (parfois 'page', parfois 'current_page')
+function _detectPageField(formEl) {
+  const pageNames = ['page', 'current_page', 'paged'];
+  for (const n of pageNames) {
+    if (formEl.querySelector(`[name="${n}"]`)) return n;
+  }
+  // fallback : s’il y a un input de type hidden avec valeur numérique
+  const guess = [...formEl.querySelectorAll('input[type="hidden"][name]')]
+    .find(i => /^\d+$/.test(i.value || ''));
+  return guess?.name || 'page';
+}
+
+// Lit la valeur page actuelle (1 par défaut si vide)
+function _readCurrentPage(formEl, pageField) {
+  const inp = formEl.querySelector(`[name="${pageField}"]`);
+  const val = inp ? Number(inp.value || '1') : 1;
+  return Number.isFinite(val) ? val : 1;
+}
+
+// Met à jour params pour demander la "prochaine" page
+function _setNextPageParams(params, pageField, nextPage) {
+  params.set(pageField, String(nextPage));
+  // beaucoup de sites s’attendent à next_page=true
+  params.set('next_page', 'true');
+  return params;
+}
+
+// Dédup simple par triplet clé
+function _makeKey(it) {
+  return [it.Activite, it.Lieu, it.Sessions].map(x => x || '').join('||');
+}
+
+// ==== Helpers ProgPageIn ====
+// Récupère le JSON d’événements contenu dans :events / events / data-events / :props.events
+function _extractEventsPayload(el) {
+  // 1) candidates d'attributs susceptibles de contenir les events
+  const attrNames = [':events','events','data-events',':props','props'];
+  let raw = null;
+
+  for (const name of attrNames) {
+    if (el.hasAttribute(name)) {
+      raw = el.getAttribute(name);
+      if (raw) break;
+    }
+  }
+  if (!raw) return [];
+
+  // 2) Décodage des entités HTML fréquentes
+  raw = _decodeHtmlEntities(raw);
+
+  // 3) Deux cas: a) c'est directement un tableau JSON; b) c'est un objet { events: [...] }
+  //    On sécurise un chouïa : trim et vérifs de début/fin
+  const t = raw.trim();
+
+  // Direct: "[{...}, {...}]"
+  if (t.startsWith('[')) {
+    try { return JSON.parse(t); } catch {}
+  }
+
+  // Objet: "{ ... "events": [ ... ] ... }"
+  try {
+    const obj = JSON.parse(t);
+    if (Array.isArray(obj?.events)) return obj.events;
+  } catch {}
+
+  // Dernier recours : parfois le serveur échappe les quotes en &quot;
+  // (on a déjà fait un _decodeHtmlEntities, donc on s’arrête là si ça rate)
+  return [];
+}
+
+function _decodeHtmlEntities(s) {
+  if (!s) return s;
+  // simple decode commun : &quot; &amp; &#x27; &#34; etc.
+  return s
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function _orNull(v){ return v ?? null; }
+
+function _absolutize(path, baseUrl) {
+  try { return new URL(path, baseUrl || 'https://festival-avignon.com').href; }
+  catch { return path; }
+}
+
+// Parse "YYYY-MM-DD HH:MM:SS" 
+function _sqlDateToParts(s) {
+  if (!s) return null;
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::\d{2})?)?$/);
+  if (!m) return null;
+  const [, y, mo, d, hh, mm] = m;
+  return { y:+y, mo:+mo, d:+d, hh: hh!=null?+hh:null, mm: mm!=null?+mm:null };
+}
+
+// Construit Sessions & Debut à partir de ev.calendar[].dateSummary
+function _calendarToSessionsAndDebut(calendarArr) {
+  const parts = (calendarArr || [])
+    .map(c => _sqlDateToParts(c?.dateSummary))
+    .filter(Boolean);
+  if (!parts.length) return { Sessions: null, Debut: null };
+
+  // Debut = heure du 1er
+  const first = parts[0];
+  const Debut = (first.hh!=null && first.mm!=null) ? `${pad2(first.hh)}h${pad2(first.mm)}` : null;
+
+  // regroupe par (y,mo) pour tolérer plusieurs mois
+  const byMonth = new Map();
+  for (const p of parts) {
+    const key = `${p.y}-${pad2(p.mo)}`;
+    if (!byMonth.has(key)) byMonth.set(key, new Set());
+    byMonth.get(key).add(p.d);
+  }
+
+  const segments = [];
+  for (const [key, daysSet] of byMonth) {
+    const mm = key.slice(5,7);
+    const days = [...daysSet].map(d => pad2(d)).sort();
+    const seg = (days.length === 1)
+      ? `[${days[0]}-${days[0]}]/${mm}`
+      : `(${days.join(',')})/${mm}`;
+    segments.push(seg);
+  }
+
+  // S'il n'y a qu'un mois, renvoie un seul segment ; sinon join
+  const Sessions = segments.length === 1 ? segments[0] : segments.join('; ');
+  return { Sessions, Debut };
+}
+
+// Choisit un style pertinent parmi les catégories
+function _pickStyleFromCategories(categories) {
+  const cats = (categories || []).map(c => (c?.title || '').trim()).filter(Boolean);
+  if (!cats.length) return null;
+  // Option 1 : on prend la 1re catégorie non générique
+  const GENERIQUES = new Set(['Spectacles', 'Pour les anglophones']);
+  const picked = cats.find(t => !GENERIQUES.has(t)) || cats[0];
+  // Option 2 (si tu préfères) : return cats.join(' / ');
+  return picked;
+}
+
+// Mapping principal pour ce payload 
+function _mapEventToRow(ev, pageUrl) {
+  const Activite = ev.title || ev.name || null;
+
+  // Lieu
+  const Lieu = ev.place?.title || ev.place?.name || ev.location?.name || null;
+
+  // Style
+  const Style = _pickStyleFromCategories(ev.categories);
+
+  // URL fiche
+  const id   = ev.id;
+  const slug = ev.titleSlug || ev.slug;
+  const Hyperlien = (slug && id)
+    ? _absolutize(`/fr/edition-2025/programmation/${slug}-${id}`, pageUrl)
+    : (ev.url || null);
+
+  // Sessions & Debut depuis calendar[]
+  const { Sessions, Debut: DebutFromCal } = _calendarToSessionsAndDebut(ev.calendar);
+
+  // Durée
+  const Duree = (ev.duration != null) ? mmToHhmm(ev.duration) : null;
+
+  // Debut explicite (si un autre champ existe) ; sinon celui du calendar
+  const Debut = (ev.startHourStr || ev.startHour || null) ? _normalizeDebutLoose(ev.startHourStr || ev.startHour)
+                                                          : DebutFromCal;
+
+  const row = {
+    Activite: _orNull(Activite),
+    Debut: _orNull(Debut),
+    Duree: _orNull(Duree),
+    Lieu: _orNull(Lieu),
+    Sessions: _orNull(Sessions),
+    Relaches: null,
+    Style: _orNull(Style),
+    Orga: 'In',
+    Hyperlien: _orNull(Hyperlien)
+  };
+
+  // Ignore si vraiment vide
+  if (Object.values(row).every(v => v == null)) return null;
+  return row;
+}
+
+// Tolère "13h", "13:00", "13h00"
+function _normalizeDebutLoose(h) {
+  if (!h) return null;
+  const s = String(h).trim().toLowerCase().replace(/\s+/g,'');
+  let m = s.match(/^(\d{1,2})[:h](\d{2})$/);
+  if (m) return `${pad2(+m[1])}h${pad2(+m[2])}`;
+  m = s.match(/^(\d{1,2})$/);
+  if (m) return `${pad2(+m[1])}h00`;
+  m = s.match(/^(\d{1,2})h$/);
+  if (m) return `${pad2(+m[1])}h00`;
+  return null;
+}
+
+
+
+// ==== Helpers SpecPageIn ====
+function _plainifyWithAbbr(el) {
+  if (!el) return '';
+  const clone = el.cloneNode(true);
+  for (const ab of clone.querySelectorAll('abbr')) {
+    ab.replaceWith(document.createTextNode(ab.textContent || ''));
+  }
+  return clone.textContent.replace(/\s+/g, ' ').trim();
+}
+

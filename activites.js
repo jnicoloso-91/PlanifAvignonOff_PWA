@@ -15,15 +15,18 @@ import {
 
 import {
   PARSED_DEFAULT, 
-  parseAvignonInProgPageHtml, 
-  parseAvignonOffProgPageHtml, 
-  parseAvignonOffSpecPageHtml, 
+  parseAvignonInProgPageUrl, 
+  parseAvignonInSpecPageUrl, 
+  parseAvignonOffProgPageUrl, 
+  parseAvignonOffSpecPageUrl, 
 
   parseAvignonInProgPageText,
+  parseAvignonInSpecPageText, 
   parseAvignonOffProgPageText,
   parseAvignonOffSpecPageText, 
   
   isAvignonInProgPageText,
+  isAvignonInSpecPageText,
   isAvignonOffProgPageText,
   isAvignonOffSpecPageText,
 } from './parsers.js';
@@ -353,38 +356,17 @@ export function creerActivitesAPI(ctx) {
 
       if (!parser) {
         if (_looksLikeUrl(raw)) { 
-          if (raw.includes("www.festivaloffavignon.com/spectacles")) {
-            try {
-              const html = await _fetchViaAllOrigins(raw);
-              parsed = parseAvignonOffSpecPageHtml(html);
-              parsed.Hyperlien = raw;
-            } catch (err) {
-              console.error('fetch failed', err);
-              alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
-              return null;
-            }
+          if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
+            parsed = await _asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
+          } 
+          else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/")) {
+            parsed = await _asyncCallAvecOverlayAttente(parseAvignonInSpecPageUrl, raw, 'Echec collage');
           } 
           else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
-            try {
-              const html = await _fetchViaAllOrigins(raw);
-              parsed = parseAvignonOffProgPageHtml(html);
-              parsed.Hyperlien = raw;
-            } catch (err) {
-              console.error('fetch failed', err);
-              alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
-              return null;
-            }
+            parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
           } 
-          else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation")) {
-            try {
-              const html = await _fetchViaAllOrigins(raw);
-              parsed = parseAvignonInProgPageHtml(html);
-              parsed.Hyperlien = raw;
-            } catch (err) {
-              console.error('fetch failed', err);
-              alert("⚠️ Le collage à partir de l'adresse de la page a échoué, essayer en copiant le texte de la page.");
-              return null;
-            }
+          else if (raw.includes("www.festivaloffavignon.com/spectacles")) {
+            parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
           } 
           else {
             alert("Il n'existe pas de parser pour cette adresse");
@@ -392,13 +374,16 @@ export function creerActivitesAPI(ctx) {
         } else {
           switch (true) {
             case isAvignonOffSpecPageText(raw):
-              parsed = parseAvignonOffSpecPageText(raw);
+              parsed = _syncCallAvecOverlayAttente(parseAvignonOffSpecPageText, raw, 'Echec collage');
               break;
             case isAvignonOffProgPageText(raw):
-              parsed = parseAvignonOffProgPageText(raw);
+              parsed = _syncCallAvecOverlayAttente(parseAvignonOffProgPageText, raw, 'Echec collage');
               break;
             case isAvignonInProgPageText(raw):
-              parsed = parseAvignonInProgPageText(raw);
+              parsed = _syncCallAvecOverlayAttente(parseAvignonInProgPageText, raw, 'Echec collage');
+              break;
+            case isAvignonInSpecPageText(raw):
+              parsed = _syncCallAvecOverlayAttente(parseAvignonInSpecPageText, raw, 'Echec collage');
               break;
           }
         }
@@ -430,8 +415,8 @@ export function creerActivitesAPI(ctx) {
         const nouvelleActivite = {
             __uuid: crypto.randomUUID?.() || String(Date.now()),
             Date: null, 
-            Debut: row.Debut || "09h00", 
-            Duree: row.Duree || "1h00",
+            Debut: row.Debut || null, 
+            Duree: row.Duree || null,
             Activite: nouveauNom, 
             Lieu: row.Lieu || null, 
             Sessions: row.Sessions || null,
@@ -688,10 +673,15 @@ function _getActivitesProgrammees(df) {
 function _getActivitesNonProgrammees(df = []) {
   if (!Array.isArray(df)) return [];
 
+  // const filtered = df.filter(r =>
+  //     (r.Date == null || r.Date === '') &&   // Date manquante
+  //     r.Debut != null && r.Duree != null && r.Activite != null &&
+  //     r.Debut !== '' && r.Duree !== '' && r.Activite !== ''
+  //   )
   const filtered = df.filter(r =>
       (r.Date == null || r.Date === '') &&   // Date manquante
-      r.Debut != null && r.Duree != null && r.Activite != null &&
-      r.Debut !== '' && r.Duree !== '' && r.Activite !== ''
+      r.Activite != null &&
+      r.Activite !== ''
     )
 
   return filtered;
@@ -1232,16 +1222,6 @@ async function _getClipBoardText() {
   }
 }
 
-// urlToFetch doit être une string complète (https://...)
-async function _fetchViaAllOrigins(urlToFetch) {
-  const encoded = encodeURIComponent(urlToFetch);
-  const apiUrl = `https://api.allorigins.win/raw?url=${encoded}`; // ou /get?url=... pour JSON {contents,...}
-  const res = await fetch(apiUrl);          // HTTPS obligatoire
-  if (!res.ok) throw new Error(`AllOrigins error ${res.status}`);
-  const text = await res.text();           // HTML / texte de la page
-  return text;
-}
-
 // Est-ce qu'une string ressemble à une URL
 function _looksLikeUrl(text) {
   if (!text) return false;
@@ -1317,3 +1297,35 @@ function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
   return false;
 }
 
+async function _asyncCallAvecOverlayAttente(fnct, param, msg="Echec") {
+  const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
+  let res = null;
+  try {
+    overlayAttente.hidden = false; // Affiche l'overlay d'attente
+    res = await fnct(param);
+  }
+  catch (e) {
+    console.error('❌ ' + msg + ' : ' + e);
+    alert('❌ ' + msg + ' : ' + e.message);
+  } finally {
+    overlayAttente.hidden = true; // Masque l'overlay d'attente
+    return res;
+  }
+}
+
+
+function _syncCallAvecOverlayAttente(fnct, param, msg="Echec") {
+  const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
+  let res = null;
+  try {
+    overlayAttente.hidden = false; // Affiche l'overlay d'attente
+    res = fnct(param);
+  }
+  catch (e) {
+    console.error('❌ ' + msg + ' : ' + e);
+    alert('❌ ' + msg + ' : ' + e.message);
+  } finally {
+    overlayAttente.hidden = true; // Masque l'overlay d'attente
+    return res;
+  }
+}

@@ -31,7 +31,7 @@ export function durationStrToMinutes(s) {
   return H * 60 + M;
 }
 
-const pad2 = n => String(Number(n) || 0).padStart(2, '0');
+export function pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
 
 // minutes -> "HHhMM"
 export function mmToHHhMM(mins) {
@@ -51,6 +51,11 @@ export function mmFromHHhMM(s) {
   return m ? (+m[1])*60 + (+m[2]) : null;
 }
 
+export function mmToHhmm(total) {
+  const t = Math.max(0, Number(total) || 0);
+  const h = Math.floor(t / 60), mm = t % 60;
+  return `${h}h${pad2(mm)}`;
+}
 
 // Récupère à la volée les minutes depuis minuit pour une ligne
 // Priorité aux champs numériques *_dt si présents, sinon parse les chaînes "Début"/"Durée"
@@ -198,6 +203,29 @@ export const parseHHhMM = (s) => {
   if (Number.isNaN(hh) || Number.isNaN(mm) || hh>=24 || mm>=60) return null;
   return hh*60 + mm;
 };
+
+
+// "Durée : 1h30" | "Durée : 55 min" → "1h30" | "0h55"
+export function parseDurationToHhmm(txt) {
+  if (!txt) return null;
+  const s = txt.replace(/\s+/g, ' ').trim().toLowerCase();
+
+  // 1h / 1h30 / 01h05
+  let m = s.match(/(\d{1,2})\s*h(?:\s*([0-5]?\d))?/);
+  if (m) {
+    const h = Number(m[1]) || 0;
+    const mm = m[2] ? Number(m[2]) : 0;
+    return `${h}h${pad2(mm)}`;
+  }
+  // 55 min / 90min
+  m = s.match(/(\d{1,3})\s*m(?:in)?s?/);
+  if (m) {
+    const total = Math.max(0, Number(m[1]) || 0);
+    const h = Math.floor(total / 60), mm = total % 60;
+    return `${h}h${pad2(mm)}`;
+  }
+  return null;
+}
 
 // Excel (Windows) : 1899-12-30 base
 export function excelSerialToYMD(serial) {
