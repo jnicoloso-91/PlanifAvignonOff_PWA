@@ -1233,9 +1233,56 @@ function _getNomNouvelleActivite(df, prefix='Activité') {
 // }
 
 async function _getClipBoardText() {
-const btn   = document.getElementById('btn-import');
-const popup = document.getElementById('paste-popup');
-const proxy = document.getElementById('paste-proxy');
+  const btn   = document.getElementById('btn-import');
+  const popup = document.getElementById('paste-popup');
+  const proxy = document.getElementById('paste-proxy');
+
+  function openPastePopup() {
+    popup.setAttribute('aria-hidden', 'false');
+
+    // Positionner la popup juste au-dessus du bouton
+    const rect = btn.getBoundingClientRect();
+    const dialog = popup.querySelector('.pp-dialog');
+    const dlgH = 100; // hauteur approximative
+    const top = Math.max(8, rect.top - dlgH - 8); // au-dessus avec marge
+    const left = Math.min(
+      window.innerWidth - dialog.offsetWidth - 8,
+      Math.max(8, rect.left + rect.width / 2 - dialog.offsetWidth / 2)
+    );
+
+    dialog.style.top = `${top + window.scrollY}px`;
+    dialog.style.left = `${left + window.scrollX}px`;
+
+    proxy.textContent = '';
+    requestAnimationFrame(() => proxy.focus());
+
+    const onPasteOnce = (e) => {
+      e.preventDefault();
+      const dt = e.clipboardData || window.clipboardData;
+      const txt = dt ? dt.getData('text') : '';
+      closePastePopup();
+      return txt;
+    };
+
+    const onBackdrop = (e) => {
+      if (e.target.classList.contains('pp-backdrop')) closePastePopup();
+    };
+
+    proxy.addEventListener('paste', onPasteOnce, { once: true });
+    popup.addEventListener('click', onBackdrop, { once: true });
+
+    popup._tmp = { onPasteOnce, onBackdrop };
+  }
+
+  function closePastePopup() {
+    popup.setAttribute('aria-hidden', 'true');
+    if (popup._tmp) {
+      proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
+      popup.removeEventListener('click', popup._tmp.onBackdrop);
+      popup._tmp = null;
+    }
+    btn.focus();
+  }
 
   // 1️⃣ Tentative immédiate (doit être synchrone)
   try {
@@ -1249,53 +1296,6 @@ const proxy = document.getElementById('paste-proxy');
   // 2️⃣ Fallback : affiche la popup juste au-dessus du bouton
   return openPastePopup();
 };
-
-function openPastePopup() {
-  popup.setAttribute('aria-hidden', 'false');
-
-  // Positionner la popup juste au-dessus du bouton
-  const rect = btn.getBoundingClientRect();
-  const dialog = popup.querySelector('.pp-dialog');
-  const dlgH = 100; // hauteur approximative
-  const top = Math.max(8, rect.top - dlgH - 8); // au-dessus avec marge
-  const left = Math.min(
-    window.innerWidth - dialog.offsetWidth - 8,
-    Math.max(8, rect.left + rect.width / 2 - dialog.offsetWidth / 2)
-  );
-
-  dialog.style.top = `${top + window.scrollY}px`;
-  dialog.style.left = `${left + window.scrollX}px`;
-
-  proxy.textContent = '';
-  requestAnimationFrame(() => proxy.focus());
-
-  const onPasteOnce = (e) => {
-    e.preventDefault();
-    const dt = e.clipboardData || window.clipboardData;
-    const txt = dt ? dt.getData('text') : '';
-    closePastePopup();
-    return txt;
-  };
-
-  const onBackdrop = (e) => {
-    if (e.target.classList.contains('pp-backdrop')) closePastePopup();
-  };
-
-  proxy.addEventListener('paste', onPasteOnce, { once: true });
-  popup.addEventListener('click', onBackdrop, { once: true });
-
-  popup._tmp = { onPasteOnce, onBackdrop };
-}
-
-function closePastePopup() {
-  popup.setAttribute('aria-hidden', 'true');
-  if (popup._tmp) {
-    proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
-    popup.removeEventListener('click', popup._tmp.onBackdrop);
-    popup._tmp = null;
-  }
-  btn.focus();
-}
 
 
 // Est-ce qu'une string ressemble à une URL
