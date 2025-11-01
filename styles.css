@@ -1689,3 +1689,24 @@ main, .page-wrap {
 
 /* Évite le reflow/zoom “text autosizing” */
 html { -webkit-text-size-adjust: 100%; }
+
+
+/* ====================*/
+/*  Aide               */
+/* ====================*/
+
+.help-toc a {
+  font-size: 0.9rem
+}
+.help-chapter {
+  font-size: 0.9rem
+}
+
+.help-block ul {
+  padding-left: 0.5em;
+  margin-left: 0;
+  list-style-type: disc;
+}
+.help-block li::marker {
+  font-size: 0.8em;        /* rend la puce plus discrète */
+}

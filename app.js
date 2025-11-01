@@ -5923,9 +5923,12 @@ function openSheetAide() {
             Retour
           </div>
           <div class="help-block">
-            <p style="margin-bottom: 0.2em">Cette application a pour objet de vous permettre de bâtir un programme de spectacles. 
-            Par défaut elle est paramétrée pour donner accès aux catalogues du In et du Off du festival d'Avignon mais peut répondre à toute utilisation 
-            nécessitant de choisir des activités dans un catalogue et de les programmer sur une période donnée. Les fonctionnalités principales sont les suivantes :</p>
+            <p>In & Off est là pour vous aider à bâtir votre programme de spectacles.</p>
+            
+            <p>L'application est paramétrée pour donner accès aux catalogues du In et du Off du festival d'Avignon mais peut répondre à toute utilisation 
+            nécessitant de choisir des activités dans un catalogue et de les programmer sur une période donnée. 
+            
+            <p style="margin-bottom: 0.2em">Les fonctionnalités principales sont les suivantes :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
               <li>Choix de la période à programmer</li>
               <li>Chargement des activités à programmer à partir d'un fichier Excel ou par collage depuis un catalogue en ligne</li>
@@ -5961,40 +5964,41 @@ function openSheetAide() {
             Retour
           </div>
           <div class="help-block">
-            <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click / appui sur les icônes gauche et centrale de l'entête.
-            La première page propose des liens ves les catalogues du In et du Off du festival d'Avignon et la deuxième (page "Mon programme") permet de construire un programme 
-            personnalisé de spectacles ou autres activités.</p>
+            <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click / appui sur les icônes gauche et centrale de l'entête.</p>
+
+            <p>La première page <b>Catalogue</b> propose des liens ves les catalogues du In et du Off du festival d'Avignon et la deuxième <b>Mon programme</b> permet 
+            de construire un programme personnalisé de spectacles ou autres activités.</p>
                          
             <p style="margin-bottom: 0.2em">La page "Mon programme", comprend quatre tableaux:</p>
             <ul style="margin-top: 0em">
-                <li>"Programme": tableau des activités programmées (i.e. activités avec date de programmation)
-                <li>"Plages libres": tableau des plages libres entre activités programmées (seules les plages dans lesquelles existent des activités programmables sont listées)
-                <li>"Programmer...": tableau des activités programmables dans la plage libre sélectionnée
-                <li>"Stock": tableau des activités non programmées (i.e. activités sans date de programmation).
+                <li><b>Programme</b>: tableau des activités programmées (i.e. activités avec date de programmation)
+                <li><b>Plages libres</b>: tableau des plages libres entre activités programmées (seules les plages dans lesquelles existent des activités programmables sont listées)
+                <li><b>Programmer...</b>: tableau des activités programmables dans la plage libre sélectionnée
+                <li><b>Stock</b>: tableau des activités non programmées (i.e. activités sans date de programmation).
             </ul>
       
-            </p>Dans les tableaux "Programme", "Plages libres" et "Programmer..." les lignes sont colorisées en fonction de leur Date et dans le tableau
-            "Stock" les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe. 
-            Dans le tableau "Programme" les activités réservées sont libellées en rouge. 
+            </p>Dans les tableaux <b>Programme</b>, <b>Plages libres</b> et <b>Programmer...</b> les lignes sont colorisées en fonction de leur Date et dans le tableau
+            <b>Stock</b> les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe. 
+            Dans le tableau <b>Programme</b> les activités réservées sont libellées en rouge. 
 
-            <p style="margin-bottom: 0.2em">Une activité programmable peut être programmée (i.e. insérée dans le tableau "Programme" à une date donnée)
+            <p style="margin-bottom: 0.2em">Une activité programmable peut être programmée (i.e. insérée dans le tableau <b>Programme</b> à une date donnée)
             de deux manières différentes:
             <ul style="margin-top: 0em">
-                <li>Soit en sélectionnant une plage libre, puis dans cette plage une activité programmable, puis en appuyant sur le bouton "Programmer" 
-                (situé en haut à droite du tableau "Programmer...")
+                <li>Soit en sélectionnant une plage libre, puis dans cette plage une activité programmable, puis en appuyant sur le bouton <b>Programmer</b> 
+                (situé en haut à droite du tableau <b>Programmer...</b>)
                 <li>Soit en sélectionnant une activité programmable (activités colorisées en vert menthe) dans le stock et en dépliant le menu de la 
                 colonne "Date", lequel liste les jours de programmation possible.
             </ul>
 
-            </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau "Programme" et d'appuyer sur le bouton "Déprogrammer" 
+            </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau <b>Programme</b> et d'appuyer sur le bouton <b>Déprogrammer</b> 
             (situé en haut à droite de ce même tableau). Pour la reprogrammer, déplier le menu de la colonne "Date" et sélectionner une autre date possible.</p>
 
-            </p>Le bouton "Supprimer" situé en haut à droite du tableau "Stock" permet de supprimer l'activité sélectionnée.</p>
+            </p>Le bouton <b>Supprimer</b> situé en haut à droite du tableau <b>Stock</b> permet de supprimer l'activité sélectionnée.</p>
 
-            <p>Dans les tableaux "Programme" et Stock" les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
+            <p>Dans les tableaux <b>Programme</b> et <b>Stock</b> les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
             et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne 'Réservé' est à Oui).</p>
 
-            <p>L'icône de la colonne Activité permet d'afficher la page Web donnée par la colonne "Hyperlien" et l'icône de la colonne "Lieu" permet de 
+            <p>L'icône de la colonne <b>Activité</b> permet d'afficher la page Web donnée par la colonne <b>Hyperlien</b> et l'icône de la colonne <b>Lieu</b> permet de 
             lancer une recherche d'itinéraire sur le lieu de l'activité. La recherche d'itinéraire utilise l'application choisie dans les paramètres 
             et l'adresse du carnet d'adresse, ou à défaut le nom du lieu et la ville par défaut définie dans les paramètres.</p>
                         
@@ -6002,32 +6006,31 @@ function openSheetAide() {
             <ul style="margin-top: 0em">
               <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
                 <ul style="margin-top: 0em">
-                    <li>"Fichier": permet d'initialiser un nouveau programme, charger un programme depuis un fichier Excel ou depuis la copie 
+                    <li><b>Fichier</b>: permet d'initialiser un nouveau programme, charger un programme depuis un fichier Excel ou depuis la copie 
                     d'une page programme du catalogue du In ou du Off, sauvegarder le programme dans un fichier Excel ou vers le calendrier, 
                     obtenir un rapport de cohérence des données.</li>
-                    <li>"Défaire" / "Refaire": permettent de défaire, refaire une opération.</li>
-                    <li>"Coller": collage d'activités depuis le presse-papier. Ce bouton nécessite préalablement de copier soit l'adresse 
+                    <li><b>Défaire</b> / <b>Refaire</b>: permettent de défaire, refaire une opération.</li>
+                    <li><b>Coller</b>: collage d'activités depuis le presse-papier. Ce bouton nécessite préalablement de copier soit l'adresse 
                     d'une page du catalogue In ou Off (via Partager/Copier ou par copie du champ adresse), soit son contenu. 
                     Il peut s'agir soit d'une page programme listant plusieurs spectacles, soit d'une page de détail d'un spectacle.</li>
-                    <li>"Ajouter": ajout d'une activité</li>
+                    <li><b>Ajouter</b>: ajout d'une activité</li>
                 </ul>
               </li>
               <li>Menu "..." comprenant les items suivants:
                 <ul style="margin-top: 0em">
-                    <li>"Carnet d'adresses": présente le carnet d'adresses. Les champs Nom / Adresse / Numéro de Téléphone / Adresse Web de chaque 
+                    <li><b>Carnet d'adresses</b>: présente le carnet d'adresses. Les champs Nom / Adresse / Numéro de Téléphone / Adresse Web de chaque 
                     entrée peuvent être édités et des boutons permettent d'ajouter / supprimer des entrées, défaire / refaire ces opérations. 
                     Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent d'appeler le numéro de téléphone ou aller sur le site Web correspondant.</li>
-                    <li>"Paramètres": permet d'éditer les paramètres de l'application comprenant:
+                    <li><b>Paramètres</b>: permet d'éditer les paramètres de l'application comprenant:
                       <ul>
                         <li>la période de programmation</li>
                         <li>la marge entre activités</li>
                         <li>la durée des pauses repas et café</li>
                         <li>le nom de l'application d'itinéraire (Google Maps, Apple, etc.)</li>
                         <li>la ville de recherche par défaut pour la recherche d'itinéraire</li>
-                        <li>la possibilité de choisir si les menus de gestion des activités sont dans la barre latérale ou la page principale.</li>
                       </ul>
                     </li>
-                    <li>"Aide": la présente aide</li>
+                    <li><b>Aide</b>: la présente aide</li>
                 </ul>
               </li>
             </ul>                        
