@@ -88,25 +88,44 @@ export function mergeRowsNoDupMultiKey(arr1, arr2, cols, normalizer) {
   const map = new Map();
   // On conserve l’ordre d’arrivée : d’abord arr1, puis arr2
   for (const r of arr1) {
-    const k = buildKey(r, cols, normalizer);
+    const k = _buildKey(r, cols, normalizer);
     if (!map.has(k)) map.set(k, r);
   }
   for (const r of arr2) {
-    const k = buildKey(r, cols, normalizer);
+    const k = _buildKey(r, cols, normalizer);
     if (!map.has(k)) map.set(k, r);
   }
   return Array.from(map.values());
 }
 
+export function isIOS() {
+  const ua = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const maxTP = navigator.maxTouchPoints || 0;
+
+  // iPhone / iPod / iPad (anciens)
+  if (/iP(hone|od|ad)/.test(ua)) return true;
+
+  // iPadOS 13+ se déclare comme "MacIntel" mais avec écran tactile
+  if (platform === 'MacIntel' && maxTP > 1) return true;
+
+  return false;
+}
+
+export function isStandalonePWA() {
+  return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true; // iOS Safari
+}
+
 // Normalizer par défaut : trim + lower + sans accents
-const defaultNormalizer = v => String(v ?? '')
+const _defaultNormalizer = v => String(v ?? '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/\s+/g, ' ').trim().toLowerCase();
 
 // Séparateur sûr (Unit Separator) pour éviter les collisions
 const SEP = '\x1F';
 
-function buildKey(row, cols, normalizer = defaultNormalizer) {
+function _buildKey(row, cols, normalizer = _defaultNormalizer) {
   return cols.map(c => normalizer(row?.[c])).join(SEP);
 }
 
