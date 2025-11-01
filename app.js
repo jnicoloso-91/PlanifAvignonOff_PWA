@@ -2933,52 +2933,150 @@ async function getClipBoardText(df, parser=null) {
   const popup = document.getElementById('paste-popup');
   const proxy = document.getElementById('paste-proxy');
 
+  // function openPastePopup() {
+  //   popup.setAttribute('aria-hidden', 'false');
+
+  //   // Positionner la popup juste au-dessus du bouton
+  //   const rect = btn.getBoundingClientRect();
+  //   const dialog = popup.querySelector('.pp-dialog');
+  //   const dlgH = 100; // hauteur approximative
+  //   const top = Math.max(8, rect.top - dlgH - 8); // au-dessus avec marge
+  //   const left = Math.min(
+  //     window.innerWidth - dialog.offsetWidth - 8,
+  //     Math.max(8, rect.left + rect.width / 2 - dialog.offsetWidth / 2)
+  //   );
+
+  //   dialog.style.top = `${top + window.scrollY}px`;
+  //   dialog.style.left = `${left + window.scrollX}px`;
+
+  //   proxy.textContent = '';
+  //   requestAnimationFrame(() => proxy.focus());
+
+  //   const onPasteOnce = (e) => {
+  //     e.preventDefault();
+  //     const dt = e.clipboardData || window.clipboardData;
+  //     const txt = dt ? dt.getData('text') : '';
+  //     if (txt) handleClipboardText(txt, df, parser);
+  //     closePastePopup();
+  //   };
+
+  //   const onBackdrop = (e) => {
+  //     if (e.target.classList.contains('pp-backdrop')) closePastePopup();
+  //   };
+
+  //   proxy.addEventListener('paste', onPasteOnce, { once: true });
+  //   popup.addEventListener('click', onBackdrop, { once: true });
+
+  //   popup._tmp = { onPasteOnce, onBackdrop };
+  // }
+
   function openPastePopup() {
     popup.setAttribute('aria-hidden', 'false');
 
-    // Positionner la popup juste au-dessus du bouton
-    const rect = btn.getBoundingClientRect();
-    const dialog = popup.querySelector('.pp-dialog');
-    const dlgH = 100; // hauteur approximative
-    const top = Math.max(8, rect.top - dlgH - 8); // au-dessus avec marge
-    const left = Math.min(
-      window.innerWidth - dialog.offsetWidth - 8,
-      Math.max(8, rect.left + rect.width / 2 - dialog.offsetWidth / 2)
-    );
+    // Positionner juste au-dessus du bouton (mesure réelle)
+    requestAnimationFrame(() => {
+      const dialog = popup.querySelector('.pp-dialog');
+      const rect = btn.getBoundingClientRect();
+      const dlgW = dialog.offsetWidth, dlgH = dialog.offsetHeight;
 
-    dialog.style.top = `${top + window.scrollY}px`;
-    dialog.style.left = `${left + window.scrollX}px`;
+      const top = Math.max(8, rect.top - dlgH - 8);
+      const left = Math.min(
+        window.innerWidth - dlgW - 8,
+        Math.max(8, rect.left + rect.width/2 - dlgW/2)
+      );
+      dialog.style.top  = ${top + window.scrollY}px;
+      dialog.style.left = ${left + window.scrollX}px;
 
-    proxy.textContent = '';
-    requestAnimationFrame(() => proxy.focus());
+      // Prépare la zone et assure un focus "solide"
+      proxy.textContent = '';
+      proxy.setAttribute('contenteditable', 'true');
+      proxy.style.webkitUserSelect = 'text';    // iOS
+      proxy.style.userSelect = 'text';
 
-    const onPasteOnce = (e) => {
-      e.preventDefault();
-      const dt = e.clipboardData || window.clipboardData;
-      const txt = dt ? dt.getData('text') : '';
-      if (txt) handleClipboardText(txt, df, parser);
-      closePastePopup();
-    };
+      // ⚠️ Deux frames pour laisser Safari peindre puis focus
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          proxy.focus();
+          // Place un caret explicite dans le contenteditable
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(proxy);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        });
+      });
 
-    const onBackdrop = (e) => {
-      if (e.target.classList.contains('pp-backdrop')) closePastePopup();
-    };
+      // --- LISTENERS ROBUSTES ---
 
-    proxy.addEventListener('paste', onPasteOnce, { once: true });
-    popup.addEventListener('click', onBackdrop, { once: true });
+      // 1) beforeinput (iOS envoie insertFromPaste)
+      const onBeforeInput = (e) => {
+        if (e.inputType === 'insertFromPaste' && e.dataTransfer) {
+          // 🟢 chemin idéal : on récupère direct
+          e.preventDefault(); // évite l'insertion dans le DOM
+          const txt = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || '';
+          finalize(txt);
+        }
+      };
 
-    popup._tmp = { onPasteOnce, onBackdrop };
+      // 2) paste fallback : laisser coller, puis lire proxy.textContent
+      const onPaste = () => {
+        setTimeout(() => {
+          const txt = (proxy.textContent || '').trim();
+          finalize(txt);
+        }, 0);
+      };
+
+      // 3) input fallback ultime : si ni beforeinput ni paste n’ont capté
+      const onInput = () => {
+        setTimeout(() => {
+          const txt = (proxy.textContent || '').trim();
+          if (txt) finalize(txt);
+        }, 0);
+      };
+
+      const onBackdrop = (e) => {
+        if (e.target.classList.contains('pp-backdrop')) cleanup();
+      };
+
+      proxy.addEventListener('beforeinput', onBeforeInput);
+      proxy.addEventListener('paste', onPaste);
+      proxy.addEventListener('input', onInput);
+      popup.addEventListener('click', onBackdrop);
+
+      popup._tmp = { onBeforeInput, onPaste, onInput, onBackdrop };
+    });
   }
 
-  function closePastePopup() {
-    // popup.setAttribute('aria-hidden', 'true');
-    // if (popup._tmp) {
-    //   proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
-    //   popup.removeEventListener('click', popup._tmp.onBackdrop);
-    //   popup._tmp = null;
-    // }
+  function finalize(txt) {
+    cleanup();
+    if (txt) handleClipboardText(txt);
+  }
+
+  function cleanup() {
+    popup.setAttribute('aria-hidden', 'true');
+    if (popup._tmp) {
+      proxy.removeEventListener('beforeinput', popup._tmp.onBeforeInput);
+      proxy.removeEventListener('paste',        popup._tmp.onPaste);
+      proxy.removeEventListener('input',        popup._tmp.onInput);
+      popup.removeEventListener('click',        popup._tmp.onBackdrop);
+      popup._tmp = null;
+    }
+    // Réinitialise la zone
+    proxy.blur();
+    proxy.textContent = '';
     btn.focus();
   }
+
+  // function closePastePopup() {
+  //   popup.setAttribute('aria-hidden', 'true');
+  //   if (popup._tmp) {
+  //     proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
+  //     popup.removeEventListener('click', popup._tmp.onBackdrop);
+  //     popup._tmp = null;
+  //   }
+  //   btn.focus();
+  // }
 
   // 1️⃣ Tentative immédiate (doit être synchrone)
   try {
