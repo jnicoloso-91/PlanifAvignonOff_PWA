@@ -474,7 +474,7 @@ main, .page-wrap {
   padding-right: 8px !important;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 812px) {
   /* Font Height */
   .ag-theme-quartz.compact { 
     --ag-font-size: 10px; 
@@ -918,7 +918,7 @@ main, .page-wrap {
 .bb-btn:active { transform: translateY(1px) scale(0.99); }
 .bb-btn.is-active { background:#d1dcf0; border-color:#5e6a85; }
 
-@media (max-width: 768px) {
+@media (max-width: 812px) {
   .bb-btn { min-width: 84px; padding: 10px 12px; font-size: 13px; }
 }
 
@@ -1000,7 +1000,7 @@ main, .page-wrap {
   -webkit-tap-highlight-color: transparent;
   transition: transform .1s ease, background .15s ease;
 }
-@media (max-width: 768px) {
+@media (max-width: 812px) {
   .bb-icon-btn {
     padding: 4px;
   }
@@ -1512,7 +1512,7 @@ main, .page-wrap {
 
 /* Sur IOS font-size 16px pour eviter le zomm à l'input */
 @supports (-webkit-touch-callout: none) {
-  @media (max-width: 768px) {
+  @media (max-width: 812px) {
     .form-row input, 
     .form-row select, 
     .form-row textarea {
@@ -1678,9 +1678,14 @@ main, .page-wrap {
 }
 /* Sur IOS font-size 16px pour eviter le zomm à l'input */
 @supports (-webkit-touch-callout: none) {
-  @media (max-width: 768px) {
-    #paste-proxy {
+  @media (max-width: 812px) {
+    #paste-proxy,
+    #paste-proxy * {
       font-size: 16px !important;
     }
   }
 }
+
+
+/* Évite le reflow/zoom “text autosizing” */
+html { -webkit-text-size-adjust: 100%; }
