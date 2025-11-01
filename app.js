@@ -2971,12 +2971,12 @@ async function getClipBoardText(df, parser=null) {
   }
 
   function closePastePopup() {
-    popup.setAttribute('aria-hidden', 'true');
-    if (popup._tmp) {
-      proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
-      popup.removeEventListener('click', popup._tmp.onBackdrop);
-      popup._tmp = null;
-    }
+    // popup.setAttribute('aria-hidden', 'true');
+    // if (popup._tmp) {
+    //   proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
+    //   popup.removeEventListener('click', popup._tmp.onBackdrop);
+    //   popup._tmp = null;
+    // }
     btn.focus();
   }
 
