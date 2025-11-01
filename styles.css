@@ -1632,10 +1632,9 @@ main, .page-wrap {
 /*  Sheet Aide         */
 /* ====================*/
 
-.help-toc {
-  display: flex;
-  flex-direction: column;
-  row-gap: 10px;
+/* fallback explicite (quand on détecte le bug) */
+.help-toc a {
+  margin-top: 20px;      
 }
 
 .help-toc a,
@@ -1645,7 +1644,7 @@ main, .page-wrap {
 @media (max-width: 812px) {
   .help-toc a,
   .help-chapter {
-    font-size: 0.85rem
+    font-size: 0.6rem
   }
 }
 
