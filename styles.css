@@ -1510,7 +1510,7 @@ main, .page-wrap {
   font-size: 0.9rem;
 }
 
-/* Sur IOS 16px pour eviter le zomm à l'input */
+/* Sur IOS font-size 16px pour eviter le zomm à l'input */
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 768px) {
     .form-row input, 
@@ -1666,6 +1666,14 @@ main, .page-wrap {
   font-size: 0.9em;
   color: #333;
   margin: 0 0 6px 0;
+}
+/* Sur IOS font-size 16px pour eviter le zomm à l'input */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    #paste-popup .pp-msg {
+      font-size: 16px !important;
+    }
+  }
 }
 
 #paste-proxy {
