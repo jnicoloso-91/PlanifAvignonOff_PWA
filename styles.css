@@ -1628,6 +1628,36 @@ main, .page-wrap {
 .bb-btn.is-compact { padding: .45rem .8rem; font-size: .9rem; border-radius: 9px; }
 
  
+/* ====================*/
+/*  Sheet Aide         */
+/* ====================*/
+
+.help-toc {
+  display: flex;
+  flex-direction: column;
+  row-gap: 10px;
+}
+
+.help-toc a,
+.help-chapter {
+  font-size: 0.9rem
+}
+@media (max-width: 812px) {
+  .help-toc a,
+  .help-chapter {
+    font-size: 0.85rem
+  }
+}
+
+.help-block ul {
+  padding-left: 0.0em;
+  margin-left: 0;
+  list-style-type: disc;
+}
+.help-block li::marker {
+  font-size: 0.8em;        /* rend la puce plus discrète */
+}
+
 
 /* ====================*/
 /*  Popup Clipboard    */
@@ -1689,24 +1719,3 @@ main, .page-wrap {
 
 /* Évite le reflow/zoom “text autosizing” */
 html { -webkit-text-size-adjust: 100%; }
-
-
-/* ====================*/
-/*  Aide               */
-/* ====================*/
-
-.help-toc a {
-  font-size: 0.9rem
-}
-.help-chapter {
-  font-size: 0.9rem
-}
-
-.help-block ul {
-  padding-left: 0.5em;
-  margin-left: 0;
-  list-style-type: disc;
-}
-.help-block li::marker {
-  font-size: 0.8em;        /* rend la puce plus discrète */
-}
