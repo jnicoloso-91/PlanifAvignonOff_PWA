@@ -15,8 +15,8 @@ export const PARSED_DEFAULT = {
     Debut: null,    // "HHhMM"
     Duree: null,    // "HhMM"
     Lieu: null,
-    Sessions: null,
-    Relaches: null,
+    Session: null,
+    Relache: null,
     Style: null,
     Orga: null,
     Hyperlien: null
@@ -105,23 +105,23 @@ export function parseAvignonInProgPageText(text) {
     return null;
   };
 
-  // --- Parser dates -> { sessions, year } ---
+  // --- Parser dates -> { session, year } ---
   // Ex:
   //  - "vendredi 11 juillet 2025"         -> "11/07"
   //  - "8, 9, 10 ... juillet 2025"        -> "(08,09,10,...)/07"
   //  - "9, 10 et 11 juillet 2025"         -> "(09,10,11)/07"
   const parseDatesShort = (line) => {
-    if (!line) return { sessions: null, year: null };
+    if (!line) return { session: null, year: null };
     const raw = _normSpaces(line).trim();
 
     const reMY = /\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b\s+(\d{4})/i;
     const mMY = raw.match(reMY);
-    if (!mMY) return { sessions: null, year: null };
+    if (!mMY) return { session: null, year: null };
 
     const monthTxt = mMY[1].toLowerCase();
     const year = mMY[2];
     const mNum = MOIS[monthTxt];
-    if (!mNum) return { sessions: null, year: null };
+    if (!mNum) return { session: null, year: null };
     const mm = pad2(mNum);
 
     const before = raw.slice(0, mMY.index)
@@ -136,17 +136,17 @@ export function parseAvignonInProgPageText(text) {
       .filter(Boolean)
       .map(n => pad2(n));
 
-    if (daySeq.length === 0) return { sessions: null, year };
+    if (daySeq.length === 0) return { session: null, year };
 
     // dédoublonne en préservant l'ordre
     const seen = new Set();
     const days = daySeq.filter(d => (seen.has(d) ? false : (seen.add(d), true)));
 
-    const sessions = (days.length === 1)
+    const session = (days.length === 1)
       ? `${days[0]}/${mm}`
       : `(${days.join(',')})/${mm}`;
 
-    return { sessions, year };
+    return { session, year };
   };
 
   // --- Helpers de détection Style (iPhone vs PC) ---
@@ -220,13 +220,13 @@ export function parseAvignonInProgPageText(text) {
     const Activite = _stripQuotes(block[iTitre]);
 
     // --- Dates ---
-    let iDate = -1, Sessions = null;
+    let iDate = -1, Session = null;
     for (let k = nonEmptyIdx.length - 1; k >= 0; k--) {
       const idx = nonEmptyIdx[k];
       const parsed = parseDatesShort(block[idx]);
-      if (parsed && parsed.sessions) {
+      if (parsed && parsed.session) {
         iDate = idx;
-        Sessions = parsed.sessions;
+        Session = parsed.session;
         break;
       }
     }
@@ -300,9 +300,9 @@ export function parseAvignonInProgPageText(text) {
       Style,
       Lieu,
       Duree: Duree || null,
-      Sessions: Sessions || null,
+      Session: Session || null,
       Debut: null,
-      Relaches: null,
+      Relache: null,
       Orga: 'In',
       Hyperlien: null,
     });
@@ -441,7 +441,7 @@ export function parseAvignonInSpecPageText(text) {
  * @param {number}  opts.maxPages   - sécurité (par défaut 50)
  * @param {number}  opts.delayMs    - pause entre requêtes (120ms par défaut)
  * @param {boolean} opts.verbose    - logs console
- * @returns {Promise<Array>}        - liste d’objets parsés (Activite, Lieu, Sessions, Debut, Duree, Style, Hyperlien)
+ * @returns {Promise<Array>}        - liste d’objets parsés (Activite, Lieu, Session, Debut, Duree, Style, Hyperlien)
  */
 export async function parseAvignonOffProgPageUrl(url, { maxPages = 50, delayMs = 120, verbose = false } = {}) {
   const seen = new Set();
@@ -524,7 +524,7 @@ export function parseAvignonOffProgPageDom(doc) {
 
   // "du 5 au 26"  -> "[05-26]/07"
   // "le 17"       -> "[17-17]/07"
-  const parseSessions = (txt) => {
+  const parseSession = (txt) => {
     if (!txt) return null;
     const s = String(txt).toLowerCase().replace(/\s+/g, ' ').trim();
 
@@ -568,9 +568,9 @@ export function parseAvignonOffProgPageDom(doc) {
     // Lieu
     const Lieu = card.querySelector('.card-content .theatre')?.textContent?.replace(/\s+/g,' ')?.trim() || null;
 
-    // Sessions (dates)
+    // Session (dates)
     const dateTxt = card.querySelector('.card-content .date')?.textContent || '';
-    const Sessions = parseSessions(dateTxt) || null;
+    const Session = parseSession(dateTxt) || null;
 
     // Heures & durée
     const debutTxt = card.querySelector('.horaire-c .heure')?.textContent?.trim() || '';
@@ -599,7 +599,7 @@ export function parseAvignonOffProgPageDom(doc) {
         ...PARSED_DEFAULT,
         Activite,
         Lieu,
-        Sessions: Sessions || null,                 // si null et tu veux forcer juillet : mettre DEFAULT_MM
+        Session: Session || null,                 // si null et tu veux forcer juillet : mettre DEFAULT_MM
         Debut,
         Duree,
         Style,
@@ -656,7 +656,7 @@ export function parseAvignonOffProgPageText(text) {
     }
 
     // --- 2) LIGNE INFO (Lieu + dates + heure + durée) ---
-    let lieu = null, debut = null, duree = null, sessions = null;
+    let lieu = null, debut = null, duree = null, session = null;
     let foundIdx = -1;
     for (let k = j; k < lines.length; k++) {
       const lk = lines[k];
@@ -684,7 +684,7 @@ export function parseAvignonOffProgPageText(text) {
       }
       lieu = (cut > 0 ? info.slice(0, cut) : info).trim();
 
-      // Sessions avec mois réel si présent, sinon fallback (07)
+      // Session avec mois réel si présent, sinon fallback (07)
       const { mm } = _parseMonthYear(info);
       const monthOut = mm || '07';
       const mDuAu = info.match(reDuAu);
@@ -692,10 +692,10 @@ export function parseAvignonOffProgPageText(text) {
       if (mDuAu) {
         const d1 = pad2(+mDuAu[1]);
         const d2 = pad2(+mDuAu[2]);
-        sessions = `[${d1}-${d2}]/${monthOut}`;
+        session = `[${d1}-${d2}]/${monthOut}`;
       } else if (mLe) {
         const d = pad2(+mLe[1]);
-        sessions = `[${d}-${d}]/${monthOut}`;
+        session = `[${d}-${d}]/${monthOut}`;
       }
 
       // Heures & Durée (Hh, HhM, HhMM) + "NN min"
@@ -744,11 +744,11 @@ export function parseAvignonOffProgPageText(text) {
       ...PARSED_DEFAULT,
       Activite: activite || null,
       Lieu: lieu || null,
-      Sessions: sessions || null,
+      Session: session || null,
       Debut: debut || null,
       Duree: duree || null,
       Style: style || null,
-      Relaches: null,
+      Relache: null,
       Orga: 'Off',
       Hyperlien: null
     });
@@ -775,7 +775,7 @@ export async function parseAvignonOffSpecPageUrl(url, { fetcher = _fetchViaCloud
  * parseListingHtml(html, { url })
  * @param {string} html
  * @param {{url?: string}} opts
- * @return {{Activite:string|null, Lieu:string|null, Relaches:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
+ * @return {{Activite:string|null, Lieu:string|null, Relache:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
  */
 export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
   const res = {...PARSED_DEFAULT};
@@ -828,16 +828,16 @@ export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
 
     // Relâche = (liste explicite) + (période + parité interprétée)
     const parts = [];
-    const explicite = _parseRelaches(bigText);
+    const explicite = _parseRelache(bigText);
     if (explicite) parts.push(explicite);
 
-    const relachesParite = _parseRelachesAvecParite(bigText);
-    if (relachesParite) parts.push(relachesParite);
+    const relacheParite = _parseRelacheAvecParite(bigText);
+    if (relacheParite) parts.push(relacheParite);
 
-    if (parts.length) res.Relaches = parts.join(', ');
+    if (parts.length) res.Relache = parts.join(', ');
   
-    const sessions = _parseSessions(bigText);
-    if (sessions && sessions.length) res.Sessions = sessions;
+    const session = _parseSession(bigText);
+    if (session && session.length) res.Session = session;
   }
 
   res.Orga = "Off";
@@ -1006,9 +1006,9 @@ export function parseAvignonOffSpecPageText(text) {
   }
 
   if (parite) relParts.push(parite);
-  if (relParts.length) res.Relaches = relParts.join(', ');
+  if (relParts.length) res.Relache = relParts.join(', ');
 
-  // Intervalle de représentation à stocker dans Sessions : “du X au Y <mois>”
+  // Intervalle de représentation à stocker dans Session : “du X au Y <mois>”
   let periode_jouee = null;
   {
     const re = /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)/i;
@@ -1025,7 +1025,7 @@ export function parseAvignonOffSpecPageText(text) {
     periode_jouee = `[${d1}-${d2}]/${moisNum}`;
   }
 
-  if (periode_jouee.length) res.Sessions = periode_jouee;
+  if (periode_jouee.length) res.Session = periode_jouee;
 
   res.Orga = "Off";
 
@@ -1105,8 +1105,8 @@ export function isAvignonInProgPageText(text) {
     const days = before.split(',').map(x => (x.match(/(\d{1,2})\s*$/)||[])[1]).filter(Boolean);
     if (!days.length) return null;
     const seq = [...new Set(days.map(d => String(d).padStart(2,'0')))];
-    const sessions = (seq.length === 1) ? `${seq[0]}/${mm}` : `(${seq.join(',')})/${mm}`;
-    return { sessions, year: m[2] };
+    const session = (seq.length === 1) ? `${seq[0]}/${mm}` : `(${seq.join(',')})/${mm}`;
+    return { session, year: m[2] };
   };
 
   for (let i = 0; i < lines.length; i++) {
@@ -1117,7 +1117,7 @@ export function isAvignonInProgPageText(text) {
     const lieu  = dur.idx >= 0 ? stepUp(dur.idx) : { idx:-1, text:null };
     const date  = lieu.idx >= 0 ? stepUp(lieu.idx) : { idx:-1, text:null };
 
-    const okDate  = !!(date.text && parseDatesSafe(date.text)?.sessions);
+    const okDate  = !!(date.text && parseDatesSafe(date.text)?.session);
     const okLieu  = !!(lieu.text && normIn(lieu.text));
     const okDuree = !!(dur.text && parseDureeSafe(dur.text));
 
@@ -1280,7 +1280,7 @@ function _normalizeDuree(hhmm) {
 }
 
 /** Extrait les dates de représentation en token */
-function _parseSessions(text) {
+function _parseSession(text) {
   const t = _norm(text || "");
   const m = /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)/i.exec(t);
   if (!m) return null;
@@ -1295,7 +1295,7 @@ function _parseSessions(text) {
 }
 
 // "(9,16,23)/7"
-function _parseRelaches(text) {
+function _parseRelache(text) {
   const t = _norm(text);
   const m = /rel[aâ]che\s+les\s+([0-9,\s]+)\s+([a-zéû]+)/i.exec(t);
   if (!m) return null;
@@ -1320,18 +1320,18 @@ function _invertParite(parite /* "jours pairs" | "jours impairs" */) {
  *    - si texte contient "relâche jours X" -> renvoie "jours X"
  *    - si texte contient "jours X" (joués) -> renvoie l'inverse pour la relâche
  */
-function _parseRelachesAvecParite(text) {
+function _parseRelacheAvecParite(text) {
   const t = _norm(text || "");
   // cherche "... , relâche jours X" OU "... , jours X"
   const m = /(?:^|,|\s)(rel[aâ]che\s+)?(jours?\s+pairs?|jours?\s+impairs?)(?:\s|$)/i.exec(t);
   if (!m) return null;
 
-  const hadRelachesPrefix = !!m[1];
+  const hadRelachePrefix = !!m[1];
   const pariteFound = m[2].trim().toLowerCase(); // "jours pairs" | "jours impairs"
-  return hadRelachesPrefix ? pariteFound : _invertParite(pariteFound);
+  return hadRelachePrefix ? pariteFound : _invertParite(pariteFound);
 }
 
-// Extrait Lieu / Sessions / Debut / Duree depuis la ligne 3
+// Extrait Lieu / Session / Debut / Duree depuis la ligne 3
 function _parseInfoLine(line, defaultMonth = '07') {
   const l = _strip(line);
 
@@ -1351,17 +1351,17 @@ function _parseInfoLine(line, defaultMonth = '07') {
   }
   const Lieu = _strip(cut > 0 ? l.slice(0, cut) : l);
 
-  // Sessions: "du d1 au d2" OU "le d"
-  let Sessions = null;
+  // Session: "du d1 au d2" OU "le d"
+  let Session = null;
   const mDuAu = l.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
   const mLe   = l.match(/\ble\s+(\d{1,2})\b/i);
   if (mDuAu) {
     const d1 = pad2(+mDuAu[1]);
     const d2 = pad2(+mDuAu[2]);
-    Sessions = `[${d1}-${d2}]/${moisNum}`;
+    Session = `[${d1}-${d2}]/${moisNum}`;
   } else if (mLe) {
     const d = pad2(+mLe[1]);
-    Sessions = `[${d}-${d}]/${moisNum}`;
+    Session = `[${d}-${d}]/${moisNum}`;
   }
 
   // Heures & Durée (supporte "HHhMM" et "NNmin")
@@ -1386,7 +1386,7 @@ function _parseInfoLine(line, defaultMonth = '07') {
     Duree = mmToHHhMM(mTokens[0].mins);
   }
 
-  return { Lieu, Sessions, Debut, Duree };
+  return { Lieu, Session, Debut, Duree };
 }
 
 function _parseDuree(line) {
@@ -1406,24 +1406,24 @@ function _parseDuree(line) {
 }
 
 /**
- * "vendredi 11 juillet 2025"      -> { sessions:"11/07", year:"2025" }
- * "8, 9, 10, …, 26 juillet 2025"  -> { sessions:"08,09,...,26/07", year:"2025" }
- * "9, 10 et 11 juillet 2025"      -> { sessions:"09,10,11/07", year:"2025" }
+ * "vendredi 11 juillet 2025"      -> { session:"11/07", year:"2025" }
+ * "8, 9, 10, …, 26 juillet 2025"  -> { session:"08,09,...,26/07", year:"2025" }
+ * "9, 10 et 11 juillet 2025"      -> { session:"09,10,11/07", year:"2025" }
  */
 function _parseDates(line) {
-  if (!line) return { sessions: null, year: null };
+  if (!line) return { session: null, year: null };
 
   const raw = _normSpaces(line).trim();
 
   // repère "<mois> <année>"
   const reMonthYear = /\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b\s+(\d{4})/i;
   const mMY = raw.match(reMonthYear);
-  if (!mMY) return { sessions: null, year: null };
+  if (!mMY) return { session: null, year: null };
 
   const monthTxt = mMY[1].toLowerCase();
   const year = mMY[2];
   const mNum = MOIS[monthTxt];
-  if (!mNum) return { sessions: null, year: null };
+  if (!mNum) return { session: null, year: null };
 
   // ⚙️ ici on met le mois sur 2 chiffres sans modifier la const MOIS d’origine
   const mm = pad2(Number(mNum));
@@ -1443,12 +1443,12 @@ function _parseDates(line) {
   const seen = new Set();
   const days = daySeq.filter(d => (seen.has(d) ? false : (seen.add(d), true)));
 
-  if (days.length === 0) return { sessions: null, year };
+  if (days.length === 0) return { session: null, year };
 
   if (days.length === 1) {
-    return { sessions: `${days[0]}/${mm}`, year };
+    return { session: `${days[0]}/${mm}`, year };
   } else {
-    return { sessions: `(${days.join(',')})/${mm}`, year };
+    return { session: `(${days.join(',')})/${mm}`, year };
   }
 }
 
@@ -1554,7 +1554,7 @@ function _setNextPageParams(params, pageField, nextPage) {
 
 // Dédup simple par triplet clé
 function _makeKey(it) {
-  return [it.Activite, it.Lieu, it.Sessions].map(x => x || '').join('||');
+  return [it.Activite, it.Lieu, it.Session].map(x => x || '').join('||');
 }
 
 // ==== Helpers ProgPageIn ====
@@ -1624,12 +1624,12 @@ function _sqlDateToParts(s) {
   return { y:+y, mo:+mo, d:+d, hh: hh!=null?+hh:null, mm: mm!=null?+mm:null };
 }
 
-// Construit Sessions & Debut à partir de ev.calendar[].dateSummary
-function _calendarToSessionsAndDebut(calendarArr) {
+// Construit Session & Debut à partir de ev.calendar[].dateSummary
+function _calendarToSessionAndDebut(calendarArr) {
   const parts = (calendarArr || [])
     .map(c => _sqlDateToParts(c?.dateSummary))
     .filter(Boolean);
-  if (!parts.length) return { Sessions: null, Debut: null };
+  if (!parts.length) return { Session: null, Debut: null };
 
   // Debut = heure du 1er
   const first = parts[0];
@@ -1654,8 +1654,8 @@ function _calendarToSessionsAndDebut(calendarArr) {
   }
 
   // S'il n'y a qu'un mois, renvoie un seul segment ; sinon join
-  const Sessions = segments.length === 1 ? segments[0] : segments.join('; ');
-  return { Sessions, Debut };
+  const Session = segments.length === 1 ? segments[0] : segments.join('; ');
+  return { Session, Debut };
 }
 
 // Choisit un style pertinent parmi les catégories
@@ -1686,8 +1686,8 @@ function _mapEventToRow(ev, pageUrl) {
     ? _absolutize(`/fr/edition-2025/programmation/${slug}-${id}`, pageUrl)
     : (ev.url || null);
 
-  // Sessions & Debut depuis calendar[]
-  const { Sessions, Debut: DebutFromCal } = _calendarToSessionsAndDebut(ev.calendar);
+  // Session & Debut depuis calendar[]
+  const { Session, Debut: DebutFromCal } = _calendarToSessionAndDebut(ev.calendar);
 
   // Durée
   const Duree = (ev.duration != null) ? mmToHhmm(ev.duration) : null;
@@ -1701,8 +1701,8 @@ function _mapEventToRow(ev, pageUrl) {
     Debut: _orNull(Debut),
     Duree: _orNull(Duree),
     Lieu: _orNull(Lieu),
-    Sessions: _orNull(Sessions),
-    Relaches: null,
+    Session: _orNull(Session),
+    Relache: null,
     Style: _orNull(Style),
     Orga: 'In',
     Hyperlien: _orNull(Hyperlien)

@@ -239,7 +239,6 @@ export class LieuRenderer {
     e.style.gap = '.4rem';
     e.style.width = '100%';
     e.style.overflow = 'hidden';
-    e.style.padding = '0rem'
 
     // lien/icone
     const a = document.createElement('a');

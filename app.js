@@ -243,8 +243,8 @@ const CANON = {
   'activite': 'Activite',
   'lieu': 'Lieu',
   'hyperlien': 'Hyperlien',
-  'relache': 'Relaches',
-  'relaches(s)': 'Relaches',
+  'relache': 'Relache',
+  'relaches(s)': 'Relache',
   'reserve': 'Reserve',
   'priorite': 'Priorite',
   // tolérances diverses
@@ -1510,6 +1510,21 @@ function openExpanderAsync(id){
   });
 }
 
+// Attendre qu'un expander soit rendu avant d'appeler cb
+function ensureExpanderReady(expanderId, cb, { timeout = 3000 } = {}) {
+  const exp = document.getElementById(expanderId);
+  const header = exp?.querySelector('.st-expander-header');
+  if (header) { cb(); return; }
+
+  const start = performance.now();
+  const obs = new MutationObserver(() => {
+    const h = document.getElementById(expanderId)?.querySelector('.st-expander-header');
+    if (h) { obs.disconnect(); cb(); }
+    else if (performance.now() - start > timeout) { obs.disconnect(); }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+}
+
 // Sélectionne + rend visible + retourne DOM de la ligne si possible
 async function ensureRowVisibleAndGetEl(gridId, uuid) {
   const h = grids.get(gridId);
@@ -1661,7 +1676,7 @@ function addExpanderButton({expanderId, id, title, innerHTML, onClick}) {
     actions.className = 'exp-header-actions';
     header.appendChild(actions);
   }
-  if (actions.querySelector('.' + id)) return;
+  if (actions.querySelector('#' + id)) return;
 
   const btn = document.createElement('button');
   btn.id = id;
@@ -1803,19 +1818,94 @@ function addExpanderButtons() {
     `,
     onClick: async () => {await doSupprimerActivite();}
   });
-  
+
+  // Toggle bouton TraiterPauses
+  addAvecPausesToggleButton({
+    expanderId: 'exp-creneaux',
+    onChange: () => refreshGrid('grid-creneaux'),
+  });
+
 }
 
-// function updateBadgeFromGrid(api, badgeEl, { showTotal=false } = {}) {
-//   if (!api || !badgeEl) return;
-//   const displayed = api.getDisplayedRowCount ? api.getDisplayedRowCount() : api.getModel().getRowCount();
-//   if (!showTotal) {
-//     badgeEl.textContent = String(displayed);
-//     return;
-//   }
-//   const total = api.getModel()?.getRowCount?.() ?? displayed;
-//   badgeEl.textContent = `${displayed} / ${total}`;
-// }
+
+/**
+ * Monte le toggle "Avec pauses" dans le header de l'expander.
+ * @param {Object} opts
+ * @param {string} opts.expanderId - ex: 'exp-creneaux'
+ * @param {(isOn:boolean)=>void} opts.onChange - appelé après bascule
+ */
+
+function addAvecPausesToggleButton({ expanderId = 'exp-creneaux', onChange } = {}) {
+  const id = 'btn-avec-pauses';
+
+  const ICON_PAUSE_ON = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+      <path d="M8 12l3 3 5-5"/>
+    </svg>`;
+
+  const ICON_PAUSE_OFF = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+    </svg>`;
+  
+  const KEY_SHOW_PAUSES = 'exp-creneaux:avec-pauses';
+
+  function getShowPauses() {
+    try { return localStorage.getItem(KEY_SHOW_PAUSES) === '1'; } catch { return false; }
+  }
+  function setShowPauses(v) {
+    try { localStorage.setItem(KEY_SHOW_PAUSES, v ? '1' : '0'); } catch {}
+  }
+
+  function renderAvecPausesInnerHTML(isOn) {
+    const icon = isOn ? ICON_PAUSE_ON : ICON_PAUSE_OFF;
+    const label = isOn ? 'Avec pauses' : 'Sans pauses';
+    return `
+      <span class="exp-icon">${icon}</span>
+      <span class="exp-label">${label}</span>
+    `;
+  }
+
+  // ⇨ applique l’état (classe + aria + contenu) si le bouton existe
+  function syncAvecPausesButtonFromStorage(btnId = 'btn-avec-pauses') {
+    const btn = document.getElementById(btnId);
+    if (!btn) return false;
+    const isOn = getShowPauses();
+    btn.innerHTML = renderAvecPausesInnerHTML(isOn);
+    btn.classList.toggle('is-on', isOn);
+    btn.setAttribute('aria-pressed', String(isOn));
+    return true;
+  }
+
+  // 1) créer (ou réutiliser) le bouton via ton helper
+  addExpanderButton({
+    expanderId,
+    id,
+    title: 'Avec pauses',
+    innerHTML: renderAvecPausesInnerHTML(getShowPauses()),
+    onClick: async () => {
+      const current = getShowPauses();
+      const next = !current;
+      setShowPauses(next);
+      syncAvecPausesButtonFromStorage(id);
+      // callback métier
+      try { onChange?.(next); } catch(e) { console.error(e); }
+    }
+  });
+
+  // 🔁 sync immédiat (au cas où l’innerHTML a bougé après insertion)
+  queueMicrotask(() => syncAvecPausesButtonFromStorage(id));
+}
+
+function traiterPauses() {
+  return localStorage.getItem('exp-creneaux:avec-pauses') === '1';
+}
+
 function updateBadgeFromGrid(api, badgeEl) {
   if (!api || !badgeEl) return;
 
@@ -1849,8 +1939,8 @@ function buildColumnsActivitesCommon(){
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
-    { field:'Sessions', headerName: 'Sessions', width:widthSR, minWidth:widthSR, valueParser: valueParserSessions },
-    { field:'Relaches', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelaches },
+    { field:'Session', headerName: 'Sessions', width:widthSR, minWidth:widthSR, valueParser: valueParserSession },
+    { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache },
     { field:'Style', headerName: 'Style', minWidth:160, flex:0.6 },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
@@ -2002,8 +2092,8 @@ function valueParserDuree (params) {
   }
   else return params.newValue;
 }
-function valueParserSessions (params) {
-  if (!activitesAPI.estSessionsValide(params.newValue)) {
+function valueParserSession (params) {
+  if (!activitesAPI.estSessionValide(params.newValue)) {
     alert(`⛔ Format attendu = suite d'expressions suivantes, séparées par des virgules :
      - "9", "09" (mois courant et année courante implicites), 
      - "9/7", "09/07" (année courante implicite) , 
@@ -2017,8 +2107,8 @@ function valueParserSessions (params) {
   }
   else return params.newValue;
 }
-function valueParserRelaches (params) {
-  if (!activitesAPI.estRelachesValide(params.newValue)) {
+function valueParserRelache (params) {
+  if (!activitesAPI.estRelacheValide(params.newValue)) {
     alert(`⛔ Format attendu = suite d'expressions suivantes, séparées par des virgules :
      - "9", "09" (mois courant et année courante implicites), 
      - "9/7", "09/07" (année courante implicite) , 
@@ -2161,7 +2251,7 @@ async function loadGridCreneaux() {
   const activitesProgrammees = activitesAPI.getActivitesProgrammees(activites);
   const periodeProgrammation = activitesAPI.getPeriodeProgrammation(activites)
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
-  return activitesAPI.getCreneaux(activites, activitesProgrammees, false, periodeProgrammation).map(r => ({...r}));
+  return activitesAPI.getCreneaux(activites, activitesProgrammees, traiterPauses(), periodeProgrammation).map(r => ({...r}));
 }
 
 async function loadGridActivitesProgrammables(){
@@ -2902,6 +2992,11 @@ async function doExportExcel() {
   }
 }
 
+// Export Excel
+async function doVerifCoherence() {
+  openSheetCoherence(ctx.df);
+}
+
 // Undo
 async function doUndo() {
   try { await ctx.undo('df'); } catch {};
@@ -3172,8 +3267,8 @@ async function handleClipboardText(raw, df, parser=null) {
         Duree: row.Duree || null,
         Activite: nom, 
         Lieu: row.Lieu || null, 
-        Sessions: row.Sessions || null,
-        Relaches: row.Relaches || null, 
+        Session: row.Session || null,
+        Relache: row.Relache || null, 
         Style: row.Style || null,
         Orga: row.Orga || null,
         Reserve: null, 
@@ -3186,7 +3281,7 @@ async function handleClipboardText(raw, df, parser=null) {
   recalcFinForAll(nouvellesActivites);
   if (!nouvellesActivites || nouvellesActivites.length == 0) return;
   // ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
-  ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(nouvellesActivites, rows, ['Activite', 'Debut', 'Sessions'])));
+  ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(nouvellesActivites, rows, ['Activite', 'Debut', 'Session'])));
 
   // Maj des sélections
   setTimeout(() => {
@@ -3375,13 +3470,6 @@ function wireBottomBar() {
 }
 
 // Appelle le menu contextuel ou la bottom sheet selon la taille d’écran
-// function openFileMenuOrSheet(anchorBtn) {
-//   if (window.matchMedia('(max-width: 768px)').matches) {
-//     openFileSheet(); // version mobile
-//   } else {
-//     openFileMenuDesktop(anchorBtn);  // version desktop
-//   }
-// }
 function openFileMenuOrSheet(anchorBtn) {
   const isSmallScreen = window.matchMedia('(max-width: 768px)').matches;
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -3393,123 +3481,6 @@ function openFileMenuOrSheet(anchorBtn) {
     openFileMenuDesktop(anchorBtn);  // version desktop
   }
 }
-// Menu contextuel au-dessus du bouton "Fichier"
-// function openFileMenu(anchorBtn, opts = {}) {
-//   const btn = anchorBtn;
-//   if (!btn || !(btn instanceof HTMLElement)) {
-//     console.warn('[FileMenu] anchor invalide');
-//     return;
-//   }
-
-//   // Si un menu est déjà ouvert → fermer si clic sur le même bouton
-//   const existing = document.querySelector('.file-menu');
-//   if (existing) {
-//     const wasForSameBtn = existing.dataset.anchorId === btn.id;
-//     existing.remove();
-//     if (wasForSameBtn) return; // toggle: referme seulement
-//   }
-
-//   let openMenu = null;
-
-//   const closeMenu = () => {
-//     if (!openMenu) return;
-//     openMenu.remove();
-//     openMenu = null;
-//     document.removeEventListener('keydown', onKeyDown);
-//   };
-//   const onKeyDown = (e) => { if (e.key === 'Escape') closeMenu(); };
-
-//   // 1) créer le menu (invisible le temps de le positionner)
-//   const menu = document.createElement('div');
-//   menu.className = 'file-menu';
-//   menu.dataset.anchorId = btn.id || ''; // pour savoir qui l’a ouvert
-//   menu.innerHTML = `
-//     <button data-action="new">Nouveau planning</button>
-//     <button data-action="open">Importer planning depuis Excel</button>
-//     <button data-action="save">Exporter planning vers Excel</button>
-//   `;
-//   Object.assign(menu.style, {
-//     position: 'fixed',
-//     zIndex: 2000,
-//     background: '#fff',
-//     border: '1px solid #ccc',
-//     borderRadius: '8px',
-//     boxShadow: '0 8px 24px rgba(0,0,0,.12)',
-//     padding: '4px',
-//     visibility: 'hidden',
-//     opacity: '0',
-//   });
-//   document.body.appendChild(menu);
-
-//   // style des items
-//   menu.querySelectorAll('button').forEach(b => {
-//     Object.assign(b.style, {
-//       display: 'block',
-//       width: '100%',
-//       padding: '8px 10px',
-//       textAlign: 'left',
-//       background: 'transparent',
-//       border: 'none',
-//       borderRadius: '6px',
-//       cursor: 'pointer'
-//     });
-//     b.addEventListener('mouseenter', () => b.style.background = '#f3f4f6');
-//     b.addEventListener('mouseleave', () => b.style.background = 'transparent');
-//     b.addEventListener('click', async (ev) => {
-//       const act = ev.currentTarget.dataset.action;
-//       closeMenu();
-//       if (act === 'new')  {
-//         if (typeof opts.onNew === 'function') return opts.onNew();
-//         if (typeof doNouveauContexte === 'function') doNouveauContexte();
-//       }
-//       if (act === 'open') {
-//         if (typeof opts.onOpen === 'function') return opts.onOpen();
-//         if (typeof doImportExcel === 'function') doImportExcel();
-//       }
-//       if (act === 'save') {
-//         if (typeof opts.onSave === 'function') return opts.onSave();
-//         if (typeof doExportExcel === 'function') doExportExcel();
-//       }
-//     });
-//   });
-
-//   // 2) positionner AU-DESSUS du bouton (ou en dessous si pas de place)
-//   try {
-//     positionMenuOverBtn(btn, menu);
-//   } catch {
-//     const r = btn.getBoundingClientRect();
-//     Object.assign(menu.style, {
-//       left: `${Math.round(r.left)}px`,
-//       top: `${Math.round(r.top - 120)}px`,
-//     });
-//   }
-
-//   // 3) montrer avec une petite anim
-//   menu.style.visibility = 'visible';
-//   menu.animate(
-//     [
-//       { opacity: 0, transform: 'translateY(6px)' },
-//       { opacity: 1, transform: 'translateY(0)' }
-//     ],
-//     { duration: 140, easing: 'ease-out', fill: 'forwards' }
-//   );
-
-//   openMenu = menu;
-
-//   // fermer si clic ailleurs (différé pour ne pas capter ce même clic)
-//   setTimeout(() => {
-//     const onDocClick = (ev) => {
-//       if (menu.contains(ev.target)) return;
-//       // ⇩ ferme aussi si on reclique sur le bouton ancre ⇩
-//       if (ev.target === btn) { closeMenu(); return; }
-//       document.removeEventListener('click', onDocClick);
-//       closeMenu();
-//     };
-//     document.addEventListener('click', onDocClick);
-//   }, 0);
-
-//   document.addEventListener('keydown', onKeyDown);
-// }
 
 // Construit le menu fichier (desktop)
 function openFileMenuDesktop(anchorBtn) {
@@ -3526,6 +3497,7 @@ function openFileMenuDesktop(anchorBtn) {
     { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
     { id:'save', label:'Exporter vers Excel' },
+    { id:'rapportCoherence', label:'Rapport de vérification de cohérence' },
   ];
   for (const it of items) {
     const b = document.createElement('button');
@@ -3555,6 +3527,7 @@ function openFileMenuDesktop(anchorBtn) {
     if (act === 'importCatOff') doImportFromCatOff?.();
     if (act === 'importCatIn') doImportFromCatIn?.();
     if (act === 'save') doExportExcel?.();
+    if (act === 'rapportCoherence') doVerifCoherence?.();
   });
 
   // fermeture externe / ESC
@@ -3619,6 +3592,24 @@ function openFileSheet() {
               <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier Excel</span>
             </div>
           </li>
+          <li class="file-sheet__item" data-action="rapportCoherence">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true" focusable="false">
+              <!-- Feuille -->
+              <path d="M7 3h6l4 4v11a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"/>
+              <path d="M13 3v4h4"/>
+              <!-- Coche -->
+              <path d="M8.8 13.2l2 2 4.2-4.2"/>
+              <!-- Lignes de texte -->
+              <path d="M8 18h8"/>
+            </svg>
+            <div class="file-sheet__text">
+              <span class="file-sheet__titleText">Rapport de vérification de cohérence</span>
+              <span class="file-sheet__subtitle">Edite un rapport sur la cohérence des données (chevauchements, formats)</span>
+            </div>
+          </li>
         </ul>
         <div class="file-sheet__footer">
         </div>
@@ -3656,6 +3647,7 @@ function openFileSheet() {
       if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'save') doExportExcel?.();
+      if (act === 'rapportCoherence') doVerifCoherence?.();
     });
   });
 
@@ -5749,6 +5741,131 @@ function openSheetParams(){
   });
 }
 
+// function openSheetAide() {
+//   openSheetExclusive({
+//     title: 'Aide',
+//     panelMaxHeight: '70vh',
+//     panelHeight: '60vh',
+//     mount: (body) => {
+//       body.innerHTML = `
+//         <div class="help-block">
+//           <h4>Gestes utiles</h4>
+//           <ul>
+//             <li><b>Swipe bas</b> sur l’entête de la sheet → fermer</li>
+//             <li><b>Double-tap</b> sur une cellule → éditer (iOS OK)</li>
+//             <li><b>Long-press</b> (desktop : clic) sur 🔗/📍 → ouvrir le lien</li>
+//           </ul>
+//           <h4>Programmation</h4>
+//           <p>Choisissez une date dans la colonne <i>Date</i> (grille activités). Les lignes sélectionnées se
+//              mettent en évidence; la ligne nouvellement programmée est auto-centrée.</p>
+//           <h4>Contact</h4>
+//           <ul>
+//             <li>📧 support@example.com</li>
+//           </ul>
+//         </div>
+//       `;
+//     }
+//   });
+// }
+
+// function openSheetAide() {
+//   openSheetExclusive({
+//     title: 'Aide', // ← déjà affiché dans le header de ta sheet
+//     panelMaxHeight: '70vh',
+//     panelHeight: '60vh',
+//     mount: (body) => {
+//       body.innerHTML = `
+//         <style>
+//           .help-nav {
+//             display: flex; gap: 8px; flex-wrap: wrap;
+//             margin: 4px 0 12px; padding: 0;
+//             list-style: none;
+//           }
+//           .help-nav button {
+//             padding: 6px 10px; border-radius: 8px;
+//             border: 1px solid var(--help-bd,#ccc);
+//             background: var(--help-bg,#f7f7f7);
+//             cursor: pointer; font: inherit;
+//           }
+//           .help-nav button[aria-selected="true"] {
+//             background: var(--help-act,#e9f3ff);
+//             border-color: var(--help-actbd,#8bb7ff);
+//           }
+//           .help-section { display: none; overflow-y: auto; }
+//           .help-section[aria-hidden="false"] { display: block; }
+//           .help-block h4 { margin: 10px 0 6px; }
+//           .help-block ul { margin: 6px 0 12px 18px; }
+//           .help-block li { margin: 4px 0; }
+//           /* iOS anti-zoom */
+//           @supports (-webkit-touch-callout: none) {
+//             .help-nav button, .help-block { font-size: 16px; }
+//           }
+//         </style>
+
+//         <nav class="help-nav" role="tablist" aria-label="Sections d'aide">
+//           <button type="button" role="tab" data-target="gestes" aria-selected="true">Gestes utiles</button>
+//           <button type="button" role="tab" data-target="prog"   aria-selected="false">Programmation</button>
+//           <button type="button" role="tab" data-target="contact"aria-selected="false">Contact</button>
+//         </nav>
+
+//         <section id="help-gestes" class="help-section" role="tabpanel" aria-hidden="false">
+//           <div class="help-block">
+//             <ul>
+//               <li><b>Swipe bas</b> sur l’entête de la sheet → fermer</li>
+//               <li><b>Double-tap</b> sur une cellule → éditer (iOS OK)</li>
+//               <li><b>Long-press</b> (desktop : clic) sur 🔗/📍 → ouvrir le lien</li>
+//             </ul>
+//           </div>
+//         </section>
+
+//         <section id="help-prog" class="help-section" role="tabpanel" aria-hidden="true">
+//           <div class="help-block">
+//             <p>Choisissez une date dans la colonne <i>Date</i> (grille activités). Les lignes sélectionnées se mettent en évidence ; la ligne nouvellement programmée est auto-centrée.</p>
+//             <ul>
+//               <li>Filtrer via l’entête de colonne (menu filtre/ag-grid)</li>
+//               <li><b>Entrée</b> pour valider, <b>Échap</b> pour annuler</li>
+//               <li>Conflits/relâches : voir l’icône ⚠️ dans la colonne « Session »</li>
+//             </ul>
+//           </div>
+//         </section>
+
+//         <section id="help-contact" class="help-section" role="tabpanel" aria-hidden="true">
+//           <div class="help-block">
+//             <ul><li>📧 support@example.com</li></ul>
+//           </div>
+//         </section>
+//       `;
+
+//       const tabs = [...body.querySelectorAll('.help-nav [role="tab"]')];
+//       const panels = {
+//         gestes: body.querySelector('#help-gestes'),
+//         prog: body.querySelector('#help-prog'),
+//         contact: body.querySelector('#help-contact')
+//       };
+
+//       const show = (key) => {
+//         for (const b of tabs)
+//           b.setAttribute('aria-selected', String(b.dataset.target === key));
+//         for (const [k, sec] of Object.entries(panels))
+//           sec.setAttribute('aria-hidden', String(k !== key));
+//         try { localStorage.setItem('help:lastTab', key); } catch {}
+//       };
+
+//       body.querySelector('.help-nav').addEventListener('click', (e) => {
+//         const b = e.target.closest('[role="tab"]');
+//         if (b && panels[b.dataset.target]) show(b.dataset.target);
+//       });
+
+//       let initial = 'gestes';
+//       try {
+//         const saved = localStorage.getItem('help:lastTab');
+//         if (saved && panels[saved]) initial = saved;
+//       } catch {}
+//       show(initial);
+//     }
+//   });
+// }
+
 function openSheetAide() {
   openSheetExclusive({
     title: 'Aide',
@@ -5756,20 +5873,253 @@ function openSheetAide() {
     panelHeight: '60vh',
     mount: (body) => {
       body.innerHTML = `
-        <div class="help-block">
-          <h4>Gestes utiles</h4>
-          <ul>
-            <li><b>Swipe bas</b> sur l’entête de la sheet → fermer</li>
-            <li><b>Double-tap</b> sur une cellule → éditer (iOS OK)</li>
-            <li><b>Long-press</b> (desktop : clic) sur 🔗/📍 → ouvrir le lien</li>
-          </ul>
-          <h4>Programmation</h4>
-          <p>Choisissez une date dans la colonne <i>Date</i> (grille activités). Les lignes sélectionnées se
-             mettent en évidence; la ligne nouvellement programmée est auto-centrée.</p>
-          <h4>Contact</h4>
-          <ul>
-            <li>📧 support@example.com</li>
-          </ul>
+        <style>
+          .help-toc a {
+            display: block;
+            color: var(--link-color, #0066cc);
+            text-decoration: underline;
+            margin: 8px 0;
+            font-weight: 500;
+            cursor: pointer;
+          }
+          .help-chapter {
+            display: none;
+            overflow-y: auto;
+            height: calc(60vh - 40px);
+            animation: fadeIn 0.2s ease;
+          }
+          .help-chapter.active { display: block; }
+          .help-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            color: var(--link-color, #0066cc);
+          }
+          .help-back svg {
+            width: 14px; height: 14px;
+          }
+          .help-block ul { margin: 8px 0 12px 20px; }
+          .help-block li { margin: 4px 0; }
+          @keyframes fadeIn { from {opacity:0} to {opacity:1} }
+          @supports (-webkit-touch-callout: none) {
+            .help-toc, .help-block { font-size: 16px; }
+          }
+        </style>
+
+        <!-- Table des matières -->
+        <div class="help-toc">
+          <a data-target="generalites">Fonctionnalités générales</a>
+          <a data-target="regles-programmation">Règles de programmation</a>
+          <a data-target="ui">Interface utilisateur</a>
+          <a data-target="format-donnees">Format des données</a>
+        </div>
+
+        <!-- Chapitres -->
+        <div id="help-generalites" class="help-chapter">
+          <div class="help-back" data-back>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Retour
+          </div>
+          <div class="help-block">
+            <p style="margin-bottom: 0.2em">Cette application a pour objet de vous permettre de bâtir un programme de spectacles. 
+            Par défaut elle est paramétrée pour donner accès aux catalogues du In et du Off du festival d'Avignon mais peut répondre à toute utilisation 
+            nécessitant de choisir des activités dans un catalogue et de les programmer sur une période donnée. Les fonctionnalités principales sont les suivantes :</p>
+            <ul style="margin-top: 0em; margin-bottom: 2em">
+              <li>Choix de la période à programmer</li>
+              <li>Chargement des activités à programmer à partir d'un fichier Excel ou par collage depuis un catalogue en ligne</li>
+              <li>Gestion de la programmation des activités sur les plages libres de la période à programmer, en évitant chevauchements et doublons (voir le chapitre "Règles de programmation")</li>
+              <li>Pour chaque activité gestion de liens vers la description détaillée de l'activité et la recherche d'itinéraire</li>
+              <li>Gestion du carnet d'adresses des lieux d'activités</li>
+              <li>Sauvegarde des données dans un fichier Excel ou vers le calendrier</li>
+              <li>Vérification de cohérence des données (chevauchements d'activités, marges trop courtes, formats de données)</li>
+            </ul>            
+          </div>
+        </div>
+
+        <div id="help-regles-programmation" class="help-chapter">
+          <div class="help-back" data-back>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Retour
+          </div>
+          <div class="help-block">
+            <p style="margin-bottom: 0.2em">Règles adoptées pour la programmation des activités:</p>
+            <ul style="margin-top: 0em; margin-bottom: 0.5em">
+              <li>30 minutes de marge entre activités</li>
+              <li>1 heure par pause repas</li>
+              <li>1/2 heure par pause café sans marge avec l'activité précédente ou suivante</li>
+              <li>Respect des périodes pendant lesquelles l'activité est valide et des périodes ou jours de relâche</li>
+            </ul>
+            <p>Ces valeurs par défaut sont paramétrables via le menu .../Paramètres.</p>
+          </div>
+        </div>
+
+        <div id="help-ui" class="help-chapter">
+          <div class="help-back" data-back>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Retour
+          </div>
+          <div class="help-block">
+            <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click / appui sur les icônes gauche et centrale de l'entête.
+            La première page propose des liens ves les catalogues du In et du Off du festival d'Avignon et la deuxième (page "Mon programme") permet de construire un programme 
+            personnalisé de spectacles ou autres activités.</p>
+                         
+            <p style="margin-bottom: 0.2em">La page "Mon programme", comprend quatre tableaux:</p>
+            <ul style="margin-top: 0em">
+                <li>"Programme": tableau des activités programmées (i.e. activités avec date de programmation)
+                <li>"Plages libres": tableau des plages libres entre activités programmées (seules les plages dans lesquelles existent des activités programmables sont listées)
+                <li>"Programmer...": tableau des activités programmables dans la plage libre sélectionnée
+                <li>"Stock": tableau des activités non programmées (i.e. activités sans date de programmation).
+            </ul>
+      
+            </p>Dans les tableaux "Programme", "Plages libres" et "Programmer..." les lignes sont colorisées en fonction de leur Date et dans le tableau
+            "Stock" les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe. 
+            Dans le tableau "Programme" les activités réservées sont libellées en rouge. 
+
+            <p style="margin-bottom: 0.2em">Une activité programmable peut être programmée (i.e. insérée dans le tableau "Programme" à une date donnée)
+            de deux manières différentes:
+            <ul style="margin-top: 0em">
+                <li>Soit en sélectionnant une plage libre, puis dans cette plage une activité programmable, puis en appuyant sur le bouton "Programmer" 
+                (situé en haut à droite du tableau "Programmer...")
+                <li>Soit en sélectionnant une activité programmable (activités colorisées en vert menthe) dans le stock et en dépliant le menu de la 
+                colonne "Date", lequel liste les jours de programmation possible.
+            </ul>
+
+            </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau "Programme" et d'appuyer sur le bouton "Déprogrammer" 
+            (situé en haut à droite de ce même tableau). Pour la reprogrammer, déplier le menu de la colonne "Date" et sélectionner une autre date possible.</p>
+
+            </p>Le bouton "Supprimer" situé en haut à droite du tableau "Stock" permet de supprimer l'activité sélectionnée.</p>
+
+            <p>Dans les tableaux "Programme" et Stock" les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
+            et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne 'Réservé' est à Oui).</p>
+
+            <p>L'icône de la colonne Activité permet d'afficher la page Web donnée par la colonne "Hyperlien" et l'icône de la colonne "Lieu" permet de 
+            lancer une recherche d'itinéraire sur le lieu de l'activité. La recherche d'itinéraire utilise l'application choisie dans les paramètres 
+            et l'adresse du carnet d'adresse, ou à défaut le nom du lieu et la ville par défaut définie dans les paramètres.</p>
+                        
+            <p style="margin-bottom: 0.2em">Deux menus permettent d'accéder des fonctionnalités complémentaires:</p>
+            <ul style="margin-top: 0em">
+              <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
+                <ul style="margin-top: 0em">
+                    <li>"Fichier": permet d'initialiser un nouveau programme, charger un programme depuis un fichier Excel ou depuis la copie 
+                    d'une page programme du catalogue du In ou du Off, sauvegarder le programme dans un fichier Excel ou vers le calendrier, 
+                    obtenir un rapport de cohérence des données.</li>
+                    <li>"Défaire" / "Refaire": permettent de défaire, refaire une opération.</li>
+                    <li>"Coller": collage d'activités depuis le presse-papier. Ce bouton nécessite préalablement de copier soit l'adresse 
+                    d'une page du catalogue In ou Off (via Partager/Copier ou par copie du champ adresse), soit son contenu. 
+                    Il peut s'agir soit d'une page programme listant plusieurs spectacles, soit d'une page de détail d'un spectacle.</li>
+                    <li>"Ajouter": ajout d'une activité</li>
+                </ul>
+              </li>
+              <li>Menu "..." comprenant les items suivants:
+                <ul style="margin-top: 0em">
+                    <li>"Carnet d'adresses": présente le carnet d'adresses. Les champs Nom / Adresse / Numéro de Téléphone / Adresse Web de chaque 
+                    entrée peuvent être édités et des boutons permettent d'ajouter / supprimer des entrées, défaire / refaire ces opérations. 
+                    Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent d'appeler le numéro de téléphone ou aller sur le site Web correspondant.</li>
+                    <li>"Paramètres": permet d'éditer les paramètres de l'application comprenant:
+                      <ul>
+                        <li>la période de programmation</li>
+                        <li>la marge entre activités</li>
+                        <li>la durée des pauses repas et café</li>
+                        <li>le nom de l'application d'itinéraire (Google Maps, Apple, etc.)</li>
+                        <li>la ville de recherche par défaut pour la recherche d'itinéraire</li>
+                        <li>la possibilité de choisir si les menus de gestion des activités sont dans la barre latérale ou la page principale.</li>
+                      </ul>
+                    </li>
+                    <li>"Aide": la présente aide</li>
+                </ul>
+              </li>
+            </ul>                        
+          </div>
+        </div>
+
+        <div id="help-format-donnees" class="help-chapter">
+          <div class="help-back" data-back>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Retour
+          </div>
+          <div class="help-block">
+            <p style="margin-bottom: 0.2em">Le fichier Excel d'entrée doit contenir en feuille 1 les colonnes suivantes:</p>
+            <ul style="margin-top: 0em; margin-bottom: 2em">
+                <li>Date : Date de l'activité (entier)</li>
+                <li>Début : Heure de début de l'activité (format HHhMM)</li>
+                <li>Fin : Heure de fin de l'activité (format HHhMM)</li>
+                <li>Durée : Durée de l'activité (format HHhMM ou HHh)</li>
+                <li>Activité : Nom de l'activité (nom de spectacle, pause, visite, ...)</li>
+                <li>Lieu : Lieu de l'activité</li>
+                <li>Relâche : Jours / périodes de relâche ou de validité de l'activité (voir ci-dessous les formats acceptés)</li>
+                <li>Réservé : Indique si l'activité est réservée (Oui/Non, vide interpété comme Non)</li>
+            </ul>
+
+            <p style="margin-bottom: 0.2em">Les jours / périodes de relâche ou de validité de l'activité sont une suite séparée par des virgules de spécifications répondant aux règles suivantes:</p>
+            <ul style="margin-top: 0em; margin-bottom: 2em">
+                <li>Suite de dates de relâche de type jour ou jour/mois ou jour/mois/année, séparées par des virgules (mois ou année omis -> mois et année en cours implicites) </li>
+                <li>Regroupement de jours de relâche : (j1, j2, ...)/mois ou (j1, j2, ...)/mois/année</li>
+                <li>Intervalle de dates de relâche: [dmin-dmax] ou [jmin-jmax]/mois ou /mois/année</li>
+                <li>Intervalle de dates de validité: <dmin-dmax> ou ![jmin-jmax]/mois ou /mois/année</li>
+                <li>Spécification de jours pairs ou impairs: 'pair(s)' / 'impair(s)'</li>
+                <li>Exemple: '<5-26>/07, 04/07/25, (8,10)/07, [20-22]/07, jours pairs' -> activité disponible du 5 au 26 juillet de l'année en cours,
+                sauf le 04/07/2025, les 8 et 10 juillet de l'année en cours, entre le 20 et le 22 juillet de l'année en cours et les jours pairs.</li>
+            </ul>
+                        
+            <p style="margin-bottom: 0.2em">En feuille 2 peut figurer un carnet d'adresses des lieux d'activités, utilisé pour la recherche d'itinéraire. 
+            Il doit comprendre les colonnes suivantes:</p>
+            <ul style="margin-top: 0em; margin-bottom: 2em">
+                <li>Nom : nom devant figurer dans la colonne Lieu des tableaux d'activités pour que l'adresse associée soit utilisée dans la recherche d'itinéraire</li>
+                <li>Adresse : adresse utilisée pour la recherche d'itinéraire</li>
+                <li>Tel : numéro de téléphone</li>
+                <li>Web : adresse du site Web</li>
+            </ul>
+
+            <p>📥Un modèle Excel est disponible <a href="https://github.com/jnicoloso-91/PlanifAvignon-05/raw/main/Mod%C3%A8le%20Excel.xlsx" download>
+            ici
+            </a></p>
+            <p>ℹ️ Si le téléchargement ne démarre pas, faites un clic droit → "Enregistrer le lien sous...".</p>
+          </div>
+        </div>
+      `;
+
+      // — Logiciel simple de navigation
+      const toc = body.querySelector('.help-toc');
+      const chapters = [...body.querySelectorAll('.help-chapter')];
+
+      toc.addEventListener('click', (e) => {
+        const link = e.target.closest('a[data-target]');
+        if (!link) return;
+        const key = link.dataset.target;
+        toc.style.display = 'none';
+        chapters.forEach(ch => ch.classList.toggle('active', ch.id === 'help-' + key));
+      });
+
+      body.addEventListener('click', (e) => {
+        if (e.target.closest('[data-back]')) {
+          chapters.forEach(ch => ch.classList.remove('active'));
+          toc.style.display = 'block';
+        }
+      });
+    }
+  });
+}
+
+// Rapport de cohérence 
+function openSheetCoherence(rows, {
+  title = 'Cohérence des données',
+  // tu peux injecter tes validators ; par défaut on prend ceux exposés en global
+  estRelacheValideFn = (v) => (typeof estRelacheValide === 'function' ? estRelacheValide(v) : true),
+  estSessionValideFn = (v) => (typeof estSessionValide === 'function' ? estSessionValide(v) : true),
+  estDateProgrammableFn = (d, s, r) => (typeof _estDateProgrammable === 'function' ? _estDateProgrammable(s, r, d) : true),
+} = {}) {
+  const html = activitesAPI.getLogVerifierCoherenceJS(rows, { estRelacheValideFn, estSessionValideFn, estDateProgrammableFn });
+
+  openSheetExclusive({
+    title,
+    panelMaxHeight: '70vh',
+    panelHeight: '60vh',
+    mount: (body) => {
+      body.innerHTML = `
+        <div class="coherence-report" style="font-size:14px; line-height:1.4; overflow:auto; height:100%;">
+          ${html || "<p>Aucune anomalie détectée.</p>"}
         </div>
       `;
     }

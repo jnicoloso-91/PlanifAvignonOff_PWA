@@ -94,6 +94,8 @@ export function creerActivitesAPI(ctx) {
       const creneaux = [];
       let bornes = []; // liste des [min,max] déjà vus pour la journée courante (évite doublons)
 
+      console.log(traiter_pauses);
+
       const periodeDebut = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); // dateint
       const periodeFin   = dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); // dateint
 
@@ -316,8 +318,8 @@ export function creerActivitesAPI(ctx) {
           Duree: "1h00",
           Activite: nouveauNom, 
           Lieu: null, 
-          Sessions: null,
-          Relaches: null, 
+          Session: null,
+          Relache: null, 
           Style: null,
           Reserve: null, 
           Priorite: null, 
@@ -433,8 +435,8 @@ export function creerActivitesAPI(ctx) {
     //         Duree: row.Duree || null,
     //         Activite: nouveauNom, 
     //         Lieu: row.Lieu || null, 
-    //         Sessions: row.Sessions || null,
-    //         Relaches: row.Relaches || null, 
+    //         Session: row.Session || null,
+    //         Relache: row.Relache || null, 
     //         Style: row.Style || null,
     //         Orga: row.Orga || null,
     //         Reserve: null, 
@@ -468,7 +470,7 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
-     * Indique si une valeur est valide pour le champ Sessions d'une activité
+     * Indique si une valeur est valide pour le champ Session d'une activité
      * - vide => true
      * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
      * ───────────────────────────────────────────────────────────
@@ -483,7 +485,7 @@ export function creerActivitesAPI(ctx) {
      * On valide que *tous* les tokens sont valides.
      * ───────────────────────────────────────────────────────────
      */
-    estSessionsValide(val, { default_year = null, default_month = null } = {}) {
+    estSessionValide(val, { default_year = null, default_month = null } = {}) {
       const s = String(val ?? '').trim();
       if (s === '') return true;               // vide = OK (pas de relâche)
       
@@ -499,7 +501,7 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
-     * Indique si une valeur est valide pour le champ Relaches d'une activité
+     * Indique si une valeur est valide pour le champ Relache d'une activité
      * - vide => true
      * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
      * ───────────────────────────────────────────────────────────
@@ -514,7 +516,7 @@ export function creerActivitesAPI(ctx) {
      * On valide que *tous* les tokens sont valides.
      * ───────────────────────────────────────────────────────────
      */
-    estRelachesValide(val) {
+    estRelacheValide(val) {
       const s = String(val ?? '').trim();
       if (s === '') return true;               // vide = OK (pas de relâche)
       
@@ -537,6 +539,219 @@ export function creerActivitesAPI(ctx) {
     estReserveValide(val) {
       const s = String(val ?? '').trim().toLowerCase();
       return s === '' || s === 'oui' || s === 'non';
+    },
+
+    /**
+     * Rapport de vérification de cohérence d'un tableau d'activités
+     * @param {*} rows 
+     * @param {*} param1 
+     * @returns 
+     */
+    getLogVerifierCoherenceJS(rows, { estRelacheValideFn, estSessionValideFn, estDateProgrammableFn }) {
+      if (!Array.isArray(rows) || rows.length === 0) return '';
+
+      const erreurs = [];
+
+      // ---- Helpers ----
+      const estEntier = (x) => {
+        if (x == null) return false;
+        const s = String(x).trim();
+        if (!s) return false;
+        const n = Number(s);
+        return Number.isFinite(n) && Number.isInteger(n);
+      };
+      const norm = (s) => String(s ?? '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g,' ').trim().toLowerCase();
+
+      const isPause = (row) => {
+        const val = String(row?.Activite ?? '').trim();
+        if (!val) return false;
+        const first = val.split(/\s+/)[0].toLowerCase();
+        return first === 'pause'; 
+      };
+
+      const isTimeHhmm = (s) => typeof s === 'string' && /^\d{1,2}h\d{2}$/i.test(s.trim());
+      const isTimeColon = (s) => typeof s === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(s.trim());
+      const isTimeLike = (v) => isTimeHhmm(String(v)) || isTimeColon(String(v));
+
+      const hhmmToMinutes = (s) => {
+        if (!s) return null;
+        const t = String(s).trim().toLowerCase();
+        let m = t.match(/^(\d{1,2})h(\d{2})$/);
+        if (m) return (+m[1]) * 60 + (+m[2]);
+        m = t.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+        if (m) return (+m[1]) * 60 + (+m[2]);
+        return null;
+      };
+
+      const getDebutMinutes = (r) => hhmmToMinutes(r?.Debut);
+      const getDureeMinutes = (r) => hhmmToMinutes(r?.Duree);
+
+      // Lignes pertinentes (activité non vide) pour doublons
+      const rowsValid = rows.filter(r => r && String(r.Activite ?? '').trim() !== '');
+
+      // 1) 🔁 Doublons d’activités (même Activite normalisée), hors pauses
+      {
+        const seen = new Map();
+        for (const r of rowsValid) {
+          if (isPause(r)) continue;
+          const key = norm(r.Activite);
+          if (!seen.has(key)) seen.set(key, []);
+          seen.get(key).push(r);
+        }
+        for (const [_, arr] of seen.entries()) {
+          if (arr.length > 1) {
+            const bloc = ['🟠 Doublons d’activités :'];
+            for (const row of arr) {
+              const dateStr = estEntier(row?.Date) ? String(parseInt(row.Date, 10)) : 'Vide';
+              const heureStr = String(row?.Debut ?? '').trim() || 'Vide';
+              const dureeStr = String(row?.Duree ?? '').trim() || 'Vide';
+              bloc.push(`${dateStr} - ${heureStr} - ${row?.Activite ?? ''} (${dureeStr})`);
+            }
+            erreurs.push(bloc.join('\n'));
+          }
+        }
+      }
+
+      // 2) ⛔ Chevauchements (Date/Debut/Duree)
+      {
+        const rowsSorted = [...rows].sort((a,b) => {
+          const da = estEntier(a?.Date) ? parseInt(a.Date,10) : Number.MAX_SAFE_INTEGER;
+          const db = estEntier(b?.Date) ? parseInt(b.Date,10) : Number.MAX_SAFE_INTEGER;
+          if (da !== db) return da - db;
+          const ta = getDebutMinutes(a) ?? Number.MAX_SAFE_INTEGER;
+          const tb = getDebutMinutes(b) ?? Number.MAX_SAFE_INTEGER;
+          return ta - tb;
+        });
+
+        const chev = [];
+        for (let i = 1; i < rowsSorted.length; i++) {
+          const r1 = rowsSorted[i - 1], r2 = rowsSorted[i];
+          if (!estEntier(r1?.Date) || !estEntier(r2?.Date)) continue;
+          if (parseInt(r1.Date,10) !== parseInt(r2.Date,10)) continue;
+
+          const d1 = getDebutMinutes(r1);
+          const du1 = getDureeMinutes(r1);
+          const d2 = getDebutMinutes(r2);
+          if (d1 == null || du1 == null || d2 == null) continue;
+
+          const fin1 = d1 + du1;
+          if (d2 < fin1) chev.push([r1, r2]);
+        }
+        if (chev.length) {
+          const bloc = ['🔴 Chevauchements:'];
+          for (const [r1, r2] of chev) {
+            bloc.push(`${r1.Activite} (${r1.Debut} / ${r1.Duree}) chevauche ${r2.Activite} (${r2.Debut} / ${r2.Duree}) le ${r1.Date}`);
+          }
+          erreurs.push(bloc.join('\n'));
+        }
+      }
+
+      // 3) 🕒 Erreurs de format (Date, Heure, Durée, Sessions/Relache)
+      {
+        const bloc = [];
+        rows.forEach((row, idx) => {
+          const isEmptyProg = ['Activite','Debut','Duree'].every(c => {
+            const v = row?.[c];
+            return v == null || String(v).trim() === '';
+          });
+          if (isEmptyProg) return;
+
+          // Date invalide (si fournie)
+          if (row.Date != null && String(row.Date).trim() !== '' && !estEntier(row.Date)) {
+            bloc.push(`Date invalide à la ligne ${idx + 2} : ${row.Date}`);
+          }
+
+          // Heure/Durée si Activite présente
+          if (String(row?.Activite ?? '').trim() !== '') {
+            const h = row?.Debut, d = row?.Duree;
+            if (!isTimeLike(String(h ?? ''))) bloc.push(`Heure invalide à la ligne ${idx + 2} : ${h}`);
+            if (!isTimeLike(String(d ?? ''))) bloc.push(`Durée invalide à la ligne ${idx + 2} : ${d}`);
+          }
+
+          // Sessions/Relache : utilise tes validateurs
+          if (!estSessionValideFn(row?.Sessions)) {
+            bloc.push(`Sessions invalides à la ligne ${idx + 2} : ${row?.Sessions}`);
+          }
+          if (!estRelacheValideFn(row?.Relaches ?? row?.Relache)) {
+            const v = row?.Relaches ?? row?.Relache;
+            bloc.push(`Relache invalide à la ligne ${idx + 2} : ${v}`);
+          }
+        });
+        if (bloc.length) erreurs.push(bloc.join('\n'));
+      }
+
+      // 4) 🛑 Date incompatible avec Sessions/Relache (via _estDateProgrammable)
+      {
+        const bloc = [];
+        rows.forEach((row, idx) => {
+          if (!estEntier(row?.Date)) return;
+          const dateInt = parseInt(row.Date, 10);
+          const sessionsVal = row?.Sessions ?? row?.Session ?? '';
+          const relachesVal = row?.Relaches ?? row?.Relache ?? '';
+
+          // On signale si la date n'est PAS programmable
+          const ok = estDateProgrammableFn(dateInt, sessionsVal, relachesVal);
+          if (!ok && String(row?.Activite ?? '').trim() !== '') {
+            bloc.push(`${row.Activite} non programmable le ${dateInt} selon Sessions/Relâches (ligne ${idx + 2})`);
+          }
+        });
+        if (bloc.length) erreurs.push('🛑 Dates incompatibles avec Sessions/Relâches:\n' + bloc.join('\n'));
+      }
+
+      // 5) ⚠️ Heures non renseignées
+      {
+        const bloc = [];
+        rows.forEach((row, idx) => {
+          const isEmptyProg = ['Activite','Debut','Duree'].every(c => {
+            const v = row?.[c];
+            return v == null || String(v).trim() === '';
+          });
+          if (isEmptyProg) return;
+
+          if (String(row?.Activite ?? '').trim() !== '') {
+            const h = String(row?.Debut ?? '').trim();
+            if (!h) bloc.push(`Heure vide à la ligne ${idx + 2}`);
+          }
+        });
+        if (bloc.length) erreurs.push('⚠️ Heures non renseignées:\n' + bloc.join('\n'));
+      }
+
+      // 6) ⚠️ Durées nulles ou vides (0 minute)
+      {
+        const bloc = [];
+        rows.forEach((row, idx) => {
+          const isEmptyProg = ['Activite','Debut','Duree'].every(c => {
+            const v = row?.[c];
+            return v == null || String(v).trim() === '';
+          });
+          if (isEmptyProg) return;
+
+          const dMin = getDureeMinutes(row);
+          if (dMin === 0) {
+            const dStr = String(row?.Duree ?? '').trim();
+            const msg = dStr ? `Durée égale à 0 à la ligne ${idx + 2} : ${dStr}` : `Durée vide à la ligne ${idx + 2}`;
+            bloc.push(msg);
+          }
+        });
+        if (bloc.length) erreurs.push('⚠️ Durées nulles ou vides:\n' + bloc.join('\n'));
+      }
+
+      // ---- Rendu HTML ----
+      let contenu = "<div style='font-size:14px'>";
+      for (const bloc of erreurs) {
+        const lignes = String(bloc).split('\n');
+        if (/^[🟠🔴⚠️🛑⛔]/.test(lignes[0])) {
+          contenu += `<p><strong>${_esc(lignes[0])}</strong></p><ul>`;
+          for (const l of lignes.slice(1)) contenu += `<li>${_esc(l)}</li>`;
+          contenu += `</ul>`;
+        } else {
+          contenu += `<p>${_esc(bloc)}</p>`;
+        }
+      }
+      contenu += "</div>";
+      return contenu;
     },
 
   };
@@ -616,6 +831,13 @@ export function sortDf(df, opts = {}) {
   return indexed.map(x => x.r);
 }
 
+function _esc(s){return String(s)
+  .replace(/&/g,'&amp;')
+  .replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;')
+  .replace(/'/g,'&#39;');
+}
 
 /**
  * Indique si une activité est réservée
@@ -642,7 +864,7 @@ function _existActivitesProgrammables(activitesNonProgrammees, dateRef, traiter_
   if (!Array.isArray(activitesNonProgrammees) || activitesNonProgrammees.length === 0) return false;
 
   return activitesNonProgrammees.some(r => {
-    return _estDateProgrammable(r.Sessions, r.Relaches, dateRef);
+    return _estDateProgrammable(dateRef, r.Session, r.Relache);
   });
 }
 
@@ -793,13 +1015,16 @@ function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, tra
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
     const h_debut = d, h_fin = d + du;
 
-    if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estDateProgrammable(row.Sessions, row.Relaches, ligneRef.Date)) {
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estDateProgrammable(ligneRef.Date, row.Session, row.Relache)) {
       const nouvelle = { ...row }; delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
       proposables.push(nouvelle);
     }
   }
+
+  if (traiter_pauses) _ajouterPauses(proposables, activitesProgrammees, ligneRef, "Avant");
+
   return proposables;
 }
 
@@ -828,13 +1053,16 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
     const h_debut = d, h_fin = d + du;
 
     const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - _MARGE);
-    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estDateProgrammable(row.Sessions, row.Relaches, ligneRef.Date)) {
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estDateProgrammable(ligneRef.Date, row.Session, row.Relache)) {
       const nouvelle = { ...row }; delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
       proposables.push(nouvelle);
     }
   }
+
+  if (traiter_pauses) _ajouterPauses(proposables, activitesProgrammees, ligneRef, "Après");
+  
   return proposables;
 }
 
@@ -923,14 +1151,14 @@ function _estCreneauValide(creneau) {
 }
 
 /**
- * Détermine si une date est programmable, ie. est dans Sessions et pas dans Relaches.
- * 
- * @param {string|null} relachesVal - Description des relâches (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
+ * Détermine si une date est programmable, ie. est dans Session et pas dans Relache.
  * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
- * @param {Date} [today] - Date de référence pour l'année/mois par défaut
+ * @param {string|null} sessionVal - Description des dates de session (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
+ * @param {string|null} relacheVal - Description des dates de relâche (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
+ * @param {Date} [today] - Date de référence pour l'année/mois par défaut (par défaut mois / année courants)
  * @returns {boolean} - true = jour jouable / false = relâche
  */
-function _estDateProgrammable(sessionsVal, relachesVal, dateVal, today = new Date()) {
+function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date()) {
   if (dateVal == null) return true;
 
   const dv = Number(dateVal);
@@ -954,16 +1182,16 @@ function _estDateProgrammable(sessionsVal, relachesVal, dateVal, today = new Dat
     return [y, m, d];
   };
 
-  const sessionsTxt = String(sessionsVal || '').trim().toLowerCase();
-  const relachesTxt  = String(relachesVal  || '').trim().toLowerCase();
+  const sessionTxt = String(sessionVal || '').trim().toLowerCase();
+  const relacheTxt  = String(relacheVal  || '').trim().toLowerCase();
 
   const openIntervals = [];
-  const regroupSessionsDays = [];
+  const regroupSessionDays = [];
   const closedIntervals = [];
   const regroupRelacheDays = [];
 
   // --- Fenêtres de représentation [A–B]  
-  for (const m of sessionsTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+  for (const m of sessionTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
@@ -977,16 +1205,16 @@ function _estDateProgrammable(sessionsVal, relachesVal, dateVal, today = new Dat
   }
 
   // --- Jours de représentation (a,b,c)
-  for (const m of sessionsTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+  for (const m of sessionTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, joursTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
     const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(n => Number.isFinite(n));
-    for (const jd of jours) regroupSessionsDays.push(mkDateInt(yyDef, mmDef, jd));
+    for (const jd of jours) regroupSessionDays.push(mkDateInt(yyDef, mmDef, jd));
   }
 
   // --- Jours isolés de représentation
-  for (const part of sessionsTxt.split(",").map(p => p.trim())) {
+  for (const part of sessionTxt.split(",").map(p => p.trim())) {
     if (!part || /jour/.test(part)) continue;
     if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
     const mday = part.match(/^(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?$/);
@@ -995,17 +1223,17 @@ function _estDateProgrammable(sessionsVal, relachesVal, dateVal, today = new Dat
     const mm = mday[2] ? Number(mday[2]) : defM;
     const yy = mday[3] ? y2k(Number(mday[3])) : defY;
     if (Number.isFinite(d) && Number.isFinite(mm) && Number.isFinite(yy)) {
-      regroupSessionsDays.push(mkDateInt(yy, mm, d));
+      regroupSessionDays.push(mkDateInt(yy, mm, d));
     }
   }
 
   // --- Parité représentations
-  let pariteSessions = null;
-  if (/\bjours?\s+pairs?\b/.test(sessionsTxt))  pariteSessions = "pair";
-  if (/\bjours?\s+impairs?\b/.test(sessionsTxt)) pariteSessions = "impair";
+  let pariteSession = null;
+  if (/\bjours?\s+pairs?\b/.test(sessionTxt))  pariteSession = "pair";
+  if (/\bjours?\s+impairs?\b/.test(sessionTxt)) pariteSession = "impair";
 
   // --- Fenêtres de relâche [A–B]
-  for (const m of relachesTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+  for (const m of relacheTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
@@ -1019,7 +1247,7 @@ function _estDateProgrammable(sessionsVal, relachesVal, dateVal, today = new Dat
   }
 
   // --- Jours de relâche (a,b,c)
-  for (const m of relachesTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
+  for (const m of relacheTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
     const [_, joursTxt, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
@@ -1028,7 +1256,7 @@ function _estDateProgrammable(sessionsVal, relachesVal, dateVal, today = new Dat
   }
 
   // --- Jours isolés de relâche
-  for (const part of relachesTxt.split(",").map(p => p.trim())) {
+  for (const part of relacheTxt.split(",").map(p => p.trim())) {
     if (!part || /jour/.test(part)) continue;
     if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
     const mday = part.match(/^(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?$/);
@@ -1042,34 +1270,34 @@ function _estDateProgrammable(sessionsVal, relachesVal, dateVal, today = new Dat
   }
 
   // --- Parité relâches
-  let pariteRelaches = null;
-  if (/\bjours?\s+pairs?\b/.test(relachesTxt))  pariteRelaches = "pair";
-  if (/\bjours?\s+impairs?\b/.test(relachesTxt)) pariteRelaches = "impair";
+  let pariteRelache = null;
+  if (/\bjours?\s+pairs?\b/.test(relacheTxt))  pariteRelache = "pair";
+  if (/\bjours?\s+impairs?\b/.test(relacheTxt)) pariteRelache = "impair";
 
   // ===== Étape 1 : exclusions (relâches), si présentes
   for (const [lo, hi] of closedIntervals) {
     if (lo <= dv && dv <= hi) return false;
   }
   if (regroupRelacheDays.length && regroupRelacheDays.includes(dv)) return false;
-  if (pariteRelaches) {
+  if (pariteRelache) {
     const isEven = dd % 2 === 0;
-    if ((pariteRelaches === "pair" && isEven) || (pariteRelaches === "impair" && !isEven)) return false;
+    if ((pariteRelache === "pair" && isEven) || (pariteRelache === "impair" && !isEven)) return false;
   }
 
-  // ===== Étape 2 : inclusions (sessions)
+  // ===== Étape 2 : inclusions (session)
   for (const [lo, hi] of openIntervals) {
     if (lo <= dv && dv <= hi) return true;
   }
-  if (regroupSessionsDays.length && regroupSessionsDays.includes(dv)) return true;
-  if (pariteSessions) {
+  if (regroupSessionDays.length && regroupSessionDays.includes(dv)) return true;
+  if (pariteSession) {
     const isEven = dd % 2 === 0;
-    if ((pariteSessions === "pair" && isEven) || (pariteSessions === "impair" && !isEven)) return true;
+    if ((pariteSession === "pair" && isEven) || (pariteSession === "impair" && !isEven)) return true;
   }
 
   // ===== Étape 3 : défaut
-  // S'il y a AU MOINS une contrainte de sessions et aucune ne matche -> false (non programmable)
-  if (openIntervals.length || regroupSessionsDays.length || pariteSessions) return false;
-  // Sinon, aucune contrainte de sessions -> true (programmable par défaut)
+  // S'il y a AU MOINS une contrainte de session et aucune ne matche -> false (non programmable)
+  if (openIntervals.length || regroupSessionDays.length || pariteSession) return false;
+  // Sinon, aucune contrainte de session -> true (programmable par défaut)
   return true;
 }
 
@@ -1099,7 +1327,7 @@ function _getJoursPossibles(rowActivite) {
   const finAct   = debutMinute + duree;
 
   for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
-    if (!_estDateProgrammable(rowActivite.Sessions, rowActivite.Relaches, jour)) continue;
+    if (!_estDateProgrammable(jour, rowActivite.Session, rowActivite.Relache)) continue;
 
     const jList = _ActivitesProgrammeesDuJourTriees(jour);
     if (jList.length === 0) { // journée libre
@@ -1135,7 +1363,7 @@ function _toPrettyArray(arrInt){
 }
 
 /**
- * Renvoie les activités programmables sur une journée entière donc les activités qui ne sont pas relaches ce jour
+ * Renvoie les activités programmables sur une journée entière donc les activités qui ne sont pas relache ce jour
  * @param {*} dateRef 
  * @param {*} traiterPauses 
  * @returns 
@@ -1145,7 +1373,7 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
   const nonProgrammees = _ctx?.df?.filter(r => !r.Date) || [];  // équiv. activites_non_programmees
 
   for (const row of nonProgrammees) {
-    if (_estDateProgrammable(row.Sessions, row.Relaches, dateRef)) {
+    if (_estDateProgrammable(dateRef, row.Session, row.Relache)) {
       const nouvelleLigne = { ...row };
       delete nouvelleLigne.Debut_dt;
       delete nouvelleLigne.Duree_dt;
@@ -1171,7 +1399,7 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
       ...ligne,
       Date: dateRef,
       Reserve: '',
-      Relaches: '',
+      Relache: '',
       Priorite: '',
       Lieu: '',
     });
@@ -1277,3 +1505,191 @@ function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
   return false;
 }
 
+/**
+ * Ajoute des pauses (déjeuner, dîner, café) dans une liste de propositions pour un créneau donné.
+ *
+ * @param {Array<Object>} proposables - liste mutable de lignes "proposables"
+ * @param {Array<Object>} activites_programmees - DataFrame-like (liste d'activités)
+ * @param {Object} ligne_ref - activité de référence
+ * @param {'Avant'|'Après'} type_creneau
+ */
+function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_creneau) {
+  const date_ref = ligne_ref.Date;
+
+  // --- Constantes globales / contextuelles (comme st.session_state)
+  const meta = (window.ctx?.meta) || {};
+  const MARGE = Math.max(0, Number(meta.MARGE ?? 10)|0);
+  const DUREE_REPAS = Math.max(0, Number(meta.DUREE_REPAS ?? 60)|0);
+  const DUREE_CAFE = Math.max(0, Number(meta.DUREE_CAFE ?? 60)|0);
+
+  const BASE_DATE = new Date(2000, 0, 1);
+  const PAUSE_DEJ_DEBUT_MIN = new Date(BASE_DATE.getFullYear(), BASE_DATE.getMonth(), BASE_DATE.getDate(), 11, 0);
+  const PAUSE_DEJ_DEBUT_MAX = new Date(BASE_DATE.getFullYear(), BASE_DATE.getMonth(), BASE_DATE.getDate(), 14, 0);
+  const PAUSE_DIN_DEBUT_MIN = new Date(BASE_DATE.getFullYear(), BASE_DATE.getMonth(), BASE_DATE.getDate(), 19, 0);
+  const PAUSE_DIN_DEBUT_MAX = new Date(BASE_DATE.getFullYear(), BASE_DATE.getMonth(), BASE_DATE.getDate(), 21, 0);
+
+  // --- Utilitaires locaux
+  const dt = (h, m = 0) => new Date(BASE_DATE.getTime() + (h * 60 + m) * 60000);
+  const fmtHhmm = d => `${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`;
+  const addMin = (d, m) => new Date(d.getTime() + m * 60000);
+
+  const dureeStr = (minutes) => {
+    const h = Math.floor(minutes / 60);
+    const mm = minutes % 60;
+    return `${h}h${String(mm).padStart(2, '0')}`;
+  };
+
+  const completerLigne = (d) => ({
+    ...d,
+    Date: date_ref,
+    Reserve: 'Non',
+    Relache: null,
+  });
+
+  // --- Bornes du créneau
+  let debut_min, fin_max;
+  if (type_creneau === 'Avant') {
+    ({ debut_min, fin_max } = _getCreneauBoundsAvant(activites_programmees, ligne_ref));
+  } else if (type_creneau === 'Après') {
+    ({ debut_min, fin_max } = _getCreneauBoundsApres(activites_programmees, ligne_ref));
+  } else {
+    console.error("type_creneau doit être 'Avant' ou 'Après'");
+    return;
+  }
+
+  // --- 1️⃣ Pause déjeuner ou dîner
+  const ajouterPauseRepas = (pause_debut_min, pause_debut_max, type_repas) => {
+    if (_pauseDejaExistante(activites_programmees, date_ref, type_repas)) return;
+
+    let h_repas;
+    if (type_creneau === 'Avant') {
+      h_repas = new Date(Math.min(
+        Math.max(fin_max - (DUREE_REPAS + MARGE) * 60000, pause_debut_min),
+        pause_debut_max
+      ));
+      if (h_repas - MARGE * 60000 >= debut_min && h_repas + MARGE * 60000 <= fin_max) {
+        const nouvelle = completerLigne({
+          Debut: fmtHhmm(h_repas),
+          Fin: fmtHhmm(addMin(h_repas, DUREE_REPAS)),
+          Duree: dureeStr(DUREE_REPAS),
+          Activite: `Pause ${type_repas}`,
+          __type_activite: type_repas,
+          __uuid: crypto.randomUUID()
+        });
+        proposables.push(nouvelle);
+      }
+    } else if (type_creneau === 'Après') {
+      h_repas = new Date(Math.min(
+        Math.max(debut_min + MARGE * 60000, pause_debut_min),
+        pause_debut_max
+      ));
+      if (h_repas - MARGE * 60000 >= debut_min &&
+         (fin_max === null || h_repas + MARGE * 60000 <= fin_max)) {
+        const nouvelle = completerLigne({
+          Debut: fmtHhmm(h_repas),
+          Fin: fmtHhmm(addMin(h_repas, DUREE_REPAS)),
+          Duree: dureeStr(DUREE_REPAS),
+          Activite: `Pause ${type_repas}`,
+          __type_activite: type_repas,
+          __uuid: crypto.randomUUID()
+        });
+        proposables.push(nouvelle);
+      }
+    }
+  };
+
+  // --- 2️⃣ Pause café
+  const ajouterPauseCafe = () => {
+    if (estPause(ligne_ref)) return;
+
+    const idx = activites_programmees.findIndex(r => r === ligne_ref);
+    const lieuRef = ligne_ref.Lieu || null;
+
+    const lignePrev = idx > 0 ? activites_programmees[idx - 1] : null;
+    const ligneNext = idx < activites_programmees.length - 1 ? activites_programmees[idx + 1] : null;
+
+    const Lieu_prev = lignePrev?.Lieu;
+    const Lieu_next = ligneNext?.Lieu;
+
+    if (type_creneau === 'Avant') {
+      const h_cafe = addMin(fin_max, -DUREE_CAFE);
+      if (lieuRef && Lieu_prev && lieuRef === Lieu_prev) {
+        if (h_cafe >= debut_min) {
+          proposables.push(completerLigne({
+            Debut: fmtHhmm(h_cafe),
+            Fin: fmtHhmm(addMin(h_cafe, DUREE_CAFE)),
+            Duree: dureeStr(DUREE_CAFE),
+            Activite: 'Pause café',
+            __type_activite: 'café',
+            __uuid: crypto.randomUUID()
+          }));
+        }
+      } else {
+        const margeCafe = debut_min.getHours() === 0 && debut_min.getMinutes() === 0 ? 0 : MARGE;
+        if (h_cafe >= addMin(debut_min, margeCafe)) {
+          proposables.push(completerLigne({
+            Debut: fmtHhmm(h_cafe),
+            Fin: fmtHhmm(addMin(h_cafe, DUREE_CAFE)),
+            Duree: dureeStr(DUREE_CAFE),
+            Activite: 'Pause café',
+            __type_activite: 'café',
+            __uuid: crypto.randomUUID()
+          }));
+        }
+      }
+    } else if (type_creneau === 'Après') {
+      const h_cafe = debut_min;
+      if (lieuRef && Lieu_next && lieuRef === Lieu_next) {
+        if (fin_max === null || addMin(h_cafe, DUREE_CAFE) <= fin_max) {
+          proposables.push(completerLigne({
+            Debut: fmtHhmm(h_cafe),
+            Fin: fmtHhmm(addMin(h_cafe, DUREE_CAFE)),
+            Duree: dureeStr(DUREE_CAFE),
+            Activite: 'Pause café',
+            __type_activite: 'café',
+            __uuid: crypto.randomUUID()
+          }));
+        }
+      } else {
+        const margeCafe = fin_max ? MARGE : 0;
+        if (fin_max === null || addMin(h_cafe, DUREE_CAFE) <= addMin(fin_max, -margeCafe)) {
+          proposables.push(completerLigne({
+            Debut: fmtHhmm(h_cafe),
+            Fin: fmtHhmm(addMin(h_cafe, DUREE_CAFE)),
+            Duree: dureeStr(DUREE_CAFE),
+            Activite: 'Pause café',
+            __type_activite: 'café',
+            __uuid: crypto.randomUUID()
+          }));
+        }
+      }
+    }
+  };
+
+  // --- Appels
+  ajouterPauseRepas(PAUSE_DEJ_DEBUT_MIN, PAUSE_DEJ_DEBUT_MAX, 'déjeuner');
+  ajouterPauseRepas(PAUSE_DIN_DEBUT_MIN, PAUSE_DIN_DEBUT_MAX, 'dîner');
+  // ajouterPauseCafe();
+}
+
+/**
+ * Vérifie si une pause d’un type donné est déjà présente pour un jour donné
+ * dans la liste des activités programmées.
+ *
+ * @param {Array<Object>} activites_programmees - Liste d'activités (chaque objet doit avoir .Date et .Activite)
+ * @param {number|string} jour - Date (entier YYYYMMDD ou équivalent)
+ * @param {string} type_pause - Type de pause à rechercher ("déjeuner", "dîner", "café", etc.)
+ * @returns {boolean}
+ */
+function _pauseDejaExistante(activites_programmees, jour, type_pause) {
+  if (!Array.isArray(activites_programmees) || !type_pause) return false;
+
+  const typeLower = String(type_pause).toLowerCase();
+
+  return activites_programmees.some(a =>
+    a &&
+    a.Date == jour && // comparaison non stricte volontaire (nombre ou chaîne)
+    typeof a.Activite === 'string' &&
+    a.Activite.toLowerCase().includes(typeLower)
+  );
+}

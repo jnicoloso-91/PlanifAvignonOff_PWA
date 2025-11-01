@@ -1,98 +1,4 @@
-// pager.js — une seule implémentation
-// (() => {
-//   const pager  = document.getElementById('pager');
-//   const track  = pager?.querySelector('.pager-track');
-//   const pages  = track ? Array.from(track.children) : [];
-//   const header = document.getElementById('appHeader');
-//   const btnPrev = document.getElementById('pager-prev');
-//   const btnNext = document.getElementById('pager-next');
-
-//   if (!pager || !track || pages.length === 0) return;
-
-//   // largeur piste + largeur pages = 100% par page
-//   track.style.width = `${pages.length * 100}%`;
-//   pages.forEach(p => { p.style.flex = '0 0 100%'; p.style.minWidth = '100%'; });
-
-//   // bornes : on ignore la page 0 dans la nav
-//   const MIN = 1, MAX = 2;
-//   let index = 1; // démarrage sur 1 (ou passe auto à 2 plus tard)
-
-//   // helpers wrap
-//   const wrapPrev = (i) => (i <= MIN ? MAX : i - 1);
-//   const wrapNext = (i) => (i >= MAX ? MIN : i + 1);
-
-//   const clamp = i => Math.max(0, Math.min(pages.length - 1, i));
-
-//   function setHeaderVisible(visible){
-//     header?.classList.toggle('hidden', !visible);
-//     document.body.classList.toggle('no-header', !visible);
-//   }
-
-// 	// goTo : ne clamp plus vers 0, borne à [1..2]
-// 	function goTo(i, animate = true){
-// 		index = Math.max(MIN, Math.min(MAX, i));
-// 		track.style.transition = animate ? 'transform .25s ease' : 'none';
-// 		track.style.transform  = `translateX(${-(index) * 100}%)`;
-
-// 		// largeur auto pour la page active
-// 		pages.forEach((p, k) => p.style.flex = (k === index ? 'auto' : '0 0 100%'));
-
-// 		// header visible sur 1/2, caché sur 0 (optionnel, mais tu voulais 0 hors-circuit)
-// 		setHeaderVisible(index !== 0);
-// 	}
-
-//   // boutons
-//   btnPrev?.addEventListener('click', () => goTo(wrapPrev(index)));
-//   btnNext?.addEventListener('click', () => goTo(wrapNext(index)));
-
-//   // swipe horizontal
-//   let startX = 0, curX = 0, dragging = false;
-//   const onStart = e => {
-//     dragging = true;
-//     const t = e.touches ? e.touches[0] : e;
-//     startX = curX = t.clientX;
-//     track.style.transition = 'none';
-//   };
-//   const onMove = e => {
-//     if (!dragging) return;
-//     const t = e.touches ? e.touches[0] : e;
-//     curX = t.clientX;
-//     const dx = curX - startX;
-//     const w = pager.getBoundingClientRect().width || 1;
-//     const pct = (dx / w) * 100;
-//     track.style.transform = `translateX(calc(${-index*100}% + ${pct}%))`;
-//     e.preventDefault?.();
-//   };
-// 	function onEnd(){
-// 	if (!dragging) return;
-// 	dragging = false;
-// 	const dx = curX - startX;
-// 	const w  = pager.getBoundingClientRect().width || 1;
-// 	const THRESH = 0.12 * w;
-
-// 	if (dx > THRESH) goTo(wrapPrev(index));
-// 	else if (dx < -THRESH) goTo(wrapNext(index));
-// 	else goTo(index); // revient en place
-// 	};
-
-//   if (window.PointerEvent){
-//     pager.addEventListener('pointerdown', onStart, { passive:true });
-//     window.addEventListener('pointermove', onMove, { passive:false });
-//     window.addEventListener('pointerup',   onEnd,  { passive:true });
-//     window.addEventListener('pointercancel', onEnd, { passive:true });
-//   } else {
-//     pager.addEventListener('touchstart', onStart, { passive:true });
-//     window.addEventListener('touchmove',  onMove, { passive:false });
-//     window.addEventListener('touchend',   onEnd,  { passive:true });
-//   }
-
-//   // démarrer sur Welcome puis auto → Planning
-//   goTo(0, { animate: false });
-//   setTimeout(() => goTo(2), 2500);
-
-//   // expose si besoin
-//   window.pager = { goTo };
-// })();
+// pager.js 
 
 import {
   openUrl, 
@@ -104,6 +10,7 @@ import {
   const pages = track ? Array.from(track.querySelectorAll('.page')) : [];
   // const btnPrev = document.getElementById('pg-prev');
   const btnNext = document.getElementById('pg-next');
+  const btnAppLogo = document.getElementById('btn-app-logo');
 
   if (!pager || !track || pages.length === 0) {
     console.warn('[pager-test] structure introuvable');
@@ -161,6 +68,7 @@ import {
   // boutons
   // btnPrev?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
   btnNext?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
+  btnAppLogo?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
 
 	// Drag
   const DEADZONE = 10;   // px
