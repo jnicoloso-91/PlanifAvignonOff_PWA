@@ -10,26 +10,7 @@ import {
   dureeMinute, 
   dateintToPretty,
   recalcFin,
-  recalcFinForAll,
 } from './utils-date.js';
-
-import {
-  PARSED_DEFAULT, 
-  parseAvignonInProgPageUrl, 
-  parseAvignonInSpecPageUrl, 
-  parseAvignonOffProgPageUrl, 
-  parseAvignonOffSpecPageUrl, 
-
-  parseAvignonInProgPageText,
-  parseAvignonInSpecPageText, 
-  parseAvignonOffProgPageText,
-  parseAvignonOffSpecPageText, 
-  
-  isAvignonInProgPageText,
-  isAvignonInSpecPageText,
-  isAvignonOffProgPageText,
-  isAvignonOffSpecPageText,
-} from './parsers.js';
 
 import {
   logToPage,
@@ -47,6 +28,7 @@ export function creerActivitesAPI(ctx) {
 
   // ---------- API publique ----------
   return {
+
     /** 
      * Initialisation de la période à programmer
      */
@@ -326,7 +308,7 @@ export function creerActivitesAPI(ctx) {
      * @returns nouvelleActivite
      */
     async creerActivite(df) {
-      const nouveauNom = _getNomNouvelleActivite(df);
+      const nouveauNom = getNouveauNomActivite(df);
       const nouvelleActivite =     {
           __uuid: crypto.randomUUID?.() || String(Date.now()),
           Date: null, 
@@ -346,102 +328,124 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
-     * Crée une nouvelle activité en utilisant le clipboard pour initialiser les champs
-     * @param {*} df  -> utilisé pour créer un nom d'activité unique qui ne soit pas déja alloué dans df
-     * @returns nouvelleActivite
+     * Cherche un nom d'activité non encore alloué dans un DataFrame
+     * @param {*} df 
+     * @returns 
      */
-    async creerActivitesParCollage(df, parser=null) {
-      let raw = null;
-      try { raw = await _getClipBoardText(); } catch { return null; }
+    getNouveauNomActivite(df, prefix='Activité') {
+      if (!Array.isArray(df)) return prefix;
+      if (!prefix) prefix = 'Activité';
 
-      if (raw == null) return;
+      // 🔹 Extraire les noms existants
+      const nomsExistants = df
+        .map(r => (r.Activite ?? '').toString().trim())
+        .filter(n => n.length > 0);
 
-      logToPage(`Coller: ${raw}`);
+      // 🔹 Initialiser ou incrémenter le compteur global
+      _compteurNouvelleActivite = 0;
 
-      let parsed = null;
-
-      if (!parser) {
-        if (_looksLikeUrl(raw)) { 
-          if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
-            logToPage(`parseAvignonInProgPageUrl`);
-            parsed = await _asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
-          } 
-          else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/")) {
-            logToPage(`parseAvignonInSpecPageUrl`);
-            parsed = await _asyncCallAvecOverlayAttente(parseAvignonInSpecPageUrl, raw, 'Echec collage');
-          } 
-          else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
-            logToPage(`parseAvignonOffProgPageUrl`);
-            parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
-          } 
-          else if (raw.includes("www.festivaloffavignon.com/spectacles")) {
-            logToPage(`parseAvignonOffSpecPageUrl`);
-            parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
-          } 
-          else {
-            alert("Il n'existe pas de parser pour cette adresse");
-          }
-        } else {
-          switch (true) {
-            case isAvignonOffSpecPageText(raw):
-              parsed = _syncCallAvecOverlayAttente(parseAvignonOffSpecPageText, raw, 'Echec collage');
-              break;
-            case isAvignonOffProgPageText(raw):
-              parsed = _syncCallAvecOverlayAttente(parseAvignonOffProgPageText, raw, 'Echec collage');
-              break;
-            case isAvignonInProgPageText(raw):
-              parsed = _syncCallAvecOverlayAttente(parseAvignonInProgPageText, raw, 'Echec collage');
-              break;
-            case isAvignonInSpecPageText(raw):
-              parsed = _syncCallAvecOverlayAttente(parseAvignonInSpecPageText, raw, 'Echec collage');
-              break;
-          }
+      // 🔹 Boucle de recherche d’un nom libre
+      while (true) {
+        _compteurNouvelleActivite += 1;
+        const nomCandidat = (prefix != 'Activité' && _compteurNouvelleActivite == 1) ? `${prefix}` : `${prefix} ${_compteurNouvelleActivite}`;
+        if (!nomsExistants.includes(nomCandidat)) {
+          return nomCandidat;
         }
-        if (!parsed || parsed.length == 0) {
-          alert("Aucune valeur valide à coller. Commencer par aller dans un catalogues, afficher le programme ou la page d'un spectacle et copier le texte de la page");
-          return null;
-        }
-      } else {
-        if (parser == 'parseAvignonOffProgPage') {
-          parsed = parseAvignonOffProgPageText(raw);
-          if (!parsed || parsed.length == 0) {
-            alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
-            return null;
-          }
-        } else if (parser == 'parseAvignonInProgPage') {
-          parsed = parseAvignonInProgPageText(raw);
-          if (!parsed || parsed.length == 0) {
-            alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du In, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
-            return null;
-          }
-        } 
       }
-
-      const nouvellesActivites = [];
-      if (!parsed || parsed.length == 0) parsed = [{...PARSED_DEFAULT}];
-
-      for (const row of parsed) {
-        const nouveauNom = _getNomNouvelleActivite(df, row.Activite);
-        const nouvelleActivite = {
-            __uuid: crypto.randomUUID?.() || String(Date.now()),
-            Date: null, 
-            Debut: row.Debut || null, 
-            Duree: row.Duree || null,
-            Activite: nouveauNom, 
-            Lieu: row.Lieu || null, 
-            Sessions: row.Sessions || null,
-            Relaches: row.Relaches || null, 
-            Style: row.Style || null,
-            Orga: row.Orga || null,
-            Reserve: null, 
-            Priorite: null, 
-            Hyperlien: row.Hyperlien || `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
-          }
-          nouvellesActivites.push(nouvelleActivite);
-      }
-      recalcFinForAll(nouvellesActivites);
-      return nouvellesActivites;
     },
+
+
+    /**
+     * Crée de nouvelles activités en utilisant le clipboard pour initialiser les champs
+     * @param {*} df  
+     * @returns nouvellesActivites
+     */
+    // async creerActivitesParCollage(df, parser=null) {
+    //   let raw = null;
+    //   try { await _getClipBoardText(df, parser=null); } catch { return null; }
+
+    //   if (raw == null) return;
+
+    //   let parsed = null;
+
+    //   if (!parser) {
+    //     if (_looksLikeUrl(raw)) { 
+    //       if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
+    //         parsed = await _asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
+    //       } 
+    //       else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/")) {
+    //         parsed = await _asyncCallAvecOverlayAttente(parseAvignonInSpecPageUrl, raw, 'Echec collage');
+    //       } 
+    //       else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
+    //         parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
+    //       } 
+    //       else if (raw.includes("www.festivaloffavignon.com/spectacles")) {
+    //         parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
+    //       } 
+    //       else {
+    //         alert("Il n'existe pas de parser pour cette adresse");
+    //       }
+    //     } else {
+    //       switch (true) {
+    //         case isAvignonOffSpecPageText(raw):
+    //           parsed = _syncCallAvecOverlayAttente(parseAvignonOffSpecPageText, raw, 'Echec collage');
+    //           break;
+    //         case isAvignonOffProgPageText(raw):
+    //           parsed = _syncCallAvecOverlayAttente(parseAvignonOffProgPageText, raw, 'Echec collage');
+    //           break;
+    //         case isAvignonInProgPageText(raw):
+    //           parsed = _syncCallAvecOverlayAttente(parseAvignonInProgPageText, raw, 'Echec collage');
+    //           break;
+    //         case isAvignonInSpecPageText(raw):
+    //           parsed = _syncCallAvecOverlayAttente(parseAvignonInSpecPageText, raw, 'Echec collage');
+    //           break;
+    //       }
+    //     }
+    //     if (!parsed || parsed.length == 0) {
+    //       alert("Aucune valeur valide à coller. Commencer par aller dans un catalogues, afficher le programme ou la page d'un spectacle et copier le texte de la page");
+    //       return null;
+    //     }
+    //   } else {
+    //     if (parser == 'parseAvignonOffProgPage') {
+    //       parsed = parseAvignonOffProgPageText(raw);
+    //       if (!parsed || parsed.length == 0) {
+    //         alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+    //         return null;
+    //       }
+    //     } else if (parser == 'parseAvignonInProgPage') {
+    //       parsed = parseAvignonInProgPageText(raw);
+    //       if (!parsed || parsed.length == 0) {
+    //         alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du In, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+    //         return null;
+    //       }
+    //     } 
+    //   }
+
+    //   const nouvellesActivites = [];
+    //   if (!parsed || parsed.length == 0) parsed = [{...PARSED_DEFAULT}];
+
+    //   for (const row of parsed) {
+    //     const nouveauNom = getNouveauNomActivite(df, row.Activite);
+    //     const nouvelleActivite = {
+    //         __uuid: crypto.randomUUID?.() || String(Date.now()),
+    //         Date: null, 
+    //         Debut: row.Debut || null, 
+    //         Duree: row.Duree || null,
+    //         Activite: nouveauNom, 
+    //         Lieu: row.Lieu || null, 
+    //         Sessions: row.Sessions || null,
+    //         Relaches: row.Relaches || null, 
+    //         Style: row.Style || null,
+    //         Orga: row.Orga || null,
+    //         Reserve: null, 
+    //         Priorite: null, 
+    //         Hyperlien: row.Hyperlien || `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
+    //       }
+    //       nouvellesActivites.push(nouvelleActivite);
+    //   }
+    //   recalcFinForAll(nouvellesActivites);
+    //   return nouvellesActivites;
+    // },
 
     /** 
      * Indique si une valeur est valide pour le champ Debut d'une activité
@@ -1193,33 +1197,6 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
   return proposables;
 }
 
-/**
- * Cherche un nom d'activité non encore alloué dans un DataFrame
- * @param {*} df 
- * @returns 
- */
-function _getNomNouvelleActivite(df, prefix='Activité') {
-  if (!Array.isArray(df)) return prefix;
-  if (!prefix) prefix = 'Activité';
-
-  // 🔹 Extraire les noms existants
-  const nomsExistants = df
-    .map(r => (r.Activite ?? '').toString().trim())
-    .filter(n => n.length > 0);
-
-  // 🔹 Initialiser ou incrémenter le compteur global
-  _compteurNouvelleActivite = 0;
-
-  // 🔹 Boucle de recherche d’un nom libre
-  while (true) {
-    _compteurNouvelleActivite += 1;
-    const nomCandidat = (prefix != 'Activité' && _compteurNouvelleActivite == 1) ? `${prefix}` : `${prefix} ${_compteurNouvelleActivite}`;
-    if (!nomsExistants.includes(nomCandidat)) {
-      return nomCandidat;
-    }
-  }
-}
-
 // async function _getClipBoardText() {
 //   try {
 //     const txt = await navigator.clipboard.readText();
@@ -1231,79 +1208,6 @@ function _getNomNouvelleActivite(df, prefix='Activité') {
 //     return null;
 //   }
 // }
-
-async function _getClipBoardText() {
-  const btn   = document.getElementById('btn-import');
-  const popup = document.getElementById('paste-popup');
-  const proxy = document.getElementById('paste-proxy');
-
-  function openPastePopup() {
-    popup.setAttribute('aria-hidden', 'false');
-
-    // Positionner la popup juste au-dessus du bouton
-    const rect = btn.getBoundingClientRect();
-    const dialog = popup.querySelector('.pp-dialog');
-    const dlgH = 100; // hauteur approximative
-    const top = Math.max(8, rect.top - dlgH - 8); // au-dessus avec marge
-    const left = Math.min(
-      window.innerWidth - dialog.offsetWidth - 8,
-      Math.max(8, rect.left + rect.width / 2 - dialog.offsetWidth / 2)
-    );
-
-    dialog.style.top = `${top + window.scrollY}px`;
-    dialog.style.left = `${left + window.scrollX}px`;
-
-    proxy.textContent = '';
-    requestAnimationFrame(() => proxy.focus());
-
-    const onPasteOnce = (e) => {
-      e.preventDefault();
-      const dt = e.clipboardData || window.clipboardData;
-      const txt = dt ? dt.getData('text') : '';
-      closePastePopup();
-      return txt;
-    };
-
-    const onBackdrop = (e) => {
-      if (e.target.classList.contains('pp-backdrop')) closePastePopup();
-    };
-
-    proxy.addEventListener('paste', onPasteOnce, { once: true });
-    popup.addEventListener('click', onBackdrop, { once: true });
-
-    popup._tmp = { onPasteOnce, onBackdrop };
-  }
-
-  function closePastePopup() {
-    popup.setAttribute('aria-hidden', 'true');
-    if (popup._tmp) {
-      proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
-      popup.removeEventListener('click', popup._tmp.onBackdrop);
-      popup._tmp = null;
-    }
-    btn.focus();
-  }
-
-  // 1️⃣ Tentative immédiate (doit être synchrone)
-  try {
-    const txt = await navigator.clipboard?.readText();
-    if (txt) {
-      return txt;
-    }
-  } catch (err) {
-    console.warn('Impossible de lire le presse-papier avec navigator.clipboard.readText() :', err);
-  }
-  // 2️⃣ Fallback : affiche la popup juste au-dessus du bouton
-  return openPastePopup();
-};
-
-
-// Est-ce qu'une string ressemble à une URL
-function _looksLikeUrl(text) {
-  if (!text) return false;
-  const re = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?$/i;
-  return re.test(text.trim());
-}
 
 // Split top-level par virgules (ignore celles dans les parenthèses)
 function _tokenizeSpecs(s) {
@@ -1373,35 +1277,3 @@ function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
   return false;
 }
 
-async function _asyncCallAvecOverlayAttente(fnct, param, msg="Echec") {
-  const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
-  let res = null;
-  try {
-    overlayAttente.hidden = false; // Affiche l'overlay d'attente
-    res = await fnct(param);
-  }
-  catch (e) {
-    console.error('❌ ' + msg + ' : ' + e);
-    alert('❌ ' + msg + ' : ' + e.message);
-  } finally {
-    overlayAttente.hidden = true; // Masque l'overlay d'attente
-    return res;
-  }
-}
-
-
-function _syncCallAvecOverlayAttente(fnct, param, msg="Echec") {
-  const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
-  let res = null;
-  try {
-    overlayAttente.hidden = false; // Affiche l'overlay d'attente
-    res = fnct(param);
-  }
-  catch (e) {
-    console.error('❌ ' + msg + ' : ' + e);
-    alert('❌ ' + msg + ' : ' + e.message);
-  } finally {
-    overlayAttente.hidden = true; // Masque l'overlay d'attente
-    return res;
-  }
-}

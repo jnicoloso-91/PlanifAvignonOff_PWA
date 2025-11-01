@@ -8,12 +8,17 @@ import {
   ymdToDateint, 
   safeDateint, 
   toDateint,
-  dateToDateint,
   isoDateToLocalDate,
   localDateToIsoDate,
   recalcFinForAll,
   recalcFin,
 } from './utils-date.js';
+
+import { 
+  looksLikeUrl, 
+  mergeRowsNoDup,
+  mergeRowsNoDupMultiKey, 
+} from './utils.js';
 
 import { creerActivitesAPI, sortDf } from './activites.js'; 
 import { sortCarnet } from './carnet.js'; 
@@ -22,6 +27,24 @@ import { ActiviteRenderer } from './ActiviteRenderer.js';
 import { LieuRenderer } from './LieuRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
+
+import {
+  PARSED_DEFAULT, 
+  parseAvignonInProgPageUrl, 
+  parseAvignonInSpecPageUrl, 
+  parseAvignonOffProgPageUrl, 
+  parseAvignonOffSpecPageUrl, 
+
+  parseAvignonInProgPageText,
+  parseAvignonInSpecPageText, 
+  parseAvignonOffProgPageText,
+  parseAvignonOffSpecPageText, 
+  
+  isAvignonInProgPageText,
+  isAvignonInSpecPageText,
+  isAvignonOffProgPageText,
+  isAvignonOffSpecPageText,
+} from './parsers.js';
 
 let activitesAPI = null;
 
@@ -84,32 +107,6 @@ const capitalizeFirst = (str) => {
   const s = String(str ?? '').trim();
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function logToPage(...args) {
-  let el = document.getElementById('debug-console');
-  if (!el) {
-    el = document.createElement('pre');
-    el.id = 'debug-console';
-    el.style.position = 'fixed';
-    el.style.bottom = '0';
-    el.style.left = '0';
-    el.style.width = '100%';
-    el.style.maxHeight = '60vh';
-    el.style.overflowY = 'auto';
-    el.style.background = 'rgba(0,0,0,0.5)';
-    el.style.color = '#0f0';
-    el.style.fontSize = '11px';
-    el.style.fontFamily = 'monospace';
-    el.style.padding = '4px 6px';
-    el.style.zIndex = '9999';
-    el.style.whiteSpace = 'pre-wrap';
-    el.style.pointerEvents = 'none';
-    document.body.appendChild(el);
-  }
-  el.textContent += args.map(a => 
-    typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)
-  ).join(' ') + '\n';
 }
 
 /**
@@ -179,6 +176,40 @@ function normalizeImportedRows(rows) {
     o.__uuid = String(id);
     return o;
   });
+}
+
+// Appel d'une fonction asynchrone avec affichage overlay attente
+async function asyncCallAvecOverlayAttente(fnct, param, msg="Echec") {
+  const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
+  let res = null;
+  try {
+    overlayAttente.hidden = false; // Affiche l'overlay d'attente
+    res = await fnct(param);
+  }
+  catch (e) {
+    console.error('❌ ' + msg + ' : ' + e);
+    alert('❌ ' + msg + ' : ' + e.message);
+  } finally {
+    overlayAttente.hidden = true; // Masque l'overlay d'attente
+    return res;
+  }
+}
+
+// Appel d'une fonction synchrone avec affichage overlay attente
+function syncCallAvecOverlayAttente(fnct, param, msg="Echec") {
+  const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
+  let res = null;
+  try {
+    overlayAttente.hidden = false; // Affiche l'overlay d'attente
+    res = fnct(param);
+  }
+  catch (e) {
+    console.error('❌ ' + msg + ' : ' + e);
+    alert('❌ ' + msg + ' : ' + e.message);
+  } finally {
+    overlayAttente.hidden = true; // Masque l'overlay d'attente
+    return res;
+  }
 }
 
 // ===== Normalisation des clés de colonnes Excel -> JS ASCII =====
@@ -437,162 +468,6 @@ function enableTouchEdit(api, gridEl, opts = {}) {
 
   log('listeners attached on', gridEl);
 }
-
-// function enableTouchEdit(api, gridEl, { debug=false } = {}) {
-//   if (!('PointerEvent' in window)) return;
-//   if (!gridEl) return;
-
-//   const log = (...a)=>{ if(debug) console.log('[TouchEdit]', ...a); };
-
-//   let downMeta = null;     // { x, y, t, cellEl, rowIndex, colId }
-//   let lastUp   = null;     // { t, cellKey }
-
-//   const DOUBLE_MS = 380;   // un poil plus large
-//   const SLOP_PX   = 14;    // tolérance de déplacement
-//   const TAP_MS    = 260;
-
-//   const getCellMeta = (target) => {
-//     const cell = target?.closest?.('.ag-cell');
-//     if (!cell) return null;
-//     const row   = cell.parentElement?.closest?.('.ag-row');
-//     const idx1  = row ? Number(row.getAttribute('aria-rowindex')||'1') : 1;
-//     const rowIndex = Math.max(0, idx1 - 1);
-//     const colId = cell.getAttribute('col-id') || cell.dataset.colId || null;
-//     return { cellEl: cell, rowIndex, colId, key: `${rowIndex}::${colId}` };
-//   };
-
-//   const onPointerDown = (e) => {
-//     if (e.pointerType !== 'touch') return;  // ne s’intéresse qu’au tactile
-//     const meta = getCellMeta(e.target);
-//     if (!meta) return;
-//     downMeta = {
-//       x: e.clientX, y: e.clientY, t: Date.now(),
-//       cellEl: meta.cellEl, rowIndex: meta.rowIndex, colId: meta.colId, key: meta.key
-//     };
-//     log('down', downMeta);
-//   };
-
-//   const startEdit = (rowIndex, colId) => {
-//     try {
-//       api.ensureIndexVisible?.(rowIndex, 'middle');
-//       api.startEditingCell?.({ rowIndex, colKey: colId });
-//       log('→ startEditingCell', rowIndex, colId);
-//     } catch (err) {
-//       console.warn('startEditingCell error', err);
-//     }
-//   };
-
-//   const onPointerUp = (e) => {
-//     if (e.pointerType && e.pointerType !== 'touch') return;
-//     const now = Date.now();
-
-//     // rien de préparé (up hors grille par ex.)
-//     if (!downMeta) return;
-
-//     const dx = Math.abs(e.clientX - downMeta.x);
-//     const dy = Math.abs(e.clientY - downMeta.y);
-//     const dt = now - downMeta.t;
-
-//     // tap simple reconnu ?
-//     const isTap = (dt <= TAP_MS && dx < SLOP_PX && dy < SLOP_PX);
-//     if (!isTap) { downMeta = null; return; }
-
-//     // “double up” sur la même cellule dans la fenêtre DOUBLE_MS
-//     if (lastUp && (now - lastUp.t) <= DOUBLE_MS && lastUp.cellKey === downMeta.key) {
-//       startEdit(downMeta.rowIndex, downMeta.colId);
-//       lastUp = null;
-//       downMeta = null;
-//       e.preventDefault?.();  // évite un scroll fantôme
-//       return;
-//     }
-
-//     // sinon, mémoriser comme 1er tap
-//     lastUp = { t: now, cellKey: downMeta.key };
-//     downMeta = null;
-//   };
-
-//   // Attachements
-//   gridEl.addEventListener('pointerdown', onPointerDown, { passive: true });
-
-//   // Recevoir TOUJOURS le pointerup, même si on a quitté la cellule
-//   window.addEventListener('pointerup', onPointerUp, { passive: true, capture: true });
-
-//   log('listeners attached on', gridEl);
-// }
-
-// Drop-in : double-tap (≈<280ms, même cellule) → startEditingCell
-//           long-press (≥550ms, sans bouger)   → startEditingCell
-// function enableTouchEditV2(api, root, { debug=false, doubleTapMs=280, longPressMs=550 } = {}) {
-//   if (!api || !root) return;
-//   const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-//   if (!hasTouch) { debug && console.log('[TouchEdit] skip (no touch)'); return; }
-
-//   // petit confort pour iOS (réduit la latence du tap)
-//   try { root.style.touchAction = 'manipulation'; } catch {}
-
-//   let lastTapT = 0, lastKey = '', lastPos = null;
-//   let pressTimer = null, pressed = false, startPos = null;
-
-//   const cellFromEvent = (ev) => {
-//     const el = ev.target?.closest?.('.ag-cell');
-//     if (!el) return null;
-//     const rowEl = el.closest('.ag-row');
-//     if (!rowEl) return null;
-//     const colId = el.getAttribute('col-id');
-//     const rowIndex = (parseInt(rowEl.getAttribute('aria-rowindex'), 10) || 1) - 1; // 0-based
-//     if (rowIndex < 0 || !colId) return null;
-//     return { rowIndex, colId, cellEl: el, rowEl };
-//   };
-
-//   const startEditing = ({ rowIndex, colId }) => {
-//     // focus puis édition
-//     api.setFocusedCell?.(rowIndex, colId);
-//     api.startEditingCell?.({ rowIndex, colKey: colId });
-//     debug && console.log('[TouchEdit] → startEditingCell', rowIndex, colId);
-//   };
-
-//   const clearPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } pressed = false; };
-
-//   // on écoute *pointerdown* pour capter iOS / PWA proprement
-//   root.addEventListener('pointerdown', (e) => {
-//     if (e.pointerType !== 'touch') return;
-//     const hit = cellFromEvent(e);
-//     if (!hit) return;
-
-//     const now = Date.now();
-//     const key = `${hit.rowIndex}|${hit.colId}`;
-//     const pos = { x: e.clientX, y: e.clientY };
-
-//     // Long-press
-//     pressed = true;
-//     startPos = pos;
-//     clearPress();
-//     pressTimer = setTimeout(() => {
-//       if (!pressed) return;
-//       // seuil de mouvement : ~8px
-//       const moved = startPos && Math.hypot(pos.x - startPos.x, pos.y - startPos.y) > 8;
-//       if (!moved) startEditing(hit);
-//       clearPress();
-//     }, longPressMs);
-
-//     // Double-tap
-//     const dt = now - lastTapT;
-//     const moved = lastPos && Math.hypot(pos.x - lastPos.x, pos.y - lastPos.y) > 12;
-//     if (dt < doubleTapMs && key === lastKey && !moved) {
-//       e.preventDefault?.(); // évite le zoom double-tap iOS
-//       clearPress();
-//       requestAnimationFrame(() => startEditing(hit));
-//       lastTapT = 0; lastKey = ''; lastPos = null;
-//       return;
-//     }
-//     lastTapT = now; lastKey = key; lastPos = pos;
-//   }, { passive: true });
-
-//   root.addEventListener('pointerup',   () => clearPress(), { passive: true });
-//   root.addEventListener('pointercancel', () => clearPress(), { passive: true });
-
-//   debug && console.log('[TouchEdit] listeners attached on', root);
-// }
 
 function computeMinPaneHeight(pane) {
   // header
@@ -2294,15 +2169,6 @@ async function loadGridActivitesProgrammables(){
   return activitesAPI.getActivitesProgrammables(activites, selectedSlot).map(r => ({...r}));
 }
 
-// async function loadGridCarnet() {
-//   const carnet = ctx.carnet;
-//   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
-//   return carnet.map(r => ({...r}));
-// }
-
-
-// ===== Handlers de grilles =====
-
 async function dropRowFromSrcGridToDstGrid(srcGrid, dstGrid, dstExp, srcUuid, dstUuid, scroll=true) {
 
   // 1) sélectionne le voisin dans la source (pas besoin de center ici)
@@ -2322,7 +2188,6 @@ async function dropRowFromSrcGridToDstGrid(srcGrid, dstGrid, dstExp, srcUuid, ds
   // 5) lance le phantom flight vers l’élément centré
   doPhantomFlight(srcGrid, dstGrid, dstExp); 
 }
-
 
 // Quand on édite la date d'une activité programmée
 async function onProgGridDateCommitted(params) {
@@ -2367,6 +2232,7 @@ async function onProgGridDateCommitted(params) {
   }
 }
 
+// Quand on édite la date d'une activité non programmée
 async function onNonProgGridDateCommitted(params) {
   if (params.colDef.field !== 'Date') return;
   if (prettyToDateint(params.newValue) === params.oldValue) return;
@@ -2629,648 +2495,6 @@ async function scheduleGlobalRefresh() {
 let isSplitterDragging = false; // pour geler les recalculs ailleurs
 function isFromGrid(e){ return !!e.target?.closest('.ag-root'); }
 
-// function wireExpanderSplitters() {
-//   document.querySelectorAll('.v-splitter').forEach(sp => {
-//     const handle = sp.querySelector('.v-splitter__handle') || sp;
-
-//     const topId = sp.getAttribute('data-top');
-//     const bottomId = sp.getAttribute('data-bottom');
-//     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
-//     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
-//     if (!paneTop || !paneBot) return;
-
-//     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
-//     let prevTransition = '', prevAnimation = '';
-
-//     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
-
-//     function begin(clientY, e) {
-//       const expTop = paneTop.closest('.st-expander');
-//       if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
-
-//       dragging = true;
-//       startY = clientY;
-
-//       // hauteur actuelle du pane du haut
-//       hTop = Math.round(paneTop.getBoundingClientRect().height);
-
-//       // limite haute : on peut tout cacher (header compris)
-//       dyMin = -hTop;
-
-//       // limite basse : contenu (nb rows) ou 1.5 si vide
-//       const maxH = calcMaxHForPane(paneTop);
-//       // const maxH = Number(paneTop.dataset.maxContentHeight) || hTop; // ← toutes lignes
-//       dyMax = Math.max(0, Math.round(maxH - hTop));
-
-//       // couper toute animation pendant le drag (inline + important)
-//       prevTransition = paneTop.style.transition || '';
-//       prevAnimation  = paneTop.style.animation  || '';
-//       paneTop.style.setProperty('transition', 'none', 'important');
-//       paneTop.style.setProperty('animation',  'none', 'important');
-//       paneTop.style.willChange = 'height';
-
-//       // verrou visuel
-//       setH(paneTop, hTop);
-//       document.body.style.userSelect = 'none';
-//       document.body.style.cursor = 'row-resize';
-
-//       // ⚠️ surtout PAS de preventDefault ici (laisser naître le tap→click iOS)
-//       // e?.preventDefault?.();
-//     }
-
-//     function update(clientY, e) {
-//       if (!dragging) return;
-
-//       const dyRaw = clientY - startY;
-//       const dy = Math.max(dyMin, Math.min(dyMax, dyRaw)); // clamp
-//       setH(paneTop, hTop + dy);
-
-//       // notifier la grille du haut pour recalcul
-//       try {
-//         const gridDiv = paneTop.querySelector('div[id^="grid"]');
-//         for (const g of (window.grids?.values?.() || [])) {
-//           if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-//         }
-//       } catch {}
-
-//       // ❌ ne pas faire preventDefault ici non plus
-//       // e?.preventDefault?.();
-//     }
-
-//     let minH = 0, maxH = 0;
-
-//     function finish() {
-//       if (!dragging) return;
-//       dragging = false;
-
-//       // restaurer animations
-//       paneTop.style.removeProperty('transition');
-//       paneTop.style.removeProperty('animation');
-//       if (prevTransition) paneTop.style.transition = prevTransition;
-//       if (prevAnimation)  paneTop.style.animation  = prevAnimation;
-//       paneTop.style.willChange = '';
-
-//       // mémoriser la hauteur
-//       const expTop = paneTop.closest('.st-expander');
-//       if (expTop) {
-//         const h = Math.round(paneTop.getBoundingClientRect().height);
-//         if (h > 0) localStorage.setItem(`paneHeight:${expTop.id}`, String(h));
-//       }
-
-//       document.body.style.userSelect = '';
-//       document.body.style.cursor = '';
-//     }
-
-//     handle.addEventListener('mousedown', e => {
-//       if (e.button !== 0) return;
-//       // if (isFromGrid(e)) return; // pas nécessaire ici, la cible = poignée
-//       begin(e.clientY, e);
-//     });
-
-//     window.addEventListener('mousemove', e => {
-//       if (!dragging) return;                 // 👈 clé: rien si pas en drag
-//       update(e.clientY, e);
-//       // pas de preventDefault ici (souris)
-//     });
-
-//     window.addEventListener('mouseup', finish);
-
-//     // Tactile (splitter)
-//     handle.addEventListener('touchstart', (e) => {
-//       // pas de preventDefault ici
-//       begin(e.touches[0].clientY, e);     // doit mettre dragging=true
-//     }, { passive: true });
-
-//     window.addEventListener('touchmove', (e) => {
-//       if (!dragging) return;              // rien si pas en drag
-//       e.preventDefault();                 // ✅ seulement pendant le drag → bloque le scroll
-//       update(e.touches[0].clientY, e);
-//     }, { passive: false });
-
-//     window.addEventListener('touchend', () => {
-//       finish();                           // doit mettre dragging=false
-//     }, { passive: true });
-//   });
-// }
-
-
-
-
-// function wireBottomSplitter(splitter){
-//   if (!splitter) return;
-//   const isLast = splitter.dataset.last === '1'; // ← seulement pour le dernier
-//   const container = document.querySelector('#pager .page.is-active') || document.body;
-
-//   let dragging = false;
-//   let lastY = 0;
-//   let autoRAF = null;
-//   let autoMode = null; // 'grow' | 'shrink' | null
-
-//   // util: applique la nouvelle hauteur selon ta logique existante
-//   function applyDeltaPixels(dy){
-//     // Exemple: agrandir le pane du bas de dy pixels.
-//     // Remplace par ta logique réelle (calc des 2 panneaux + clamp).
-//     const bottomPane = document.getElementById(splitter.dataset.bottom);
-//     const pane = bottomPane?.querySelector('.st-expander-body');
-//     if (!pane) return;
-//     const cur = parseFloat(getComputedStyle(pane).height) || 0;
-//     const max = container.getBoundingClientRect().height; // ajuste si besoin
-//     const next = Math.max(0, Math.min(max, cur + dy));
-//     pane.style.height = `${next}px`;
-//   }
-
-//   function autoStep(){
-//     if (!dragging || !autoMode){ autoRAF = null; return; }
-
-//     const rect = container.getBoundingClientRect();
-//     const safe = (parseFloat(getComputedStyle(document.documentElement)
-//                   .getPropertyValue('env(safe-area-inset-bottom)')) || 0);
-//     const bottomThreshold = rect.bottom - (safe + 12); // zone proche du bas
-//     const topThreshold    = rect.top + 12;             // proche du haut
-
-//     // Si on n'est plus dans la zone, arrêter l'auto-mode
-//     if (autoMode === 'grow' && lastY < bottomThreshold) { autoMode = null; autoRAF = null; return; }
-//     if (autoMode === 'shrink' && lastY > topThreshold)  { autoMode = null; autoRAF = null; return; }
-
-//     // Vitesse (px/frame) – accélère un peu jusqu’à une limite
-//     const SPEED = 10; // ajuste: 6–16 est agréable
-//     applyDeltaPixels(autoMode === 'grow' ? +SPEED : -SPEED);
-
-//     autoRAF = requestAnimationFrame(autoStep);
-//   }
-
-//   function startAuto(mode){
-//     if (!isLast) return;         // on ne fait ça que pour le dernier splitter
-//     if (autoRAF) cancelAnimationFrame(autoRAF);
-//     autoMode = mode;
-//     autoRAF = requestAnimationFrame(autoStep);
-//   }
-//   function stopAuto(){
-//     if (autoRAF) cancelAnimationFrame(autoRAF);
-//     autoRAF = null;
-//     autoMode = null;
-//   }
-
-//   splitter.addEventListener('pointerdown', (e) => {
-//     dragging = true;
-//     lastY = e.clientY;
-//     splitter.setPointerCapture?.(e.pointerId);
-//     document.body.classList.add('dragging-splitter');
-//     stopAuto(); // reset
-//   });
-
-//   window.addEventListener('pointermove', (e) => {
-//     if (!dragging) return;
-//     lastY = e.clientY;
-
-//     // comportement normal: si y bouge dans la zone utile, on suit la souris
-//     // (tu peux garder ton applySplitterAtY(lastY) ici si tu veux)
-//     // Mais on regarde aussi si on doit déclencher l’auto-mode :
-//     const rect = container.getBoundingClientRect();
-//     const safe = (parseFloat(getComputedStyle(document.documentElement)
-//                   .getPropertyValue('env(safe-area-inset-bottom)')) || 0);
-//     const nearBottom = lastY >= (rect.bottom - (safe + 12));
-//     const nearTop    = lastY <= (rect.top + 12);
-
-//     if (isLast && nearBottom) {
-//       startAuto('grow');   // continuer à grandir tant que pressé
-//     } else if (isLast && nearTop) {
-//       startAuto('shrink'); // symétrique si tu veux remonter
-//     } else {
-//       // hors zones → pas d’auto
-//       stopAuto();
-//       // Et tu appliques ta logique directe basée sur Y si utile :
-//       // applySplitterAtY(lastY);
-//     }
-//   }, { passive: true });
-
-//   window.addEventListener('pointerup', (e) => {
-//     if (!dragging) return;
-//     dragging = false;
-//     stopAuto();
-//     splitter.releasePointerCapture?.(e.pointerId);
-//     document.body.classList.remove('dragging-splitter');
-//     // snap/persist si besoin
-//   }, { passive: true });
-
-// }
-
-// // Utilitaires
-// function getSafeBottomPX(){
-//   const v = getComputedStyle(document.documentElement)
-//               .getPropertyValue('env(safe-area-inset-bottom)');
-//   // parse "0px" -> nombre
-//   const m = /([\d.]+)px/.exec(v || '');
-//   return m ? parseFloat(m[1]) : 0;
-// }
-// function getBottomBarHeightPX(){
-//   const bar = document.querySelector('.bottom-bar');
-//   if (!bar) return 0;
-//   const r = bar.getBoundingClientRect();
-//   // si cachée, r.height peut être 0 ; on peut fallback sur style/offset si besoin
-//   return Math.max(0, Math.round(r.height));
-// }
-
-// // Stocke les bornes sur l’élément pour que le handler de drag s’en serve
-// function updateBottomSplitterBounds(splitterEl, opts = {}){
-//   if (!splitterEl) return;
-
-//   const idTop    = splitterEl.dataset.top;
-//   const idBottom = splitterEl.dataset.bottom;
-//   const topExp   = document.getElementById(idTop);
-//   const botExp   = document.getElementById(idBottom);
-//   const paneTop  = topExp?.querySelector('.st-expander-body');
-//   const paneBot  = botExp?.querySelector('.st-expander-body');
-//   if (!paneTop || !paneBot) return;
-
-//   // Options / défauts
-//   const {
-//     minTop     = 80,   // min hauteur (px) du pane du haut
-//     minBottom  = 80,   // min hauteur (px) du pane du bas
-//     extraPad   = 6,    // petit coussin
-//   } = opts;
-
-//   // Géométries
-//   const docH   = window.innerHeight || document.documentElement.clientHeight || 0;
-//   const safeB  = getSafeBottomPX();
-//   const barH   = getBottomBarHeightPX();
-//   const floorY = docH - (barH + safeB + extraPad); // butée visuelle réelle
-
-//   // Position et hauteur actuelles des panes
-//   const rectTop = paneTop.getBoundingClientRect();
-//   const rectBot = paneBot.getBoundingClientRect();
-
-//   const totalStackTop   = rectTop.top;       // y de départ “absolu” dans le viewport
-//   const currentTopH     = rectTop.height;
-//   const currentBotH     = rectBot.height;
-
-//   // La ligne de split (centre du handle) est à la frontière entre les panes :
-//   const currentSplitY = rectTop.bottom;      // y actuel du splitter
-
-//   // Bornes : où peut se déplacer la ligne de split ?
-//   // - ne pas monter au-delà de: top + minTop
-//   const minY = totalStackTop + minTop;
-
-//   // - ne pas descendre au-delà de: floorY - minBottom
-//   //   (et aussi tenir compte de la hauteur actuelle du bas si floorY < bottom actuel)
-//   const maxY = Math.min(
-//     floorY - minBottom,
-//     currentSplitY + (currentBotH - minBottom) // borne "géométrique" locale
-//   );
-
-//   // Sécurise
-//   const lo = Math.max(minY, totalStackTop + 16); // un mini 16px pour éviter le “collage”
-//   const hi = Math.max(lo, maxY);
-
-//   // Stocke les bornes & état courant pour le handler de drag
-//   splitterEl.__bounds = {
-//     minY: lo,
-//     maxY: hi,
-//     floorY,
-//     currentSplitY,
-//     totalStackTop,
-//     barH, safeB
-//   };
-// }
-
-// function wireBottomSplitter(splitterEl){
-//   if (!splitterEl || splitterEl.__wired) return;
-//   splitterEl.__wired = true;
-
-//   const idTop    = splitterEl.dataset.top;
-//   const idBottom = splitterEl.dataset.bottom;
-//   const topExp   = document.getElementById(idTop);
-//   const botExp   = document.getElementById(idBottom);
-//   const paneTop  = topExp?.querySelector('.st-expander-body');
-//   const paneBot  = botExp?.querySelector('.st-expander-body');
-//   if (!paneTop || !paneBot) return;
-
-//   const handle = splitterEl.querySelector('.v-splitter__handle') || splitterEl;
-
-//   const recalc = () => updateBottomSplitterBounds(splitterEl);
-//   recalc();
-//   window.addEventListener('resize', recalc);
-//   window.addEventListener('orientationchange', recalc);
-
-//   let dragging = false, startY = 0, startTopH = 0, startBotH = 0;
-
-//   const onStart = (e) => {
-//     const t = e.touches ? e.touches[0] : e;
-//     startY = t.clientY;
-//     startTopH = paneTop.getBoundingClientRect().height;
-//     startBotH = paneBot.getBoundingClientRect().height;
-//     dragging = true;
-//     document.body.classList.add('is-dragging-splitter');
-//     // pas d’animation pendant drag
-//     paneTop.style.transition = 'none';
-//     paneBot.style.transition = 'none';
-//   };
-//   const onMove = (e) => {
-//     if (!dragging) return;
-//     const t = e.touches ? e.touches[0] : e;
-//     const dy = t.clientY - startY;     // +dy = on tire vers le bas
-
-//     // somme constante : on grossit le bas en tirant vers le bas
-//     const totalH = startTopH + startBotH;
-//     let newTopH = startTopH - dy;
-//     // bornes: le haut ne descend pas sous minTop, et on garde minBottom au bas
-//     const minTop = 80;     // adapte à ton besoin
-//     const minBottom = 80;  // idem
-//     newTopH = Math.max(minTop, Math.min(totalH - minBottom, newTopH));
-//     const newBotH = totalH - newTopH;
-
-//     paneTop.style.height = `${Math.max(0, newTopH)}px`;
-//     paneBot.style.height = `${Math.max(0, newBotH)}px`;
-
-//     // On peut garder e.preventDefault pour bloquer le scroll pendant le drag
-//     e.preventDefault?.();
-//   };
-//   const onEnd = () => {
-//     if (!dragging) return;
-//     dragging = false;
-//     document.body.classList.remove('is-dragging-splitter');
-//     // réactive transitions douces
-//     paneTop.style.transition = '';
-//     paneBot.style.transition = '';
-//     // recalcule les bornes avec les nouvelles hauteurs
-//     updateBottomSplitterBounds(splitterEl);
-//   };
-
-//   if (window.PointerEvent) {
-//     handle.addEventListener('pointerdown', onStart, { passive: true });
-//     window.addEventListener('pointermove', onMove, { passive: false });
-//     window.addEventListener('pointerup',   onEnd,  { passive: true });
-//     window.addEventListener('pointercancel', onEnd, { passive: true });
-//   } else {
-//     handle.addEventListener('touchstart', onStart, { passive: true });
-//     window.addEventListener('touchmove',  onMove,  { passive: false });
-//     window.addEventListener('touchend',   onEnd,   { passive: true });
-//     handle.addEventListener('mousedown',  onStart, true);
-//     window.addEventListener('mousemove',  onMove,  true);
-//     window.addEventListener('mouseup',    onEnd,   true);
-//   }
-// }
-
-// function wireBottomLikeSplitters() {
-//   document.querySelectorAll('.v-splitter').forEach(split => {
-//     const topId = split.getAttribute('data-top');
-//     const bottomId = split.getAttribute('data-bottom');
-//     const isLast = bottomId === '__end__' || split.dataset.last === '1';
-
-//     const topExp = document.getElementById(topId);
-//     const topPane = topExp?.querySelector('.st-expander-body');
-//     if (!topPane) return;
-
-//     let startY = 0, startH = 0, raf = null, dragging = false, lastY = 0;
-
-//     const applyHeight = (h) => {
-//       const minH = 40;           // tu peux affiner
-//       const maxH = 9999;         // pas de plafond “viewport”
-//       const nh = Math.max(minH, Math.min(h, maxH));
-//       topPane.style.height = `${Math.round(nh)}px`;
-//       // si tu stockes la hauteur:
-//       localStorage.setItem(`paneHeight:${topExp.id}`, String(Math.round(nh)));
-//     };
-
-//     const onMove = () => {
-//       if (!dragging) return;
-//       const dy = lastY - startY;
-//       applyHeight(startH + dy);
-//       raf = requestAnimationFrame(onMove);
-//     };
-
-//     const onPointerDown = (e) => {
-//       // on capte “depuis la poignée” uniquement si tu veux
-//       const handle = split.querySelector('.v-splitter__handle') || split;
-//       if (e.target !== handle && !handle.contains(e.target)) return;
-
-//       dragging = true;
-//       startY   = (e.touches ? e.touches[0] : e).clientY;
-//       lastY    = startY;
-//       startH   = parseFloat(getComputedStyle(topPane).height) || topPane.offsetHeight || 0;
-
-//       document.body.classList.add('is-resizing');
-//       // empêcher la page de scroller pendant le drag
-//       document.addEventListener('touchmove', blockScroll, { passive: false });
-//       window.addEventListener('pointermove', onPointerMove, { passive: false });
-//       window.addEventListener('touchmove',  onPointerMove, { passive: false });
-//       window.addEventListener('mousemove',  onPointerMove, { passive: false });
-//       window.addEventListener('pointerup',  onPointerUp,   { passive: true });
-//       window.addEventListener('touchend',   onPointerUp,   { passive: true });
-
-//       // boucle RAF pour “continuer” même si le pointeur bute sur la bottom bar
-//       raf = requestAnimationFrame(onMove);
-//       e.preventDefault?.();
-//     };
-
-//     const onPointerMove = (e) => {
-//       if (!dragging) return;
-//       const t = e.touches ? e.touches[0] : e;
-//       lastY = t.clientY; // on lit la position globale du pointeur
-//       e.preventDefault?.(); // bloque le scroll
-//     };
-
-//     const onPointerUp = () => {
-//       dragging = false;
-//       document.body.classList.remove('is-resizing');
-//       document.removeEventListener('touchmove', blockScroll);
-//       window.removeEventListener('pointermove', onPointerMove);
-//       window.removeEventListener('touchmove',  onPointerMove);
-//       window.removeEventListener('mousemove',  onPointerMove);
-//       window.removeEventListener('pointerup',  onPointerUp);
-//       window.removeEventListener('touchend',   onPointerUp);
-//       if (raf) cancelAnimationFrame(raf), raf = null;
-//     };
-
-//     const blockScroll = (e) => { e.preventDefault?.(); };
-
-//     // branchement
-//     // si c’est un splitter “normal”, tu gardes ton code existant.
-//     // si c’est le dernier, on utilise ce handler spécial
-//     if (isLast) {
-//       if (window.PointerEvent) {
-//         split.addEventListener('pointerdown', onPointerDown, { passive: false });
-//       } else {
-//         split.addEventListener('touchstart', onPointerDown, { passive: false });
-//         split.addEventListener('mousedown',  onPointerDown, false);
-//       }
-//     }
-//   });
-// }
-
-// function wireExpanderSplitters() {
-//   document.querySelectorAll('.v-splitter').forEach(sp => {
-//     const handle = sp.querySelector('.v-splitter__handle') || sp;
-
-//     const topId = sp.getAttribute('data-top');
-//     const bottomId = sp.getAttribute('data-bottom');
-//     const paneTop = document.querySelector(`#${topId} .st-expander-body`);
-//     const paneBot = document.querySelector(`#${bottomId} .st-expander-body`);
-//     // 🆕 on autorise l’absence de paneBot si c’est le dernier
-//     const isLast = sp.dataset.last === '1' || bottomId === '__end__';
-//     if (!paneTop || (!paneBot && !isLast)) return;
-
-//     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
-//     let prevTransition = '', prevAnimation = '';
-
-//     // 🆕 auto-grow state
-//     let autoGrowRaf = null;
-//     let autoGrowActive = false;
-//     let lastClientY = 0;
-//     let growAccum = 0; // pixels synthétiques ajoutés quand on “coince” en bas
-
-//     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
-
-//     function begin(clientY, e) {
-//       const expTop = paneTop.closest('.st-expander');
-//       if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
-
-//       dragging = true;
-//       startY = clientY;
-//       lastClientY = clientY;           // 🆕
-//       growAccum = 0;                   // 🆕
-
-//       hTop = Math.round(paneTop.getBoundingClientRect().height);
-
-//       // limite haute : on peut tout cacher (header compris)
-//       dyMin = -hTop;
-
-//       // limite basse : borne “contenu max” (nb de lignes)
-//       const maxH = calcMaxHForPane(paneTop); // ← ta fonction existante
-//       dyMax = Math.max(0, Math.round(maxH - hTop));
-
-//       // couper les anims pendant le drag
-//       prevTransition = paneTop.style.transition || '';
-//       prevAnimation  = paneTop.style.animation  || '';
-//       paneTop.style.setProperty('transition', 'none', 'important');
-//       paneTop.style.setProperty('animation',  'none', 'important');
-//       paneTop.style.willChange = 'height';
-
-//       setH(paneTop, hTop);
-//       document.body.style.userSelect = 'none';
-//       document.body.style.cursor = 'row-resize';
-//     }
-
-//     // 🆕 boucle d’auto-grow quand on est “coincé” en bas du viewport
-//     function tickAutoGrow() {
-//       if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
-
-//       // vitesse de croissance (pixels/frame) – ajuste à ton goût
-//       const SPEED = 6;
-
-//       growAccum += SPEED;
-//       const dyRaw = (lastClientY - startY) + growAccum;
-//       const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-
-//       setH(paneTop, hTop + dy);
-
-//       // notify AG Grid haut
-//       try {
-//         const gridDiv = paneTop.querySelector('div[id^="grid"]');
-//         for (const g of (window.grids?.values?.() || [])) {
-//           if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-//         }
-//       } catch {}
-
-//       // stop si on touche la borne haute
-//       if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
-
-//       autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-//     }
-
-//     function maybeAutoGrow(clientY){
-//       lastClientY = clientY;
-
-//       if (!isLast || !dragging) return;
-
-//       // marge depuis le bas pour déclencher l’auto-grow
-//       const safeInset =  Math.max(0, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0', 10)) || 0;
-//       const MARGIN = 16 + safeInset; // px au-dessus du bas de l’écran
-//       const nearBottom = clientY >= (window.innerHeight - MARGIN);
-
-//       if (nearBottom && !autoGrowActive) {
-//         autoGrowActive = true;
-//         if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-//       } else if (!nearBottom && autoGrowActive) {
-//         // on est remonté : on arrête l’auto-grow
-//         autoGrowActive = false;
-//         if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
-//         growAccum = 0;
-//       }
-//     }
-
-//     function update(clientY, e) {
-//       if (!dragging) return;
-
-//       const dyRaw = clientY - startY + (isLast ? growAccum : 0); // 🆕 accumulé si last
-//       const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-//       setH(paneTop, hTop + dy);
-
-//       // notifier la grille du haut
-//       try {
-//         const gridDiv = paneTop.querySelector('div[id^="grid"]');
-//         for (const g of (window.grids?.values?.() || [])) {
-//           if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-//         }
-//       } catch {}
-
-//       // 🆕 déclenche/arrête auto-grow si besoin
-//       maybeAutoGrow(clientY);
-//     }
-
-//     function finish() {
-//       if (!dragging) return;
-//       dragging = false;
-
-//       // 🆕 coupe l’auto-grow
-//       autoGrowActive = false;
-//       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
-//       growAccum = 0;
-
-//       // restaurer anims
-//       paneTop.style.removeProperty('transition');
-//       paneTop.style.removeProperty('animation');
-//       if (prevTransition) paneTop.style.transition = prevTransition;
-//       if (prevAnimation)  paneTop.style.animation  = prevAnimation;
-//       paneTop.style.willChange = '';
-
-//       // mémoriser la hauteur
-//       const expTop = paneTop.closest('.st-expander');
-//       if (expTop) {
-//         const h = Math.round(paneTop.getBoundingClientRect().height);
-//         if (h > 0) localStorage.setItem(`paneHeight:${expTop.id}`, String(h));
-//       }
-
-//       document.body.style.userSelect = '';
-//       document.body.style.cursor = '';
-//     }
-
-//     // Souris
-//     handle.addEventListener('mousedown', e => {
-//       if (e.button !== 0) return;
-//       begin(e.clientY, e);
-//     });
-//     window.addEventListener('mousemove', e => {
-//       if (!dragging) return;
-//       update(e.clientY, e);
-//     });
-//     window.addEventListener('mouseup', finish);
-
-//     // Tactile
-//     handle.addEventListener('touchstart', (e) => {
-//       begin(e.touches[0].clientY, e);
-//     }, { passive: true });
-
-//     window.addEventListener('touchmove', (e) => {
-//       if (!dragging) return;
-//       e.preventDefault(); // bloque le scroll pendant le drag
-//       update(e.touches[0].clientY, e);
-//     }, { passive: false });
-
-//     window.addEventListener('touchend', () => { finish(); }, { passive: true });
-//   });
-// }
-
 function wireExpanderSplitters() {
   document.querySelectorAll('.v-splitter').forEach(sp => {
     const handle = sp.querySelector('.v-splitter__handle') || sp;
@@ -3487,8 +2711,6 @@ function wireExpanderSplitters() {
   });
 }
 
-
-
 function wireGrids() {
   // 1) Activités Programmées
   createGridController({
@@ -3585,8 +2807,7 @@ function wireExpanders(){
   });
 }
 
-// ------- Actions -------
-
+// ===== Actions =====
 // Reset du contexte
 async function doNouveauContexte() {
   ctx.beginAction('Nouveau contexte');
@@ -3608,28 +2829,30 @@ async function doImportExcel() {
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
-  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonOffProgPage');
-  ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
+  await getClipBoardText(ctx.df, 'parseAvignonOffProgPage');
+  // const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonOffProgPage');
+  // ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
 
-  // Maj des sélections
-  setTimeout(() => {
-    scrollToExpander?.('exp-non-programmees');
-    openExpander?.('exp-non-programmees');
-    selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
-  }, 50);
+  // // Maj des sélections
+  // setTimeout(() => {
+  //   scrollToExpander?.('exp-non-programmees');
+  //   openExpander?.('exp-non-programmees');
+  //   selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
+  // }, 50);
 }
 
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
-  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonInProgPage');
-  ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
+  await getClipBoardText(ctx.df, 'parseAvignonInProgPage');
+  // const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df, 'parseAvignonInProgPage');
+  // ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
 
-  // Maj des sélections
-  setTimeout(() => {
-    scrollToExpander?.('exp-non-programmees');
-    openExpander?.('exp-non-programmees');
-    selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
-  }, 50);
+  // // Maj des sélections
+  // setTimeout(() => {
+  //   scrollToExpander?.('exp-non-programmees');
+  //   openExpander?.('exp-non-programmees');
+  //   selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
+  // }, 50);
 }
 
 // Export Excel
@@ -3702,10 +2925,168 @@ async function doAjoutActivite() {
 
 // Ajout activité avec collage
 async function doAjoutActivitesParCollage() {
-  const nouvellesActivites = await activitesAPI.creerActivitesParCollage(ctx.df);
+  await getClipBoardText(ctx.df);
+}
 
+async function getClipBoardText(df, parser=null) {
+  const btn   = document.getElementById('btn-paste');
+  const popup = document.getElementById('paste-popup');
+  const proxy = document.getElementById('paste-proxy');
+
+  function openPastePopup() {
+    popup.setAttribute('aria-hidden', 'false');
+
+    // Positionner la popup juste au-dessus du bouton
+    const rect = btn.getBoundingClientRect();
+    const dialog = popup.querySelector('.pp-dialog');
+    const dlgH = 100; // hauteur approximative
+    const top = Math.max(8, rect.top - dlgH - 8); // au-dessus avec marge
+    const left = Math.min(
+      window.innerWidth - dialog.offsetWidth - 8,
+      Math.max(8, rect.left + rect.width / 2 - dialog.offsetWidth / 2)
+    );
+
+    dialog.style.top = `${top + window.scrollY}px`;
+    dialog.style.left = `${left + window.scrollX}px`;
+
+    proxy.textContent = '';
+    requestAnimationFrame(() => proxy.focus());
+
+    const onPasteOnce = (e) => {
+      e.preventDefault();
+      const dt = e.clipboardData || window.clipboardData;
+      const txt = dt ? dt.getData('text') : '';
+      if (txt) handleClipboardText(txt, df, parser);
+      closePastePopup();
+    };
+
+    const onBackdrop = (e) => {
+      if (e.target.classList.contains('pp-backdrop')) closePastePopup();
+    };
+
+    proxy.addEventListener('paste', onPasteOnce, { once: true });
+    popup.addEventListener('click', onBackdrop, { once: true });
+
+    popup._tmp = { onPasteOnce, onBackdrop };
+  }
+
+  function closePastePopup() {
+    popup.setAttribute('aria-hidden', 'true');
+    if (popup._tmp) {
+      proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
+      popup.removeEventListener('click', popup._tmp.onBackdrop);
+      popup._tmp = null;
+    }
+    btn.focus();
+  }
+
+  // 1️⃣ Tentative immédiate (doit être synchrone)
+  try {
+    const txt = await navigator.clipboard?.readText();
+    if (txt) {
+      handleClipboardText(txt, df, parser);
+      return;
+    }
+  } catch {}
+  // 2️⃣ Fallback : affiche la popup juste au-dessus du bouton
+  openPastePopup();
+};
+
+async function handleClipboardText(raw, df, parser=null) {
+  // console.log('📋 Texte collé :', raw);
+
+  if (raw == null) return;
+
+  let parsed = null;
+
+  if (!parser) {
+    if (looksLikeUrl(raw)) { 
+      if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
+        parsed = await asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
+      } 
+      else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/")) {
+        parsed = await asyncCallAvecOverlayAttente(parseAvignonInSpecPageUrl, raw, 'Echec collage');
+      } 
+      else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
+        parsed = await asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
+      } 
+      else if (raw.includes("www.festivaloffavignon.com/spectacles")) {
+        parsed = await asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
+      } 
+      else {
+        alert("Il n'existe pas de parser pour cette adresse");
+      }
+    } else {
+      switch (true) {
+        case isAvignonOffSpecPageText(raw):
+          parsed = syncCallAvecOverlayAttente(parseAvignonOffSpecPageText, raw, 'Echec collage');
+          break;
+        case isAvignonOffProgPageText(raw):
+          parsed = syncCallAvecOverlayAttente(parseAvignonOffProgPageText, raw, 'Echec collage');
+          break;
+        case isAvignonInProgPageText(raw):
+          parsed = syncCallAvecOverlayAttente(parseAvignonInProgPageText, raw, 'Echec collage');
+          break;
+        case isAvignonInSpecPageText(raw):
+          parsed = syncCallAvecOverlayAttente(parseAvignonInSpecPageText, raw, 'Echec collage');
+          break;
+      }
+    }
+    if (!parsed || parsed.length == 0) {
+      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogues, afficher le programme ou la page d'un spectacle et copier le texte de la page");
+      return null;
+    }
+  } else {
+    if (parser == 'parseAvignonOffProgPage') {
+      parsed = parseAvignonOffProgPageText(raw);
+      if (!parsed || parsed.length == 0) {
+        alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+        return null;
+      }
+    } else if (parser == 'parseAvignonInProgPage') {
+      parsed = parseAvignonInProgPageText(raw);
+      if (!parsed || parsed.length == 0) {
+        alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du In, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+        return null;
+      }
+    } 
+  }
+
+  const nouvellesActivites = [];
+  if (!parsed || parsed.length == 0) parsed = [{...PARSED_DEFAULT}];
+
+  for (const row of parsed) {
+
+    const nom = row.Activite || null;
+
+    const hyperlienDefault = (nom) ? 
+      (!row.Orga || row.Orga.trim().toLowerCase == 'off') ? 
+      `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nom.trim().replace(/\s+/g, '+')}` : 
+      `https://festival-avignon.com/fr/edition-2025/programmation/par-categorie`: 
+      null;
+
+    const nouvelleActivite = {
+        __uuid: crypto.randomUUID?.() || String(Date.now()),
+        Date: null, 
+        Debut: row.Debut || null, 
+        Duree: row.Duree || null,
+        Activite: nom, 
+        Lieu: row.Lieu || null, 
+        Sessions: row.Sessions || null,
+        Relaches: row.Relaches || null, 
+        Style: row.Style || null,
+        Orga: row.Orga || null,
+        Reserve: null, 
+        Priorite: null, 
+        Hyperlien: row.Hyperlien || hyperlienDefault,
+      }
+      nouvellesActivites.push(nouvelleActivite);
+  }
+
+  recalcFinForAll(nouvellesActivites);
   if (!nouvellesActivites || nouvellesActivites.length == 0) return;
-  ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
+  // ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
+  ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(nouvellesActivites, rows, ['Activite', 'Debut', 'Sessions'])));
 
   // Maj des sélections
   setTimeout(() => {
@@ -3713,6 +3094,7 @@ async function doAjoutActivitesParCollage() {
     openExpander?.('exp-non-programmees');
     selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
   }, 50);
+  
 }
 
 // Suppression d'une activité

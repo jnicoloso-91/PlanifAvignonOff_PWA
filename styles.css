@@ -1671,8 +1671,8 @@ main, .page-wrap {
 #paste-proxy {
   border: 1px solid #ccc;
   border-radius: 8px;
-  min-height: 44px;
-  line-height: 1.2;
+  min-height: 30px;
+  line-height: 1;
   padding: 10px;
   outline: none;
 }

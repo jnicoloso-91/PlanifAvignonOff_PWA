@@ -24,6 +24,7 @@ export function logToPage(...args) {
   ).join(' ') + '\n';
 }
 
+// Ouvre une URL
 export function openUrl(u, IosPwaMode=true){
   if (!u) return;
   const url = /^https?:\/\//i.test(u) ? u : ('https://' + u);
@@ -60,3 +61,52 @@ export function openUrl(u, IosPwaMode=true){
   catch(_) { window.location.assign(url); }
   // logToPage(`Fin openUrl en mode Standard sur ${windowName}`);
 }
+
+// Est-ce qu'une string ressemble à une URL
+export function looksLikeUrl(text) {
+  if (!text) return false;
+  const re = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?$/i;
+  return re.test(text.trim());
+}
+
+// Merge deux tableaux sans duplication.
+// col donne la colonne à tester.
+// Si deux lignes ont la même valeur sur la colonne donnée par col la première est gardée.
+export function mergeRowsNoDup(arr1, arr2, col) {
+  const map = new Map();
+  for (const r of [...arr1, ...arr2]) {
+    const key = String(r[col] || '').trim().toLowerCase();
+    if (!map.has(key)) map.set(key, r);
+  }
+  return Array.from(map.values());
+}
+
+// Merge deux tableaux sans duplication.
+// cols donne les colonnes à tester.
+// Si deux lignes ont la même valeur sur les colonnes données par cols la première est gardée.
+export function mergeRowsNoDupMultiKey(arr1, arr2, cols, normalizer) {
+  const map = new Map();
+  // On conserve l’ordre d’arrivée : d’abord arr1, puis arr2
+  for (const r of arr1) {
+    const k = buildKey(r, cols, normalizer);
+    if (!map.has(k)) map.set(k, r);
+  }
+  for (const r of arr2) {
+    const k = buildKey(r, cols, normalizer);
+    if (!map.has(k)) map.set(k, r);
+  }
+  return Array.from(map.values());
+}
+
+// Normalizer par défaut : trim + lower + sans accents
+const defaultNormalizer = v => String(v ?? '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/\s+/g, ' ').trim().toLowerCase();
+
+// Séparateur sûr (Unit Separator) pour éviter les collisions
+const SEP = '\x1F';
+
+function buildKey(row, cols, normalizer = defaultNormalizer) {
+  return cols.map(c => normalizer(row?.[c])).join(SEP);
+}
+
