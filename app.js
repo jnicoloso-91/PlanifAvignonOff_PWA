@@ -16,6 +16,7 @@ import {
 
 import { 
   isIOS,
+  logToPage,
   looksLikeUrl, 
   mergeRowsNoDup,
   mergeRowsNoDupMultiKey, 
@@ -3088,7 +3089,10 @@ async function getClipBoardText(df, parser=null) {
     }
   } catch {}
   // 2️⃣ Fallback : affiche la popup juste au-dessus du bouton
-  if (isIOS) openPastePopup();
+  if (isIOS) {
+    logToPage('isIOS)');
+    openPastePopup();
+  }
 };
 
 async function handleClipboardText(raw, df, parser=null) {
