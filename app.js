@@ -2984,8 +2984,8 @@ async function getClipBoardText(df, parser=null) {
         window.innerWidth - dlgW - 8,
         Math.max(8, rect.left + rect.width/2 - dlgW/2)
       );
-      dialog.style.top  = ${top + window.scrollY}px;
-      dialog.style.left = ${left + window.scrollX}px;
+      dialog.style.top  = `${top + window.scrollY}px`;
+      dialog.style.left = `${left + window.scrollX}px`;
 
       // Prépare la zone et assure un focus "solide"
       proxy.textContent = '';
@@ -3007,7 +3007,7 @@ async function getClipBoardText(df, parser=null) {
         });
       });
 
-      // --- LISTENERS ROBUSTES ---
+      // --- LISTENERS ---
 
       // 1) beforeinput (iOS envoie insertFromPaste)
       const onBeforeInput = (e) => {
