@@ -6103,57 +6103,128 @@ function initSheetGrids() {
 //   });
 // }
 
-function setVHVar(){
-  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
-}
+// function setVHVar(){
+//   document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+// }
+
+// function collectGridApis(gridsLike) {
+//   if (!gridsLike) return [];
+
+//   // tableau d’handles
+//   if (Array.isArray(gridsLike)) {
+//     return gridsLike.map(h => h?.api).filter(Boolean);
+//   }
+
+//   // Map / Set
+//   if (typeof gridsLike.forEach === 'function') {
+//     const out = [];
+//     gridsLike.forEach(v => out.push(v?.api || v));
+//     return out.filter(api => api && typeof api.onGridSizeChanged === 'function');
+//   }
+
+//   // handle unique avec .api
+//   if (gridsLike.api && typeof gridsLike.api.onGridSizeChanged === 'function') {
+//     return [gridsLike.api];
+//   }
+
+//   // objet simple {gridId: handle}
+//   if (typeof gridsLike === 'object') {
+//     return Object.values(gridsLike)
+//       .map(h => h?.api)
+//       .filter(api => api && typeof api.onGridSizeChanged === 'function');
+//   }
+
+//   return [];
+// }
+
+// function repaintAndResizeGrids() {
+//   const main = document.querySelector('.page-wrap') || document.body;
+//   main.style.visibility = 'hidden';
+//   void main.offsetHeight;
+//   main.style.visibility = '';
+
+//   const sheet = document.querySelector('.sheet-panel');
+//   if (sheet) sheet.style.removeProperty('transform');
+
+//   const apis = collectGridApis(window.grids);
+
+//   requestAnimationFrame(() => {
+//     apis.forEach(api => api.onGridSizeChanged());
+//     requestAnimationFrame(() => {
+//       apis.forEach(api => api.onGridSizeChanged());
+//     });
+//   });
+// }
+
 
 function collectGridApis(gridsLike) {
   if (!gridsLike) return [];
-
-  // tableau d’handles
-  if (Array.isArray(gridsLike)) {
-    return gridsLike.map(h => h?.api).filter(Boolean);
-  }
-
-  // Map / Set
+  if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
   if (typeof gridsLike.forEach === 'function') {
-    const out = [];
-    gridsLike.forEach(v => out.push(v?.api || v));
-    return out.filter(api => api && typeof api.onGridSizeChanged === 'function');
+    const out=[]; gridsLike.forEach(v => out.push(v?.api || v)); return out.filter(a => a?.onGridSizeChanged);
   }
-
-  // handle unique avec .api
-  if (gridsLike.api && typeof gridsLike.api.onGridSizeChanged === 'function') {
-    return [gridsLike.api];
-  }
-
-  // objet simple {gridId: handle}
+  if (gridsLike.api?.onGridSizeChanged) return [gridsLike.api];
   if (typeof gridsLike === 'object') {
-    return Object.values(gridsLike)
-      .map(h => h?.api)
-      .filter(api => api && typeof api.onGridSizeChanged === 'function');
+    return Object.values(gridsLike).map(h => h?.api).filter(a => a?.onGridSizeChanged);
   }
-
   return [];
 }
 
+function kickRepaint(el) {
+  if (!el) return;
+  // méthode visibility: toggle
+  el.style.visibility = 'hidden';
+  void el.offsetHeight;
+  el.style.visibility = '';
+}
+
+function domSwap(el) {
+  if (!el || !el.parentNode) return;
+  const ph = document.createComment('ph');
+  const p = el.parentNode;
+  p.replaceChild(ph, el);
+  p.insertBefore(el, ph);
+  p.removeChild(ph);
+}
+
 function repaintAndResizeGrids() {
-  const main = document.querySelector('.page-wrap') || document.body;
-  main.style.visibility = 'hidden';
-  void main.offsetHeight;
-  main.style.visibility = '';
-
-  const sheet = document.querySelector('.sheet-panel');
-  if (sheet) sheet.style.removeProperty('transform');
-
   const apis = collectGridApis(window.grids);
+  const page = document.querySelector('.grid-page') || document.body;
 
+  kickRepaint(page);
+
+  // 2 passes rAF pour iOS
   requestAnimationFrame(() => {
-    apis.forEach(api => api.onGridSizeChanged());
+    apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged());
     requestAnimationFrame(() => {
-      apis.forEach(api => api.onGridSizeChanged());
+      apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged());
+
+      // Fallback ultime : si la zone grilles est toujours vide (offsetHeight==0)
+      const gridViewport = document.querySelector('.ag-body-viewport') || document.querySelector('.ag-root');
+      if (gridViewport && gridViewport.offsetHeight === 0) {
+        domSwap(document.querySelector('.grid-page') || document.querySelector('.ag-root') || page);
+        // une dernière notif
+        requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged()));
+      }
     });
   });
+}
+
+function setVHVar() {
+  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+}
+
+let orientTimer = null;
+function onRotateOrResize() {
+  // active le mode secours très brièvement
+  document.documentElement.classList.add('ios-orienting');
+  setVHVar();
+
+  clearTimeout(orientTimer);
+  orientTimer = setTimeout(() => {
+    document.documentElement.classList.remove('ios-orienting');
+    repaintAndResizeGrids();
+  }, 300); // 300–400ms laisse à iOS le temps de stabiliser ses barres
 }
 
 
@@ -6187,14 +6258,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // document.addEventListener('visibilitychange', () => {
   //   if (document.visibilityState === 'visible') relayoutSheet();
   // });
-  window.addEventListener('orientationchange', repaintAndResizeGrids, { passive: true });
-  window.addEventListener('resize', repaintAndResizeGrids, { passive: true });
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') repaintAndResizeGrids();
-  });
-  setVHVar();
-  window.addEventListener('resize', setVHVar, { passive: true });
-  window.addEventListener('orientationchange', setVHVar, { passive: true });// logToPage('setVHVar done');
+  // window.addEventListener('orientationchange', repaintAndResizeGrids, { passive: true });
+  // window.addEventListener('resize', repaintAndResizeGrids, { passive: true });
+  // document.addEventListener('visibilitychange', () => {
+  //   if (document.visibilityState === 'visible') repaintAndResizeGrids();
+  // });
+  // setVHVar();
+  // window.addEventListener('resize', setVHVar, { passive: true });
+  // window.addEventListener('orientationchange', setVHVar, { passive: true });// logToPage('setVHVar done');
+// boot
+setVHVar();
+window.addEventListener('orientationchange', onRotateOrResize, { passive: true });
+window.addEventListener('resize', onRotateOrResize, { passive: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') onRotateOrResize();
+});
+  logToPage('✅ Après setVHVar...');
 
   console.log('✅ Application initialisée');
 

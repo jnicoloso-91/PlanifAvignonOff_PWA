@@ -1784,41 +1784,19 @@ body.lock-page-scroll {
 /* Résolution du pb de disparition de la page planning au basculement Iphone si sheet affichée (bug IOS)   */
 /* ========================================================================================================*/
 
-/* iOS only */
-@supports (-webkit-touch-callout: none) {
-  /* ⚠️ désactive tout flou/filtre du backdrop pendant l’orientation */
-  .sheet-backdrop {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-    filter: none !important;
-  }
-
-  /* Évite les transforms superflus sur l’overlay */
-  .sheet-panel {
-    will-change: auto !important;
-    /* si tu avais un transform pour ouvrir/fermer, OK, mais pas de translateZ(0) permanent */
-  }
-
-  /* Donne à la grille son propre calque (si le fond gèle) */
-  .ag-root, .ag-root-wrapper {
-    transform: translateZ(0);
-    will-change: transform;
-  }
+/* mode secours activé par .ios-orienting (posé en JS pendant 200–400ms) */
+.ios-orienting .sheet-backdrop,
+.ios-orienting .sheet-panel {
+  position: absolute !important;   /* ⟵ casse le calque fixed qui fige */
+  transform: none !important;
 }
 
-:root { --vh: 1vh; }
-@supports (-webkit-touch-callout: none) {
-  /* met à jour via JS au boot + à la rotation */
+.ios-orienting body {
+  overflow: auto !important;       /* ⟵ retire le lock scroll le temps du recalage */
 }
 
-.sheet-backdrop {
-  position: fixed; inset: 0;
-  height: 100dvh;
-  height: calc(var(--vh) * 100);
-}
-
-.sheet-panel {
-  position: fixed; left: 0; right: 0; bottom: 0;
-  max-height: calc(var(--vh) * 100 - 20px);
-  height: calc(var(--vh) * 60);
+/* donne à la zone grilles un layer propre (si pas déjà fait) */
+.grid-page, .ag-root, .ag-root-wrapper {
+  transform: translateZ(0);
+  will-change: transform;
 }
