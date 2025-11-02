@@ -1784,20 +1784,45 @@ body.lock-page-scroll {
 /* Résolution du pb de disparition de la page planning au basculement Iphone si sheet affichée (bug IOS)   */
 /* ========================================================================================================*/
 
-/* Backdrop + panneau : éviter 100vh sur iOS */
-.sheet-backdrop,
-.sheet-panel {
+:root { --vh: 1vh; } /* sera mis à jour en JS */
+
+.sheet-backdrop {
   position: fixed;
   inset: 0;
-  height: 100dvh;                /* ✅ iOS 16+ et modernes */
-  /* fallback si dvh non supporté (Android/iOS anciens) */
-  height: calc(var(--vh, 1vh) * 100);
-  will-change: transform;        /* evite les glitches de repaint */
-  transform: translateZ(0);      /* force un layer GPU plus stable */
+  height: 100dvh;                          /* iOS modernes */
+  height: calc(var(--vh) * 100);           /* fallback */
+  background: rgba(0,0,0,.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
 }
 
-/* Évite de figer le layout derrière avec des overflow “piégeux” */
-.page-wrap, .grid-pane {
-  /* pas de transform sur de gros wrappers, ça casse l’inertie et le repaint */
-  transform: none !important;
+.sheet-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
 }
+
+.sheet-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;                                /* ✅ ancrage bas, pas de top */
+  max-height: calc(var(--vh) * 100 - 20px); /* ne dépasse jamais l’écran */
+  height: 60vh;                             /* ta hauteur courante */
+  height: calc(var(--vh) * 60);             /* cohérent avec --vh */
+  background: #fff;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  padding-bottom: env(safe-area-inset-bottom);
+  transform: translateY(100%);              /* ✅ fermé par défaut */
+  transition: transform .25s ease;
+  will-change: transform;
+}
+
+/* Ouvert */
+.sheet-panel.open {
+  transform: translateY(0);
+}
+
+/* (optionnel) désactiver l’animation pendant recalage */
+.sheet-panel.no-anim { transition: none !important; }
