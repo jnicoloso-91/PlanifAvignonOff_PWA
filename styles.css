@@ -1749,3 +1749,49 @@ main, .page-wrap {
 
 /* Évite le reflow/zoom “text autosizing” */
 html { -webkit-text-size-adjust: 100%; }
+
+
+/* ================================================*/
+/* Amélioration fluidité scrolling en y sur IOS    */
+/* ================================================*/
+
+/* ✦ La zone qui scrolle vraiment dans AG Grid */
+.ag-body-viewport,
+.ag-center-cols-viewport {
+  /* Inertie iOS (momentum) */
+  -webkit-overflow-scrolling: touch;
+  /* Empêche le scroll chaining vers les parents */
+  overscroll-behavior: contain;           /* moderne */
+  overscroll-behavior-y: contain;
+  /* Indique qu’on gère le scroll au doigt ici (y et x pour AG Grid) */
+  touch-action: pan-y pan-x;
+}
+
+/* Le wrapper de la grille ne doit PAS scroller */
+.grid-pane, .ag-root-wrapper-body, .ag-root {
+  overflow: hidden;                        /* évite d’avoir 2 conteneurs scrollables */
+}
+
+/* Optionnel : empêcher l’élastique iOS de remonter/descendre la page 
+   quand on est au bord de la grille */
+body.lock-page-scroll {
+  overscroll-behavior-y: none;
+}
+
+/* Si tu utilises une classe d’override overflow visible en édition,
+   évite de l’appliquer au viewport (sinon Safari repart scroller la page) */
+.ag-overflow-visible .ag-body-viewport,
+.ag-overflow-visible .ag-center-cols-viewport {
+  /* NE PAS remettre visible ici, conserve auto pour le scroll fluide */
+  overflow: auto !important;
+}
+
+/* Mets le popup des éditeurs/menus AU-DESSUS sans toucher au overflow */
+.ag-popup, .ag-popup-editor, .ag-menu, .ag-rich-select {
+  position: absolute;
+  z-index: 9999;                 /* > à tout ce qui colore les rows */
+}
+
+/* Petit plus : désactiver les “glissements” latéraux iOS dans les grids si tu ne veux pas de pan-x.
+   À n’activer que si tu n’as pas besoin du scroll horizontal au doigt. */
+/* .ag-body-viewport, .ag-center-cols-viewport { touch-action: pan-y; } */
