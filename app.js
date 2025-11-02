@@ -4622,25 +4622,10 @@ function openSheet({
   replaceExisting = false
 } = {}) {
 
-  // 0) empêcher l’empilement
-  // const existing = document.querySelector('.sheet-wrap.is-open');
-  // if (existing && !replaceExisting) {
-  //   const existingPanel = existing.querySelector('.sheet-panel');
-  //   if (existingPanel) {
-  //     existingPanel.animate(
-  //       [{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }],
-  //       { duration: 180, easing: 'ease-out' }
-  //     );
-  //   }
-  //   return {
-  //     close: () => existing.remove(),
-  //     el: existing,
-  //     body: existing.querySelector('.sheet-body'),
-  //     panel: existingPanel
-  //   };
-  // }
-  // if (existing && replaceExisting) existing.remove();
-  // (plus de rebond ici : on suppose que l'appelant passe par openSheetExclusive)
+  // Bug bascule IPhone
+  setVHVar();
+  document.querySelector('.sheet-backdrop')?.classList.add('open');
+  document.querySelector('.sheet-panel')?.classList.add('open');
 
   // 1) structure
   const wrap = document.createElement('div');
@@ -4679,16 +4664,12 @@ function openSheet({
   document.body.appendChild(wrap);
 
   // 2) fermeture
-  // const destroy = () => {
-  //   wrap.classList.remove('is-open');
-  //   // petite anim de sortie assurée par le CSS (transform)
-  //   setTimeout(() => {
-  //     wrap.remove();
-  //     unlockScroll();          // ✅ rétablit le scroll page
-  //     onClose?.();
-  //   }, 220);
-  // };
   const destroy = () => {
+
+    //  Bug bascule IOS
+    document.querySelector('.sheet-backdrop')?.classList.remove('open');
+    document.querySelector('.sheet-panel')?.classList.remove('open');
+
     // évite double-close
     if (wrap.classList.contains('is-closing')) return;
 
@@ -4716,50 +4697,6 @@ function openSheet({
       }
     }, 400);
   };
-
-  // function closeSmoothFrom(dy){
-  //   // 1) réactiver transitions si elles ont été coupées
-  //   wrap.classList.remove('dragging');
-  //   panel.style.willChange   = '';
-  //   backdrop.style.willChange= '';
-  //   panel.style.transition   = '';  // respecte les transitions CSS
-  //   backdrop.style.transition= '';
-
-  //   // 2) position de départ = position atteinte par le drag
-  //   panel.style.transform = `translateY(${dy}px)`;
-  //   const k = Math.max(0, Math.min(1, dy / 180));
-  //   backdrop.style.opacity = String(1 - 0.7 * k);
-
-  //   // 3) IMPORTANT : forcer un reflow pour "sceller" le point de départ
-  //   // avant de basculer en is-closing
-  //   void panel.offsetHeight;
-
-  //   // 4) bascule en .is-closing -> le CSS anime vers translateY(100%) / opacity:0
-  //   wrap.classList.add('is-closing');
-  //   wrap.classList.remove('is-open');
-
-  //   // 5) cleanup quand l’anim est finie
-  //   const onEnd = (ev) => {
-  //     if (ev.target !== panel || ev.propertyName !== 'transform') return;
-  //     panel.removeEventListener('transitionend', onEnd);
-  //     try { wrap.remove(); } catch {}
-  //     unlockScroll?.();
-  //     onClose?.();
-  //   };
-  //   panel.addEventListener('transitionend', onEnd);
-
-  //   // filet de sécu si pas d’event
-  //   setTimeout(() => {
-  //     if (!wrap.isConnected) return;
-  //     panel.removeEventListener('transitionend', onEnd);
-  //     try { wrap.remove(); } catch {}
-  //     unlockScroll?.();
-  //     onClose?.();
-  //   }, 500);
-  // }
-
-  // ✅ ici, on attache le swipe avant de monter le contenu
-  // attachSwipeToClose(wrap, panel, handle, header, backdrop, destroy);
 
   function closeSmoothFrom(dy){
     // 0) On est sûr de ne plus être en mode "drag sans transition"
@@ -4835,7 +4772,6 @@ function openSheet({
     });
   }
 
-
   attachSwipeToClose(wrap, panel, handle, header, backdrop, closeSmoothFrom);
 
   backdrop.addEventListener('click', destroy);
@@ -4881,7 +4817,7 @@ function openSheet({
 
       // We still wait for viewport to settle, but we already own the gesture
       waitViewportSettle(300).then(() => {
-        /* nothing extra here; we already started */
+      /* nothing extra here; we already started */
       });
     };
 
@@ -6127,19 +6063,19 @@ function initSheetGrids() {
 }
 
 function setVHVar() {
-  document.documentElement.style.setProperty('--vh', ${window.innerHeight * 0.01}px);
+  document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
 }
 
-// Ouvre/ferme
-function openSheet() {
-  setVHVar();
-  document.querySelector('.sheet-backdrop')?.classList.add('open');
-  document.querySelector('.sheet-panel')?.classList.add('open');
-}
-function closeSheet() {
-  document.querySelector('.sheet-backdrop')?.classList.remove('open');
-  document.querySelector('.sheet-panel')?.classList.remove('open');
-}
+// // Ouvre/ferme
+// function openSheet() {
+//   setVHVar();
+//   document.querySelector('.sheet-backdrop')?.classList.add('open');
+//   document.querySelector('.sheet-panel')?.classList.add('open');
+// }
+// function closeSheet() {
+//   document.querySelector('.sheet-backdrop')?.classList.remove('open');
+//   document.querySelector('.sheet-panel')?.classList.remove('open');
+// }
 
 // Recalage iOS au retour portrait/paysage
 function relayoutSheet() {
