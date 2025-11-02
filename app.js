@@ -4622,10 +4622,10 @@ function openSheet({
   replaceExisting = false
 } = {}) {
 
-  // Bug bascule IPhone
-  setVHVar();
-  document.querySelector('.sheet-backdrop')?.classList.add('open');
-  document.querySelector('.sheet-panel')?.classList.add('open');
+  // // Bug bascule IPhone
+  // setVHVar();
+  // document.querySelector('.sheet-backdrop')?.classList.add('open');
+  // document.querySelector('.sheet-panel')?.classList.add('open');
 
   // 1) structure
   const wrap = document.createElement('div');
@@ -4666,9 +4666,9 @@ function openSheet({
   // 2) fermeture
   const destroy = () => {
 
-    //  Bug bascule IOS
-    document.querySelector('.sheet-backdrop')?.classList.remove('open');
-    document.querySelector('.sheet-panel')?.classList.remove('open');
+    // //  Bug bascule IOS
+    // document.querySelector('.sheet-backdrop')?.classList.remove('open');
+    // document.querySelector('.sheet-panel')?.classList.remove('open');
 
     // évite double-close
     if (wrap.classList.contains('is-closing')) return;
@@ -6062,44 +6062,85 @@ function initSheetGrids() {
   window.sheetGrids = window.sheetGrids || new Map();
 }
 
+// function setVHVar() {
+//   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+// }
+
+// // // Ouvre/ferme
+// // function openSheet() {
+// //   setVHVar();
+// //   document.querySelector('.sheet-backdrop')?.classList.add('open');
+// //   document.querySelector('.sheet-panel')?.classList.add('open');
+// // }
+// // function closeSheet() {
+// //   document.querySelector('.sheet-backdrop')?.classList.remove('open');
+// //   document.querySelector('.sheet-panel')?.classList.remove('open');
+// // }
+
+// // Recalage iOS au retour portrait/paysage
+// function relayoutSheet() {
+//   setVHVar();
+//   const panel = document.querySelector('.sheet-panel');
+//   if (!panel) return;
+//   const wasOpen = panel.classList.contains('open');
+
+//   panel.classList.add('no-anim'); // évite un saut visible
+//   // force reflow
+//   void panel.offsetHeight;
+
+//   // si ouvert, ré-applique bien translateY(0)
+//   if (wasOpen) {
+//     panel.style.transform = 'translateY(0)';
+//   } else {
+//     panel.style.transform = 'translateY(100%)';
+//   }
+
+//   // relâche
+//   requestAnimationFrame(() => {
+//     panel.classList.remove('no-anim');
+//     panel.style.removeProperty('transform'); // laisse la classe .open gouverner
+//   });
+// }
+
+
+// Bug bascule Iphone (IOS)
 function setVHVar() {
+  // fixe le bug 100vh iOS en paysage
   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
 }
 
-// // Ouvre/ferme
-// function openSheet() {
-//   setVHVar();
-//   document.querySelector('.sheet-backdrop')?.classList.add('open');
-//   document.querySelector('.sheet-panel')?.classList.add('open');
-// }
-// function closeSheet() {
-//   document.querySelector('.sheet-backdrop')?.classList.remove('open');
-//   document.querySelector('.sheet-panel')?.classList.remove('open');
-// }
+function forceReflow(el) {
+  if (!el) return;
+  // toggling pour forcer un repaint du calque
+  el.style.willChange = 'transform';
+  void el.offsetHeight; // reflow
+  el.style.willChange = '';
+}
 
-// Recalage iOS au retour portrait/paysage
-function relayoutSheet() {
+function onRotateOrResize() {
   setVHVar();
-  const panel = document.querySelector('.sheet-panel');
-  if (!panel) return;
-  const wasOpen = panel.classList.contains('open');
 
-  panel.classList.add('no-anim'); // évite un saut visible
-  // force reflow
-  void panel.offsetHeight;
+  // 1) forcer un repaint de la page derrière la sheet
+  const main = document.querySelector('.page-wrap') || document.body;
+  forceReflow(main);
 
-  // si ouvert, ré-applique bien translateY(0)
-  if (wasOpen) {
-    panel.style.transform = 'translateY(0)';
-  } else {
-    panel.style.transform = 'translateY(100%)';
+  // 2) si une sheet est ouverte, “ré-étalonner” sa hauteur
+  const sheet = document.querySelector('.sheet-panel');
+  if (sheet) {
+    sheet.style.height = ''; // laisse le CSS recalculer 100dvh / --vh
+    forceReflow(sheet);
   }
 
-  // relâche
-  requestAnimationFrame(() => {
-    panel.classList.remove('no-anim');
-    panel.style.removeProperty('transform'); // laisse la classe .open gouverner
-  });
+  // 3) prévenir AG Grid que la taille a changé
+  try {
+    (window.grids || []).forEach(h => {
+      const api = h?.api;
+      if (!api?.onGridSizeChanged) return;
+      api.onGridSizeChanged();
+      // petit délai pour Safari le temps que les barres d’outils se stabilisent
+      requestAnimationFrame(() => api.onGridSizeChanged());
+    });
+  } catch (e) {}
 }
 
 
@@ -6126,16 +6167,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // await refreshAllGrids();
   // appJustLaunched = false;
 
+  // setVHVar();
+  // window.addEventListener('resize', relayoutSheet, { passive: true });
+  // window.addEventListener('orientationchange', relayoutSheet, { passive: true });
+  // document.addEventListener('visibilitychange', () => {
+  //   if (document.visibilityState === 'visible') relayoutSheet();
+  // });
+  // logToPage('setVHVar done');
   setVHVar();
-  window.addEventListener('resize', relayoutSheet, { passive: true });
-  window.addEventListener('orientationchange', relayoutSheet, { passive: true });
+  window.addEventListener('orientationchange', onRotateOrResize, { passive: true });
+  window.addEventListener('resize', onRotateOrResize, { passive: true });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') relayoutSheet();
+    if (document.visibilityState === 'visible') onRotateOrResize();
   });
-  logToPage('setVHVar done');
 
   console.log('✅ Application initialisée');
 
   // Pour DEBUG
-  // logToPage('✅ Application initialisée');
+  logToPage('✅ Application initialisée');
 });
