@@ -1642,9 +1642,8 @@ main, .page-wrap {
   font-size: 0.9rem
 }
 @media (max-width: 812px) {
-  .help-toc a,
   .help-chapter {
-    font-size: 0.6rem
+    font-size: 0.8rem
   }
 }
 
