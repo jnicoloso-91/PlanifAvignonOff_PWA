@@ -1319,7 +1319,7 @@ main, .page-wrap {
 
 .sheet-backdrop {
   /* flex: 1; background: rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px); */
-  background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);
+  background:rgba(231, 231, 231, 0.3); /*backdrop-filter:blur(0px);*/
 }
 /* petite poignée centrée, style iOS */
 .sheet-handle{
