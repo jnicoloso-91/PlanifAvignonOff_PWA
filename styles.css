@@ -1646,7 +1646,9 @@ main, .page-wrap {
   height: calc(60vh - 40px);
   animation: fadeIn 0.2s ease;
 }
-.help-chapter.active { display: block; }
+.help-chapter.active { 
+  display: block; 
+}
 .help-back {
   display: inline-flex;
   align-items: center;
@@ -1658,8 +1660,6 @@ main, .page-wrap {
 .help-back svg {
   width: 14px; height: 14px;
 }
-.help-block ul { margin: 8px 0 12px 20px; }
-.help-block li { margin: 4px 0; }
 @keyframes fadeIn { from {opacity:0} to {opacity:1} }
 
 .help-toc a,
@@ -1672,15 +1672,32 @@ main, .page-wrap {
   }
 } */
 
-.help-block ul {
-  padding-left: 0.0em;
+/* .help-block ul { margin: 8px 0 12px 20px; } */
+/* .help-block li { margin: 4px 0; } */
+/* .help-block ul {
+  padding-left: 0.2em;
   margin-left: 0;
   list-style-type: disc;
 }
 .help-block li::marker {
-  font-size: 0.8em;        /* rend la puce plus discrète */
+  font-size: 0.8em;        
+} */
+
+/* Listes dans l’aide */
+.help-block ul,
+.help-block ol {
+  margin: 0.5em 0 0.8em;      /* espace vertical */
+  padding-left: 1.2em;        /* retrait pour voir les puces */
+  list-style-position: outside;
 }
 
+.help-block ul { list-style-type: disc; }
+.help-block ol { list-style-type: decimal; }
+
+.help-block li {
+  margin: 0.25em 0;
+  display: list-item;         /* remet le mode liste si un reset l’a changé */
+}
 
 /* ====================*/
 /*  Popup Clipboard    */
