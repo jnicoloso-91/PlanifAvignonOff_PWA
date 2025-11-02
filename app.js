@@ -4637,8 +4637,8 @@ function openSheet({
 
   const panel = document.createElement('div');
   panel.className = 'sheet-panel';
-  // if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
-  // if (panelHeight)    panel.style.height    = panelHeight;
+  if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
+  if (panelHeight)    panel.style.height    = panelHeight;
 
   // poignée + header + body
   const handle = document.createElement('span');
@@ -4939,21 +4939,21 @@ async function closeAnySheet({ immediate = false } = {}) {
   document.body.style.removeProperty('overflow');
 }
 
-let __sheetBusy = false;
+// let __sheetBusy = false;
 
-async function openSheetExclusive(opts = {}) {
-  // supprime/ferme toute sheet actuelle avant d’ouvrir
-  if (__sheetBusy) return;         // anti re-entrance
-  __sheetBusy = true;
-  try {
-    await closeAnySheet({ immediate: false }); // attend la fermeture
-    const inst = openSheet({ ...opts, replaceExisting: false }); // ta fonction existante
-    return inst;
-  } finally {
-    // petite garde pour laisser le DOM se poser
-    setTimeout(() => { __sheetBusy = false; }, 50);
-  }
-}
+// async function openSheetExclusive(opts = {}) {
+//   // supprime/ferme toute sheet actuelle avant d’ouvrir
+//   if (__sheetBusy) return;         // anti re-entrance
+//   __sheetBusy = true;
+//   try {
+//     await closeAnySheet({ immediate: false }); // attend la fermeture
+//     const inst = openSheet({ ...opts, replaceExisting: false }); // ta fonction existante
+//     return inst;
+//   } finally {
+//     // petite garde pour laisser le DOM se poser
+//     setTimeout(() => { __sheetBusy = false; }, 50);
+//   }
+// }
 
 // --- keep this helper outside openSheet ---
 function waitViewportSettle(timeout = 350) {
@@ -6188,45 +6188,125 @@ function initSheetGrids() {
 //   p.removeChild(ph);
 // }
 
-function repaintAndResizeGrids() {
+// function repaintAndResizeGrids() {
+//   const apis = collectGridApis(window.grids);
+//   const page = document.querySelector('.grid-page') || document.body;
+
+//   kickRepaint(page);
+
+//   // 2 passes rAF pour iOS
+//   requestAnimationFrame(() => {
+//     apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged());
+//     requestAnimationFrame(() => {
+//       apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged());
+
+//       // Fallback ultime : si la zone grilles est toujours vide (offsetHeight==0)
+//       const gridViewport = document.querySelector('.ag-body-viewport') || document.querySelector('.ag-root');
+//       if (gridViewport && gridViewport.offsetHeight === 0) {
+//         domSwap(document.querySelector('.grid-page') || document.querySelector('.ag-root') || page);
+//         // une dernière notif
+//         requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged()));
+//       }
+//     });
+//   });
+// }
+
+// function setVHVar() {
+//   document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+// }
+
+// let orientTimer = null;
+// function onRotateOrResize() {
+//   // active le mode secours très brièvement
+//   document.documentElement.classList.add('ios-orienting');
+//   setVHVar();
+
+//   clearTimeout(orientTimer);
+//   orientTimer = setTimeout(() => {
+//     document.documentElement.classList.remove('ios-orienting');
+//     repaintAndResizeGrids();
+//   }, 300); // 300–400ms laisse à iOS le temps de stabiliser ses barres
+// }
+
+
+// 1) Portal sous <body>
+function getSheetRoot(){
+  let r = document.getElementById('sheet-root');
+  if(!r){ r = document.createElement('div'); r.id='sheet-root'; document.body.appendChild(r); }
+  return r;
+}
+
+// 2) Ouvrir/fermer
+export function openSheetExclusive({ title, panelHeight='60vh', panelMaxHeight='70vh', mount }){
+  const root = getSheetRoot();
+  root.innerHTML = `
+    <div class="sheet-backdrop"></div>
+    <div class="sheet-panel" role="dialog" aria-modal="true"></div>
+  `;
+  const panel = root.querySelector('.sheet-panel');
+  panel.style.setProperty('--panel-h', panelHeight);
+  panel.style.setProperty('--panel-max-h', panelMaxHeight);
+  mount?.(panel);
+  lockPageScroll(true);
+  requestAnimationFrame(() => root.classList.add('open'));
+}
+
+export function closeSheet(){
+  const root = document.getElementById('sheet-root');
+  root?.classList.remove('open');
+  lockPageScroll(false);
+}
+
+// 3) Scroll-lock safe (pattern “top offset”, pas overflow:hidden)
+let _scrollY = 0;
+function lockPageScroll(lock){
+  if(lock){
+    _scrollY = window.scrollY || 0;
+    document.body.style.top = `-${_scrollY}px`;
+    document.body.classList.add('scroll-locked');
+  }else{
+    document.body.classList.remove('scroll-locked');
+    const y = -parseInt(document.body.style.top||'0',10) || 0;
+    document.body.style.top = '';
+    window.scrollTo(0, y);
+  }
+}
+
+// 4) Rotate handler (coupe anim + notifie AG Grid)
+function collectGridApis(gridsLike){
+  if(!gridsLike) return [];
+  if(Array.isArray(gridsLike)) return gridsLike.map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+  if(typeof gridsLike.forEach==='function'){ const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
+  if(gridsLike.api?.onGridSizeChanged) return [gridsLike.api];
+  if(typeof gridsLike==='object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+  return [];
+}
+
+function onRotate(){
+  const root = document.getElementById('sheet-root');
+  if(root && root.classList.contains('open')){
+    root.classList.add('no-anim');      // pas d’anim pendant recalage
+    void root.offsetHeight;             // reflow
+    requestAnimationFrame(()=> root.classList.remove('no-anim'));
+  }
   const apis = collectGridApis(window.grids);
-  const page = document.querySelector('.grid-page') || document.body;
-
-  kickRepaint(page);
-
-  // 2 passes rAF pour iOS
-  requestAnimationFrame(() => {
-    apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged());
-    requestAnimationFrame(() => {
-      apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged());
-
-      // Fallback ultime : si la zone grilles est toujours vide (offsetHeight==0)
-      const gridViewport = document.querySelector('.ag-body-viewport') || document.querySelector('.ag-root');
-      if (gridViewport && gridViewport.offsetHeight === 0) {
-        domSwap(document.querySelector('.grid-page') || document.querySelector('.ag-root') || page);
-        // une dernière notif
-        requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged && a.onGridSizeChanged()));
-      }
-    });
+  requestAnimationFrame(()=> {
+    apis.forEach(a=>a.onGridSizeChanged?.());
+    requestAnimationFrame(()=> apis.forEach(a=>a.onGridSizeChanged?.()));
   });
 }
 
-function setVHVar() {
-  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
-}
 
-let orientTimer = null;
-function onRotateOrResize() {
-  // active le mode secours très brièvement
-  document.documentElement.classList.add('ios-orienting');
-  setVHVar();
+// console.log(
+//   [...document.querySelectorAll('#sheet-root, #sheet-root *')].some(el=>{
+//     for(let n=el.parentElement;n;n=n.parentElement){
+//       const s=getComputedStyle(n);
+//       if(s.transform!=='none' || s.filter!=='none' || s.backdropFilter!=='none') return true;
+//     }
+//     return false;
+//   })
+// );
 
-  clearTimeout(orientTimer);
-  orientTimer = setTimeout(() => {
-    document.documentElement.classList.remove('ios-orienting');
-    repaintAndResizeGrids();
-  }, 300); // 300–400ms laisse à iOS le temps de stabiliser ses barres
-}
 
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -6274,7 +6354,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 // document.addEventListener('visibilitychange', () => {
 //   if (document.visibilityState === 'visible') onRotateOrResize();
 // });
-  logToPage('✅ Retour orig 2');
+window.addEventListener('orientationchange', onRotate, { passive:true });
+window.addEventListener('resize', onRotate, { passive:true });
+  logToPage('✅ Retour orig 4');
 
   console.log('✅ Application initialisée');
 
