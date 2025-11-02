@@ -321,7 +321,9 @@ export async function parseAvignonInSpecPageUrl(url, { fetcher = _fetchViaCloudF
   if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
-  return parseAvignonInSpecPageDom(doc, url);
+  const parsed = parseAvignonInSpecPageDom(doc, url);
+  if (parsed) parsed.Hyperlien = url;
+  return parsed;
 }
 
 /**
@@ -767,7 +769,9 @@ export async function parseAvignonOffSpecPageUrl(url, { fetcher = _fetchViaCloud
   if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
-  return parseAvignonOffSpecPageDom(doc, url);
+  const parsed = parseAvignonOffSpecPageDom(doc, url);
+  if (parsed) parsed.Hyperlien = url;
+  return parsed;
 }
 
 /**

@@ -3213,17 +3213,17 @@ async function handleClipboardText(raw, df, parser=null) {
       }
     } else {
       switch (true) {
-        case isAvignonOffSpecPageText(raw):
-          parsed = syncCallAvecOverlayAttente(parseAvignonOffSpecPageText, raw, 'Echec collage');
-          break;
-        case isAvignonOffProgPageText(raw):
-          parsed = syncCallAvecOverlayAttente(parseAvignonOffProgPageText, raw, 'Echec collage');
-          break;
         case isAvignonInProgPageText(raw):
           parsed = syncCallAvecOverlayAttente(parseAvignonInProgPageText, raw, 'Echec collage');
           break;
         case isAvignonInSpecPageText(raw):
           parsed = syncCallAvecOverlayAttente(parseAvignonInSpecPageText, raw, 'Echec collage');
+          break;
+        case isAvignonOffProgPageText(raw):
+          parsed = syncCallAvecOverlayAttente(parseAvignonOffProgPageText, raw, 'Echec collage');
+          break;
+        case isAvignonOffSpecPageText(raw):
+          parsed = syncCallAvecOverlayAttente(parseAvignonOffSpecPageText, raw, 'Echec collage');
           break;
       }
     }
@@ -3232,16 +3232,17 @@ async function handleClipboardText(raw, df, parser=null) {
       return null;
     }
   } else {
-    if (parser == 'parseAvignonOffProgPage') {
-      parsed = parseAvignonOffProgPageText(raw);
-      if (!parsed || parsed.length == 0) {
-        alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
-        return null;
-      }
-    } else if (parser == 'parseAvignonInProgPage') {
+    if (parser == 'parseAvignonInProgPage') {
       parsed = parseAvignonInProgPageText(raw);
       if (!parsed || parsed.length == 0) {
         alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du In, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+        return null;
+      }
+    } 
+    else if (parser == 'parseAvignonOffProgPage') {
+      parsed = parseAvignonOffProgPageText(raw);
+      if (!parsed || parsed.length == 0) {
+        alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
         return null;
       }
     } 
@@ -3255,7 +3256,7 @@ async function handleClipboardText(raw, df, parser=null) {
     const nom = row.Activite || null;
 
     const hyperlienDefault = (nom) ? 
-      (!row.Orga || row.Orga.trim().toLowerCase == 'off') ? 
+      (!row.Orga || row.Orga.trim().toLowerCase() == 'off') ? 
       `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nom.trim().replace(/\s+/g, '+')}` : 
       `https://festival-avignon.com/fr/edition-2025/programmation/par-categorie`: 
       null;
