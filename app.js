@@ -5874,40 +5874,6 @@ function openSheetAide() {
     panelHeight: '60vh',
     mount: (body) => {
       body.innerHTML = `
-        <style>
-          .help-toc a {
-            display: block;
-            color: var(--link-color, #0066cc);
-            text-decoration: underline;
-            font-weight: 500;
-            cursor: pointer;
-          }
-          .help-chapter {
-            display: none;
-            overflow-y: auto;
-            height: calc(60vh - 40px);
-            animation: fadeIn 0.2s ease;
-          }
-          .help-chapter.active { display: block; }
-          .help-back {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            color: var(--link-color, #0066cc);
-          }
-          .help-back svg {
-            width: 14px; height: 14px;
-          }
-          .help-block ul { margin: 8px 0 12px 20px; }
-          .help-block li { margin: 4px 0; }
-          @keyframes fadeIn { from {opacity:0} to {opacity:1} }
-          @supports (-webkit-touch-callout: none) {
-            .help-toc, .help-block { font-size: 16px; }
-          }
-        </style>
-
         <!-- Table des matières -->
         <div class="help-toc">
           <a data-target="generalites">Fonctionnalités générales</a>
