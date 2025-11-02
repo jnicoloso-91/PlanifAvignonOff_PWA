@@ -6126,6 +6126,47 @@ function initSheetGrids() {
   window.sheetGrids = window.sheetGrids || new Map();
 }
 
+function setVHVar() {
+  document.documentElement.style.setProperty('--vh', ${window.innerHeight * 0.01}px);
+}
+
+// Ouvre/ferme
+function openSheet() {
+  setVHVar();
+  document.querySelector('.sheet-backdrop')?.classList.add('open');
+  document.querySelector('.sheet-panel')?.classList.add('open');
+}
+function closeSheet() {
+  document.querySelector('.sheet-backdrop')?.classList.remove('open');
+  document.querySelector('.sheet-panel')?.classList.remove('open');
+}
+
+// Recalage iOS au retour portrait/paysage
+function relayoutSheet() {
+  setVHVar();
+  const panel = document.querySelector('.sheet-panel');
+  if (!panel) return;
+  const wasOpen = panel.classList.contains('open');
+
+  panel.classList.add('no-anim'); // évite un saut visible
+  // force reflow
+  void panel.offsetHeight;
+
+  // si ouvert, ré-applique bien translateY(0)
+  if (wasOpen) {
+    panel.style.transform = 'translateY(0)';
+  } else {
+    panel.style.transform = 'translateY(100%)';
+  }
+
+  // relâche
+  requestAnimationFrame(() => {
+    panel.classList.remove('no-anim');
+    panel.style.removeProperty('transform'); // laisse la classe .open gouverner
+  });
+}
+
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('⏳ DOM prêt, initialisation du contexte...');
 
@@ -6147,7 +6188,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3️⃣ Premier rendu
   // await refreshAllGrids();
-  // appJustLaunched = false;
+    // appJustLaunched = false;
+  setVHVar();
+  window.addEventListener('resize', relayoutSheet, { passive: true });
+  window.addEventListener('orientationchange', relayoutSheet, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') relayoutSheet();
+  });
 
   console.log('✅ Application initialisée');
 
