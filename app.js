@@ -6188,13 +6188,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3️⃣ Premier rendu
   // await refreshAllGrids();
-    // appJustLaunched = false;
+  // appJustLaunched = false;
+
   setVHVar();
   window.addEventListener('resize', relayoutSheet, { passive: true });
   window.addEventListener('orientationchange', relayoutSheet, { passive: true });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') relayoutSheet();
   });
+  logToPage('setVHVar done');
 
   console.log('✅ Application initialisée');
 
