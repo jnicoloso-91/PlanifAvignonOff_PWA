@@ -1666,11 +1666,11 @@ main, .page-wrap {
 .help-chapter {
   font-size: 0.9rem
 }
-@media (max-width: 812px) {
+/* @media (max-width: 812px) {
   .help-chapter{
     font-size: 0.8rem
   }
-}
+} */
 
 .help-block ul {
   padding-left: 0.0em;
