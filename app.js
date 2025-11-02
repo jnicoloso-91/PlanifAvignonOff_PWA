@@ -6335,79 +6335,438 @@ function openFileSheet({ title, height, maxHeight, mount }) { ... } // ← celle
 // }
 
 // API universelle : ouvre une sheet paramétrable en réutilisant la base "fileSheet" iOS-safe
-export function openSheetExclusive({
-  title = '',
-  panelHeight = '60vh',       // ex: '60vh' ou 'calc(var(--vh)*60)'
-  panelMaxHeight = '70vh',
-  mount,                      // (containerEl) => { containerEl.innerHTML = '...' }
-  actions = {},               // { new(){}, open(){}, save(){}, ... } mappé par data-action
-  onOpen, onClose
-} = {}) {
+// export function openSheetExclusive({
+//   title = '',
+//   panelHeight = '60vh',       // ex: '60vh' ou 'calc(var(--vh)*60)'
+//   panelMaxHeight = '70vh',
+//   mount,                      // (containerEl) => { containerEl.innerHTML = '...' }
+//   actions = {},               // { new(){}, open(){}, save(){}, ... } mappé par data-action
+//   onOpen, onClose
+// } = {}) {
 
-  // s'il y a déjà une sheet, on la ferme avant (exclusivité)
-  const existing = document.querySelector('.file-sheet');
-  if (existing) existing.remove();
+//   // s'il y a déjà une sheet, on la ferme avant (exclusivité)
+//   const existing = document.querySelector('.file-sheet');
+//   if (existing) existing.remove();
 
-  // squelette identique à ta fileSheet (classes conservées !)
-  const sheet = document.createElement('div');
-  sheet.className = 'file-sheet';
-  sheet.innerHTML = `
-    <div class="file-sheet__backdrop"></div>
-    <div class="file-sheet__panel" role="dialog" aria-modal="true" style="
-      max-height:${panelMaxHeight}; height:${panelHeight};
-    ">
-      <span class="file-sheet__handle" aria-hidden="true"></span>
-      <div class="file-sheet__content">
-        ${title ? `<div class="file-sheet__title">${title}</div>` : ''}
-        <div class="file-sheet__slot"></div>
+//   // squelette identique à ta fileSheet (classes conservées !)
+//   const sheet = document.createElement('div');
+//   sheet.className = 'file-sheet';
+//   sheet.innerHTML = `
+//     <div class="file-sheet__backdrop"></div>
+//     <div class="file-sheet__panel" role="dialog" aria-modal="true" style="
+//       max-height:${panelMaxHeight}; height:${panelHeight};
+//     ">
+//       <span class="file-sheet__handle" aria-hidden="true"></span>
+//       <div class="file-sheet__content">
+//         ${title ? `<div class="file-sheet__title">${title}</div>` : ''}
+//         <div class="file-sheet__slot"></div>
+//       </div>
+//     </div>
+//   `;
+//   document.body.appendChild(sheet);
+
+//   const panel    = sheet.querySelector('.file-sheet__panel');
+//   const backdrop = sheet.querySelector('.file-sheet__backdrop');
+//   const slot     = sheet.querySelector('.file-sheet__slot');
+
+//   // Monte le contenu fourni par l'appelant
+//   if (typeof mount === 'function') {
+//     try { mount(slot); } catch (e) { console.error('mount error:', e); }
+//   }
+
+//   // Apparition (même anim que fileSheet)
+//   requestAnimationFrame(() => {
+//     sheet.classList.add('visible');
+//     panel.style.transform = 'translateY(0)';
+//     onOpen?.();
+//   });
+
+//   // Fermer
+//   function close() {
+//     sheet.classList.remove('visible');
+//     panel.style.transform = 'translateY(100%)';
+//     setTimeout(() => { sheet.remove(); onClose?.(); }, 250);
+//   }
+
+//   // Interactions
+//   backdrop.addEventListener('click', close);
+//   sheet.querySelector('.file-sheet__close')?.addEventListener('click', close);
+//   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); }, { once: true });
+
+//   // Délégation d’actions si le contenu mount a mis des <li data-action="..."> ou <button data-action="...">
+//   sheet.addEventListener('click', (e) => {
+//     const el = e.target.closest('[data-action]');
+//     if (!el) return;
+//     const act = el.getAttribute('data-action');
+//     const fn  = actions[act];
+//     if (typeof fn === 'function') {
+//       close();
+//       // petit rAF pour laisser l’anim se terminer avant action lourde
+//       requestAnimationFrame(() => fn());
+//     }
+//   });
+
+//   return { close, root: sheet, panel, slot };
+// }
+
+
+
+// /**
+//  * openSheetExclusive({
+//  *   title, panelHeight, panelMaxHeight,
+//  *   className,           // classes additionnelles pour le panel
+//  *   legacy: true,        // ajoute les classes "file-sheet__*" attendues par tes sheets
+//  *   contentId,           // id du container où ton code spécialisé installe sa grille/param UI
+//  *   mount(container, helpers), // callback pour rendre le contenu
+//  *   actions: {name: fn}, // click delegation via [data-action]
+//  *   enableSwipe: true,   // swipe pour fermer
+//  *   showClose: true,     // bouton ×
+//  *   onOpen, onAfterOpen, onBeforeClose, onClose
+//  * })
+//  */
+// export function openSheetExclusive(opts = {}) {
+//   const {
+//     title = '',
+//     panelHeight = '60vh',
+//     panelMaxHeight = '70vh',
+//     className = '',
+//     legacy = true,
+//     contentId = 'sheet-content',
+//     mount,
+//     actions = {},
+//     enableSwipe = true,
+//     showClose = true,
+//     onOpen, onAfterOpen, onBeforeClose, onClose,
+//   } = opts;
+
+//   // Exclusif : ferme l’ancienne
+//   document.querySelectorAll('.file-sheet').forEach(n => n.remove());
+
+//   // ---- structure identique à fileSheet + hooks compat ----
+//   const root = document.createElement('div');
+//   root.className = 'file-sheet'; // ⚠ base qui marche sur iOS
+//   root.innerHTML = `
+//     <div class="file-sheet__backdrop"></div>
+//     <div class="file-sheet__panel ${className}" role="dialog" aria-modal="true"
+//          style="max-height:${panelMaxHeight}; height:${panelHeight}">
+//       <span class="file-sheet__handle" aria-hidden="true"></span>
+//       <div class="file-sheet__content">
+//         ${title ? `<div class="file-sheet__title">${title}</div>` : ''}
+//         ${showClose ? `<button class="file-sheet__close" title="Fermer" aria-label="Fermer">×</button>` : ''}
+//         <div class="file-sheet__slot">
+//           <!-- conteneur standard + id dédié pour tes scripts existants -->
+//           <div class="sheet-host ${legacy ? 'legacy-sheet-host' : ''}" id="${contentId}"></div>
+//         </div>
+//       </div>
+//     </div>
+//   `;
+//   document.body.appendChild(root);
+
+//   const backdrop = root.querySelector('.file-sheet__backdrop');
+//   const panel    = root.querySelector('.file-sheet__panel');
+//   const host     = root.querySelector(`#${CSS.escape(contentId)}`);
+//   const closeBtn = root.querySelector('.file-sheet__close');
+
+//   // ---- MOUNT contenu spécialisé ----
+//   const helpers = {
+//     close,
+//     root, panel, host,
+//     select: (sel) => root.querySelector(sel),
+//     selectAll: (sel) => [...root.querySelectorAll(sel)],
+//     // pour AG Grid : force relayout après apparition
+//     pingGrids: () => {
+//       const apis = collectGridApis(window.grids);
+//       requestAnimationFrame(() => {
+//         apis.forEach(a => a.onGridSizeChanged?.());
+//         requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged?.()));
+//       });
+//     }
+//   };
+//   try { mount?.(host, helpers); } catch (e) { console.error('sheet mount error:', e); }
+
+//   // ---- apparition (même anim que fileSheet) ----
+//   requestAnimationFrame(() => {
+//     root.classList.add('visible');
+//     panel.style.transform = 'translateY(0)';
+//     onOpen?.(helpers);
+//     // Important pour AG Grid : attendre 1 frame pour que le panel ait une taille > 0
+//     requestAnimationFrame(() => {
+//       // si container pour grille → garantir une hauteur explicite
+//       const h = host.getBoundingClientRect().height;
+//       if (h < 60) {
+//         host.style.minHeight = '40vh';   // sécurité pour AG Grid
+//       }
+//       helpers.pingGrids();
+//       onAfterOpen?.(helpers);
+//     });
+//   });
+
+//   // ---- fermeture ----
+//   function close(reason = 'manual') {
+//     onBeforeClose?.(helpers, reason);
+//     root.classList.remove('visible');
+//     panel.style.transform = 'translateY(100%)';
+//     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 250);
+//   }
+
+//   // actions déléguées (boutons avec data-action)
+//   root.addEventListener('click', (e) => {
+//     const el = e.target.closest('[data-action]');
+//     if (!el) return;
+//     const act = el.getAttribute('data-action');
+//     const fn  = actions[act];
+//     if (typeof fn === 'function') {
+//       close('action/' + act);
+//       requestAnimationFrame(() => fn());
+//     }
+//   });
+
+//   backdrop.addEventListener('click', () => close('backdrop'));
+//   closeBtn?.addEventListener('click', () => close('close-btn'));
+//   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close('esc'); }, { once: true });
+
+//   // ---- swipe-to-close (depuis la poignée/entête) ----
+//   if (enableSwipe) {
+//     const dragRegion = root.querySelector('.file-sheet__handle') || root.querySelector('.file-sheet__title');
+//     let startY=0, moved=0, dragging=false;
+//     const onStart = (ev) => {
+//       const t = ev.touches ? ev.touches[0] : ev;
+//       startY = t.clientY; moved = 0; dragging = true;
+//       panel.style.transition = 'none';
+//       window.addEventListener('touchmove', onMove, { passive: false });
+//       window.addEventListener('mousemove', onMove, { passive: false });
+//       window.addEventListener('touchend', onEnd);
+//       window.addEventListener('mouseup', onEnd);
+//     };
+//     const onMove = (ev) => {
+//       if (!dragging) return;
+//       const t = ev.touches ? ev.touches[0] : ev;
+//       const dy = Math.max(0, t.clientY - startY);
+//       moved = dy;
+//       panel.style.transform = `translateY(${dy}px)`;
+//       ev.preventDefault();
+//     };
+//     const onEnd = () => {
+//       if (!dragging) return;
+//       dragging = false;
+//       panel.style.transition = ''; // restore
+//       const ph = panel.getBoundingClientRect().height || 1;
+//       if (moved > ph * 0.25) close('swipe');
+//       else panel.style.transform = ''; // rollback
+//       window.removeEventListener('touchmove', onMove);
+//       window.removeEventListener('mousemove', onMove);
+//       window.removeEventListener('touchend', onEnd);
+//       window.removeEventListener('mouseup', onEnd);
+//     };
+//     dragRegion?.addEventListener('touchstart', onStart, { passive: true });
+//     dragRegion?.addEventListener('mousedown', onStart);
+//   }
+
+//   return { close, root, panel, host };
+// }
+
+// Helper robuste déjà donné plus haut
+// function collectGridApis(gridsLike) {
+//   if (!gridsLike) return [];
+//   if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
+//   if (typeof gridsLike.forEach === 'function') {
+//     const out=[]; gridsLike.forEach(v => out.push(v?.api || v));
+//     return out.filter(a => a?.onGridSizeChanged);
+//   }
+//   if (gridsLike.api?.onGridSizeChanged) return [gridsLike.api];
+//   if (typeof gridsLike === 'object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+//   return [];
+// }
+
+// ===== Utils
+function collectGridApis(gridsLike) {
+  if (!gridsLike) return [];
+  if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
+  if (typeof gridsLike?.forEach === 'function') { const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
+  if (gridsLike?.api?.onGridSizeChanged) return [gridsLike.api];
+  if (typeof gridsLike === 'object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+  return [];
+}
+function safePingGrids() {
+  const apis = collectGridApis(window.grids);
+  requestAnimationFrame(() => {
+    apis.forEach(a => a.onGridSizeChanged?.());
+    requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged?.()));
+  });
+}
+
+// ===== API
+/**
+ * openSheetExclusive({
+ *   // Contenu
+ *   title: 'Aide',
+ *   mount: (bodyEl, helpers) => { bodyEl.innerHTML = '...'; },
+ *   // Classes CSS (map vers ta feuille de style)
+ *   classes: {
+ *     root:        'file-sheet',
+ *     backdrop:    'file-sheet__backdrop',
+ *     panel:       'file-sheet__panel',
+ *     header:      'file-sheet__header',
+ *     handle:      'file-sheet__handle',
+ *     title:       'file-sheet__title',
+ *     closeBtn:    'file-sheet__close',
+ *     body:        'file-sheet__content',
+ *     visibleRoot: 'visible' // classe d'ouverture (c’est TA CSS qui anime)
+ *   },
+ *   // Dimensions (laisse ta CSS décider du reste)
+ *   panelHeight: '60vh',
+ *   panelMaxHeight: '70vh',
+ *   // Comportement
+ *   showClose: true,
+ *   swipeBody: false,
+ *   onOpen, onAfterOpen, onBeforeClose, onClose
+ * })
+ */
+function openSheetExclusive(opts = {}) {
+  const {
+    title = '',
+    mount,
+    classes = {},
+    panelHeight = '60vh',
+    panelMaxHeight = '70vh',
+    showClose = true,
+    swipeBody = false,
+    onOpen, onAfterOpen, onBeforeClose, onClose,
+  } = opts;
+
+  // Mapping de classes avec défauts compatibles "fileSheet"
+  const c = {
+    root:        classes.root        || 'sheet-wrap',
+    backdrop:    classes.backdrop    || 'sheet-backdrop',
+    panel:       classes.panel       || 'sheet-panel',
+    header:      classes.header      || 'sheet-header',
+    handle:      classes.handle      || 'sheet-handle',
+    title:       classes.title       || 'sheet-title',
+    closeBtn:    classes.closeBtn    || 'sheet-close',
+    body:        classes.body        || 'sheet-body',
+    visibleRoot: classes.visibleRoot || 'is-open',
+  };
+
+  // Exclusivité : retire toute sheet portant la classe root
+  document.querySelectorAll('.' + c.root).forEach(n => n.remove());
+
+  // Markup minimal ; TA CSS fait tout le style/animation
+  const root = document.createElement('div');
+  root.className = c.root;
+  root.innerHTML = `
+    <div class="${c.backdrop}" data-backdrop></div>
+    <div class="${c.panel}" role="dialog" aria-modal="true" style="max-height:${panelMaxHeight};height:${panelHeight}">
+      <div class="${c.header}" data-drag-region>
+        <span class="${c.handle}" aria-hidden="true"></span>
+        ${title ? `<div class="${c.title}">${title}</div>` : ''}
+        ${showClose ? `<button class="${c.closeBtn}" title="Fermer" aria-label="Fermer">×</button>` : ''}
       </div>
+      <div class="${c.body}" data-body></div>
     </div>
   `;
-  document.body.appendChild(sheet);
+  document.body.appendChild(root);
 
-  const panel    = sheet.querySelector('.file-sheet__panel');
-  const backdrop = sheet.querySelector('.file-sheet__backdrop');
-  const slot     = sheet.querySelector('.file-sheet__slot');
+  const panel    = root.querySelector('.' + c.panel);
+  const header   = root.querySelector('.' + c.header);
+  const bodyEl   = root.querySelector('[data-body]');
+  const backdrop = root.querySelector('[data-backdrop]');
+  const closeBtn = root.querySelector('.' + c.closeBtn);
 
-  // Monte le contenu fourni par l'appelant
-  if (typeof mount === 'function') {
-    try { mount(slot); } catch (e) { console.error('mount error:', e); }
-  }
+  // Monte le contenu
+  const helpers = {
+    close,
+    root, panel, header, bodyEl,
+    qs: (sel) => root.querySelector(sel),
+    qsa: (sel) => [...root.querySelectorAll(sel)],
+    pingGrids: safePingGrids,
+  };
+  try { mount?.(bodyEl, helpers); } catch (e) { console.error('sheet mount error:', e); }
 
-  // Apparition (même anim que fileSheet)
+  // OUVERTURE : aucune transition inline, TA CSS anime via c.visibleRoot
   requestAnimationFrame(() => {
-    sheet.classList.add('visible');
-    panel.style.transform = 'translateY(0)';
-    onOpen?.();
+    root.classList.add(c.visibleRoot);
+    onOpen?.(helpers);
+    requestAnimationFrame(() => {
+      // Garantir une hauteur non nulle pour AG Grid
+      if (bodyEl.getBoundingClientRect().height < 60) {
+        bodyEl.style.minHeight = '40vh';
+      }
+      safePingGrids();
+      onAfterOpen?.(helpers);
+    });
   });
 
-  // Fermer
-  function close() {
-    sheet.classList.remove('visible');
-    panel.style.transform = 'translateY(100%)';
-    setTimeout(() => { sheet.remove(); onClose?.(); }, 250);
+  // FERMETURE
+  function close(reason = 'manual') {
+    onBeforeClose?.(helpers, reason);
+    root.classList.remove(c.visibleRoot);   // TA CSS gère l’easing de sortie
+    panel.style.transform = '';             // rollback si un swipe a mis un translateY
+    setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
   }
 
   // Interactions
-  backdrop.addEventListener('click', close);
-  sheet.querySelector('.file-sheet__close')?.addEventListener('click', close);
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); }, { once: true });
+  backdrop?.addEventListener('click', () => close('backdrop'));
+  closeBtn?.addEventListener('click', () => close('close'));
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close('esc'); }, { once:true });
 
-  // Délégation d’actions si le contenu mount a mis des <li data-action="..."> ou <button data-action="...">
-  sheet.addEventListener('click', (e) => {
-    const el = e.target.closest('[data-action]');
-    if (!el) return;
-    const act = el.getAttribute('data-action');
-    const fn  = actions[act];
-    if (typeof fn === 'function') {
-      close();
-      // petit rAF pour laisser l’anim se terminer avant action lourde
-      requestAnimationFrame(() => fn());
+  // Swipe-to-close (header, et optionnellement body, en évitant AG Grid/inputs)
+  const isInteractive = (el) => el.closest('input,select,textarea,button,[contenteditable="true"]');
+  const isAgGridArea  = (el) => el.closest('.ag-root, .ag-body-viewport, .ag-center-cols-viewport');
+
+  function attachSwipe(areaEl) {
+    if (!areaEl) return;
+    let startY=0, moved=0, dragging=false;
+
+    function onStart(ev) {
+      const target = ev.target;
+      if (isInteractive(target) || isAgGridArea(target)) return;
+      const t = ev.touches ? ev.touches[0] : ev;
+      startY = t.clientY; moved = 0; dragging = true;
+      window.addEventListener('touchmove', onMove, { passive:false });
+      window.addEventListener('mousemove', onMove, { passive:false });
+      window.addEventListener('touchend', onEnd);
+      window.addEventListener('mouseup', onEnd);
     }
-  });
+    function onMove(ev) {
+      if (!dragging) return;
+      const t = ev.touches ? ev.touches[0] : ev;
+      const dy = Math.max(0, t.clientY - startY);
+      moved = dy;
+      panel.style.transform = `translateY(${dy}px)`;  // temporaire ; TA CSS reste maître
+      ev.preventDefault();
+    }
+    function onEnd() {
+      if (!dragging) return; dragging = false;
+      const ph = panel.getBoundingClientRect().height || 1;
+      if (moved > ph * 0.25) close('swipe');
+      else panel.style.transform = ''; // rollback, laisse TA CSS en état ouvert
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('mouseup', onEnd);
+    }
 
-  return { close, root: sheet, panel, slot };
+    areaEl.addEventListener('touchstart', onStart, { passive:true });
+    areaEl.addEventListener('mousedown', onStart);
+  }
+
+  attachSwipe(header);
+  if (swipeBody) attachSwipe(bodyEl);
+
+  return { close, root, panel, bodyEl };
 }
+
+export function closeSheet(classes = {}) {
+  const rootClass = classes.root || 'sheet-root';
+  const visibleRoot = classes.visibleRoot || 'open';
+  const root = document.querySelector('.' + rootClass);
+  if (!root) return;
+  root.classList.remove(visibleRoot);
+  const panel = root.querySelector('.' + (classes.panel || 'sheet-panel'));
+  if (panel) panel.style.transform = '';
+  setTimeout(() => root.remove(), 260);
+}
+
 
 
 
@@ -6458,7 +6817,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // });
 // window.addEventListener('orientationchange', onRotate, { passive:true });
 // window.addEventListener('resize', onRotate, { passive:true });
-  logToPage('✅ Retour orig 6');
+  logToPage('✅ Retour orig 7');
 
   console.log('✅ Application initialisée');
 
