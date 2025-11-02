@@ -6229,72 +6229,72 @@ function initSheetGrids() {
 // }
 
 
-// 1) Portal sous <body>
-function getSheetRoot(){
-  let r = document.getElementById('sheet-root');
-  if(!r){ r = document.createElement('div'); r.id='sheet-root'; document.body.appendChild(r); }
-  return r;
-}
+// // 1) Portal sous <body>
+// function getSheetRoot(){
+//   let r = document.getElementById('sheet-root');
+//   if(!r){ r = document.createElement('div'); r.id='sheet-root'; document.body.appendChild(r); }
+//   return r;
+// }
 
-// 2) Ouvrir/fermer
-export function openSheetExclusive({ title, panelHeight='60vh', panelMaxHeight='70vh', mount }){
-  const root = getSheetRoot();
-  root.innerHTML = `
-    <div class="sheet-backdrop"></div>
-    <div class="sheet-panel" role="dialog" aria-modal="true"></div>
-  `;
-  const panel = root.querySelector('.sheet-panel');
-  panel.style.setProperty('--panel-h', panelHeight);
-  panel.style.setProperty('--panel-max-h', panelMaxHeight);
-  mount?.(panel);
-  lockPageScroll(true);
-  requestAnimationFrame(() => root.classList.add('open'));
-}
+// // 2) Ouvrir/fermer
+// export function openSheetExclusive({ title, panelHeight='60vh', panelMaxHeight='70vh', mount }){
+//   const root = getSheetRoot();
+//   root.innerHTML = `
+//     <div class="sheet-backdrop"></div>
+//     <div class="sheet-panel" role="dialog" aria-modal="true"></div>
+//   `;
+//   const panel = root.querySelector('.sheet-panel');
+//   panel.style.setProperty('--panel-h', panelHeight);
+//   panel.style.setProperty('--panel-max-h', panelMaxHeight);
+//   mount?.(panel);
+//   lockPageScroll(true);
+//   requestAnimationFrame(() => root.classList.add('open'));
+// }
 
-export function closeSheet(){
-  const root = document.getElementById('sheet-root');
-  root?.classList.remove('open');
-  lockPageScroll(false);
-}
+// export function closeSheet(){
+//   const root = document.getElementById('sheet-root');
+//   root?.classList.remove('open');
+//   lockPageScroll(false);
+// }
 
-// 3) Scroll-lock safe (pattern “top offset”, pas overflow:hidden)
-let _scrollY = 0;
-function lockPageScroll(lock){
-  if(lock){
-    _scrollY = window.scrollY || 0;
-    document.body.style.top = `-${_scrollY}px`;
-    document.body.classList.add('scroll-locked');
-  }else{
-    document.body.classList.remove('scroll-locked');
-    const y = -parseInt(document.body.style.top||'0',10) || 0;
-    document.body.style.top = '';
-    window.scrollTo(0, y);
-  }
-}
+// // 3) Scroll-lock safe (pattern “top offset”, pas overflow:hidden)
+// let _scrollY = 0;
+// function lockPageScroll(lock){
+//   if(lock){
+//     _scrollY = window.scrollY || 0;
+//     document.body.style.top = `-${_scrollY}px`;
+//     document.body.classList.add('scroll-locked');
+//   }else{
+//     document.body.classList.remove('scroll-locked');
+//     const y = -parseInt(document.body.style.top||'0',10) || 0;
+//     document.body.style.top = '';
+//     window.scrollTo(0, y);
+//   }
+// }
 
-// 4) Rotate handler (coupe anim + notifie AG Grid)
-function collectGridApis(gridsLike){
-  if(!gridsLike) return [];
-  if(Array.isArray(gridsLike)) return gridsLike.map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
-  if(typeof gridsLike.forEach==='function'){ const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
-  if(gridsLike.api?.onGridSizeChanged) return [gridsLike.api];
-  if(typeof gridsLike==='object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
-  return [];
-}
+// // 4) Rotate handler (coupe anim + notifie AG Grid)
+// function collectGridApis(gridsLike){
+//   if(!gridsLike) return [];
+//   if(Array.isArray(gridsLike)) return gridsLike.map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+//   if(typeof gridsLike.forEach==='function'){ const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
+//   if(gridsLike.api?.onGridSizeChanged) return [gridsLike.api];
+//   if(typeof gridsLike==='object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+//   return [];
+// }
 
-function onRotate(){
-  const root = document.getElementById('sheet-root');
-  if(root && root.classList.contains('open')){
-    root.classList.add('no-anim');      // pas d’anim pendant recalage
-    void root.offsetHeight;             // reflow
-    requestAnimationFrame(()=> root.classList.remove('no-anim'));
-  }
-  const apis = collectGridApis(window.grids);
-  requestAnimationFrame(()=> {
-    apis.forEach(a=>a.onGridSizeChanged?.());
-    requestAnimationFrame(()=> apis.forEach(a=>a.onGridSizeChanged?.()));
-  });
-}
+// function onRotate(){
+//   const root = document.getElementById('sheet-root');
+//   if(root && root.classList.contains('open')){
+//     root.classList.add('no-anim');      // pas d’anim pendant recalage
+//     void root.offsetHeight;             // reflow
+//     requestAnimationFrame(()=> root.classList.remove('no-anim'));
+//   }
+//   const apis = collectGridApis(window.grids);
+//   requestAnimationFrame(()=> {
+//     apis.forEach(a=>a.onGridSizeChanged?.());
+//     requestAnimationFrame(()=> apis.forEach(a=>a.onGridSizeChanged?.()));
+//   });
+// }
 
 
 // console.log(
@@ -6306,6 +6306,108 @@ function onRotate(){
 //     return false;
 //   })
 // );
+
+
+// Supposons que tu aies déjà une fonction existante et stable :
+/*
+function openFileSheet({ title, height, maxHeight, mount }) { ... } // ← celle qui marche
+*/
+
+// export function openSheetExclusive(opts) {
+//   const {
+//     title = '',
+//     panelHeight = '60vh',
+//     panelMaxHeight = '70vh',
+//     mount
+//   } = opts || {};
+//   // On délègue à la fileSheet (qui est iOS-safe chez toi)
+//   return openFileSheet({
+//     title,
+//     height: panelHeight,
+//     maxHeight: panelMaxHeight,
+//     mount
+//   });
+// }
+
+// export function closeSheet() {
+//   // renvoie vers le close de fileSheet si tu en as un
+//   return closeFileSheet?.();
+// }
+
+// API universelle : ouvre une sheet paramétrable en réutilisant la base "fileSheet" iOS-safe
+export function openSheetExclusive({
+  title = '',
+  panelHeight = '60vh',       // ex: '60vh' ou 'calc(var(--vh)*60)'
+  panelMaxHeight = '70vh',
+  mount,                      // (containerEl) => { containerEl.innerHTML = '...' }
+  actions = {},               // { new(){}, open(){}, save(){}, ... } mappé par data-action
+  onOpen, onClose
+} = {}) {
+
+  // s'il y a déjà une sheet, on la ferme avant (exclusivité)
+  const existing = document.querySelector('.file-sheet');
+  if (existing) existing.remove();
+
+  // squelette identique à ta fileSheet (classes conservées !)
+  const sheet = document.createElement('div');
+  sheet.className = 'file-sheet';
+  sheet.innerHTML = `
+    <div class="file-sheet__backdrop"></div>
+    <div class="file-sheet__panel" role="dialog" aria-modal="true" style="
+      max-height:${panelMaxHeight}; height:${panelHeight};
+    ">
+      <span class="file-sheet__handle" aria-hidden="true"></span>
+      <div class="file-sheet__content">
+        ${title ? `<div class="file-sheet__title">${title}</div>` : ''}
+        <div class="file-sheet__slot"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(sheet);
+
+  const panel    = sheet.querySelector('.file-sheet__panel');
+  const backdrop = sheet.querySelector('.file-sheet__backdrop');
+  const slot     = sheet.querySelector('.file-sheet__slot');
+
+  // Monte le contenu fourni par l'appelant
+  if (typeof mount === 'function') {
+    try { mount(slot); } catch (e) { console.error('mount error:', e); }
+  }
+
+  // Apparition (même anim que fileSheet)
+  requestAnimationFrame(() => {
+    sheet.classList.add('visible');
+    panel.style.transform = 'translateY(0)';
+    onOpen?.();
+  });
+
+  // Fermer
+  function close() {
+    sheet.classList.remove('visible');
+    panel.style.transform = 'translateY(100%)';
+    setTimeout(() => { sheet.remove(); onClose?.(); }, 250);
+  }
+
+  // Interactions
+  backdrop.addEventListener('click', close);
+  sheet.querySelector('.file-sheet__close')?.addEventListener('click', close);
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); }, { once: true });
+
+  // Délégation d’actions si le contenu mount a mis des <li data-action="..."> ou <button data-action="...">
+  sheet.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const act = el.getAttribute('data-action');
+    const fn  = actions[act];
+    if (typeof fn === 'function') {
+      close();
+      // petit rAF pour laisser l’anim se terminer avant action lourde
+      requestAnimationFrame(() => fn());
+    }
+  });
+
+  return { close, root: sheet, panel, slot };
+}
 
 
 
@@ -6354,9 +6456,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 // document.addEventListener('visibilitychange', () => {
 //   if (document.visibilityState === 'visible') onRotateOrResize();
 // });
-window.addEventListener('orientationchange', onRotate, { passive:true });
-window.addEventListener('resize', onRotate, { passive:true });
-  logToPage('✅ Retour orig 4');
+// window.addEventListener('orientationchange', onRotate, { passive:true });
+// window.addEventListener('resize', onRotate, { passive:true });
+  logToPage('✅ Retour orig 6');
 
   console.log('✅ Application initialisée');
 
