@@ -1778,19 +1778,19 @@ body.lock-page-scroll {
   overscroll-behavior-y: none;
 }
 
-/* Si tu utilises une classe d’override overflow visible en édition,
-   évite de l’appliquer au viewport (sinon Safari repart scroller la page) */
+/* Si classe d’override overflow visible en édition,
+   éviter de l’appliquer au viewport (sinon Safari repart scroller la page) */
 .ag-overflow-visible .ag-body-viewport,
 .ag-overflow-visible .ag-center-cols-viewport {
   /* NE PAS remettre visible ici, conserve auto pour le scroll fluide */
   overflow: auto !important;
 }
 
-/* Mets le popup des éditeurs/menus AU-DESSUS sans toucher au overflow */
-.ag-popup, .ag-popup-editor, .ag-menu, .ag-rich-select {
+/* Popup des éditeurs/menus AU-DESSUS sans toucher au overflow */
+/* .ag-popup, .ag-popup-editor, .ag-menu, .ag-rich-select {
   position: absolute;
-  z-index: 9999;                 /* > à tout ce qui colore les rows */
-}
+  z-index: 9999;                 
+} */
 
 /* Petit plus : désactiver les “glissements” latéraux iOS dans les grids si tu ne veux pas de pan-x.
    À n’activer que si tu n’as pas besoin du scroll horizontal au doigt. */
