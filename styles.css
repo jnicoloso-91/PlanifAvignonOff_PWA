@@ -1488,6 +1488,12 @@ main, .page-wrap {
   margin-right: 1rem;
   font-size: 0.9rem;
 }
+@media (max-width: 812px) {
+  .sheet-wrap .form-row > label {
+    font-size: 0.85rem;
+  }
+}
+
 /* --- Champs à droite (valeurs) --- */
 .sheet-wrap .form-row input,
 .sheet-wrap .form-row select {
@@ -1505,7 +1511,7 @@ main, .page-wrap {
   font-size: 0.9rem;
 }
 
-/* Sur IOS font-size 16px pour eviter le zomm à l'input */
+/* Sur IOS font-size 16px sur les champs input pour eviter le zomm à l'input */
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 812px) {
     .form-row input, 
@@ -1551,7 +1557,7 @@ main, .page-wrap {
   flex: 0 0 auto;
 }
 
-/* --- Variante primaire (accent) --- */
+/* --- Boutons --- */
 .bb-btn.is-primary {
   --btn-bg: #0b66ff;              /* bleu “accent” */
   --btn-fg: #fff;
@@ -1588,8 +1594,7 @@ main, .page-wrap {
   box-shadow: 0 6px 18px rgba(239,68,68,.18);
 }
 
-/* --- Disabled visuel (mais garde les events si besoin) --- */
-/* Si tu veux vraiment désactiver les clics, ajoute [disabled] et pointer-events:none */
+/* --- Disabled visuel (mais on garde les clics) --- */
 .bb-btn.is-disabled,
 .bb-btn[disabled] {
   opacity: .5;
