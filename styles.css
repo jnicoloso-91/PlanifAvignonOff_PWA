@@ -1415,7 +1415,7 @@ main, .page-wrap {
 
  
 /***************************/
-/* Sheet carner d'adresses */
+/* Sheet carnet d'adresses */
 /***************************/
 /* hôte de la grille en plein */
 .sheet-grid-host{
@@ -1486,7 +1486,7 @@ main, .page-wrap {
   font-weight: 500;
   text-align: left;
   margin-right: 1rem;
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 /* --- Champs à droite (valeurs) --- */
 .sheet-wrap .form-row input,
@@ -1662,11 +1662,6 @@ main, .page-wrap {
 .help-chapter {
   font-size: 0.9rem
 }
-/* @media (max-width: 812px) {
-  .help-chapter{
-    font-size: 0.8rem
-  }
-} */
 
 /* Listes dans l’aide */
 .help-block ul,

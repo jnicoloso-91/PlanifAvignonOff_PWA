@@ -6799,44 +6799,6 @@ function openSheetExclusive({
     </div>
   `;
 
-  // *************************************
-  // // 1) structure
-  // const wrap = document.createElement('div');
-  // wrap.className = `sheet-wrap ${classes}`.trim();
-
-  // const backdrop = document.createElement('div');
-  // backdrop.className = 'sheet-backdrop';
-
-  // const panel = document.createElement('div');
-  // panel.className = 'sheet-panel';
-  // if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
-  // if (panelHeight)    panel.style.height    = panelHeight;
-
-  // // poignée + header + body
-  // const handle = document.createElement('span');
-  // handle.className = 'sheet-handle';
-
-  // const header = document.createElement('div');
-  // header.className = 'sheet-header';
-
-  // const h = document.createElement('div');
-  // h.className = 'sheet-title';
-  // h.textContent = title || '';
-
-  // const closeBtn = document.createElement('button');
-  // closeBtn.className = 'sheet-close';
-  // closeBtn.innerHTML = '✕';
-
-  // header.append(h, closeBtn);
-
-  // const body = document.createElement('div');
-  // body.className = 'sheet-body';
-
-  // panel.append(handle, header, body);
-  // wrap.append(backdrop, panel);
-  // document.body.appendChild(wrap);
-// ********************************
-
   document.body.appendChild(root);
 
   const panel    = root.querySelector('.' + classes.panel);
