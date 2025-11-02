@@ -791,16 +791,6 @@ main, .page-wrap {
 /* BUG IPad : assure que les popup menus soient au dessus de la colo (fin) */
 
 
-/* Dans les grilles : autoriser le pan vertical, bloquer le pan horizontal
-   → le swipe du pager ne se déclenchera pas depuis la grille */
-/* .ag-root,
-.ag-root-wrapper,
-.ag-center-cols-viewport,
-.ag-body-viewport {
-  touch-action: pan-y !important;
-} */
-
-
 /* ================*/
 /*  Lieu renderer  */
 /* ================*/
@@ -1751,9 +1741,9 @@ main, .page-wrap {
 html { -webkit-text-size-adjust: 100%; }
 
 
-/* ================================================*/
-/* Amélioration fluidité scrolling en y sur IOS    */
-/* ================================================*/
+/* =========================================================*/
+/* Amélioration de la fluidité du scrolling en y sur IOS    */
+/* =========================================================*/
 
 /* ✦ La zone qui scrolle vraiment dans AG Grid */
 .ag-body-viewport,
@@ -1786,12 +1776,28 @@ body.lock-page-scroll {
   overflow: auto !important;
 }
 
-/* Popup des éditeurs/menus AU-DESSUS sans toucher au overflow */
-/* .ag-popup, .ag-popup-editor, .ag-menu, .ag-rich-select {
-  position: absolute;
-  z-index: 9999;                 
-} */
-
-/* Petit plus : désactiver les “glissements” latéraux iOS dans les grids si tu ne veux pas de pan-x.
-   À n’activer que si tu n’as pas besoin du scroll horizontal au doigt. */
+/* Petit plus : désactiver les “glissements” latéraux iOS dans les grids si on ne veut pas de pan-x.
+   À n’activer que si on n’a pas besoin du scroll horizontal au doigt. */
 /* .ag-body-viewport, .ag-center-cols-viewport { touch-action: pan-y; } */
+
+/* ========================================================================================================*/
+/* Résolution du pb de disparition de la page planning au basculement Iphone si sheet affichée (bug IOS)   */
+/* ========================================================================================================*/
+
+/* Backdrop + panneau : éviter 100vh sur iOS */
+.sheet-backdrop,
+.sheet-panel {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;                /* ✅ iOS 16+ et modernes */
+  /* fallback si dvh non supporté (Android/iOS anciens) */
+  height: calc(var(--vh, 1vh) * 100);
+  will-change: transform;        /* evite les glitches de repaint */
+  transform: translateZ(0);      /* force un layer GPU plus stable */
+}
+
+/* Évite de figer le layout derrière avec des overflow “piégeux” */
+.page-wrap, .grid-pane {
+  /* pas de transform sur de gros wrappers, ça casse l’inertie et le repaint */
+  transform: none !important;
+}
