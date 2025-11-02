@@ -1461,7 +1461,7 @@ main, .page-wrap {
   display: flex;
   flex-direction: column;
   padding: 1.2rem 1rem 1.6rem;
-  font-family: system-ui, -apple-system, sans-serif;
+  /* font-family: system-ui, -apple-system, sans-serif; */
   font-size: 1rem;
   color: #111;
   background: #f9f9fb;
