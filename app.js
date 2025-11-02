@@ -6578,24 +6578,23 @@ function openFileSheet({ title, height, maxHeight, mount }) { ... } // ← celle
 //   return [];
 // }
 
-// ===== Utils
-function collectGridApis(gridsLike) {
-  if (!gridsLike) return [];
-  if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
-  if (typeof gridsLike?.forEach === 'function') { const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
-  if (gridsLike?.api?.onGridSizeChanged) return [gridsLike.api];
-  if (typeof gridsLike === 'object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
-  return [];
-}
-function safePingGrids() {
-  const apis = collectGridApis(window.grids);
-  requestAnimationFrame(() => {
-    apis.forEach(a => a.onGridSizeChanged?.());
-    requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged?.()));
-  });
-}
+// // ===== Utils
+// function collectGridApis(gridsLike) {
+//   if (!gridsLike) return [];
+//   if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
+//   if (typeof gridsLike?.forEach === 'function') { const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
+//   if (gridsLike?.api?.onGridSizeChanged) return [gridsLike.api];
+//   if (typeof gridsLike === 'object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+//   return [];
+// }
+// function safePingGrids() {
+//   const apis = collectGridApis(window.grids);
+//   requestAnimationFrame(() => {
+//     apis.forEach(a => a.onGridSizeChanged?.());
+//     requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged?.()));
+//   });
+// }
 
-// ===== API
 /**
  * openSheetExclusive({
  *   // Contenu
@@ -6622,141 +6621,335 @@ function safePingGrids() {
  *   onOpen, onAfterOpen, onBeforeClose, onClose
  * })
  */
-function openSheetExclusive(opts = {}) {
-  const {
-    title = '',
-    mount,
-    classes = {},
-    panelHeight = '60vh',
-    panelMaxHeight = '70vh',
-    showClose = true,
-    swipeBody = false,
-    onOpen, onAfterOpen, onBeforeClose, onClose,
-  } = opts;
+// function openSheetExclusive(opts = {}) {
+//   const {
+//     title = '',
+//     mount,
+//     classes = {},
+//     panelHeight = '60vh',
+//     panelMaxHeight = '70vh',
+//     showClose = true,
+//     swipeBody = false,
+//     onOpen, onAfterOpen, onBeforeClose, onClose,
+//   } = opts;
 
-  // Mapping de classes avec défauts compatibles "fileSheet"
-  const c = {
-    root:        classes.root        || 'sheet-wrap',
-    backdrop:    classes.backdrop    || 'sheet-backdrop',
-    panel:       classes.panel       || 'sheet-panel',
-    header:      classes.header      || 'sheet-header',
-    handle:      classes.handle      || 'sheet-handle',
-    title:       classes.title       || 'sheet-title',
-    closeBtn:    classes.closeBtn    || 'sheet-close',
-    body:        classes.body        || 'sheet-body',
-    visibleRoot: classes.visibleRoot || 'is-open',
-  };
+//   // Mapping de classes avec défauts compatibles "fileSheet"
+//   const c = {
+//     root:        classes.root        || 'sheet-wrap',
+//     backdrop:    classes.backdrop    || 'sheet-backdrop',
+//     panel:       classes.panel       || 'sheet-panel',
+//     header:      classes.header      || 'sheet-header',
+//     handle:      classes.handle      || 'sheet-handle',
+//     title:       classes.title       || 'sheet-title',
+//     closeBtn:    classes.closeBtn    || 'sheet-close',
+//     body:        classes.body        || 'sheet-body',
+//     visibleRoot: classes.visibleRoot || 'is-open',
+//   };
 
-  // Exclusivité : retire toute sheet portant la classe root
-  document.querySelectorAll('.' + c.root).forEach(n => n.remove());
+//   // Exclusivité : retire toute sheet portant la classe root
+//   document.querySelectorAll('.' + c.root).forEach(n => n.remove());
 
-  // Markup minimal ; TA CSS fait tout le style/animation
+//   // Markup minimal ; TA CSS fait tout le style/animation
+//   const root = document.createElement('div');
+//   root.className = c.root;
+//   root.innerHTML = `
+//     <div class="${c.backdrop}" data-backdrop></div>
+//     <div class="${c.panel}" role="dialog" aria-modal="true" style="max-height:${panelMaxHeight};height:${panelHeight}">
+//       <div class="${c.header}" data-drag-region>
+//         <span class="${c.handle}" aria-hidden="true"></span>
+//         ${title ? `<div class="${c.title}">${title}</div>` : ''}
+//         ${showClose ? `<button class="${c.closeBtn}" title="Fermer" aria-label="Fermer">×</button>` : ''}
+//       </div>
+//       <div class="${c.body}" data-body></div>
+//     </div>
+//   `;
+//   document.body.appendChild(root);
+
+//   const panel    = root.querySelector('.' + c.panel);
+//   const header   = root.querySelector('.' + c.header);
+//   const bodyEl   = root.querySelector('[data-body]');
+//   const backdrop = root.querySelector('[data-backdrop]');
+//   const closeBtn = root.querySelector('.' + c.closeBtn);
+
+//   // Monte le contenu
+//   const helpers = {
+//     close,
+//     root, panel, header, bodyEl,
+//     qs: (sel) => root.querySelector(sel),
+//     qsa: (sel) => [...root.querySelectorAll(sel)],
+//     pingGrids: safePingGrids,
+//   };
+//   try { mount?.(bodyEl, helpers); } catch (e) { console.error('sheet mount error:', e); }
+
+//   // OUVERTURE : aucune transition inline, TA CSS anime via c.visibleRoot
+//   requestAnimationFrame(() => {
+//     root.classList.add(c.visibleRoot);
+//     onOpen?.(helpers);
+//     requestAnimationFrame(() => {
+//       // Garantir une hauteur non nulle pour AG Grid
+//       if (bodyEl.getBoundingClientRect().height < 60) {
+//         bodyEl.style.minHeight = '40vh';
+//       }
+//       safePingGrids();
+//       onAfterOpen?.(helpers);
+//     });
+//   });
+
+//   // FERMETURE
+//   function close(reason = 'manual') {
+//     onBeforeClose?.(helpers, reason);
+//     root.classList.remove(c.visibleRoot);   // TA CSS gère l’easing de sortie
+//     panel.style.transform = '';             // rollback si un swipe a mis un translateY
+//     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
+//   }
+
+//   // Interactions
+//   backdrop?.addEventListener('click', () => close('backdrop'));
+//   closeBtn?.addEventListener('click', () => close('close'));
+//   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close('esc'); }, { once:true });
+
+//   // Swipe-to-close (header, et optionnellement body, en évitant AG Grid/inputs)
+//   const isInteractive = (el) => el.closest('input,select,textarea,button,[contenteditable="true"]');
+//   const isAgGridArea  = (el) => el.closest('.ag-root, .ag-body-viewport, .ag-center-cols-viewport');
+
+//   function attachSwipe(areaEl) {
+//     if (!areaEl) return;
+//     let startY=0, moved=0, dragging=false;
+
+//     function onStart(ev) {
+//       const target = ev.target;
+//       if (isInteractive(target) || isAgGridArea(target)) return;
+//       const t = ev.touches ? ev.touches[0] : ev;
+//       startY = t.clientY; moved = 0; dragging = true;
+//       window.addEventListener('touchmove', onMove, { passive:false });
+//       window.addEventListener('mousemove', onMove, { passive:false });
+//       window.addEventListener('touchend', onEnd);
+//       window.addEventListener('mouseup', onEnd);
+//     }
+//     function onMove(ev) {
+//       if (!dragging) return;
+//       const t = ev.touches ? ev.touches[0] : ev;
+//       const dy = Math.max(0, t.clientY - startY);
+//       moved = dy;
+//       panel.style.transform = `translateY(${dy}px)`;  // temporaire ; TA CSS reste maître
+//       ev.preventDefault();
+//     }
+//     function onEnd() {
+//       if (!dragging) return; dragging = false;
+//       const ph = panel.getBoundingClientRect().height || 1;
+//       if (moved > ph * 0.25) close('swipe');
+//       else panel.style.transform = ''; // rollback, laisse TA CSS en état ouvert
+//       window.removeEventListener('touchmove', onMove);
+//       window.removeEventListener('mousemove', onMove);
+//       window.removeEventListener('touchend', onEnd);
+//       window.removeEventListener('mouseup', onEnd);
+//     }
+
+//     areaEl.addEventListener('touchstart', onStart, { passive:true });
+//     areaEl.addEventListener('mousedown', onStart);
+//   }
+
+//   attachSwipe(header);
+//   if (swipeBody) attachSwipe(bodyEl);
+
+//   return { close, root, panel, bodyEl };
+// }
+function openSheetExclusive({
+  title = '',
+  mount,                      // (bodyEl, helpers) => { bodyEl.innerHTML='...' }
+  // mapping classes (tes noms par défaut)
+  classes = {
+    wrap: 'sheet-wrap',
+    backdrop: 'sheet-backdrop',
+    panel: 'sheet-panel',
+    header: 'sheet-header',
+    handle: 'sheet-handle',
+    title: 'sheet-title',
+    actions: 'sheet-actions',
+    closeBtn: 'sheet-close',
+    body: 'sheet-body',
+    // états
+    isOpen: 'is-open',
+    isClosing: 'is-closing',
+    dragging: 'dragging',
+  },
+  showClose = true,
+  swipeBody = false,          // swipe aussi sur le body (hors ag-grid / inputs)
+  panelHeight = '60vh',
+  panelMaxHeight = '70vh',
+  onOpen, onAfterOpen, onBeforeClose, onClose,
+} = {}) {
+
+  // exclusif : enlever toute sheet ouverte
+  document.querySelectorAll('.' + classes.wrap).forEach(n => n.remove());
+
+  // markup conforme à ta CSS
   const root = document.createElement('div');
-  root.className = c.root;
+  root.className = classes.wrap;
   root.innerHTML = `
-    <div class="${c.backdrop}" data-backdrop></div>
-    <div class="${c.panel}" role="dialog" aria-modal="true" style="max-height:${panelMaxHeight};height:${panelHeight}">
-      <div class="${c.header}" data-drag-region>
-        <span class="${c.handle}" aria-hidden="true"></span>
-        ${title ? `<div class="${c.title}">${title}</div>` : ''}
-        ${showClose ? `<button class="${c.closeBtn}" title="Fermer" aria-label="Fermer">×</button>` : ''}
-      </div>
-      <div class="${c.body}" data-body></div>
+    <div class="${classes.backdrop}" data-backdrop></div>
+    <div class="${classes.panel}" role="dialog" aria-modal="true"
+         style="max-height:${panelMaxHeight};height:${panelHeight}">
+      <span class="${classes.handle}" aria-hidden="true"></span>
+      <header class="${classes.header}" data-drag-region>
+        <div class="${classes.title}">${title || ''}</div>
+        <button class="${classes.closeBtn}" title="Fermer" aria-label="Fermer">×</button>
+      </header>
+      <div class="${classes.body}" data-body></div>
     </div>
   `;
+
+  // *************************************
+  // // 1) structure
+  // const wrap = document.createElement('div');
+  // wrap.className = `sheet-wrap ${classes}`.trim();
+
+  // const backdrop = document.createElement('div');
+  // backdrop.className = 'sheet-backdrop';
+
+  // const panel = document.createElement('div');
+  // panel.className = 'sheet-panel';
+  // if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
+  // if (panelHeight)    panel.style.height    = panelHeight;
+
+  // // poignée + header + body
+  // const handle = document.createElement('span');
+  // handle.className = 'sheet-handle';
+
+  // const header = document.createElement('div');
+  // header.className = 'sheet-header';
+
+  // const h = document.createElement('div');
+  // h.className = 'sheet-title';
+  // h.textContent = title || '';
+
+  // const closeBtn = document.createElement('button');
+  // closeBtn.className = 'sheet-close';
+  // closeBtn.innerHTML = '✕';
+
+  // header.append(h, closeBtn);
+
+  // const body = document.createElement('div');
+  // body.className = 'sheet-body';
+
+  // panel.append(handle, header, body);
+  // wrap.append(backdrop, panel);
+  // document.body.appendChild(wrap);
+// ********************************
+
   document.body.appendChild(root);
 
-  const panel    = root.querySelector('.' + c.panel);
-  const header   = root.querySelector('.' + c.header);
+  const panel    = root.querySelector('.' + classes.panel);
+  const header   = root.querySelector('.' + classes.header);
+  const headerRow= root.querySelector('.' + classes.headerRow);
   const bodyEl   = root.querySelector('[data-body]');
   const backdrop = root.querySelector('[data-backdrop]');
-  const closeBtn = root.querySelector('.' + c.closeBtn);
+  const closeBtn = root.querySelector('.' + classes.closeBtn);
 
-  // Monte le contenu
+  // contenu
   const helpers = {
-    close,
-    root, panel, header, bodyEl,
+    close, root, panel, header, bodyEl,
     qs: (sel) => root.querySelector(sel),
     qsa: (sel) => [...root.querySelectorAll(sel)],
-    pingGrids: safePingGrids,
+    pingGrids: () => {
+      const apis = collectGridApis(window.grids);
+      requestAnimationFrame(() => {
+        apis.forEach(a => a.onGridSizeChanged?.());
+        requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged?.()));
+      });
+    }
   };
   try { mount?.(bodyEl, helpers); } catch (e) { console.error('sheet mount error:', e); }
 
-  // OUVERTURE : aucune transition inline, TA CSS anime via c.visibleRoot
+  // ouverture (ta CSS anime sur .is-open)
   requestAnimationFrame(() => {
-    root.classList.add(c.visibleRoot);
+    root.classList.add(classes.isOpen);
     onOpen?.(helpers);
     requestAnimationFrame(() => {
-      // Garantir une hauteur non nulle pour AG Grid
-      if (bodyEl.getBoundingClientRect().height < 60) {
-        bodyEl.style.minHeight = '40vh';
-      }
-      safePingGrids();
+      if (bodyEl.getBoundingClientRect().height < 60) bodyEl.style.minHeight = '40vh';
+      helpers.pingGrids();
       onAfterOpen?.(helpers);
     });
   });
 
-  // FERMETURE
-  function close(reason = 'manual') {
+  // fermeture avec état .is-closing si ta CSS l’utilise
+  function close(reason='manual') {
     onBeforeClose?.(helpers, reason);
-    root.classList.remove(c.visibleRoot);   // TA CSS gère l’easing de sortie
-    panel.style.transform = '';             // rollback si un swipe a mis un translateY
+    root.classList.remove(classes.isOpen);
+    if (classes.isClosing) root.classList.add(classes.isClosing);
+    panel.style.transform = ''; // rollback si un swipe a posé un translateY
     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
   }
 
-  // Interactions
+  // events
   backdrop?.addEventListener('click', () => close('backdrop'));
   closeBtn?.addEventListener('click', () => close('close'));
-  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close('esc'); }, { once:true });
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') close('esc'); }, { once:true });
 
-  // Swipe-to-close (header, et optionnellement body, en évitant AG Grid/inputs)
-  const isInteractive = (el) => el.closest('input,select,textarea,button,[contenteditable="true"]');
-  const isAgGridArea  = (el) => el.closest('.ag-root, .ag-body-viewport, .ag-center-cols-viewport');
+  // swipe header (+ optionnel body), en évitant AG Grid et les inputs
+  const isInteractive = el => el.closest('input,select,textarea,button,[contenteditable="true"]');
+  const isAgGridArea  = el => el.closest('.ag-root, .ag-body-viewport, .ag-center-cols-viewport');
 
   function attachSwipe(areaEl) {
     if (!areaEl) return;
     let startY=0, moved=0, dragging=false;
 
-    function onStart(ev) {
+    const onStart = (ev) => {
+      const t = ev.touches ? ev.touches[0] : ev;
       const target = ev.target;
       if (isInteractive(target) || isAgGridArea(target)) return;
-      const t = ev.touches ? ev.touches[0] : ev;
-      startY = t.clientY; moved = 0; dragging = true;
+      startY = t.clientY; moved=0; dragging=true;
+      root.classList.add(classes.dragging);
       window.addEventListener('touchmove', onMove, { passive:false });
       window.addEventListener('mousemove', onMove, { passive:false });
       window.addEventListener('touchend', onEnd);
       window.addEventListener('mouseup', onEnd);
-    }
-    function onMove(ev) {
+    };
+    const onMove = (ev) => {
       if (!dragging) return;
       const t = ev.touches ? ev.touches[0] : ev;
       const dy = Math.max(0, t.clientY - startY);
       moved = dy;
-      panel.style.transform = `translateY(${dy}px)`;  // temporaire ; TA CSS reste maître
+      panel.style.transform = `translateY(${dy}px)`; // temporaire
       ev.preventDefault();
-    }
-    function onEnd() {
-      if (!dragging) return; dragging = false;
+    };
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging=false;
+      root.classList.remove(classes.dragging);
       const ph = panel.getBoundingClientRect().height || 1;
       if (moved > ph * 0.25) close('swipe');
-      else panel.style.transform = ''; // rollback, laisse TA CSS en état ouvert
+      else panel.style.transform = ''; // rollback → la CSS reprend la main
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('touchend', onEnd);
       window.removeEventListener('mouseup', onEnd);
-    }
+    };
 
     areaEl.addEventListener('touchstart', onStart, { passive:true });
     areaEl.addEventListener('mousedown', onStart);
   }
 
-  attachSwipe(header);
+  attachSwipe(header);              // swipe depuis tout le header (inclut handle)
   if (swipeBody) attachSwipe(bodyEl);
 
-  return { close, root, panel, bodyEl };
+  return { close, root, panel, bodyEl, header, headerRow };
 }
 
-export function closeSheet(classes = {}) {
+// util AG Grid (inchangé)
+function collectGridApis(gridsLike) {
+  if (!gridsLike) return [];
+  if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
+  if (typeof gridsLike?.forEach === 'function') { const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
+  if (gridsLike?.api?.onGridSizeChanged) return [gridsLike.api];
+  if (typeof gridsLike === 'object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+  return [];
+}
+
+
+
+
+function closeSheet(classes = {}) {
   const rootClass = classes.root || 'sheet-root';
   const visibleRoot = classes.visibleRoot || 'open';
   const root = document.querySelector('.' + rootClass);
@@ -6817,7 +7010,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // });
 // window.addEventListener('orientationchange', onRotate, { passive:true });
 // window.addEventListener('resize', onRotate, { passive:true });
-  logToPage('✅ Retour orig 7');
+  logToPage('✅ Retour orig 8');
 
   console.log('✅ Application initialisée');
 

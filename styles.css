@@ -1293,9 +1293,11 @@ main, .page-wrap {
   justify-content: center;
   border-bottom: none;
 }
+
 .sheet-title{ 
   font-weight: 600; 
 }
+
 .sheet-close{
   margin-left: auto;
   border: none;
