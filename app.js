@@ -6062,20 +6062,21 @@ function initSheetGrids() {
   window.sheetGrids = window.sheetGrids || new Map();
 }
 
+// Bug bascule IPhone (IOS)
 // function setVHVar() {
 //   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
 // }
 
-// // // Ouvre/ferme
-// // function openSheet() {
-// //   setVHVar();
-// //   document.querySelector('.sheet-backdrop')?.classList.add('open');
-// //   document.querySelector('.sheet-panel')?.classList.add('open');
-// // }
-// // function closeSheet() {
-// //   document.querySelector('.sheet-backdrop')?.classList.remove('open');
-// //   document.querySelector('.sheet-panel')?.classList.remove('open');
-// // }
+// // Ouvre/ferme
+// function openSheet() {
+//   setVHVar();
+//   document.querySelector('.sheet-backdrop')?.classList.add('open');
+//   document.querySelector('.sheet-panel')?.classList.add('open');
+// }
+// function closeSheet() {
+//   document.querySelector('.sheet-backdrop')?.classList.remove('open');
+//   document.querySelector('.sheet-panel')?.classList.remove('open');
+// }
 
 // // Recalage iOS au retour portrait/paysage
 // function relayoutSheet() {
@@ -6102,45 +6103,57 @@ function initSheetGrids() {
 //   });
 // }
 
-
-// Bug bascule Iphone (IOS)
-function setVHVar() {
-  // fixe le bug 100vh iOS en paysage
-  document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+function setVHVar(){
+  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
 }
 
-function forceReflow(el) {
-  if (!el) return;
-  // toggling pour forcer un repaint du calque
-  el.style.willChange = 'transform';
-  void el.offsetHeight; // reflow
-  el.style.willChange = '';
-}
+function collectGridApis(gridsLike) {
+  if (!gridsLike) return [];
 
-function onRotateOrResize() {
-  setVHVar();
-
-  // 1) forcer un repaint de la page derrière la sheet
-  const main = document.querySelector('.page-wrap') || document.body;
-  forceReflow(main);
-
-  // 2) si une sheet est ouverte, “ré-étalonner” sa hauteur
-  const sheet = document.querySelector('.sheet-panel');
-  if (sheet) {
-    sheet.style.height = ''; // laisse le CSS recalculer 100dvh / --vh
-    forceReflow(sheet);
+  // tableau d’handles
+  if (Array.isArray(gridsLike)) {
+    return gridsLike.map(h => h?.api).filter(Boolean);
   }
 
-  // 3) prévenir AG Grid que la taille a changé
-  try {
-    (window.grids || []).forEach(h => {
-      const api = h?.api;
-      if (!api?.onGridSizeChanged) return;
-      api.onGridSizeChanged();
-      // petit délai pour Safari le temps que les barres d’outils se stabilisent
-      requestAnimationFrame(() => api.onGridSizeChanged());
+  // Map / Set
+  if (typeof gridsLike.forEach === 'function') {
+    const out = [];
+    gridsLike.forEach(v => out.push(v?.api || v));
+    return out.filter(api => api && typeof api.onGridSizeChanged === 'function');
+  }
+
+  // handle unique avec .api
+  if (gridsLike.api && typeof gridsLike.api.onGridSizeChanged === 'function') {
+    return [gridsLike.api];
+  }
+
+  // objet simple {gridId: handle}
+  if (typeof gridsLike === 'object') {
+    return Object.values(gridsLike)
+      .map(h => h?.api)
+      .filter(api => api && typeof api.onGridSizeChanged === 'function');
+  }
+
+  return [];
+}
+
+function repaintAndResizeGrids() {
+  const main = document.querySelector('.page-wrap') || document.body;
+  main.style.visibility = 'hidden';
+  void main.offsetHeight;
+  main.style.visibility = '';
+
+  const sheet = document.querySelector('.sheet-panel');
+  if (sheet) sheet.style.removeProperty('transform');
+
+  const apis = collectGridApis(window.grids);
+
+  requestAnimationFrame(() => {
+    apis.forEach(api => api.onGridSizeChanged());
+    requestAnimationFrame(() => {
+      apis.forEach(api => api.onGridSizeChanged());
     });
-  } catch (e) {}
+  });
 }
 
 
@@ -6167,22 +6180,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   // await refreshAllGrids();
   // appJustLaunched = false;
 
+  // Bug bascule IPhone (IOS)
   // setVHVar();
   // window.addEventListener('resize', relayoutSheet, { passive: true });
   // window.addEventListener('orientationchange', relayoutSheet, { passive: true });
   // document.addEventListener('visibilitychange', () => {
   //   if (document.visibilityState === 'visible') relayoutSheet();
   // });
-  // logToPage('setVHVar done');
-  setVHVar();
-  window.addEventListener('orientationchange', onRotateOrResize, { passive: true });
-  window.addEventListener('resize', onRotateOrResize, { passive: true });
+  window.addEventListener('orientationchange', repaintAndResizeGrids, { passive: true });
+  window.addEventListener('resize', repaintAndResizeGrids, { passive: true });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') onRotateOrResize();
+    if (document.visibilityState === 'visible') repaintAndResizeGrids();
   });
+  setVHVar();
+  window.addEventListener('resize', setVHVar, { passive: true });
+  window.addEventListener('orientationchange', setVHVar, { passive: true });// logToPage('setVHVar done');
 
   console.log('✅ Application initialisée');
 
   // Pour DEBUG
-  logToPage('✅ Application initialisée');
+  // logToPage('✅ Application initialisée');
 });

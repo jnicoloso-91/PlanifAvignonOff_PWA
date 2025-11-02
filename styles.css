@@ -1784,20 +1784,41 @@ body.lock-page-scroll {
 /* Résolution du pb de disparition de la page planning au basculement Iphone si sheet affichée (bug IOS)   */
 /* ========================================================================================================*/
 
-/* Backdrop + panneau : éviter 100vh sur iOS */
-.sheet-backdrop,
-.sheet-panel {
-  position: fixed;
-  inset: 0;
-  height: 100dvh;                /* ✅ iOS 16+ et modernes */
-  /* fallback si dvh non supporté (Android/iOS anciens) */
-  height: calc(var(--vh, 1vh) * 100);
-  will-change: transform;        /* evite les glitches de repaint */
-  transform: translateZ(0);      /* force un layer GPU plus stable */
+/* iOS only */
+@supports (-webkit-touch-callout: none) {
+  /* ⚠️ désactive tout flou/filtre du backdrop pendant l’orientation */
+  .sheet-backdrop {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    filter: none !important;
+  }
+
+  /* Évite les transforms superflus sur l’overlay */
+  .sheet-panel {
+    will-change: auto !important;
+    /* si tu avais un transform pour ouvrir/fermer, OK, mais pas de translateZ(0) permanent */
+  }
+
+  /* Donne à la grille son propre calque (si le fond gèle) */
+  .ag-root, .ag-root-wrapper {
+    transform: translateZ(0);
+    will-change: transform;
+  }
 }
 
-/* Évite de figer le layout derrière avec des overflow “piégeux” */
-.page-wrap, .grid-pane {
-  /* pas de transform sur de gros wrappers, ça casse l’inertie et le repaint */
-  transform: none !important;
+:root { --vh: 1vh; }
+@supports (-webkit-touch-callout: none) {
+  /* met à jour via JS au boot + à la rotation */
+}
+
+.sheet-backdrop {
+  position: fixed; inset: 0;
+  height: 100dvh;
+  height: calc(var(--vh) * 100);
+}
+
+.sheet-panel {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  max-height: calc(var(--vh) * 100 - 20px);
+  height: calc(var(--vh) * 60);
 }
