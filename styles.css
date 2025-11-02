@@ -1643,7 +1643,8 @@ main, .page-wrap {
 }
 @media (max-width: 812px) {
   .help-toc a,
-  .help-chapter {
+  .help-chapter,
+  .help-block {
     font-size: 0.6rem
   }
 }
