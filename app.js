@@ -4618,7 +4618,7 @@ function openSheet({
   mount,
   onClose,
   classes = '',
-  panelMaxHeight = '60dvh',
+  panelMaxHeight = '60vh',
   panelHeight = null,
   replaceExisting = false
 } = {}) {
@@ -4637,8 +4637,8 @@ function openSheet({
 
   const panel = document.createElement('div');
   panel.className = 'sheet-panel';
-  if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
-  if (panelHeight)    panel.style.height    = panelHeight;
+  // if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
+  // if (panelHeight)    panel.style.height    = panelHeight;
 
   // poignée + header + body
   const handle = document.createElement('span');
@@ -5807,8 +5807,8 @@ function openSheetParams(){
 function openSheetAide() {
   openSheetExclusive({
     title: 'Aide',
-    panelMaxHeight: '70dvh',
-    panelHeight: '60dvh',
+    panelMaxHeight: '70vh',
+    panelHeight: '60vh',
     mount: (body) => {
       body.innerHTML = `
         <!-- Table des matières -->
@@ -6274,7 +6274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // document.addEventListener('visibilitychange', () => {
 //   if (document.visibilityState === 'visible') onRotateOrResize();
 // });
-  logToPage('✅ Retour orig.');
+  logToPage('✅ Retour orig 2');
 
   console.log('✅ Application initialisée');
 
