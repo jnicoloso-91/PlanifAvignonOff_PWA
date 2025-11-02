@@ -4613,6 +4613,25 @@ function unlockScroll() {
   window.scrollTo(0, y);
 }
 
+function waitTransitionEnd(el, prop = 'transform', timeout = 280) {
+  return new Promise(resolve => {
+    let done = false;
+    const t = setTimeout(() => { if (!done) { done = true; resolve(); } }, timeout);
+
+    const onEnd = (ev) => {
+      if (done) return;
+      if (!prop || ev.propertyName === prop) {
+        done = true;
+        clearTimeout(t);
+        el.removeEventListener('transitionend', onEnd);
+        resolve();
+      }
+    };
+    el.addEventListener('transitionend', onEnd);
+  });
+}
+
+// Obsolete (bug au basculement sur IOS => page grille disparait au retour en mode portrait)
 function openSheet({
   title = '',
   mount,
@@ -4899,22 +4918,211 @@ function openSheet({
   return { close: destroy, el: wrap, body, panel };
 }
 
-function waitTransitionEnd(el, prop = 'transform', timeout = 280) {
-  return new Promise(resolve => {
-    let done = false;
-    const t = setTimeout(() => { if (!done) { done = true; resolve(); } }, timeout);
+// let __sheetBusy = false;
 
-    const onEnd = (ev) => {
-      if (done) return;
-      if (!prop || ev.propertyName === prop) {
-        done = true;
-        clearTimeout(t);
-        el.removeEventListener('transitionend', onEnd);
-        resolve();
-      }
-    };
-    el.addEventListener('transitionend', onEnd);
+// async function openSheetExclusive(opts = {}) {
+//   // supprime/ferme toute sheet actuelle avant d’ouvrir
+//   if (__sheetBusy) return;         // anti re-entrance
+//   __sheetBusy = true;
+//   try {
+//     await closeAnySheet({ immediate: false }); // attend la fermeture
+//     const inst = openSheet({ ...opts, replaceExisting: false }); // ta fonction existante
+//     return inst;
+//   } finally {
+//     // petite garde pour laisser le DOM se poser
+//     setTimeout(() => { __sheetBusy = false; }, 50);
+//   }
+// }
+
+/**
+ * openSheetExclusive({
+ *   // Contenu
+ *   title: 'Aide',
+ *   mount: (bodyEl, helpers) => { bodyEl.innerHTML = '...'; },
+ *   // Classes CSS (map vers ta feuille de style)
+ *   classes: {
+ *     root:        'file-sheet',
+ *     backdrop:    'file-sheet__backdrop',
+ *     panel:       'file-sheet__panel',
+ *     header:      'file-sheet__header',
+ *     handle:      'file-sheet__handle',
+ *     title:       'file-sheet__title',
+ *     closeBtn:    'file-sheet__close',
+ *     body:        'file-sheet__content',
+ *     visibleRoot: 'visible' // classe d'ouverture (c’est TA CSS qui anime)
+ *   },
+ *   // Dimensions (laisse ta CSS décider du reste)
+ *   panelHeight: '60vh',
+ *   panelMaxHeight: '70vh',
+ *   // Comportement
+ *   showClose: true,
+ *   swipeBody: false,
+ *   onOpen, onAfterOpen, onBeforeClose, onClose
+ * })
+ */
+function openSheetExclusive({
+  title = '',
+  mount,                      // (bodyEl, helpers) => { bodyEl.innerHTML='...' }
+  // mapping classes (tes noms par défaut)
+  classes = {
+    wrap: 'sheet-wrap',
+    backdrop: 'sheet-backdrop',
+    panel: 'sheet-panel',
+    header: 'sheet-header',
+    handle: 'sheet-handle',
+    title: 'sheet-title',
+    actions: 'sheet-actions',
+    closeBtn: 'sheet-close',
+    body: 'sheet-body',
+    // états
+    isOpen: 'is-open',
+    isClosing: 'is-closing',
+    dragging: 'dragging',
+  },
+  showClose = true,
+  swipeBody = false,          // swipe aussi sur le body (hors ag-grid / inputs)
+  panelHeight = '60vh',
+  panelMaxHeight = '70vh',
+  onOpen, onAfterOpen, onBeforeClose, onClose,
+} = {}) {
+
+  // exclusif : enlever toute sheet ouverte
+  document.querySelectorAll('.' + classes.wrap).forEach(n => n.remove());
+
+  // markup conforme à ta CSS
+  const root = document.createElement('div');
+  root.className = classes.wrap;
+  root.innerHTML = `
+    <div class="${classes.backdrop}" data-backdrop></div>
+    <div class="${classes.panel}" role="dialog" aria-modal="true"
+         style="max-height:${panelMaxHeight};height:${panelHeight}">
+      <span class="${classes.handle}" aria-hidden="true"></span>
+      <header class="${classes.header}" data-drag-region>
+        <div class="${classes.title}">${title || ''}</div>
+        <button class="${classes.closeBtn}" title="Fermer" aria-label="Fermer">×</button>
+      </header>
+      <div class="${classes.body}" data-body></div>
+    </div>
+  `;
+
+  document.body.appendChild(root);
+
+  const panel    = root.querySelector('.' + classes.panel);
+  const header   = root.querySelector('.' + classes.header);
+  const headerRow= root.querySelector('.' + classes.headerRow);
+  const bodyEl   = root.querySelector('[data-body]');
+  const backdrop = root.querySelector('[data-backdrop]');
+  const closeBtn = root.querySelector('.' + classes.closeBtn);
+
+  // contenu
+  const helpers = {
+    close, root, panel, header, bodyEl,
+    qs: (sel) => root.querySelector(sel),
+    qsa: (sel) => [...root.querySelectorAll(sel)],
+    pingGrids: () => {
+      const apis = collectGridApis(window.grids);
+      requestAnimationFrame(() => {
+        apis.forEach(a => a.onGridSizeChanged?.());
+        requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged?.()));
+      });
+    }
+  };
+  try { mount?.(bodyEl, helpers); } catch (e) { console.error('sheet mount error:', e); }
+
+  // ouverture (ta CSS anime sur .is-open)
+  requestAnimationFrame(() => {
+    root.classList.add(classes.isOpen);
+    onOpen?.(helpers);
+    requestAnimationFrame(() => {
+      if (bodyEl.getBoundingClientRect().height < 60) bodyEl.style.minHeight = '40vh';
+      helpers.pingGrids();
+      onAfterOpen?.(helpers);
+    });
   });
+
+  // fermeture avec état .is-closing si ta CSS l’utilise
+  function close(reason='manual') {
+    onBeforeClose?.(helpers, reason);
+    root.classList.remove(classes.isOpen);
+    if (classes.isClosing) root.classList.add(classes.isClosing);
+    panel.style.transform = ''; // rollback si un swipe a posé un translateY
+    setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
+  }
+
+  // events
+  backdrop?.addEventListener('click', () => close('backdrop'));
+  closeBtn?.addEventListener('click', () => close('close'));
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') close('esc'); }, { once:true });
+
+  // swipe header (+ optionnel body), en évitant AG Grid et les inputs
+  const isInteractive = el => el.closest('input,select,textarea,button,[contenteditable="true"]');
+  const isAgGridArea  = el => el.closest('.ag-root, .ag-body-viewport, .ag-center-cols-viewport');
+
+  function attachSwipe(areaEl) {
+    if (!areaEl) return;
+    let startY=0, moved=0, dragging=false;
+
+    const onStart = (ev) => {
+      const t = ev.touches ? ev.touches[0] : ev;
+      const target = ev.target;
+      if (isInteractive(target) || isAgGridArea(target)) return;
+      startY = t.clientY; moved=0; dragging=true;
+      root.classList.add(classes.dragging);
+      window.addEventListener('touchmove', onMove, { passive:false });
+      window.addEventListener('mousemove', onMove, { passive:false });
+      window.addEventListener('touchend', onEnd);
+      window.addEventListener('mouseup', onEnd);
+    };
+    const onMove = (ev) => {
+      if (!dragging) return;
+      const t = ev.touches ? ev.touches[0] : ev;
+      const dy = Math.max(0, t.clientY - startY);
+      moved = dy;
+      panel.style.transform = `translateY(${dy}px)`; // temporaire
+      ev.preventDefault();
+    };
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging=false;
+      root.classList.remove(classes.dragging);
+      const ph = panel.getBoundingClientRect().height || 1;
+      if (moved > ph * 0.25) close('swipe');
+      else panel.style.transform = ''; // rollback → la CSS reprend la main
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('mouseup', onEnd);
+    };
+
+    areaEl.addEventListener('touchstart', onStart, { passive:true });
+    areaEl.addEventListener('mousedown', onStart);
+  }
+
+  attachSwipe(header);              // swipe depuis tout le header (inclut handle)
+  if (swipeBody) attachSwipe(bodyEl);
+
+  return { close, root, panel, bodyEl, header, headerRow };
+}
+
+// util AG Grid (inchangé)
+function collectGridApis(gridsLike) {
+  if (!gridsLike) return [];
+  if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
+  if (typeof gridsLike?.forEach === 'function') { const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
+  if (gridsLike?.api?.onGridSizeChanged) return [gridsLike.api];
+  if (typeof gridsLike === 'object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
+  return [];
+}
+
+function closeSheet(classes = {}) {
+  const rootClass = classes.root || 'sheet-root';
+  const visibleRoot = classes.visibleRoot || 'open';
+  const root = document.querySelector('.' + rootClass);
+  if (!root) return;
+  root.classList.remove(visibleRoot);
+  const panel = root.querySelector('.' + (classes.panel || 'sheet-panel'));
+  if (panel) panel.style.transform = '';
+  setTimeout(() => root.remove(), 260);
 }
 
 async function closeAnySheet({ immediate = false } = {}) {
@@ -4938,22 +5146,6 @@ async function closeAnySheet({ immediate = false } = {}) {
   wrap.remove();
   document.body.style.removeProperty('overflow');
 }
-
-// let __sheetBusy = false;
-
-// async function openSheetExclusive(opts = {}) {
-//   // supprime/ferme toute sheet actuelle avant d’ouvrir
-//   if (__sheetBusy) return;         // anti re-entrance
-//   __sheetBusy = true;
-//   try {
-//     await closeAnySheet({ immediate: false }); // attend la fermeture
-//     const inst = openSheet({ ...opts, replaceExisting: false }); // ta fonction existante
-//     return inst;
-//   } finally {
-//     // petite garde pour laisser le DOM se poser
-//     setTimeout(() => { __sheetBusy = false; }, 50);
-//   }
-// }
 
 // --- keep this helper outside openSheet ---
 function waitViewportSettle(timeout = 350) {
@@ -6595,32 +6787,6 @@ function openFileSheet({ title, height, maxHeight, mount }) { ... } // ← celle
 //   });
 // }
 
-/**
- * openSheetExclusive({
- *   // Contenu
- *   title: 'Aide',
- *   mount: (bodyEl, helpers) => { bodyEl.innerHTML = '...'; },
- *   // Classes CSS (map vers ta feuille de style)
- *   classes: {
- *     root:        'file-sheet',
- *     backdrop:    'file-sheet__backdrop',
- *     panel:       'file-sheet__panel',
- *     header:      'file-sheet__header',
- *     handle:      'file-sheet__handle',
- *     title:       'file-sheet__title',
- *     closeBtn:    'file-sheet__close',
- *     body:        'file-sheet__content',
- *     visibleRoot: 'visible' // classe d'ouverture (c’est TA CSS qui anime)
- *   },
- *   // Dimensions (laisse ta CSS décider du reste)
- *   panelHeight: '60vh',
- *   panelMaxHeight: '70vh',
- *   // Comportement
- *   showClose: true,
- *   swipeBody: false,
- *   onOpen, onAfterOpen, onBeforeClose, onClose
- * })
- */
 // function openSheetExclusive(opts = {}) {
 //   const {
 //     title = '',
@@ -6754,176 +6920,23 @@ function openFileSheet({ title, height, maxHeight, mount }) { ... } // ← celle
 
 //   return { close, root, panel, bodyEl };
 // }
-function openSheetExclusive({
-  title = '',
-  mount,                      // (bodyEl, helpers) => { bodyEl.innerHTML='...' }
-  // mapping classes (tes noms par défaut)
-  classes = {
-    wrap: 'sheet-wrap',
-    backdrop: 'sheet-backdrop',
-    panel: 'sheet-panel',
-    header: 'sheet-header',
-    handle: 'sheet-handle',
-    title: 'sheet-title',
-    actions: 'sheet-actions',
-    closeBtn: 'sheet-close',
-    body: 'sheet-body',
-    // états
-    isOpen: 'is-open',
-    isClosing: 'is-closing',
-    dragging: 'dragging',
-  },
-  showClose = true,
-  swipeBody = false,          // swipe aussi sur le body (hors ag-grid / inputs)
-  panelHeight = '60vh',
-  panelMaxHeight = '70vh',
-  onOpen, onAfterOpen, onBeforeClose, onClose,
-} = {}) {
 
-  // exclusif : enlever toute sheet ouverte
-  document.querySelectorAll('.' + classes.wrap).forEach(n => n.remove());
 
-  // markup conforme à ta CSS
-  const root = document.createElement('div');
-  root.className = classes.wrap;
-  root.innerHTML = `
-    <div class="${classes.backdrop}" data-backdrop></div>
-    <div class="${classes.panel}" role="dialog" aria-modal="true"
-         style="max-height:${panelMaxHeight};height:${panelHeight}">
-      <span class="${classes.handle}" aria-hidden="true"></span>
-      <header class="${classes.header}" data-drag-region>
-        <div class="${classes.title}">${title || ''}</div>
-        <button class="${classes.closeBtn}" title="Fermer" aria-label="Fermer">×</button>
-      </header>
-      <div class="${classes.body}" data-body></div>
-    </div>
-  `;
+function enableKeyboardAutoScroll() {
+  document.addEventListener('focusin', (e) => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
 
-  document.body.appendChild(root);
-
-  const panel    = root.querySelector('.' + classes.panel);
-  const header   = root.querySelector('.' + classes.header);
-  const headerRow= root.querySelector('.' + classes.headerRow);
-  const bodyEl   = root.querySelector('[data-body]');
-  const backdrop = root.querySelector('[data-backdrop]');
-  const closeBtn = root.querySelector('.' + classes.closeBtn);
-
-  // contenu
-  const helpers = {
-    close, root, panel, header, bodyEl,
-    qs: (sel) => root.querySelector(sel),
-    qsa: (sel) => [...root.querySelectorAll(sel)],
-    pingGrids: () => {
-      const apis = collectGridApis(window.grids);
-      requestAnimationFrame(() => {
-        apis.forEach(a => a.onGridSizeChanged?.());
-        requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged?.()));
+    // petit délai : attendre que le clavier soit visible
+    setTimeout(() => {
+      // essaie d'amener l'élément dans la zone visible
+      el.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
       });
-    }
-  };
-  try { mount?.(bodyEl, helpers); } catch (e) { console.error('sheet mount error:', e); }
-
-  // ouverture (ta CSS anime sur .is-open)
-  requestAnimationFrame(() => {
-    root.classList.add(classes.isOpen);
-    onOpen?.(helpers);
-    requestAnimationFrame(() => {
-      if (bodyEl.getBoundingClientRect().height < 60) bodyEl.style.minHeight = '40vh';
-      helpers.pingGrids();
-      onAfterOpen?.(helpers);
-    });
+    }, 300);
   });
-
-  // fermeture avec état .is-closing si ta CSS l’utilise
-  function close(reason='manual') {
-    onBeforeClose?.(helpers, reason);
-    root.classList.remove(classes.isOpen);
-    if (classes.isClosing) root.classList.add(classes.isClosing);
-    panel.style.transform = ''; // rollback si un swipe a posé un translateY
-    setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
-  }
-
-  // events
-  backdrop?.addEventListener('click', () => close('backdrop'));
-  closeBtn?.addEventListener('click', () => close('close'));
-  window.addEventListener('keydown', e => { if (e.key === 'Escape') close('esc'); }, { once:true });
-
-  // swipe header (+ optionnel body), en évitant AG Grid et les inputs
-  const isInteractive = el => el.closest('input,select,textarea,button,[contenteditable="true"]');
-  const isAgGridArea  = el => el.closest('.ag-root, .ag-body-viewport, .ag-center-cols-viewport');
-
-  function attachSwipe(areaEl) {
-    if (!areaEl) return;
-    let startY=0, moved=0, dragging=false;
-
-    const onStart = (ev) => {
-      const t = ev.touches ? ev.touches[0] : ev;
-      const target = ev.target;
-      if (isInteractive(target) || isAgGridArea(target)) return;
-      startY = t.clientY; moved=0; dragging=true;
-      root.classList.add(classes.dragging);
-      window.addEventListener('touchmove', onMove, { passive:false });
-      window.addEventListener('mousemove', onMove, { passive:false });
-      window.addEventListener('touchend', onEnd);
-      window.addEventListener('mouseup', onEnd);
-    };
-    const onMove = (ev) => {
-      if (!dragging) return;
-      const t = ev.touches ? ev.touches[0] : ev;
-      const dy = Math.max(0, t.clientY - startY);
-      moved = dy;
-      panel.style.transform = `translateY(${dy}px)`; // temporaire
-      ev.preventDefault();
-    };
-    const onEnd = () => {
-      if (!dragging) return;
-      dragging=false;
-      root.classList.remove(classes.dragging);
-      const ph = panel.getBoundingClientRect().height || 1;
-      if (moved > ph * 0.25) close('swipe');
-      else panel.style.transform = ''; // rollback → la CSS reprend la main
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('touchend', onEnd);
-      window.removeEventListener('mouseup', onEnd);
-    };
-
-    areaEl.addEventListener('touchstart', onStart, { passive:true });
-    areaEl.addEventListener('mousedown', onStart);
-  }
-
-  attachSwipe(header);              // swipe depuis tout le header (inclut handle)
-  if (swipeBody) attachSwipe(bodyEl);
-
-  return { close, root, panel, bodyEl, header, headerRow };
 }
-
-// util AG Grid (inchangé)
-function collectGridApis(gridsLike) {
-  if (!gridsLike) return [];
-  if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
-  if (typeof gridsLike?.forEach === 'function') { const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
-  if (gridsLike?.api?.onGridSizeChanged) return [gridsLike.api];
-  if (typeof gridsLike === 'object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
-  return [];
-}
-
-
-
-
-function closeSheet(classes = {}) {
-  const rootClass = classes.root || 'sheet-root';
-  const visibleRoot = classes.visibleRoot || 'open';
-  const root = document.querySelector('.' + rootClass);
-  if (!root) return;
-  root.classList.remove(visibleRoot);
-  const panel = root.querySelector('.' + (classes.panel || 'sheet-panel'));
-  if (panel) panel.style.transform = '';
-  setTimeout(() => root.remove(), 260);
-}
-
-
-
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('⏳ DOM prêt, initialisation du contexte...');
@@ -6943,7 +6956,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   addExpanderButtons();
   wireAppKebab();
   initSheetGrids();
-
+  enableKeyboardAutoScroll();
   // 3️⃣ Premier rendu
   // await refreshAllGrids();
   // appJustLaunched = false;
@@ -6972,7 +6985,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // });
 // window.addEventListener('orientationchange', onRotate, { passive:true });
 // window.addEventListener('resize', onRotate, { passive:true });
-  logToPage('✅ Retour orig 8');
+  // logToPage('✅ Retour orig 8');
 
   console.log('✅ Application initialisée');
 
