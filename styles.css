@@ -1319,7 +1319,7 @@ main, .page-wrap {
 
 .sheet-backdrop {
   /* flex: 1; background: rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px); */
-  background:rgba(231, 231, 231, 0.3); /*backdrop-filter:blur(0px);*/
+  background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);
 }
 /* petite poignée centrée, style iOS */
 .sheet-handle{
@@ -1784,19 +1784,3 @@ body.lock-page-scroll {
 /* Résolution du pb de disparition de la page planning au basculement Iphone si sheet affichée (bug IOS)   */
 /* ========================================================================================================*/
 
-/* mode secours activé par .ios-orienting (posé en JS pendant 200–400ms) */
-.ios-orienting .sheet-backdrop,
-.ios-orienting .sheet-panel {
-  position: absolute !important;   /* ⟵ casse le calque fixed qui fige */
-  transform: none !important;
-}
-
-.ios-orienting body {
-  overflow: auto !important;       /* ⟵ retire le lock scroll le temps du recalage */
-}
-
-/* donne à la zone grilles un layer propre (si pas déjà fait) */
-.grid-page, .ag-root, .ag-root-wrapper {
-  transform: translateZ(0);
-  will-change: transform;
-}

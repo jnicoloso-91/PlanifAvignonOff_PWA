@@ -3479,7 +3479,8 @@ function openFileMenuOrSheet(anchorBtn) {
   if (isSmallScreen || isIOS) {
     openFileSheet(); // version mobile et iPad
   } else {
-    openFileMenuDesktop(anchorBtn);  // version desktop
+    openFileSheet(); // version mobile et iPad
+    // openFileMenuDesktop(anchorBtn);  // version desktop
   }
 }
 
@@ -4617,7 +4618,7 @@ function openSheet({
   mount,
   onClose,
   classes = '',
-  panelMaxHeight = '60vh',
+  panelMaxHeight = '60dvh',
   panelHeight = null,
   replaceExisting = false
 } = {}) {
@@ -5806,8 +5807,8 @@ function openSheetParams(){
 function openSheetAide() {
   openSheetExclusive({
     title: 'Aide',
-    panelMaxHeight: '70vh',
-    panelHeight: '60vh',
+    panelMaxHeight: '70dvh',
+    panelHeight: '60dvh',
     mount: (body) => {
       body.innerHTML = `
         <!-- Table des matières -->
@@ -6157,35 +6158,35 @@ function initSheetGrids() {
 // }
 
 
-function collectGridApis(gridsLike) {
-  if (!gridsLike) return [];
-  if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
-  if (typeof gridsLike.forEach === 'function') {
-    const out=[]; gridsLike.forEach(v => out.push(v?.api || v)); return out.filter(a => a?.onGridSizeChanged);
-  }
-  if (gridsLike.api?.onGridSizeChanged) return [gridsLike.api];
-  if (typeof gridsLike === 'object') {
-    return Object.values(gridsLike).map(h => h?.api).filter(a => a?.onGridSizeChanged);
-  }
-  return [];
-}
+// function collectGridApis(gridsLike) {
+//   if (!gridsLike) return [];
+//   if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
+//   if (typeof gridsLike.forEach === 'function') {
+//     const out=[]; gridsLike.forEach(v => out.push(v?.api || v)); return out.filter(a => a?.onGridSizeChanged);
+//   }
+//   if (gridsLike.api?.onGridSizeChanged) return [gridsLike.api];
+//   if (typeof gridsLike === 'object') {
+//     return Object.values(gridsLike).map(h => h?.api).filter(a => a?.onGridSizeChanged);
+//   }
+//   return [];
+// }
 
-function kickRepaint(el) {
-  if (!el) return;
-  // méthode visibility: toggle
-  el.style.visibility = 'hidden';
-  void el.offsetHeight;
-  el.style.visibility = '';
-}
+// function kickRepaint(el) {
+//   if (!el) return;
+//   // méthode visibility: toggle
+//   el.style.visibility = 'hidden';
+//   void el.offsetHeight;
+//   el.style.visibility = '';
+// }
 
-function domSwap(el) {
-  if (!el || !el.parentNode) return;
-  const ph = document.createComment('ph');
-  const p = el.parentNode;
-  p.replaceChild(ph, el);
-  p.insertBefore(el, ph);
-  p.removeChild(ph);
-}
+// function domSwap(el) {
+//   if (!el || !el.parentNode) return;
+//   const ph = document.createComment('ph');
+//   const p = el.parentNode;
+//   p.replaceChild(ph, el);
+//   p.insertBefore(el, ph);
+//   p.removeChild(ph);
+// }
 
 function repaintAndResizeGrids() {
   const apis = collectGridApis(window.grids);
@@ -6266,14 +6267,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // setVHVar();
   // window.addEventListener('resize', setVHVar, { passive: true });
   // window.addEventListener('orientationchange', setVHVar, { passive: true });// logToPage('setVHVar done');
-// boot
-setVHVar();
-window.addEventListener('orientationchange', onRotateOrResize, { passive: true });
-window.addEventListener('resize', onRotateOrResize, { passive: true });
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') onRotateOrResize();
-});
-  logToPage('✅ Après setVHVar...');
+// // boot
+// setVHVar();
+// window.addEventListener('orientationchange', onRotateOrResize, { passive: true });
+// window.addEventListener('resize', onRotateOrResize, { passive: true });
+// document.addEventListener('visibilitychange', () => {
+//   if (document.visibilityState === 'visible') onRotateOrResize();
+// });
+  logToPage('✅ Retour orig.');
 
   console.log('✅ Application initialisée');
 
