@@ -76,7 +76,7 @@ const overlayAttente = document.getElementById('overlay-attente'); // overlay d'
 
 // ------- Debug -------
 
-const DEBUG = true;
+const DEBUG = false;
 function getCaller(depth = 2) {
   try {
     throw new Error();
@@ -2554,6 +2554,8 @@ async function doImportFromCatIn() {
 
 // Export Excel
 async function doExportExcel() {
+
+  // Change le nom des colonnes
   // mapping: { ancienNom: nouveauNom }
   function renameColumns(rows, mapping = {}) {
     return (rows || []).map(r => {
@@ -2566,7 +2568,7 @@ async function doExportExcel() {
     });
   }
 
-  // order: tableau des clés dans l’ordre voulu 
+  // order: tableau des clés selon lequel les colonnes sont réordonnées
   // dropUnknown: si true, on écarte les colonnes non listées
   function reorderColumns(rows, order = [], dropUnknown = false) {
     const has = Object.prototype.hasOwnProperty;
@@ -2582,21 +2584,10 @@ async function doExportExcel() {
     });
   }
 
-  function renameThenReorder(rows, renameMap, order, dropUnknown = false) {
-    return reorderColumns(renameColumns(rows, renameMap), order, dropUnknown);
-  }
-
-  function renameThenReorder(rows, renameMap, order, dropUnknown = false) {
-    return reorderColumns(renameColumns(rows, renameMap), order, dropUnknown);
-  }
-
-  try {
-    const rows = ctx.df || [];
-
-    const colsToRemove = ["__uuid", "Hyperlien", "__order"];
-
+  // Supprime, renomme et réordonne
+  function cleanRows(rows, colsToRemove, renameMap, order, dropUnknown = false) {
     let cleaned = rows.map(r => {
-      const copy = { ...r, Date: dateintToPretty(r.Date) };
+      const copy = { ...r };
       colsToRemove.forEach(c => {
         if (Object.prototype.hasOwnProperty.call(copy, c)) {
           delete copy[c];
@@ -2604,20 +2595,13 @@ async function doExportExcel() {
       });
       return copy;
     })
-    
-    cleaned = renameThenReorder(cleaned, 
-      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Validité", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité" },
-      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Validité", "Relâches", "Style", "Orga", "Réservé", "Priorité" ],
-      false
-    );
+    return reorderColumns(renameColumns(cleaned, renameMap), order, dropUnknown);
+  }
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(cleaned);
-
-    // Calcul automatique des largeurs
-    const data = [Object.keys(cleaned[0]), ...cleaned.map(Object.values)];
-
-    const colWidths = data[0].map((_, colIndex) => {
+  // Renvoie pour chaque colonne la largeur du contenu le plus long
+  function colWidths(rows) {
+    const data = [Object.keys(rows[0]), ...rows.map(Object.values)];
+    return data[0].map((_, colIndex) => {
       const maxLen = data.reduce((acc, row) => {
         const cell = row[colIndex];
         const cellValue = cell == null ? "" : String(cell);
@@ -2626,27 +2610,49 @@ async function doExportExcel() {
       // 1 unité ≈ largeur d’un caractère
       return { wch: Math.min(Math.max(maxLen + 2, 8), 50) }; // borne entre 8 et 50
     });
+  }
 
-    ws["!cols"] = colWidths;
+  try {
+    const wb = XLSX.utils.book_new();
 
-    // repérer la colonne "Activité" (ligne d'entête)
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    // Data
+    const rows = ctx.df || [];
+
+    let cleanData = rows.map(r => {
+      const copy = { ...r, Date: dateintToPretty(r.Date) };
+      return copy;
+    })
+    
+    cleanData = cleanRows(cleanData, 
+      ["__uuid", "Hyperlien", "__order"],
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Validité", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité" },
+      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Validité", "Relâches", "Style", "Orga", "Réservé", "Priorité" ],
+      false
+    );
+
+    const wsData = XLSX.utils.json_to_sheet(cleanData);
+
+    // Calcul automatique des largeurs
+    wsData["!cols"] = colWidths(cleanData);
+
+    // repérer la colonne "Activité" dans la ligne d'entête
+    const range = XLSX.utils.decode_range(wsData['!ref'] || 'A1');
     let colActivite = null;
     for (let c = range.s.c; c <= range.e.c; c++) {
       const addr = XLSX.utils.encode_cell({ r: range.s.r, c });
-      const v = ws[addr]?.v;
+      const v = wsData[addr]?.v;
       if (String(v).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') === 'activite') {
         colActivite = c;
         break;
       }
     }
 
+    // pour chaque data row, si Hyperlien présent -> pose un lien sur la cellule Activité
     if (colActivite != null) {
-      // pour chaque data row, si Hyperlien présent -> pose un lien sur la cellule Activité
       for (let i = 0; i < (rows?.length || 0); i++) {
         const r = range.s.r + 1 + i; // 1-based après entête
         const addr = XLSX.utils.encode_cell({ r, c: colActivite });
-        const cell = ws[addr] || (ws[addr] = { t: 's', v: rows[i]?.Activité || '' });
+        const cell = wsData[addr] || (wsData[addr] = { t: 's', v: rows[i]?.Activité || '' });
         const url  = rows[i]?.Hyperlien;
         if (url) {
           cell.l = { Target: String(url) };
@@ -2654,7 +2660,22 @@ async function doExportExcel() {
       }
     }
 
-    XLSX.utils.book_append_sheet(wb, ws, 'data');
+    XLSX.utils.book_append_sheet(wb, wsData, 'data');
+
+    // Carnet d'adresses
+    const carnet = ctx.carnet || [];
+    if (carnet.length > 0) {
+      let cleanCarnet = cleanRows(carnet, 
+        ["__uuid", "__order"],
+        { Tel: "Téléphone" },
+        [ "Nom", "Adresse", "Téléphone", "Web" ],
+        false
+      );
+      const wsCarnet = XLSX.utils.json_to_sheet(cleanCarnet);
+      wsCarnet["!cols"] = colWidths(cleanCarnet);
+      XLSX.utils.book_append_sheet(wb, wsCarnet, 'Carnet');
+    }
+
     XLSX.writeFile(wb, 'planning.xlsx');
   } catch (e) {
     console.error(e);
@@ -4416,8 +4437,12 @@ function openSheetCarnet() {
 
       // footer actions (icônes + labels)
       const actions = document.createElement('div');
-      actions.className = 'sheet-actions';
+      // actions.className = 'sheet-actions';
+      // actions.innerHTML = `
+      actions.className = 'sheet-footer';
+      actions.style.justifyContent = 'flex-start';
       actions.innerHTML = `
+        <div class="sheet-actions">
         <button class="icon-btn" id="btn-carnet-add" title="Ajouter">
           <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
@@ -4454,6 +4479,7 @@ function openSheetCarnet() {
           </svg>
           <span class="bb-label">Refaire</span>
         </button>
+        </div>
       `;
 
       // injecte dans la sheet
