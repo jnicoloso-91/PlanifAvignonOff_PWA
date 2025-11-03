@@ -374,7 +374,6 @@ main, .page-wrap {
   border-radius: 8px;
   user-select: none;
   transition: background-color .15s ease, transform .08s ease;
-  width: 6rem;
 }
 .exp-header-btn:focus { outline: none; }
 .exp-header-btn:hover { background: rgba(0,0,0,.06); }

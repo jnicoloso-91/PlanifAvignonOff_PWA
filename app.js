@@ -1384,7 +1384,7 @@ function addExpanderButton({expanderId, id, title, innerHTML, onClick}) {
 
   const btn = document.createElement('button');
   btn.id = id;
-  btn.className = 'exp-header-btn ';// + id;
+  btn.className = 'exp-header-btn';
   btn.title = title;
   btn.innerHTML = innerHTML;
 
@@ -1431,7 +1431,7 @@ function wireExpanderButtons() {
       </span>
       <span class="exp-label">Programmer</span>
     `,
-    onClick: async () => {await doProgrammerActivite();}
+    onClick: async () => {await doProgrammerActivite();},
   });
 
   // Bouton Déprogrammer
@@ -1456,7 +1456,7 @@ function wireExpanderButtons() {
       </span>
       <span class="exp-label">Déprogrammer</span>
     `,
-    onClick: async () => {await doDeprogrammerActivite();}
+    onClick: async () => {await doDeprogrammerActivite();},
   });
   
   // Bouton Filtres sur Activités Non Programmées
@@ -1477,7 +1477,7 @@ function wireExpanderButtons() {
       </span>
       <span class="exp-label">Filtrer</span>
     `,
-    onClick: () => { openSheetFiltres('grid-non-programmees'); }
+    onClick: () => { openSheetFiltres('grid-non-programmees'); },
   });
 
   // Bouton Supprimer
@@ -1502,7 +1502,7 @@ function wireExpanderButtons() {
       </span>
       <span class="exp-label">Supprimer</span>
     `,
-    onClick: async () => {await doSupprimerActivite();}
+    onClick: async () => {await doSupprimerActivite();},
   });
 
   // Toggle TraiterPauses
