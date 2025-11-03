@@ -1939,7 +1939,7 @@ function buildColumnsActivitesCommon(){
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
-    { field:'Session', headerName: 'Sessions', width:widthSR, minWidth:widthSR, valueParser: valueParserSession },
+    { field:'Session', headerName: 'Validité', width:widthSR, minWidth:widthSR, valueParser: valueParserSession },
     { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache },
     { field:'Style', headerName: 'Style', minWidth:160, flex:0.6 },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
@@ -2196,6 +2196,7 @@ function gridOptionsCommon(gridId, el) {
     },
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
+    suppressMenuHide: false,
   }
 };
 
@@ -2258,12 +2259,12 @@ async function loadGridActivitesProgrammables(){
   if (!selectedSlot) return [];
   const activites = ctx.df;                      
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
-  return activitesAPI.getActivitesProgrammables(activites, selectedSlot).map(r => ({...r}));
+  return activitesAPI.getActivitesProgrammables(activites, selectedSlot, traiterPauses()).map(r => ({...r}));
 }
 
 async function dropRowFromSrcGridToDstGrid(srcGrid, dstGrid, dstExp, srcUuid, dstUuid, scroll=true) {
 
-  // 1) sélectionne le voisin dans la source (pas besoin de center ici)
+  // 1) sélectionne le voisin dans la source (pas besoin de centrer ici)
   selectRowByUuid(srcGrid, srcUuid, { ensure: null, flash: null });
 
   // 2) ouvre l’expander cible et scrolle jusqu’à lui
@@ -2949,15 +2950,80 @@ async function doImportFromCatIn() {
 
 // Export Excel
 async function doExportExcel() {
+  // mapping: { ancienNom: nouveauNom }
+  function renameColumns(rows, mapping = {}) {
+    return (rows || []).map(r => {
+      const out = {};
+      for (const [k, v] of Object.entries(r)) {
+        const newKey = Object.prototype.hasOwnProperty.call(mapping, k) ? mapping[k] : k;
+        out[newKey] = v;
+      }
+      return out;
+    });
+  }
+
+  // order: tableau des clés dans l’ordre voulu 
+  // dropUnknown: si true, on écarte les colonnes non listées
+  function reorderColumns(rows, order = [], dropUnknown = false) {
+    const has = Object.prototype.hasOwnProperty;
+    return (rows || []).map(r => {
+      const out = {};
+      // d’abord les colonnes demandées
+      for (const key of order) if (has.call(r, key)) out[key] = r[key];
+      // puis le reste si on ne drop pas
+      if (!dropUnknown) {
+        for (const k of Object.keys(r)) if (!order.includes(k)) out[k] = r[k];
+      }
+      return out;
+    });
+  }
+
+  function renameThenReorder(rows, renameMap, order, dropUnknown = false) {
+    return reorderColumns(renameColumns(rows, renameMap), order, dropUnknown);
+  }
+
+  function renameThenReorder(rows, renameMap, order, dropUnknown = false) {
+    return reorderColumns(renameColumns(rows, renameMap), order, dropUnknown);
+  }
+
   try {
-    const rows = ctx.df;
-    // copie “pretty” pour Excel
-    const pretty = (rows || []).map(r => ({
-      ...r,
-      Date: dateintToPretty(r.Date),
-    }));
+    const rows = ctx.df || [];
+
+    const colsToRemove = ["__uuid", "Hyperlien", "__order"];
+
+    let cleaned = rows.map(r => {
+      const copy = { ...r, Date: dateintToPretty(r.Date) };
+      colsToRemove.forEach(c => {
+        if (Object.prototype.hasOwnProperty.call(copy, c)) {
+          delete copy[c];
+        }
+      });
+      return copy;
+    })
+    
+    cleaned = renameThenReorder(cleaned, 
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Validité", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité" },
+      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Validité", "Relâches", "Style", "Orga", "Réservé", "Priorité" ],
+      false
+    );
+
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(pretty);
+    const ws = XLSX.utils.json_to_sheet(cleaned);
+
+    // Calcul automatique des largeurs
+    const data = [Object.keys(cleaned[0]), ...cleaned.map(Object.values)];
+
+    const colWidths = data[0].map((_, colIndex) => {
+      const maxLen = data.reduce((acc, row) => {
+        const cell = row[colIndex];
+        const cellValue = cell == null ? "" : String(cell);
+        return Math.max(acc, cellValue.length);
+      }, 0);
+      // 1 unité ≈ largeur d’un caractère
+      return { wch: Math.min(Math.max(maxLen + 2, 8), 50) }; // borne entre 8 et 50
+    });
+
+    ws["!cols"] = colWidths;
 
     // repérer la colonne "Activité" (ligne d'entête)
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
@@ -3029,43 +3095,6 @@ async function getClipBoardText(df, parser=null) {
   const btn   = document.getElementById('btn-paste');
   const popup = document.getElementById('paste-popup');
   const proxy = document.getElementById('paste-proxy');
-
-  // function openPastePopup() {
-  //   popup.setAttribute('aria-hidden', 'false');
-
-  //   // Positionner la popup juste au-dessus du bouton
-  //   const rect = btn.getBoundingClientRect();
-  //   const dialog = popup.querySelector('.pp-dialog');
-  //   const dlgH = 100; // hauteur approximative
-  //   const top = Math.max(8, rect.top - dlgH - 8); // au-dessus avec marge
-  //   const left = Math.min(
-  //     window.innerWidth - dialog.offsetWidth - 8,
-  //     Math.max(8, rect.left + rect.width / 2 - dialog.offsetWidth / 2)
-  //   );
-
-  //   dialog.style.top = `${top + window.scrollY}px`;
-  //   dialog.style.left = `${left + window.scrollX}px`;
-
-  //   proxy.textContent = '';
-  //   requestAnimationFrame(() => proxy.focus());
-
-  //   const onPasteOnce = (e) => {
-  //     e.preventDefault();
-  //     const dt = e.clipboardData || window.clipboardData;
-  //     const txt = dt ? dt.getData('text') : '';
-  //     if (txt) handleClipboardText(txt, df, parser);
-  //     closePastePopup();
-  //   };
-
-  //   const onBackdrop = (e) => {
-  //     if (e.target.classList.contains('pp-backdrop')) closePastePopup();
-  //   };
-
-  //   proxy.addEventListener('paste', onPasteOnce, { once: true });
-  //   popup.addEventListener('click', onBackdrop, { once: true });
-
-  //   popup._tmp = { onPasteOnce, onBackdrop };
-  // }
 
   function openPastePopup() {
     popup.setAttribute('aria-hidden', 'false');
@@ -3165,16 +3194,6 @@ async function getClipBoardText(df, parser=null) {
     btn.focus();
   }
 
-  // function closePastePopup() {
-  //   popup.setAttribute('aria-hidden', 'true');
-  //   if (popup._tmp) {
-  //     proxy.removeEventListener('paste', popup._tmp.onPasteOnce);
-  //     popup.removeEventListener('click', popup._tmp.onBackdrop);
-  //     popup._tmp = null;
-  //   }
-  //   btn.focus();
-  // }
-
   // 1️⃣ Tentative immédiate (doit être synchrone)
   try {
     const txt = await navigator.clipboard?.readText();
@@ -3188,7 +3207,6 @@ async function getClipBoardText(df, parser=null) {
 };
 
 async function handleClipboardText(raw, df, parser=null) {
-  // console.log('📋 Texte collé :', raw);
 
   if (raw == null) return;
 
@@ -3228,24 +3246,32 @@ async function handleClipboardText(raw, df, parser=null) {
       }
     }
     if (!parsed || parsed.length == 0) {
-      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogues, afficher le programme ou la page d'un spectacle et copier le texte de la page");
+      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogue, afficher le programme ou la page d'un spectacle et copier le texte de la page");
       return null;
     }
   } else {
     if (parser == 'parseAvignonInProgPage') {
-      parsed = parseAvignonInProgPageText(raw);
+      if (looksLikeUrl(raw) && raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
+        parsed = await asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
+      }      
       if (!parsed || parsed.length == 0) {
         alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du In, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
         return null;
       }
     } 
     else if (parser == 'parseAvignonOffProgPage') {
-      parsed = parseAvignonOffProgPageText(raw);
+      if (looksLikeUrl(raw) && raw.includes("https://www.festivaloffavignon.com/programme")) {
+        parsed = await asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
+      }
       if (!parsed || parsed.length == 0) {
         alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
         return null;
       }
     } 
+    if (!parsed || parsed.length == 0) {
+      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogue, afficher le programme ou la page d'un spectacle et copier le texte de la page");
+      return null;
+    }
   }
 
   const nouvellesActivites = [];
@@ -3316,6 +3342,22 @@ async function doDeprogrammerActivite() {
   const uuid = row.__uuid;
   const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-programmees'), uuid);
 
+  if (activitesAPI.estPause(row)) {
+    // 🗑️ Supprimer la ligne du DF
+    ctx.mutateDf(rows => {
+      const next = Array.isArray(rows) ? rows.filter(r => r?.__uuid !== uuid) : [];
+      return sortDf(next);
+    });
+
+    // sélectionne le voisin dans la source
+    selectRowByUuid('grid-programmees', uuidVoisin, { ensure: null, flash: null });
+
+    // Si on a supprimé la ligne définitivement, on NE la déplace PAS vers "non-programmées".
+    // On force un léger repaint si besoin :
+    try { refreshGrid?.('grid-programmees'); } catch {}
+    return;
+  }
+
   // Mutation immuable
   ctx.mutateDf(rows => {
     let next = rows.slice();
@@ -3325,13 +3367,6 @@ async function doDeprogrammerActivite() {
     return next;
   });
 
-  // Maj des sélections
-  // setTimeout(() => {
-  //   selectRowByUuid('grid-programmees', uuidVoisin, { ensure: 'center', flash: null });
-  //   openExpander?.('exp-non-programmees');
-  //   selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: true });
-  //   doPhantomFlight("grid-programmees", "grid-non-programmees", "exp-non-programmees");
-  // }, 50);
   dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, scroll=false);
 }
 
@@ -3349,20 +3384,45 @@ async function doProgrammerActivite() {
   if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
   const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-programmables'), uuid);
 
-  // 1) pré-check (lecture instantanée en RAM)
-  const exists = (ctx.df || []).some(r => r.__uuid === uuid);
-  if (!exists) { 
-    alert('Activité introuvable dans les données.');
-    return;                      // ⟵ on sort comme avant
-  }
+  // 1) pré-check 
+  // const exists = (ctx.df || []).some(r => r.__uuid === uuid);
+  // if (!exists) { 
+  //   alert('Activité introuvable dans les données.');
+  //   return;                      // ⟵ on sort comme avant
+  // }
 
   // 2) mutation immuable
+  // ctx.mutateDf(rows => {
+  //   let next = rows.slice();
+  //   const i = next.findIndex(r => r.__uuid === uuid);
+  //   if (i >= 0) next[i] = { ...next[i], Date: dateInt };
+  //   next = sortDf(next);
+  //   return next;
+  // });
   ctx.mutateDf(rows => {
-    let next = rows.slice();
-    const i = next.findIndex(r => r.__uuid === uuid);
-    if (i >= 0) next[i] = { ...next[i], Date: dateInt };
-    next = sortDf(next);
-    return next;
+    const next = Array.isArray(rows) ? rows.slice() : [];
+
+    const idx = (uuid != null)
+      ? next.findIndex(r => r && r.__uuid === uuid)
+      : -1;
+
+    // payload normalisé (Date convertie)
+    const payload = { ...sel, Date: dateInt };
+
+    if (idx >= 0) {
+      // ✅ met à jour la ligne existante
+      next[idx] = { ...next[idx], ...payload };
+    } else {
+      // ✅ ajoute une nouvelle ligne (assure un __uuid)
+      if (!payload.__uuid) {
+        payload.__uuid = crypto.randomUUID?.()
+          || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+      next.push(payload);
+    }
+
+    // trie final (inchangé par rapport à ton flux)
+    return sortDf(next);
   });
   
   // 3) ouvrir l’expander “programmées” puis sélectionner & scroller la ligne
@@ -3479,13 +3539,73 @@ function openFileMenuOrSheet(anchorBtn) {
   if (isSmallScreen || isIOS) {
     openFileSheet(); // version mobile et iPad
   } else {
-    openFileSheet(); // version mobile et iPad
-    // openFileMenuDesktop(anchorBtn);  // version desktop
+    openFileMenu(anchorBtn);  // version desktop
   }
 }
 
+// File menu/sheet inner HTML
+const fileMenuSheetInnerHtml = () => {
+  return `
+    <ul class="file-sheet__list">
+      <li class="file-sheet__item" data-action="new">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Nouveau planning</span>
+          <span class="file-sheet__subtitle">Réinitialise le planning</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="open">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Importer depuis Excel</span>
+          <span class="file-sheet__subtitle">Choisissez un fichier Excel contenant une liste d'activités</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="importCatIn">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Importer depuis le catalogue du In</span>
+          <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du In</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="importCatOff">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Importer depuis le catalogue du Off</span>
+          <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du Off</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="save">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Exporter vers Excel</span>
+          <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier Excel</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="rapportCoherence">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true" focusable="false">
+          <!-- Feuille -->
+          <path d="M7 3h6l4 4v11a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"/>
+          <path d="M13 3v4h4"/>
+          <!-- Coche -->
+          <path d="M8.8 13.2l2 2 4.2-4.2"/>
+          <!-- Lignes de texte -->
+          <path d="M8 18h8"/>
+        </svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Rapport de vérification de cohérence</span>
+          <span class="file-sheet__subtitle">Edite un rapport sur la cohérence des données (chevauchements, formats)</span>
+        </div>
+      </li>
+    </ul>
+  `;
+}
+
 // Construit le menu fichier (desktop)
-function openFileMenuDesktop(anchorBtn) {
+function openFileMenu(anchorBtn) {
   // évite doublons
   document.querySelectorAll('.kebab-menu.file-menu').forEach(m => m.remove());
 
@@ -3501,13 +3621,19 @@ function openFileMenuDesktop(anchorBtn) {
     { id:'save', label:'Exporter vers Excel' },
     { id:'rapportCoherence', label:'Rapport de vérification de cohérence' },
   ];
-  for (const it of items) {
-    const b = document.createElement('button');
-    b.className = 'kebab-menu__item';
-    b.textContent = it.label;
-    b.dataset.action = it.id;
-    menu.appendChild(b);
-  }
+  menu.innerHTML = `
+    <div class="file-menu__panel" role="dialog" aria-modal="true">` +
+      fileMenuSheetInnerHtml() +
+    `</div>
+  `;
+
+  // for (const it of items) {
+  //   const b = document.createElement('button');
+  //   b.className = 'kebab-menu__item';
+  //   b.textContent = it.label;
+  //   b.dataset.action = it.id;
+  //   menu.appendChild(b);
+  // }
 
   document.body.appendChild(menu);
 
@@ -3519,18 +3645,32 @@ function openFileMenuDesktop(anchorBtn) {
 
   // actions
   const close = () => { menu.classList.remove('show'); setTimeout(()=>menu.remove(), 120); };
-  menu.addEventListener('click', (e) => {
-    const btn = e.target.closest('.kebab-menu__item');
-    if (!btn) return;
-    const act = btn.dataset.action;
-    close();
-    if (act === 'new')  doNouveauContexte?.();
-    if (act === 'open') doImportExcel?.();
-    if (act === 'importCatOff') doImportFromCatOff?.();
-    if (act === 'importCatIn') doImportFromCatIn?.();
-    if (act === 'save') doExportExcel?.();
-    if (act === 'rapportCoherence') doVerifCoherence?.();
+
+  menu.querySelectorAll('.file-sheet__item').forEach(li => {
+    li.addEventListener('click', () => {
+      const act = li.dataset.action;
+      close();
+      if (act === 'new')  doNouveauContexte?.();
+      if (act === 'open') doImportExcel?.();
+      if (act === 'importCatOff') doImportFromCatOff?.();
+      if (act === 'importCatIn') doImportFromCatIn?.();
+      if (act === 'save') doExportExcel?.();
+      if (act === 'rapportCoherence') doVerifCoherence?.();
+    });
   });
+
+  // menu.addEventListener('click', (e) => {
+  //   const btn = e.target.closest('.kebab-menu__item');
+  //   if (!btn) return;
+  //   const act = btn.dataset.action;
+  //   close();
+  //   if (act === 'new')  doNouveauContexte?.();
+  //   if (act === 'open') doImportExcel?.();
+  //   if (act === 'importCatOff') doImportFromCatOff?.();
+  //   if (act === 'importCatIn') doImportFromCatIn?.();
+  //   if (act === 'save') doExportExcel?.();
+  //   if (act === 'rapportCoherence') doVerifCoherence?.();
+  // });
 
   // fermeture externe / ESC
   const onDocClick = (e) => { if (!menu.contains(e.target) && e.target !== anchorBtn) { cleanup(); } };
@@ -3546,74 +3686,22 @@ function openFileMenuDesktop(anchorBtn) {
   }, 0);
 }
 
-// File sheet appelée par le bouton "Fichier" sur mobile
+// Construit le menu fichier (mobile)
 function openFileSheet() {
   const existing = document.querySelector('.file-sheet');
   if (existing) { existing.remove(); return; }
 
   const sheet = document.createElement('div');
   sheet.className = 'file-sheet';
+  sheet.innerHTML = fileMenuSheetInnerHtml();
+
   sheet.innerHTML = `
     <div class="file-sheet__backdrop"></div>
     <div class="file-sheet__panel" role="dialog" aria-modal="true">
       <span class="file-sheet__handle" aria-hidden="true"></span>
-      <div class="file-sheet__content">
-        <ul class="file-sheet__list">
-          <li class="file-sheet__item" data-action="new">
-            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Nouveau planning</span>
-              <span class="file-sheet__subtitle">Réinitialise le planning</span>
-            </div>
-          </li>
-          <li class="file-sheet__item" data-action="open">
-            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
-            <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Importer depuis Excel</span>
-              <span class="file-sheet__subtitle">Choisissez un fichier Excel contenant une liste d'activités</span>
-            </div>
-          </li>
-          <li class="file-sheet__item" data-action="doImportFromCatOff">
-            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
-            <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Importer depuis le catalogue du Off</span>
-              <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du Off</span>
-            </div>
-          </li>
-          <li class="file-sheet__item" data-action="doImportFromCatIn">
-            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
-            <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Importer depuis le catalogue du In</span>
-              <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du In</span>
-            </div>
-          </li>
-          <li class="file-sheet__item" data-action="save">
-            <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
-            <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Exporter vers Excel</span>
-              <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier Excel</span>
-            </div>
-          </li>
-          <li class="file-sheet__item" data-action="rapportCoherence">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                aria-hidden="true" focusable="false">
-              <!-- Feuille -->
-              <path d="M7 3h6l4 4v11a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"/>
-              <path d="M13 3v4h4"/>
-              <!-- Coche -->
-              <path d="M8.8 13.2l2 2 4.2-4.2"/>
-              <!-- Lignes de texte -->
-              <path d="M8 18h8"/>
-            </svg>
-            <div class="file-sheet__text">
-              <span class="file-sheet__titleText">Rapport de vérification de cohérence</span>
-              <span class="file-sheet__subtitle">Edite un rapport sur la cohérence des données (chevauchements, formats)</span>
-            </div>
-          </li>
-        </ul>
-        <div class="file-sheet__footer">
+      <div class="file-sheet__content">` +
+        fileMenuSheetInnerHtml() +
+        `<div class="file-sheet__footer">
         </div>
       </div>
     </div>
@@ -3646,8 +3734,8 @@ function openFileSheet() {
       close();
       if (act === 'new')  doNouveauContexte?.();
       if (act === 'open') doImportExcel?.();
-      if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
+      if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'save') doExportExcel?.();
       if (act === 'rapportCoherence') doVerifCoherence?.();
     });

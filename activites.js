@@ -121,18 +121,10 @@ export function creerActivitesAPI(ctx) {
           const heureDebut = Number.isFinite(d) ? d : null;
           const heureFin   = (Number.isFinite(d) && Number.isFinite(du)) ? d + du : null;
 
-          // // changement de jour → reset des bornes anti-doublons
-          // if (row.Date !== jourCourant) {
-          //   bornes = [];
-          //   jourCourant = row.Date;
-          // }
-
           // ---- Créneau AVANT ----
           if (heureDebut != null) {
             if (_getActivitesProgrammablesAvant(df, activitesProgrammees, row, traiter_pauses).length > 0) {
-              // (en Python, on vérifie qu'il existe des programmables avant; ici on passe outre tant que les fonctions manquent)
               const [bMin, bMax, prev] = _getCreneauBoundsAvant(activitesProgrammees, row);
-              // Valide et pas doublon ?
               if (bMin < bMax) {
                 const key = `${row.Date}-${bMin}-${bMax}`;
                 if (!bornes.includes(key)) {
@@ -305,6 +297,15 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
+     * Indique si une activité est une pause
+     * @param {*} activite 
+     * @returns 
+     */
+    estPause(activite) {
+      return _estPause(activite);
+    },
+
+    /**
      * Crée une nouvelle activité 
      * @param {*} df  -> utilisé pour créer un nom d'activité unique qui ne soit pas déja alloué dans df
      * @returns nouvelleActivite
@@ -436,9 +437,7 @@ export function creerActivitesAPI(ctx) {
      * "10h00" (1–2 chiffres pour l’heure, 2 chiffres pour les minutes) 
      */
     estHeureValide(val) {
-      if (val == null) return false;
-      const s = String(val).trim();
-      return /^\d{1,2}h\d{2}$/.test(s);
+      return _estHeureValide(val);
     },
 
     /** 
@@ -446,9 +445,7 @@ export function creerActivitesAPI(ctx) {
      * "1h00" (minutes 00–59) 
      */
     estDureeValide(val) {
-      if (val == null) return false;
-      const s = String(val).trim();
-      return /^\d{1,2}h[0-5]\d$/.test(s);
+      return _estDureeValide(val);
     },
 
     /**
@@ -833,8 +830,21 @@ function _estActiviteReservee(row) {
 };
 
 /**
+ * Renvoie true si une activité est programmable 
+ * (i.e. non en relâche et dans la période de validité) pour la journée `dateRef` (AAAAMMJJ).
+ *
+ * @param {object} activite - activité
+ * @param {number} dateRef - entier AAAAMMJJ
+ * @returns {boolean}
+ */
+function _estActiviteProgrammableADate(activite, dateRef) {
+  return _estDateProgrammable(dateRef, activite.Session, activite.Relache) && _estHeureValide(activite.Debut) && _estDureeValide(activite.Duree);
+}
+
+
+/**
  * Renvoie true s'il existe AU MOINS une activité programmable
- * (i.e. non en relâche) pour la journée `dateRef` (AAAAMMJJ).
+ * (i.e. non en relâche et dans la période de validité) pour la journée `dateRef` (AAAAMMJJ).
  *
  * @param {Array<object>} activitesNonProgrammees - liste des activités non programmées
  * @param {number} dateRef - entier AAAAMMJJ
@@ -846,7 +856,7 @@ function _existActivitesProgrammables(activitesNonProgrammees, dateRef, traiter_
   if (!Array.isArray(activitesNonProgrammees) || activitesNonProgrammees.length === 0) return false;
 
   return activitesNonProgrammees.some(r => {
-    return _estDateProgrammable(dateRef, r.Session, r.Relache);
+    return _estDateProgrammable(dateRef, r.Session, r.Relache) && _estHeureValide(r.Debut) && _estDureeValide(r.Duree);
   });
 }
 
@@ -919,10 +929,10 @@ function _getDatesFromRows(rows) {
   return out;
 }
 
-// Considère qu’une ligne "non programmée" n’a pas de Date exploitable
-function _estActiviteNonProgrammee(row) {
+// Vérifie qu'une activité est potentiellement programmable
+function _estActiviteProgrammable(row) {
   const d = row?.Date;
-  return d == null || d === '' || Number.isNaN(+d);
+  return (d == null || d === '' || Number.isNaN(+d)) && _estHeureValide(row?.Debut) && _estDureeValide(row?.Duree);
 }
 
 // Renvoie les dates du Festival: fetch best-effort + cache
@@ -991,7 +1001,7 @@ function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, tra
 
   for (let idx = 0; idx < (df?.length || 0); idx++) {
     const row = df[idx];
-    if (!_estActiviteNonProgrammee(row)) continue;
+    if (!_estActiviteProgrammable(row)) continue;
 
     const d = debutMinute(row), du = dureeMinute(row);
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
@@ -1028,7 +1038,7 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
 
   for (let idx = 0; idx < (df?.length || 0); idx++) {
     const row = df[idx];
-    if (!_estActiviteNonProgrammee(row)) continue;
+    if (!_estActiviteProgrammable(row)) continue;
 
     const d = debutMinute(row), du = dureeMinute(row);
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
@@ -1293,7 +1303,7 @@ function _premiereActiviteProgrammeeDuJour(jour) {
 }
 
 // Renvoie la liste (triée) des activités programmées du jour
-function _ActivitesProgrammeesDuJourTriees(jour){
+function _getActivitesProgrammeesDuJourTriees(jour){
   return _getActivitesProgrammees(_ctx.df).filter(r => r.Date === jour)
                .map(r => ({...r, _min: mmFromHHhMM(r['Debut']), _dur: mmFromHHhMM(r['Duree'])||0}))
                .filter(r => r._min!=null)
@@ -1311,7 +1321,7 @@ function _getJoursPossibles(rowActivite) {
   for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
     if (!_estDateProgrammable(jour, rowActivite.Session, rowActivite.Relache)) continue;
 
-    const jList = _ActivitesProgrammeesDuJourTriees(jour);
+    const jList = _getActivitesProgrammeesDuJourTriees(jour);
     if (jList.length === 0) { // journée libre
       jours.push(jour);
       continue;
@@ -1352,10 +1362,10 @@ function _toPrettyArray(arrInt){
  */
 function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = true) {
   const proposables = [];
-  const nonProgrammees = _ctx?.df?.filter(r => !r.Date) || [];  // équiv. activites_non_programmees
+  const nonProgrammees = _getActivitesNonProgrammees(_ctx?.df); 
 
   for (const row of nonProgrammees) {
-    if (_estDateProgrammable(dateRef, row.Session, row.Relache)) {
+    if (_estActiviteProgrammableADate(row, dateRef)) {
       const nouvelleLigne = { ...row };
       delete nouvelleLigne.Debut_dt;
       delete nouvelleLigne.Duree_dt;
@@ -1365,43 +1375,79 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
     }
   }
 
-  if (traiterPauses) {
-    const DUREE_REPAS = _ctx?.meta?.DUREE_REPAS ?? 3600000; // 1h par défaut (ms)
-    const BASE_DATE = new Date(2000, 0, 1);
+  // if (traiterPauses) {
+  //   const DUREE_REPAS = _ctx?.meta?.DUREE_REPAS ?? 3600000; // 1h par défaut (ms)
+  //   const BASE_DATE = new Date(2000, 0, 1);
 
-    // --- fonction d'aide pour formater une durée en "1h30" ---
-    const dureeStr = (ms) => {
-      const totalMin = Math.round(ms / 60000);
-      const h = Math.floor(totalMin / 60);
-      const m = totalMin % 60;
-      return m ? `${h}h${m}` : `${h}h00`;
-    };
+  //   // --- fonction d'aide pour formater une durée en "1h30" ---
+  //   const dureeStr = (ms) => {
+  //     const totalMin = Math.round(ms / 60000);
+  //     const h = Math.floor(totalMin / 60);
+  //     const m = totalMin % 60;
+  //     return m ? `${h}h${m}` : `${h}h00`;
+  //   };
+
+  //   const completerLigne = (ligne) => ({
+  //     ...ligne,
+  //     Date: dateRef,
+  //     Reserve: '',
+  //     Relache: '',
+  //     Priorite: '',
+  //     Lieu: '',
+  //   });
+
+  //   const mkPause = (heure, typeRepas) => {
+  //     const h = new Date(BASE_DATE);
+  //     h.setHours(heure, 0, 0, 0);
+  //     const fin = new Date(h.getTime() + DUREE_REPAS);
+  //     return completerLigne({
+  //       Debut: `${heure}h00`,
+  //       Fin: `${fin.getHours()}h${String(fin.getMinutes()).padStart(2, '0')}`,
+  //       Duree: dureeStr(DUREE_REPAS),
+  //       Activite: `Pause ${typeRepas}`,
+  //       __type_activite: typeRepas,
+  //       __uuid: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  //     });
+  //   };
+
+  //   proposables.push(mkPause(12, 'déjeuner'));
+  //   proposables.push(mkPause(20, 'dîner'));
+  // }
+  if (traiterPauses) {
+    // minutes (meta par défaut : 60 min)
+    const meta = _ctx?.meta || {};
+    const DUREE_REPAS = Math.max(0, Number(meta.DUREE_REPAS ?? 60) | 0); // minutes
+
+    const pad2 = n => { n = n|0; return n < 10 ? '0'+n : ''+n; };
+    const minToHhmm = t => `${(t/60|0)}h${pad2(t%60)}`;
+    const dureeStr = m => `${(m/60|0)}h${pad2(m%60)}`;
 
     const completerLigne = (ligne) => ({
       ...ligne,
-      Date: dateRef,
+      Date: dateRef,    // conserve ton dateRef
       Reserve: '',
       Relache: '',
       Priorite: '',
       Lieu: '',
     });
 
-    const mkPause = (heure, typeRepas) => {
-      const h = new Date(BASE_DATE);
-      h.setHours(heure, 0, 0, 0);
-      const fin = new Date(h.getTime() + DUREE_REPAS);
+    // minuteOfDay = minutes depuis 00:00
+    const mkPauseAt = (minuteOfDay, typeRepas) => {
+      const debut = minuteOfDay | 0;
+      const fin   = debut + DUREE_REPAS;
       return completerLigne({
-        Debut: `${heure}h00`,
-        Fin: `${fin.getHours()}h${String(fin.getMinutes()).padStart(2, '0')}`,
-        Duree: dureeStr(DUREE_REPAS),
+        Debut:  minToHhmm(debut),
+        Fin:    minToHhmm(fin),
+        Duree:  dureeStr(DUREE_REPAS),
         Activite: `Pause ${typeRepas}`,
         __type_activite: typeRepas,
         __uuid: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
       });
     };
 
-    proposables.push(mkPause(12, 'déjeuner'));
-    proposables.push(mkPause(20, 'dîner'));
+    // Exemples : 12:00 et 20:00
+    proposables.push(mkPauseAt(12 * 60, 'déjeuner'));
+    proposables.push(mkPauseAt(20 * 60, 'dîner'));
   }
 
   return proposables;
@@ -1498,29 +1544,32 @@ function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
 function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_creneau) {
   const date_ref = ligne_ref.Date;
 
-  // --- Constantes globales / contextuelles (comme st.session_state)
+  // --- Constantes "session"
   const meta = (window.ctx?.meta) || {};
-  const MARGE = Math.max(0, Number(meta.MARGE ?? 10)|0);
-  const DUREE_REPAS = Math.max(0, Number(meta.DUREE_REPAS ?? 60)|0);
-  const DUREE_CAFE = Math.max(0, Number(meta.DUREE_CAFE ?? 60)|0);
+  const MARGE       = Math.max(0, Number(meta.MARGE        ?? 10) | 0); // minutes
+  const DUREE_REPAS = Math.max(0, Number(meta.DUREE_REPAS  ?? 60) | 0); // minutes
+  const DUREE_CAFE  = Math.max(0, Number(meta.DUREE_CAFE   ?? 60) | 0); // minutes
 
-  const BASE_DATE = new Date(2000, 0, 1);
-  const PAUSE_DEJ_DEBUT_MIN = new Date(BASE_DATE.getFullYear(), BASE_DATE.getMonth(), BASE_DATE.getDate(), 11, 0);
-  const PAUSE_DEJ_DEBUT_MAX = new Date(BASE_DATE.getFullYear(), BASE_DATE.getMonth(), BASE_DATE.getDate(), 14, 0);
-  const PAUSE_DIN_DEBUT_MIN = new Date(BASE_DATE.getFullYear(), BASE_DATE.getMonth(), BASE_DATE.getDate(), 19, 0);
-  const PAUSE_DIN_DEBUT_MAX = new Date(BASE_DATE.getFullYear(), BASE_DATE.getMonth(), BASE_DATE.getDate(), 21, 0);
+  // --- Fenêtres des repas (en minutes depuis minuit)
+  const PAUSE_DEJ_DEBUT_MIN = hmToMin(11, 0);  // 11:00 -> 660
+  const PAUSE_DEJ_DEBUT_MAX = hmToMin(14, 0);  // 14:00 -> 840
+  const PAUSE_DIN_DEBUT_MIN = hmToMin(19, 0);  // 19:00 -> 1140
+  const PAUSE_DIN_DEBUT_MAX = hmToMin(21, 0);  // 21:00 -> 1260
 
-  // --- Utilitaires locaux
-  const dt = (h, m = 0) => new Date(BASE_DATE.getTime() + (h * 60 + m) * 60000);
-  const fmtHhmm = d => `${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`;
-  const addMin = (d, m) => new Date(d.getTime() + m * 60000);
-
-  const dureeStr = (minutes) => {
-    const h = Math.floor(minutes / 60);
-    const mm = minutes % 60;
-    return `${h}h${String(mm).padStart(2, '0')}`;
-  };
-
+  // --- Helpers minutes
+  function hmToMin(h, m = 0) { return (h|0) * 60 + (m|0); }
+  function pad2(n) { n = n|0; return (n < 10 ? '0' : '') + n; }
+  function minToHhmm(total) {
+    total = Math.max(0, total|0); // borne basse 0
+    const h = Math.floor(total / 60);
+    const mm = total % 60;
+    return `${h}h${pad2(mm)}`;
+  }
+  function clamp(x, lo, hi) { return Math.max(lo, Math.min(x, hi)); }
+  function dureeStr(minutes) {
+    const h = Math.floor((minutes|0) / 60), mm = (minutes|0) % 60;
+    return `${h}h${pad2(mm)}`;
+  }
   const completerLigne = (d) => ({
     ...d,
     Date: date_ref,
@@ -1528,78 +1577,75 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
     Relache: null,
   });
 
-  // --- Bornes du créneau
-  let debut_min, fin_max;
+  // --- Bornes du créneau (en minutes)
+  let debut_min, fin_max; // fin_max peut être null si "Après" dépasse 23:59
   if (type_creneau === 'Avant') {
-    ({ debut_min, fin_max } = _getCreneauBoundsAvant(activites_programmees, ligne_ref));
+    ([debut_min, fin_max]  = _getCreneauBoundsAvant(activites_programmees, ligne_ref)); // minutes
   } else if (type_creneau === 'Après') {
-    ({ debut_min, fin_max } = _getCreneauBoundsApres(activites_programmees, ligne_ref));
+    ([debut_min, fin_max] = _getCreneauBoundsApres(activites_programmees, ligne_ref)); // minutes (fin_max peut être null)
   } else {
     console.error("type_creneau doit être 'Avant' ou 'Après'");
     return;
   }
 
-  // --- 1️⃣ Pause déjeuner ou dîner
+  // --- 1) Pause repas (déjeuner / dîner)
   const ajouterPauseRepas = (pause_debut_min, pause_debut_max, type_repas) => {
     if (_pauseDejaExistante(activites_programmees, date_ref, type_repas)) return;
 
-    let h_repas;
     if (type_creneau === 'Avant') {
-      h_repas = new Date(Math.min(
-        Math.max(fin_max - (DUREE_REPAS + MARGE) * 60000, pause_debut_min),
-        pause_debut_max
-      ));
-      if (h_repas - MARGE * 60000 >= debut_min && h_repas + MARGE * 60000 <= fin_max) {
-        const nouvelle = completerLigne({
-          Debut: fmtHhmm(h_repas),
-          Fin: fmtHhmm(addMin(h_repas, DUREE_REPAS)),
-          Duree: dureeStr(DUREE_REPAS),
+      // position candidate = fin_max - (durée repas + marge), bornée dans [fenêtre repas]
+      let h_repas = fin_max - (DUREE_REPAS + MARGE);
+      h_repas = clamp(h_repas, pause_debut_min, pause_debut_max);
+
+      if ((h_repas - MARGE) >= debut_min && (h_repas + MARGE) <= fin_max) {
+        proposables.push(completerLigne({
+          Debut:  minToHhmm(h_repas),
+          Fin:    minToHhmm(h_repas + DUREE_REPAS),
+          Duree:  dureeStr(DUREE_REPAS),
           Activite: `Pause ${type_repas}`,
           __type_activite: type_repas,
           __uuid: crypto.randomUUID()
-        });
-        proposables.push(nouvelle);
+        }));
       }
-    } else if (type_creneau === 'Après') {
-      h_repas = new Date(Math.min(
-        Math.max(debut_min + MARGE * 60000, pause_debut_min),
-        pause_debut_max
-      ));
-      if (h_repas - MARGE * 60000 >= debut_min &&
-         (fin_max === null || h_repas + MARGE * 60000 <= fin_max)) {
-        const nouvelle = completerLigne({
-          Debut: fmtHhmm(h_repas),
-          Fin: fmtHhmm(addMin(h_repas, DUREE_REPAS)),
-          Duree: dureeStr(DUREE_REPAS),
+
+    } else { // 'Après'
+      // position candidate = debut_min + marge, bornée dans [fenêtre repas]
+      let h_repas = debut_min + MARGE;
+      h_repas = clamp(h_repas, pause_debut_min, pause_debut_max);
+
+      const repFin = h_repas + DUREE_REPAS;
+      const borneFinOk = (fin_max == null) || (repFin <= fin_max);
+      if ((h_repas - MARGE) >= debut_min && borneFinOk) {
+        proposables.push(completerLigne({
+          Debut:  minToHhmm(h_repas),
+          Fin:    minToHhmm(repFin),
+          Duree:  dureeStr(DUREE_REPAS),
           Activite: `Pause ${type_repas}`,
           __type_activite: type_repas,
           __uuid: crypto.randomUUID()
-        });
-        proposables.push(nouvelle);
+        }));
       }
     }
   };
 
-  // --- 2️⃣ Pause café
+  // --- 2) Pause café
   const ajouterPauseCafe = () => {
-    if (estPause(ligne_ref)) return;
+    if (_estPause(ligne_ref)) return;
 
     const idx = activites_programmees.findIndex(r => r === ligne_ref);
-    const lieuRef = ligne_ref.Lieu || null;
-
+    const lieuRef  = ligne_ref.Lieu || null;
     const lignePrev = idx > 0 ? activites_programmees[idx - 1] : null;
     const ligneNext = idx < activites_programmees.length - 1 ? activites_programmees[idx + 1] : null;
-
     const Lieu_prev = lignePrev?.Lieu;
     const Lieu_next = ligneNext?.Lieu;
 
     if (type_creneau === 'Avant') {
-      const h_cafe = addMin(fin_max, -DUREE_CAFE);
+      const h_cafe = (fin_max - DUREE_CAFE);
       if (lieuRef && Lieu_prev && lieuRef === Lieu_prev) {
         if (h_cafe >= debut_min) {
           proposables.push(completerLigne({
-            Debut: fmtHhmm(h_cafe),
-            Fin: fmtHhmm(addMin(h_cafe, DUREE_CAFE)),
+            Debut: minToHhmm(h_cafe),
+            Fin:   minToHhmm(h_cafe + DUREE_CAFE),
             Duree: dureeStr(DUREE_CAFE),
             Activite: 'Pause café',
             __type_activite: 'café',
@@ -1607,11 +1653,11 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
           }));
         }
       } else {
-        const margeCafe = debut_min.getHours() === 0 && debut_min.getMinutes() === 0 ? 0 : MARGE;
-        if (h_cafe >= addMin(debut_min, margeCafe)) {
+        const margeCafe = (debut_min === 0) ? 0 : MARGE;
+        if (h_cafe >= (debut_min + margeCafe)) {
           proposables.push(completerLigne({
-            Debut: fmtHhmm(h_cafe),
-            Fin: fmtHhmm(addMin(h_cafe, DUREE_CAFE)),
+            Debut: minToHhmm(h_cafe),
+            Fin:   minToHhmm(h_cafe + DUREE_CAFE),
             Duree: dureeStr(DUREE_CAFE),
             Activite: 'Pause café',
             __type_activite: 'café',
@@ -1619,13 +1665,16 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
           }));
         }
       }
-    } else if (type_creneau === 'Après') {
+
+    } else { // 'Après'
       const h_cafe = debut_min;
+      const finCafe = h_cafe + DUREE_CAFE;
+
       if (lieuRef && Lieu_next && lieuRef === Lieu_next) {
-        if (fin_max === null || addMin(h_cafe, DUREE_CAFE) <= fin_max) {
+        if (fin_max == null || finCafe <= fin_max) {
           proposables.push(completerLigne({
-            Debut: fmtHhmm(h_cafe),
-            Fin: fmtHhmm(addMin(h_cafe, DUREE_CAFE)),
+            Debut: minToHhmm(h_cafe),
+            Fin:   minToHhmm(finCafe),
             Duree: dureeStr(DUREE_CAFE),
             Activite: 'Pause café',
             __type_activite: 'café',
@@ -1633,11 +1682,12 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
           }));
         }
       } else {
-        const margeCafe = fin_max ? MARGE : 0;
-        if (fin_max === null || addMin(h_cafe, DUREE_CAFE) <= addMin(fin_max, -margeCafe)) {
+        const margeCafe = (fin_max != null) ? MARGE : 0;
+        const borneOk = (fin_max == null) || (finCafe <= (fin_max - margeCafe));
+        if (borneOk) {
           proposables.push(completerLigne({
-            Debut: fmtHhmm(h_cafe),
-            Fin: fmtHhmm(addMin(h_cafe, DUREE_CAFE)),
+            Debut: minToHhmm(h_cafe),
+            Fin:   minToHhmm(finCafe),
             Duree: dureeStr(DUREE_CAFE),
             Activite: 'Pause café',
             __type_activite: 'café',
@@ -1651,8 +1701,9 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
   // --- Appels
   ajouterPauseRepas(PAUSE_DEJ_DEBUT_MIN, PAUSE_DEJ_DEBUT_MAX, 'déjeuner');
   ajouterPauseRepas(PAUSE_DIN_DEBUT_MIN, PAUSE_DIN_DEBUT_MAX, 'dîner');
-  // ajouterPauseCafe();
+  // ajouterPauseCafe(); // décommente si tu veux proposer les cafés aussi
 }
+
 
 /**
  * Vérifie si une pause d’un type donné est déjà présente pour un jour donné
@@ -1701,4 +1752,36 @@ function _getNouveauNomActivite(df, prefix='Activité') {
       return nomCandidat;
     }
   }
+}
+
+/** 
+ * Indique si une valeur est valide pour le champ Debut d'une activité
+ * "10h00" (1–2 chiffres pour l’heure, 2 chiffres pour les minutes) 
+ */
+function _estHeureValide(val) {
+  if (val == null) return false;
+  const s = String(val).trim();
+  return /^\d{1,2}h\d{2}$/.test(s);
+}
+
+/** 
+ * Indique si une valeur est valide pour le champ Duree d'une activité
+ * "1h00" (minutes 00–59) 
+ */
+function _estDureeValide(val) {
+  if (val == null) return false;
+  const s = String(val).trim();
+  return /^\d{1,2}h[0-5]\d$/.test(s);
+}
+
+function _estPause(activite) {
+  const val = String(activite?.Activite ?? '').trim();
+  return _estNomPause(val);
+}
+
+function _estNomPause(val) {
+  if (!val) return false;
+  const mots = String(val).trim().split(/\s+/);
+  if (!mots.length) return false;
+  return mots[0].toLowerCase() === 'pause';
 }
