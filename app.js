@@ -1706,7 +1706,7 @@ function addExpanderButton({expanderId, id, title, innerHTML, onClick}) {
   actions.appendChild(btn);
 }
 
-function addExpanderButtons() {
+function wireExpanderButtons() {
 
   // Bouton Programmer
   addExpanderButton({
@@ -1755,44 +1755,26 @@ function addExpanderButtons() {
     onClick: async () => {await doDeprogrammerActivite();}
   });
   
-  // Bouton Coller
-  // addExpanderButton({
-  //   expanderId: 'exp-non-programmees',
-  //   id: 'btn-coller',
-  //   title: 'Ajouter une activité avec collage', 
-  //   innerHTML: `
-  //     <span class="exp-icon" aria-hidden="true">
-  //       <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
-  //       <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-  //           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-  //         <path d="M4 4h7l3 3h6v13H4z"/>
-  //         <path d="M9 14h6"/>
-  //         <path d="M9 18h6"/>
-  //       </svg>
-  //     </span>
-  //     <span class="exp-label">Coller</span>
-  //   `,
-  //   onClick: async () => {await doAjoutActivitesParCollage();}
-  // });
-
-  // Bouton Ajouter
-  // addExpanderButton({
-  //   expanderId: 'exp-non-programmees',
-  //   id: 'btn-ajouter',
-  //   title: 'Ajouter une activité', 
-  //   innerHTML: `
-  //     <span class="exp-icon" aria-hidden="true">
-  //       <!-- Icône poubelle stylisée, cohérente avec l'épaisseur et le style du calendrier -->
-  //       <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-  //           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-  //         <rect x="9" y="2" width="6" height="4" rx="1"/>
-  //         <path d="M4 5h16v16H4z"/>
-  //       </svg>
-  //     </span>
-  //     <span class="exp-label">Ajouter</span>
-  //   `,
-  //   onClick: async () => {await doAjoutActivite();}
-  // });
+  // Bouton Filtres sur Activités Non Programmées
+  if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-filtrer',
+    title: 'Filtrer', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône Filtre en forme d'entonnoir -->
+        <svg viewBox="0 0 24 24" width="24" height="24"
+            fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true" focusable="false">
+          <!-- entonnoir -->
+          <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+        </svg>
+      </span>
+      <span class="exp-label">Filtrer</span>
+    `,
+    onClick: () => { openSheetFiltres('grid-non-programmees'); }
+  });
 
   // Bouton Supprimer
   addExpanderButton({
@@ -1819,94 +1801,84 @@ function addExpanderButtons() {
     onClick: async () => {await doSupprimerActivite();}
   });
 
-  // Toggle bouton TraiterPauses
-  addAvecPausesToggleButton({
-    expanderId: 'exp-creneaux',
-    onChange: () => refreshGrid('grid-creneaux'),
-  });
+  // Toggle TraiterPauses
+  (function addPausesToggleButton() {
+    const id = 'btn-avec-pauses';
 
-}
+    const ICON_PAUSE_ON = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+        <path d="M8 12l3 3 5-5"/>
+      </svg>`;
 
+    const ICON_PAUSE_OFF = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+      </svg>`;
+    
+    const KEY_SHOW_PAUSES = 'exp-creneaux:avec-pauses';
 
-/**
- * Monte le toggle "Avec pauses" dans le header de l'expander.
- * @param {Object} opts
- * @param {string} opts.expanderId - ex: 'exp-creneaux'
- * @param {(isOn:boolean)=>void} opts.onChange - appelé après bascule
- */
-
-function addAvecPausesToggleButton({ expanderId = 'exp-creneaux', onChange } = {}) {
-  const id = 'btn-avec-pauses';
-
-  const ICON_PAUSE_ON = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
-      <path d="M8 12l3 3 5-5"/>
-    </svg>`;
-
-  const ICON_PAUSE_OFF = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
-    </svg>`;
-  
-  const KEY_SHOW_PAUSES = 'exp-creneaux:avec-pauses';
-
-  function getShowPauses() {
-    try { return localStorage.getItem(KEY_SHOW_PAUSES) === '1'; } catch { return false; }
-  }
-  function setShowPauses(v) {
-    try { localStorage.setItem(KEY_SHOW_PAUSES, v ? '1' : '0'); } catch {}
-  }
-
-  function renderAvecPausesInnerHTML(isOn) {
-    const icon = isOn ? ICON_PAUSE_ON : ICON_PAUSE_OFF;
-    const label = isOn ? 'Avec pauses' : 'Sans pauses';
-    return `
-      <span class="exp-icon">${icon}</span>
-      <span class="exp-label">${label}</span>
-    `;
-  }
-
-  // ⇨ applique l’état (classe + aria + contenu) si le bouton existe
-  function syncAvecPausesButtonFromStorage(btnId = 'btn-avec-pauses') {
-    const btn = document.getElementById(btnId);
-    if (!btn) return false;
-    const isOn = getShowPauses();
-    btn.innerHTML = renderAvecPausesInnerHTML(isOn);
-    btn.classList.toggle('is-on', isOn);
-    btn.setAttribute('aria-pressed', String(isOn));
-    return true;
-  }
-
-  // 1) créer (ou réutiliser) le bouton via ton helper
-  addExpanderButton({
-    expanderId,
-    id,
-    title: 'Avec pauses',
-    innerHTML: renderAvecPausesInnerHTML(getShowPauses()),
-    onClick: async () => {
-      const current = getShowPauses();
-      const next = !current;
-      setShowPauses(next);
-      syncAvecPausesButtonFromStorage(id);
-      // callback métier
-      try { onChange?.(next); } catch(e) { console.error(e); }
+    function getShowPauses() {
+      try { return localStorage.getItem(KEY_SHOW_PAUSES) === '1'; } catch { return false; }
     }
-  });
+    function setShowPauses(v) {
+      try { localStorage.setItem(KEY_SHOW_PAUSES, v ? '1' : '0'); } catch {}
+    }
 
-  // 🔁 sync immédiat (au cas où l’innerHTML a bougé après insertion)
-  queueMicrotask(() => syncAvecPausesButtonFromStorage(id));
+    function renderAvecPausesInnerHTML(isOn) {
+      const icon = isOn ? ICON_PAUSE_ON : ICON_PAUSE_OFF;
+      const label = isOn ? 'Avec pauses' : 'Sans pauses';
+      return `
+        <span class="exp-icon">${icon}</span>
+        <span class="exp-label">${label}</span>
+      `;
+    }
+
+    // ⇨ applique l’état (classe + aria + contenu) si le bouton existe
+    function syncAvecPausesButtonFromStorage(btnId = 'btn-avec-pauses') {
+      const btn = document.getElementById(btnId);
+      if (!btn) return false;
+      const isOn = getShowPauses();
+      btn.innerHTML = renderAvecPausesInnerHTML(isOn);
+      btn.classList.toggle('is-on', isOn);
+      btn.setAttribute('aria-pressed', String(isOn));
+      return true;
+    }
+
+    const onChange = () => refreshGrid('grid-creneaux');
+
+    // 1) créer (ou réutiliser) le bouton via ton helper
+    addExpanderButton({
+      expanderId: 'exp-creneaux',
+      id,
+      title: 'Avec pauses',
+      innerHTML: renderAvecPausesInnerHTML(getShowPauses()),
+      onClick: async () => {
+        const current = getShowPauses();
+        const next = !current;
+        setShowPauses(next);
+        syncAvecPausesButtonFromStorage(id);
+        // callback métier
+        try { onChange?.(next); } catch(e) { console.error(e); }
+      }
+    });
+
+    // 🔁 sync immédiat (au cas où l’innerHTML a bougé après insertion)
+    queueMicrotask(() => syncAvecPausesButtonFromStorage(id));
+  })();
+
 }
+
 
 function traiterPauses() {
   return localStorage.getItem('exp-creneaux:avec-pauses') === '1';
 }
 
-function updateBadgeFromGrid(api, badgeEl) {
+function updateGridCounters(api, badgeEl) {
   if (!api || !badgeEl) return;
 
   const displayed = api.getDisplayedRowCount
@@ -1917,6 +1889,11 @@ function updateBadgeFromGrid(api, badgeEl) {
   badgeEl.textContent = `${displayed} / ${total}`;
 }
 
+function agGridHasHeaderFilters(gridId) {
+  const gridApi = window.grids?.get(gridId).api;
+  const defs = gridApi.getColumnDefs?.() || [];
+  return defs.some(col => !!col.filter);
+}
 
 // ===== Builders de colonnes de grilles =====
 // Colonnes des grilles d'activités programmées et non programmées
@@ -2224,7 +2201,7 @@ const gridOptionsActivitesNonProgrammees = {
     const hasSel = !!p.api.getSelectedRows()?.length;
     document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);
   },
-  onFilterChanged: p => updateBadgeFromGrid(p.api, document.getElementById('badge-non-prog')),
+  onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-non-prog')),
 }
 
 const gridOptionsCreneaux = {
@@ -2503,7 +2480,7 @@ async function refreshGrid(gridId) {
     // sur la grille des activités non programmées nécessaire de faire un redrawRaws pour appliquer correctement la colo (don't know why...) 
     if (gridId == 'grid-non-programmees') {
       api.redrawRows();  // ré-évalue getRowStyle
-      updateBadgeFromGrid(api, document.getElementById('badge-non-prog'));
+      updateGridCounters(api, document.getElementById('badge-non-prog'));
     }
 
     api.dispatchEvent?.({ type: 'gridSizeChanged' });
@@ -5056,9 +5033,8 @@ function openSheet({
  */
 function openSheetExclusive({
   title = '',
-  mount,                      // (bodyEl, helpers) => { bodyEl.innerHTML='...' }
-  // mapping classes (tes noms par défaut)
-  classes = {
+  mount,            // (bodyEl, helpers) => { bodyEl.innerHTML='...' }
+  classes = {       // mapping classes (tes noms par défaut)
     wrap: 'sheet-wrap',
     backdrop: 'sheet-backdrop',
     panel: 'sheet-panel',
@@ -5275,303 +5251,7 @@ function markSheetEditing(wrap, on) {
   }
 }
 
-// function openSheet({
-//   title = '',
-//   mount,
-//   onClose,
-//   classes = '',
-//   panelMaxHeight = '60vh',
-//   panelHeight = null,
-//   replaceExisting = false
-// } = {}) {
-
-//   const existing = document.querySelector('.sheet-wrap.is-open');
-//   if (existing && !replaceExisting) {
-//     const existingPanel = existing.querySelector('.sheet-panel');
-//     if (existingPanel) {
-//       existingPanel.animate(
-//         [{ transform: 'translateY(0)' }, { transform: 'translateY(-8px)' }, { transform: 'translateY(0)' }],
-//         { duration: 180, easing: 'ease-out' }
-//       );
-//     }
-//     return {
-//       close: () => existing.remove(),
-//       el: existing,
-//       body: existing.querySelector('.sheet-body'),
-//       panel: existingPanel
-//     };
-//   }
-//   if (existing && replaceExisting) existing.remove();
-
-//   // DOM
-//   const wrap = document.createElement('div');
-//   wrap.className = `sheet-wrap ${classes}`.trim();
-
-//   const backdrop = document.createElement('div');
-//   backdrop.className = 'sheet-backdrop';
-
-//   const panel = document.createElement('div');
-//   panel.className = 'sheet-panel';
-//   if (panelMaxHeight) panel.style.maxHeight = panelMaxHeight;
-//   if (panelHeight)    panel.style.height    = panelHeight;
-
-//   const handle = document.createElement('span');
-//   handle.className = 'sheet-handle';
-
-//   const header = document.createElement('div');
-//   header.className = 'sheet-header';
-
-//   const h = document.createElement('div');
-//   h.className = 'sheet-title';
-//   h.textContent = title || '';
-
-//   const closeBtn = document.createElement('button');
-//   closeBtn.className = 'sheet-close';
-//   closeBtn.innerHTML = '✕';
-
-//   const body = document.createElement('div');
-//   body.className = 'sheet-body';
-
-//   header.append(h, closeBtn);
-//   panel.append(handle, header, body);
-//   wrap.append(backdrop, panel);
-//   document.body.appendChild(wrap);
-
-//   // --- fermeture (définie AVANT usage) ---
-//   let detachSwipe = null;
-//   const destroy = () => {
-//     // détacher swipe + listeners
-//     try { detachSwipe?.(); } catch {}
-//     backdrop.removeEventListener('click', destroy);
-//     closeBtn.removeEventListener('click', destroy);
-
-//     wrap.classList.remove('is-open');
-//     setTimeout(() => {
-//       wrap.remove();
-//       unlockScroll();
-//       onClose?.();
-//     }, 220);
-//   };
-
-//   backdrop.addEventListener('click', destroy);
-//   closeBtn.addEventListener('click', destroy);
-
-//   // --- swipe-to-close ---
-//   detachSwipe = attachSwipeToClose(handle, header, panel, backdrop, destroy);
-
-//   // contenu
-//   mount?.(body, { close: destroy });
-
-//   // open + lock scroll
-//   lockScroll();
-//   requestAnimationFrame(() => wrap.classList.add('is-open'));
-
-//   return { close: destroy, el: wrap, body, panel };
-// }
-
-// /** Attache le swipe; retourne une fonction de nettoyage. */
-// function attachSwipeToClose(handleEl, headerEl, panel, backdrop, onClose){
-//   let startY = 0, curY = 0, dragging = false;
-
-//   const isStartZone = (tgt) =>
-//     tgt.closest('.sheet-handle') || tgt.closest('.sheet-header');
-
-//   const onStart = (e) => {
-//     const t = e.touches ? e.touches[0] : e;
-//     if (!isStartZone(e.target)) return;
-//     dragging = true;
-//     startY = curY = t.clientY;
-//     document.querySelector('.sheet-wrap')?.classList.add('dragging');
-//     panel.style.transition = 'none';
-//     backdrop.style.transition = 'none';
-//   };
-
-//   const onMove = (e) => {
-//     if (!dragging) return;
-//     const t = e.touches ? e.touches[0] : e;
-//     curY = t.clientY;
-//     const dy = Math.max(0, curY - startY);
-//     e.preventDefault?.(); // bloque le scroll page pendant le drag
-//     panel.style.transform = `translateY(${dy}px)`;
-//     backdrop.style.opacity = String(1 - 0.7 * Math.min(1, dy/180));
-//   };
-
-//   const onEnd = () => {
-//     if (!dragging) return;
-//     dragging = false;
-//     document.querySelector('.sheet-wrap')?.classList.remove('dragging');
-//     panel.style.transition = '';
-//     backdrop.style.transition = '';
-
-//     const dy = Math.max(0, curY - startY);
-//     if (dy > 120) onClose();
-//     else {
-//       panel.style.transform = 'translateY(0)';
-//       backdrop.style.opacity = '';
-//     }
-//   };
-
-//   if (window.PointerEvent){
-//     panel.addEventListener('pointerdown', onStart, { passive: true });
-//     window.addEventListener('pointermove', onMove, { passive: false });
-//     window.addEventListener('pointerup',   onEnd,  { passive: true });
-//     window.addEventListener('pointercancel', onEnd, { passive: true });
-//     return () => {
-//       panel.removeEventListener('pointerdown', onStart, { passive: true });
-//       window.removeEventListener('pointermove', onMove, { passive: false });
-//       window.removeEventListener('pointerup',   onEnd,  { passive: true });
-//       window.removeEventListener('pointercancel', onEnd, { passive: true });
-//     };
-//   } else {
-//     panel.addEventListener('touchstart', onStart, { passive: true });
-//     window.addEventListener('touchmove',  onMove, { passive: false });
-//     window.addEventListener('touchend',   onEnd,  { passive: true });
-//     panel.addEventListener('mousedown',   onStart, true);
-//     window.addEventListener('mousemove',  onMove, true);
-//     window.addEventListener('mouseup',    onEnd,   true);
-//     return () => {
-//       panel.removeEventListener('touchstart', onStart, { passive: true });
-//       window.removeEventListener('touchmove',  onMove, { passive: false });
-//       window.removeEventListener('touchend',   onEnd,  { passive: true });
-//       panel.removeEventListener('mousedown',   onStart, true);
-//       window.removeEventListener('mousemove',  onMove, true);
-//       window.removeEventListener('mouseup',    onEnd,   true);
-//     };
-//   }
-// }
-
-
-
-
-// function openSheetCarnet(){
-//   openSheet({
-//     title: 'Carnet d’adresses',
-//     classes: '',          
-//     maxHeight: '40vh', 
-//     mount: async (body) => {
-//       // Ici on injecte la grille :
-//       const host = document.createElement('div');
-//       host.style.height = '56vh'; // ex: h fixe interne pour scroller dans la sheet
-//       host.className = 'ag-theme-quartz compact';
-//       body.appendChild(host);
-
-//       // colonnes Carnet
-//       const columnDefs = buildColumnsCarnet();
-
-//       // données
-//       const rowData = (window.ctx?.carnet ?? []).slice();
-
-//       // options grille (adapte si tu as un factory makeGridOptions)
-//       const gridOptions = {
-//         columnDefs,
-//         rowData,
-//         getRowId: p => p.data?.__uuid,
-//         defaultColDef: { resizable: true, sortable: true, filter: true, editable: true },
-//         suppressRowClickSelection: false,
-//         rowSelection: 'single',
-//       };
-
-//       const api = window.agGrid.createGrid(host, gridOptions);
-
-//       // sizing initial
-//       setTimeout(() => api.onGridSizeChanged?.(), 0);
-
-//       // cleanup renvoyé au sheet manager
-//       return () => api.destroy?.();
-//     }
-//   });
-// }
-
-// function openSheetCarnet() {
-//   openSheet({
-//     title: 'Carnet d’adresses',
-//     classes: '',          
-//     maxHeight: '40vh', 
-//     mount: (body /* HTMLElement */, api) => {
-//       // 1) conteneur de la grille
-//       const host = document.createElement('div');
-//       host.className = 'sheet-grid-host';
-
-//       const gridDiv = document.createElement('div');
-//       gridDiv.id = 'grid-carnet-sheet';                  // id local pour cette sheet
-//       gridDiv.className = 'ag-theme-quartz compact';     // ton thème
-//       host.appendChild(gridDiv);
-
-//       // 2) footer d’actions
-//       const actions = document.createElement('div');
-//       actions.className = 'sheet-actions';
-//       actions.innerHTML = `
-//         <button class="btn btn-primary" id="btn-carnet-add">Ajouter</button>
-//         <button class="btn btn-danger"  id="btn-carnet-del">Supprimer</button>
-//       `;
-
-//       // 3) on injecte dans le body de la sheet
-//       body.append(host, actions);
-
-//       // 4) créer/brancher la grille (réutilise ton createGridController si possible)
-//       //    Exemple minimal (adapte à ta factory et tes colonnes réelles) :
-//       const columns = [
-//         { field:'Nom', headerName:'Nom', editable:true },
-//         { field:'Adresse', headerName:'Adresse', editable:true, flex:1 },
-//         { field:'Tel', headerName:'Téléphone', editable:true, width:120 },
-//         { field:'Web', headerName:'Web', editable:true, flex:1 },
-//       ];
-//       const gridOptions = {
-//         columnDefs: columns,
-//         rowData: (window.ctx?.carnet || []),  // données actuelles
-//         getRowId: p => p.data?.__uuid,
-//         defaultColDef: { resizable:true, sortable:true, filter:true },
-//         rowSelection: 'single',
-//         // important pour style mobile
-//         suppressDragLeaveHidesColumns: true,
-//         suppressColumnMoveAnimation: true,
-//       };
-
-//       const apiGrid = window.agGrid.createGrid(gridDiv, gridOptions);
-
-//       // 5) câbler les boutons
-//       const btnAdd = actions.querySelector('#btn-carnet-add');
-//       const btnDel = actions.querySelector('#btn-carnet-del');
-
-//       btnAdd.addEventListener('click', () => {
-//         const row = {
-//           __uuid: crypto.randomUUID(),
-//           Nom: 'Nouveau lieu',
-//           Adresse: '',
-//           Tel: '',
-//           Web: ''
-//         };
-//         window.ctx?.mutateCarnet?.(rows => [...(rows||[]), row]);
-
-//         // recharge visuel rapide (si pas d’écouteur ctx → grille locale) :
-//         apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
-//         // sélectionner la ligne ajoutée
-//         setTimeout(() => {
-//           let node = null;
-//           apiGrid.forEachNode?.(n => { if (!node && n.data?.__uuid === row.__uuid) node = n; });
-//           node?.setSelected?.(true, true);
-//           apiGrid.ensureIndexVisible?.(node?.rowIndex ?? 0, 'middle');
-//         }, 0);
-//       });
-
-//       btnDel.addEventListener('click', () => {
-//         const sel = apiGrid.getSelectedRows?.()?.[0];
-//         if (!sel) return;
-//         window.ctx?.mutateCarnet?.(rows => (rows||[]).filter(r => r.__uuid !== sel.__uuid));
-//         apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
-//       });
-
-//       // 6) Pour écouter les changements ctx → rafraîchir la grille:
-//       const off = window.ctx?.on?.('carnet:changed', () => {
-//         apiGrid.setGridOption?.('rowData', window.ctx?.carnet || []);
-//       });
-
-//       // 7) démonter proprement si la sheet se ferme
-//       api?.close && (api.onClose = () => { off?.(); /* + cleanup si besoin */ });
-//     }
-//   });
-// }
-
+// Feuille Carnet d'adresses
 function openSheetCarnet() {
   let offHist = null;     // history:change (domain=carnet)
   let offCarnet = null;   // carnet:changed (données)
@@ -5846,8 +5526,8 @@ function openSheetCarnet() {
   });
 }
 
-// Feuilles paramètres
-function openSheetParams(){
+// Feuille paramètres
+function openSheetParams() {
   const meta = (window.ctx?.meta) || {};
   const curDeb = localDateToIsoDate(meta.periode_a_programmer_debut) || ''; 
   const curFin = localDateToIsoDate(meta.periode_a_programmer_fin) || ''; 
@@ -5859,10 +5539,9 @@ function openSheetParams(){
 
   openSheetExclusive({
     title: 'Paramètres',
-    panelMaxHeight: '42rem',
-    panelHeight: '42rem',
-    replaceExisting: true,
-    mount: (body, { close }) => {
+    panelHeight: '55vh', 
+    panelMaxHeight: '55vh', 
+    mount: (body, {close}) => {
       body.innerHTML = `
         <div class="form">
 
@@ -5892,7 +5571,7 @@ function openSheetParams(){
           </div>
 
           <div class="form-row">
-            <label>Application tinéraire</label>
+            <label>Application itinéraire</label>
             <select id="p-itin">
               <option ${itin==='Google Maps Web' ? 'selected':''}>Google Maps Web</option>
               <option ${itin==='Google Maps App' ? 'selected':''}>Google Maps App</option>
@@ -5904,7 +5583,9 @@ function openSheetParams(){
             <label>Ville par défaut</label>
             <input id="p-city" type="string" value="${cityDefault}"/>
           </div>
+        </div>
 
+        <div class="sheet-footer has-border">
           <div class="form-actions">
 
             <!-- Bouton Annuler -->
@@ -5918,7 +5599,6 @@ function openSheetParams(){
             </button>
 
           </div>
-          
         </div>
       `;
 
@@ -5965,131 +5645,7 @@ function openSheetParams(){
   });
 }
 
-// function openSheetAide() {
-//   openSheetExclusive({
-//     title: 'Aide',
-//     panelMaxHeight: '70vh',
-//     panelHeight: '60vh',
-//     mount: (body) => {
-//       body.innerHTML = `
-//         <div class="help-block">
-//           <h4>Gestes utiles</h4>
-//           <ul>
-//             <li><b>Swipe bas</b> sur l’entête de la sheet → fermer</li>
-//             <li><b>Double-tap</b> sur une cellule → éditer (iOS OK)</li>
-//             <li><b>Long-press</b> (desktop : clic) sur 🔗/📍 → ouvrir le lien</li>
-//           </ul>
-//           <h4>Programmation</h4>
-//           <p>Choisissez une date dans la colonne <i>Date</i> (grille activités). Les lignes sélectionnées se
-//              mettent en évidence; la ligne nouvellement programmée est auto-centrée.</p>
-//           <h4>Contact</h4>
-//           <ul>
-//             <li>📧 support@example.com</li>
-//           </ul>
-//         </div>
-//       `;
-//     }
-//   });
-// }
-
-// function openSheetAide() {
-//   openSheetExclusive({
-//     title: 'Aide', // ← déjà affiché dans le header de ta sheet
-//     panelMaxHeight: '70vh',
-//     panelHeight: '60vh',
-//     mount: (body) => {
-//       body.innerHTML = `
-//         <style>
-//           .help-nav {
-//             display: flex; gap: 8px; flex-wrap: wrap;
-//             margin: 4px 0 12px; padding: 0;
-//             list-style: none;
-//           }
-//           .help-nav button {
-//             padding: 6px 10px; border-radius: 8px;
-//             border: 1px solid var(--help-bd,#ccc);
-//             background: var(--help-bg,#f7f7f7);
-//             cursor: pointer; font: inherit;
-//           }
-//           .help-nav button[aria-selected="true"] {
-//             background: var(--help-act,#e9f3ff);
-//             border-color: var(--help-actbd,#8bb7ff);
-//           }
-//           .help-section { display: none; overflow-y: auto; }
-//           .help-section[aria-hidden="false"] { display: block; }
-//           .help-block h4 { margin: 10px 0 6px; }
-//           .help-block ul { margin: 6px 0 12px 18px; }
-//           .help-block li { margin: 4px 0; }
-//           /* iOS anti-zoom */
-//           @supports (-webkit-touch-callout: none) {
-//             .help-nav button, .help-block { font-size: 16px; }
-//           }
-//         </style>
-
-//         <nav class="help-nav" role="tablist" aria-label="Sections d'aide">
-//           <button type="button" role="tab" data-target="gestes" aria-selected="true">Gestes utiles</button>
-//           <button type="button" role="tab" data-target="prog"   aria-selected="false">Programmation</button>
-//           <button type="button" role="tab" data-target="contact"aria-selected="false">Contact</button>
-//         </nav>
-
-//         <section id="help-gestes" class="help-section" role="tabpanel" aria-hidden="false">
-//           <div class="help-block">
-//             <ul>
-//               <li><b>Swipe bas</b> sur l’entête de la sheet → fermer</li>
-//               <li><b>Double-tap</b> sur une cellule → éditer (iOS OK)</li>
-//               <li><b>Long-press</b> (desktop : clic) sur 🔗/📍 → ouvrir le lien</li>
-//             </ul>
-//           </div>
-//         </section>
-
-//         <section id="help-prog" class="help-section" role="tabpanel" aria-hidden="true">
-//           <div class="help-block">
-//             <p>Choisissez une date dans la colonne <i>Date</i> (grille activités). Les lignes sélectionnées se mettent en évidence ; la ligne nouvellement programmée est auto-centrée.</p>
-//             <ul>
-//               <li>Filtrer via l’entête de colonne (menu filtre/ag-grid)</li>
-//               <li><b>Entrée</b> pour valider, <b>Échap</b> pour annuler</li>
-//               <li>Conflits/relâches : voir l’icône ⚠️ dans la colonne « Session »</li>
-//             </ul>
-//           </div>
-//         </section>
-
-//         <section id="help-contact" class="help-section" role="tabpanel" aria-hidden="true">
-//           <div class="help-block">
-//             <ul><li>📧 support@example.com</li></ul>
-//           </div>
-//         </section>
-//       `;
-
-//       const tabs = [...body.querySelectorAll('.help-nav [role="tab"]')];
-//       const panels = {
-//         gestes: body.querySelector('#help-gestes'),
-//         prog: body.querySelector('#help-prog'),
-//         contact: body.querySelector('#help-contact')
-//       };
-
-//       const show = (key) => {
-//         for (const b of tabs)
-//           b.setAttribute('aria-selected', String(b.dataset.target === key));
-//         for (const [k, sec] of Object.entries(panels))
-//           sec.setAttribute('aria-hidden', String(k !== key));
-//         try { localStorage.setItem('help:lastTab', key); } catch {}
-//       };
-
-//       body.querySelector('.help-nav').addEventListener('click', (e) => {
-//         const b = e.target.closest('[role="tab"]');
-//         if (b && panels[b.dataset.target]) show(b.dataset.target);
-//       });
-
-//       let initial = 'gestes';
-//       try {
-//         const saved = localStorage.getItem('help:lastTab');
-//         if (saved && panels[saved]) initial = saved;
-//       } catch {}
-//       show(initial);
-//     }
-//   });
-// }
-
+// Feuille Aide
 function openSheetAide() {
   openSheetExclusive({
     title: 'Aide',
@@ -6294,7 +5850,7 @@ function openSheetAide() {
   });
 }
 
-// Rapport de cohérence 
+// Feuille Rapport de cohérence 
 function openSheetCoherence(rows, {
   title = 'Cohérence des données',
   // tu peux injecter tes validators ; par défaut on prend ceux exposés en global
@@ -6314,6 +5870,74 @@ function openSheetCoherence(rows, {
           ${html || "<p>Aucune anomalie détectée.</p>"}
         </div>
       `;
+    }
+  });
+}
+
+// Feuille Filtres sur grille activités non programmées
+function openSheetFiltres(gridId) {
+  const gridApi = window.grids?.get(gridId).api;
+  if (!gridApi) return;
+
+  // 1️⃣ Récupère l’état actuel des filtres
+  const currentFilters = gridApi.getFilterModel() || {};
+  const columns = gridApi.getColumnDefs().filter(col => col.filter); // uniquement celles filtrables
+
+  // 2️⃣ Ouvre une sheet dédiée aux filtres
+  openSheetExclusive({
+    title: 'Filtres',
+    panelHeight: '50vh',
+    panelMaxHeight: '50vh',
+    mount: (body, {close}) => {
+      // Crée un mini formulaire dynamique
+      const rowsHtml = columns.map(col => {
+        const colId = col.field;
+        const value = currentFilters[colId]?.filter || '';
+        return `
+          <div class="form-row">
+            <label for="filter-${colId}">${col.headerName}</label>
+            <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}">
+          </div>
+        `;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="form">
+          ${rowsHtml}
+        </div>
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button id="btn-clear" class="bb-btn is-primary">Réinitialiser</button>
+            <button id="btn-apply" class="bb-btn is-primary">Appliquer</button>
+          </div>
+        </div>
+      `;
+
+      // 3️⃣ Gestion des boutons
+      const applyBtn = body.querySelector('#btn-apply');
+      const clearBtn = body.querySelector('#btn-clear');
+
+      applyBtn.addEventListener('click', () => {
+        const newModel = {};
+        columns.forEach(col => {
+          const val = body.querySelector(`#filter-${col.field}`).value.trim();
+          if (val) {
+            newModel[col.field] = {
+              type: 'contains',
+              filter: val
+            };
+          }
+        });
+        gridApi.setFilterModel(newModel);
+        gridApi.onFilterChanged();
+        close(); 
+      });
+
+      clearBtn.addEventListener('click', () => {
+        gridApi.setFilterModel({});
+        gridApi.onFilterChanged();
+        close();
+      });
     }
   });
 }
@@ -7047,7 +6671,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireGrids();
   wireExpanders();
   wireExpanderSplitters();
-  addExpanderButtons();
+  wireExpanderButtons();
   wireAppKebab();
   initSheetGrids();
   enableKeyboardAutoScroll();

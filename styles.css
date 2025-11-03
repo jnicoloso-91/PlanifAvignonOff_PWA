@@ -1310,10 +1310,32 @@ main, .page-wrap {
   top: 1.8rem;
   font-size: 1rem;
 }
+
 .sheet-body{
-  padding: 8px 12px;
-  overflow: auto;
-  min-height: 120px;
+  padding: 10px 12px 0px 12px;
+  /* overflow: auto; */
+  /* min-height: 120px; */
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  /* display: flex; */
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* --- footer fixe --- */
+.sheet-footer {
+  position: absolute;
+  left:0; right: 0; bottom: 0;
+  display: flex;
+  justify-content: center;  /* centre horizontalement */
+  align-items: center;      /* centre verticalement */
+  gap: 10px;
+  padding: 12px 16px;
+  background: #fafafa;
+}
+.has-border {
+  border-top: 1px solid #ddd;
 }
 
 /* état ouvert */
@@ -1354,17 +1376,6 @@ main, .page-wrap {
   flex-direction: column;
   width: 100%;
   /* max-height: 55vh;  ← supprimé, on mettra en inline via JS */
-}
-
-/* body = zone flexible (la grille prendra 100% de sa hauteur) */
-.sheet-body{
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow: hidden;
 }
 
 /* marge de sécurité iPhone en bas */
@@ -1468,7 +1479,7 @@ main, .page-wrap {
   background: #f9f9fb;
 
   border-top: 1px solid rgba(0,0,0,0.08);
-  padding-top: 0px
+  padding-top: 0px;
 }
 
 /* --- Chaque ligne de paramètre --- */
@@ -1548,7 +1559,7 @@ main, .page-wrap {
   display: flex;
   justify-content: center;     
   gap: 1.6rem;
-  padding-top: 2rem;
+  padding: 1rem;
 }
 
 /* --- Icône (SVG) dans le bouton --- */
