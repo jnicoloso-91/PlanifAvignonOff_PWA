@@ -2197,12 +2197,12 @@ function gridOptionsCommon(gridId, el) {
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
-    floatingFilter: true,
-    suppressMenuHide: false,
-    suppressColumnVirtualisation: false,
+    // floatingFilter: true,
+    // suppressMenuHide: false,
+    // suppressColumnVirtualisation: false,
 
-    enableBrowserTooltips: true,
-    suppressTouch: false,
+    // enableBrowserTooltips: true,
+    // suppressTouch: false,
   }
 };
 
