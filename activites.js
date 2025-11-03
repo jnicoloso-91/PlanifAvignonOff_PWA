@@ -310,7 +310,7 @@ export function creerActivitesAPI(ctx) {
      * @returns nouvelleActivite
      */
     async creerActivite(df) {
-      const nouveauNom = getNouveauNomActivite(df);
+      const nouveauNom = _getNouveauNomActivite(df);
       const nouvelleActivite =     {
           __uuid: crypto.randomUUID?.() || String(Date.now()),
           Date: null, 
@@ -335,25 +335,7 @@ export function creerActivitesAPI(ctx) {
      * @returns 
      */
     getNouveauNomActivite(df, prefix='Activité') {
-      if (!Array.isArray(df)) return prefix;
-      if (!prefix) prefix = 'Activité';
-
-      // 🔹 Extraire les noms existants
-      const nomsExistants = df
-        .map(r => (r.Activite ?? '').toString().trim())
-        .filter(n => n.length > 0);
-
-      // 🔹 Initialiser ou incrémenter le compteur global
-      _compteurNouvelleActivite = 0;
-
-      // 🔹 Boucle de recherche d’un nom libre
-      while (true) {
-        _compteurNouvelleActivite += 1;
-        const nomCandidat = (prefix != 'Activité' && _compteurNouvelleActivite == 1) ? `${prefix}` : `${prefix} ${_compteurNouvelleActivite}`;
-        if (!nomsExistants.includes(nomCandidat)) {
-          return nomCandidat;
-        }
-      }
+      return _getNouveauNomActivite(df, prefix=prefix);
     },
 
 
@@ -1692,4 +1674,31 @@ function _pauseDejaExistante(activites_programmees, jour, type_pause) {
     typeof a.Activite === 'string' &&
     a.Activite.toLowerCase().includes(typeLower)
   );
+}
+
+/**
+ * Cherche un nom d'activité non encore alloué dans un DataFrame
+ * @param {*} df 
+ * @returns 
+ */
+function _getNouveauNomActivite(df, prefix='Activité') {
+  if (!Array.isArray(df)) return prefix;
+  if (!prefix) prefix = 'Activité';
+
+  // 🔹 Extraire les noms existants
+  const nomsExistants = df
+    .map(r => (r.Activite ?? '').toString().trim())
+    .filter(n => n.length > 0);
+
+  // 🔹 Initialiser ou incrémenter le compteur global
+  _compteurNouvelleActivite = 0;
+
+  // 🔹 Boucle de recherche d’un nom libre
+  while (true) {
+    _compteurNouvelleActivite += 1;
+    const nomCandidat = (prefix != 'Activité' && _compteurNouvelleActivite == 1) ? `${prefix}` : `${prefix} ${_compteurNouvelleActivite}`;
+    if (!nomsExistants.includes(nomCandidat)) {
+      return nomCandidat;
+    }
+  }
 }
