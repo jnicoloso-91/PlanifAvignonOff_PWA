@@ -386,9 +386,15 @@ main, .page-wrap {
   width: 18px;
   height: 18px;
   display: inline-flex;
+  color: #444444;
+}
+@media (max-width: 812px) {
+  .exp-header-btn .exp-icon {
+    padding: 1px;
+  }
 }
 
-/* label sous l’icône, très discret */
+/* label sous l’icône */
 .exp-header-btn .exp-label {
   font-size: .62rem;
   line-height: 1;
