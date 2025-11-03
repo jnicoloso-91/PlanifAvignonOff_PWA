@@ -1513,7 +1513,7 @@ main, .page-wrap {
 .sheet-wrap .form-row input,
 .sheet-wrap .form-row select {
   flex: 0 0 auto;
-  width: 10rem;                     /* largeur stable */
+  width: 15rem;                     /* largeur stable */
   padding: 0.35rem 1rem;
   border-radius: 8px;
   border: 1px solid rgba(0,0,0,0.15);
