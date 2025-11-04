@@ -1935,6 +1935,7 @@ const gridOptionsActivitesNonProgrammees = {
   onSelectionChanged: (p) => {
     const hasSel = !!p.api.getSelectedRows()?.length;
     document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);
+    synchronizeSelection(p, 'grid-programmables'); 
   },
   onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-non-prog')),
 }
@@ -1948,12 +1949,12 @@ const gridOptionsActivitesProgrammables = {
     const sels = p.api.getSelectedRows();
     const hasSel = !!sels?.length;
     document.getElementById('btn-programmer')?.toggleAttribute('disabled', !hasSel);
-    setSameSelectionInGridNonProgrammees(p, 'grid-non-programmees'); 
+    synchronizeSelection(p, 'grid-non-programmees'); 
   },
 }
 
 // Sélectionne dans une autre grille la ligne correspondant à celle qui vient d'être sélectionnée et la rend visible
-function setSameSelectionInGridNonProgrammees(event, dstGridId) {
+function synchronizeSelection(event, dstGridId) {
   // Évite les boucles si la sélection vient d'une action programmatique
   if (event?.source === 'programmatic') return;
 
