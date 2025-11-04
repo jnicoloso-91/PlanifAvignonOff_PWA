@@ -2938,8 +2938,6 @@ async function getClipBoardText(df, parser=null) {
 
 async function handleClipboardText(raw, df, parser=null) {
 
-  if (raw == null) return;
-
   let parsed = null;
 
   if (!parser) {
