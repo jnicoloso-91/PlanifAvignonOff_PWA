@@ -2890,7 +2890,7 @@ async function getClipBoardText(parser=null) {
           // finalize(txt);
           // si !done le clipboard est effectivement vide => on alerte et on ferme la popup 
           if (!done) {
-            alert('Aucune information à coller');
+            // alert('Aucune information à coller');
             cleanup(); 
           }
         }, 100);
