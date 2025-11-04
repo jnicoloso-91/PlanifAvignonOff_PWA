@@ -2851,6 +2851,8 @@ async function getClipBoardText(parser=null) {
       proxy.style.webkitUserSelect = 'text';    // iOS
       proxy.style.userSelect = 'text';
 
+      let done = false;
+
       // ⚠️ Deux frames pour laisser Safari peindre puis focus
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -2873,7 +2875,8 @@ async function getClipBoardText(parser=null) {
           // 🟢 chemin idéal : on récupère direct
           e.preventDefault(); // évite l'insertion dans le DOM
           const txt = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || '';
-          finalize(txt);
+          logToPage(`[onBeforeInput] ${txt?.slice(0,30)}`);
+          if (!done) finalize(txt);
         }
       };
 
@@ -2881,7 +2884,8 @@ async function getClipBoardText(parser=null) {
       const onPaste = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          finalize(txt);
+          logToPage(`[onPaste] ${txt?.slice(0,30)}`);
+          if (!done) finalize(txt);
         }, 0);
       };
 
@@ -2889,6 +2893,7 @@ async function getClipBoardText(parser=null) {
       const onInput = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
+          logToPage(`[onInput] ${txt?.slice(0,30)}`);
           if (txt) finalize(txt);
         }, 0);
       };
@@ -2909,6 +2914,7 @@ async function getClipBoardText(parser=null) {
   function finalize(txt) {
     cleanup();
     handleClipboardText(txt, parser);
+    done = true;
   }
 
   function cleanup() {
