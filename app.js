@@ -115,6 +115,11 @@ const capitalizeFirst = (str) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// Récupère l'API d'une grille par son id (selon ta structure window.grids)
+function getGridApiById(gridId) {
+  return window.grids?.get(gridId)?.api || null;
+}
+
 /**
  * Renvoie la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
  * d'une ligne repérée par son __uuid de référence.
@@ -1940,9 +1945,68 @@ const gridOptionsCreneaux = {
 
 const gridOptionsActivitesProgrammables = {
   onSelectionChanged: (p) => {
-    const hasSel = !!p.api.getSelectedRows()?.length;
+    const sels = p.api.getSelectedRows();
+    const hasSel = !!sels?.length;
     document.getElementById('btn-programmer')?.toggleAttribute('disabled', !hasSel);
+    setSameSelectionInGridNonProgrammees(p, 'grid-non-programmees'); 
   },
+}
+
+// Sélectionne dans une autre grille la ligne correspondant à celle qui vient d'être sélectionnée et la rend visible
+function setSameSelectionInGridNonProgrammees(event, dstGridId) {
+  // Évite les boucles si la sélection vient d'une action programmatique
+  if (event?.source === 'programmatic') return;
+
+  const srcApi = event.api;
+  const dstApi = getGridApiById(dstGridId);
+  if (!srcApi || !dstApi) return;
+
+  const sel = srcApi.getSelectedRows?.()[0];
+  // Si plus rien n'est sélectionné côté "programmable" => on nettoie en face
+  if (!sel) {
+    dstApi.deselectAll?.({ source: 'programmatic' });
+    return;
+  }
+
+  const uuid = sel.__uuid;
+  const activite = (sel.Activite || '').trim().toLowerCase();
+
+  // Cherche le node correspondant dans "programmees"
+  let targetNode = null;
+  dstApi.forEachNode(node => {
+    const d = node.data || {};
+    if (uuid && d.__uuid === uuid) targetNode = node;
+  });
+  // Fallback si pas de __uuid commun : on matche sur Activite
+  if (!targetNode && activite) {
+    dstApi.forEachNode(node => {
+      const d = node.data || {};
+      if (!targetNode && String(d.Activite || '').trim().toLowerCase() === activite) {
+        targetNode = node;
+      }
+    });
+  }
+
+  if (!targetNode) {
+    // Rien trouvé côté programmees : on peut désélectionner ou ignorer
+    // dstApi.deselectAll?.({ source: 'programmatic' });
+    return;
+  }
+
+  // Sélection "silencieuse" (v30+): évite les finishActions et marque la source
+  dstApi.setNodesSelected({
+    nodes: [targetNode],
+    newValue: true,
+    clearSelection: true,
+    source: 'programmatic'
+  });
+
+  // S'assure que la ligne est visible (après paint pour éviter les races)
+  queueMicrotask(() => {
+    try {
+      dstApi.ensureNodeVisible(targetNode, 'middle'); // 'top' | 'middle' | 'bottom'
+    } catch {}
+  });
 }
 
 // ===== Loaders de grilles =====

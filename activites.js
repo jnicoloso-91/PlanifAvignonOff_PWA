@@ -1314,7 +1314,7 @@ function _getJoursPossibles(rowActivite) {
   const jours = [];
   const debutMinute = mmFromHHhMM(rowActivite['Debut']);
   const duree    = mmFromHHhMM(rowActivite['Duree']);
-  if (debutMinute == null || !duree) return jours;
+  if (debutMinute == null || duree == null) return jours;
   const finAct   = debutMinute + duree;
 
   for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
