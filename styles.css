@@ -1702,6 +1702,38 @@ main, .page-wrap {
   display: list-item;         /* remet le mode liste si un reset l’a changé */
 }
 
+ 
+/* ====================*/
+/*  Sheet Filtres      */
+/* ====================*/
+.filter-row .btn-clear {
+  display: none;
+  flex: 0 0 auto;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--bb-border, #ccc);
+  border-radius: 0.4rem;
+  background: var(--bb-bg, #f5f5f5);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1;             /* évite la sur-hauteur du × */
+  padding: 0;                 /* aucun padding, on centre en flex */
+  display: inline-flex;       /* centrage parfait du contenu */
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-row .input-wrap.has-val .btn-clear {
+  display: inline-flex;       /* visible seulement quand champ non vide */
+}
+
+@media (hover:hover) {
+  .filter-row .btn-clear:hover {
+    background: #eee;
+  }
+}
+
 /* ====================*/
 /*  Popup Clipboard    */
 /* ====================*/

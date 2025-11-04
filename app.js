@@ -5106,29 +5106,163 @@ function openSheetCoherence(rows, {
 //     }
 //   });
 // }
+// function openSheetFiltres(gridId) {
+//   const gridApi = window.grids?.get(gridId).api;
+//   if (!gridApi) return;
+
+//   // 1️⃣ État actuel des filtres + colonnes filtrables
+//   const currentFilters = gridApi.getFilterModel() || {};
+//   const columns = (gridApi.getColumnDefs() || []).filter(col => col.filter);
+//   const fields = columns.map(c => c.field);
+
+//   // 2️⃣ Ouvre la sheet Filtres
+//   openSheetExclusive({
+//     title: 'Filtres',
+//     panelHeight: '50vh',
+//     panelMaxHeight: '50vh',
+//     mount: (body, { close }) => {
+//       // Formulaire dynamique
+//       const rowsHtml = columns.map(col => {
+//         const colId = col.field;
+//         const value = currentFilters[colId]?.filter || '';
+//         return `
+//           <div class="form-row">
+//             <label for="filter-${colId}">${col.headerName}</label>
+//             <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}">
+//           </div>
+//         `;
+//       }).join('');
+
+//       body.innerHTML = `
+//         <div class="form">
+//           ${rowsHtml}
+//         </div>
+//         <div id="dl-container" hidden></div>
+//         <div class="sheet-footer has-border">
+//           <div class="form-actions">
+//             <button id="btn-clear" class="bb-btn is-primary">Réinitialiser</button>
+//             <button id="btn-apply" class="bb-btn is-primary">Appliquer</button>
+//           </div>
+//         </div>
+//       `;
+
+//       // ---------- Helpers (déjà “mis”, mais je les laisse ici pour cohérence) ----------
+
+//       // Récupère les lignes source depuis AG Grid
+//       // mode: 'afterFilter' (après filtres) ou 'all' (toutes les lignes du modèle)
+//       function collectRowsFromGrid(api, mode = 'afterFilter') {
+//         const out = [];
+//         if (mode === 'afterFilter' && api.forEachNodeAfterFilterAndSort) {
+//           api.forEachNodeAfterFilterAndSort(n => { if (n?.data) out.push(n.data); });
+//         } else if (api.forEachLeafNode) {
+//           api.forEachLeafNode(n => { if (n?.data) out.push(n.data); });
+//         } else if (api.getDisplayedRowCount) {
+//           // fallback
+//           const cnt = api.getDisplayedRowCount();
+//           for (let i = 0; i < cnt; i++) {
+//             const rowNode = api.getDisplayedRowAtIndex(i);
+//             if (rowNode?.data) out.push(rowNode.data);
+//           }
+//         }
+//         return out;
+//         // NB: si tu veux ignorer les filtres en cours, passe mode='all'
+//       }
+
+//       // Valeurs uniques triées (tri FR + numérique)
+//       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
+//         const set = new Set();
+//         for (const r of rows || []) {
+//           let v = r?.[field];
+//           if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
+//           set.add(String(v));
+//           if (set.size >= max) break;
+//         }
+//         return [...set].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true, sensitivity: 'base' }));
+//       }
+
+//       // Crée/alimente un datalist et le branche à l'input correspondant
+//       function wireDatalistForField(field, rows) {
+//         const input = body.querySelector(`#filter-${field}`);
+//         if (!input) return;
+
+//         const listId = `dl-${field}`;
+//         const dlContainer = body.querySelector('#dl-container');
+//         let dl = body.querySelector(`#${listId}`);
+//         if (!dl) {
+//           dl = document.createElement('datalist');
+//           dl.id = listId;
+//           dlContainer.appendChild(dl);
+//         }
+//         input.setAttribute('list', listId);
+
+//         const values = uniqueValues(rows, field);
+//         dl.replaceChildren(...values.map(v => {
+//           const o = document.createElement('option');
+//           o.value = v;
+//           return o;
+//         }));
+//       }
+
+//       function buildFilterLists(rows, fields) {
+//         fields.forEach(f => wireDatalistForField(f, rows));
+//       }
+
+//       // ---------- Construction des listes à partir des données de la grille ----------
+//       // Choisis 'afterFilter' si tu veux que les suggestions reflètent le sous-ensemble filtré,
+//       // ou 'all' pour tout le dataset.
+//       const sourceRows = collectRowsFromGrid(gridApi, 'all');
+//       buildFilterLists(sourceRows, fields);
+
+//       // 3️⃣ Boutons
+//       const applyBtn = body.querySelector('#btn-apply');
+//       const clearBtn = body.querySelector('#btn-clear');
+
+//       applyBtn.addEventListener('click', () => {
+//         const newModel = {};
+//         columns.forEach(col => {
+//           const val = body.querySelector(`#filter-${col.field}`).value.trim();
+//           if (val) {
+//             newModel[col.field] = { type: 'contains', filter: val };
+//           }
+//         });
+//         gridApi.setFilterModel(newModel);
+//         gridApi.onFilterChanged();
+//         close();
+//       });
+
+//       clearBtn.addEventListener('click', () => {
+//         gridApi.setFilterModel({});
+//         gridApi.onFilterChanged();
+//         close();
+//       });
+//     }
+//   });
+// }
 function openSheetFiltres(gridId) {
   const gridApi = window.grids?.get(gridId).api;
   if (!gridApi) return;
 
-  // 1️⃣ État actuel des filtres + colonnes filtrables
   const currentFilters = gridApi.getFilterModel() || {};
   const columns = (gridApi.getColumnDefs() || []).filter(col => col.filter);
   const fields = columns.map(c => c.field);
 
-  // 2️⃣ Ouvre la sheet Filtres
   openSheetExclusive({
     title: 'Filtres',
     panelHeight: '50vh',
     panelMaxHeight: '50vh',
     mount: (body, { close }) => {
-      // Formulaire dynamique
+      // 1) Form rows avec bouton RAZ à gauche
       const rowsHtml = columns.map(col => {
         const colId = col.field;
         const value = currentFilters[colId]?.filter || '';
+        const hasVal = value ? ' has-val' : '';
         return `
-          <div class="form-row">
+          <div class="form-row filter-row">
             <label for="filter-${colId}">${col.headerName}</label>
-            <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}">
+            <div class="input-wrap${hasVal}">
+              <button type="button" class="btn-clear" data-field="${colId}" aria-label="Effacer le filtre ${col.headerName}" title="Effacer">×</button>
+              <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}">
+            </div>
           </div>
         `;
       }).join('');
@@ -5146,18 +5280,35 @@ function openSheetFiltres(gridId) {
         </div>
       `;
 
-      // ---------- Helpers (déjà “mis”, mais je les laisse ici pour cohérence) ----------
+      // ===== CSS minimal pour mise en page du bouton (injecté une fois) =====
+      if (!document.getElementById('filters-inline-css')) {
+        const style = document.createElement('style');
+        style.id = 'filters-inline-css';
+        style.textContent = `
+          .filter-row .input-wrap { position: relative; display:flex; align-items:center; gap:.5rem; }
+          .filter-row .btn-clear {
+            width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
+            border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
+            background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
+            display: none; font-weight: 600; font-size: 1rem;
+          }
+          .filter-row .input-wrap.has-val .btn-clear { display: inline-block; }
+          .filter-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
+          @media (hover:hover) {
+            .filter-row .btn-clear:hover { background:#eee; }
+          }
+        `;
+        document.head.appendChild(style);
+      }
 
-      // Récupère les lignes source depuis AG Grid
-      // mode: 'afterFilter' (après filtres) ou 'all' (toutes les lignes du modèle)
-      function collectRowsFromGrid(api, mode = 'afterFilter') {
+      // ===== helpers déjà fournis + création datalist =====
+      function collectRowsFromGrid(api, mode = 'all') {
         const out = [];
         if (mode === 'afterFilter' && api.forEachNodeAfterFilterAndSort) {
           api.forEachNodeAfterFilterAndSort(n => { if (n?.data) out.push(n.data); });
         } else if (api.forEachLeafNode) {
           api.forEachLeafNode(n => { if (n?.data) out.push(n.data); });
         } else if (api.getDisplayedRowCount) {
-          // fallback
           const cnt = api.getDisplayedRowCount();
           for (let i = 0; i < cnt; i++) {
             const rowNode = api.getDisplayedRowAtIndex(i);
@@ -5165,10 +5316,8 @@ function openSheetFiltres(gridId) {
           }
         }
         return out;
-        // NB: si tu veux ignorer les filtres en cours, passe mode='all'
       }
 
-      // Valeurs uniques triées (tri FR + numérique)
       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
         const set = new Set();
         for (const r of rows || []) {
@@ -5177,14 +5326,12 @@ function openSheetFiltres(gridId) {
           set.add(String(v));
           if (set.size >= max) break;
         }
-        return [...set].sort((a, b) => a.localeCompare(b, 'fr', { numeric: true, sensitivity: 'base' }));
+        return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
       }
 
-      // Crée/alimente un datalist et le branche à l'input correspondant
       function wireDatalistForField(field, rows) {
         const input = body.querySelector(`#filter-${field}`);
         if (!input) return;
-
         const listId = `dl-${field}`;
         const dlContainer = body.querySelector('#dl-container');
         let dl = body.querySelector(`#${listId}`);
@@ -5194,7 +5341,6 @@ function openSheetFiltres(gridId) {
           dlContainer.appendChild(dl);
         }
         input.setAttribute('list', listId);
-
         const values = uniqueValues(rows, field);
         dl.replaceChildren(...values.map(v => {
           const o = document.createElement('option');
@@ -5207,13 +5353,39 @@ function openSheetFiltres(gridId) {
         fields.forEach(f => wireDatalistForField(f, rows));
       }
 
-      // ---------- Construction des listes à partir des données de la grille ----------
-      // Choisis 'afterFilter' si tu veux que les suggestions reflètent le sous-ensemble filtré,
-      // ou 'all' pour tout le dataset.
       const sourceRows = collectRowsFromGrid(gridApi, 'all');
       buildFilterLists(sourceRows, fields);
 
-      // 3️⃣ Boutons
+      // ===== logique RAZ par champ =====
+      // 1) Délégation de clic sur les boutons ×
+      body.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-clear');
+        if (!btn) return;
+        const field = btn.dataset.field;
+        const input = body.querySelector(`#filter-${field}`);
+        if (!input) return;
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        btn.parentElement.classList.remove('has-val');
+        // (facultatif) focus de confort
+        input.focus();
+      });
+
+      // 2) Marquer has-val quand l’input change (pour afficher/masquer le bouton)
+      body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
+        const wrap = inp.closest('.input-wrap');
+        const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
+        inp.addEventListener('input', sync);
+        inp.addEventListener('change', sync);
+        // Esc pour RAZ rapide
+        inp.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Escape') { inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); sync(); }
+        });
+        // init
+        sync();
+      });
+
+      // ===== boutons Appliquer / Réinitialiser =====
       const applyBtn = body.querySelector('#btn-apply');
       const clearBtn = body.querySelector('#btn-clear');
 
@@ -5221,9 +5393,7 @@ function openSheetFiltres(gridId) {
         const newModel = {};
         columns.forEach(col => {
           const val = body.querySelector(`#filter-${col.field}`).value.trim();
-          if (val) {
-            newModel[col.field] = { type: 'contains', filter: val };
-          }
+          if (val) newModel[col.field] = { type: 'contains', filter: val };
         });
         gridApi.setFilterModel(newModel);
         gridApi.onFilterChanged();
@@ -5235,6 +5405,12 @@ function openSheetFiltres(gridId) {
         gridApi.onFilterChanged();
         close();
       });
+
+      // (optionnel) regénérer les datalists si le dataset change
+      // gridApi.addEventListener('modelUpdated', () => {
+      //   const rows = collectRowsFromGrid(gridApi, 'all');
+      //   buildFilterLists(rows, fields);
+      // });
     }
   });
 }
