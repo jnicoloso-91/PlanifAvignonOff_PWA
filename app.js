@@ -2851,8 +2851,6 @@ async function getClipBoardText(parser=null) {
       proxy.style.webkitUserSelect = 'text';    // iOS
       proxy.style.userSelect = 'text';
 
-      let done = false;
-
       // ⚠️ Deux frames pour laisser Safari peindre puis focus
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -2869,31 +2867,31 @@ async function getClipBoardText(parser=null) {
 
       // --- LISTENERS ---
 
-      // 1) beforeinput (iOS envoie insertFromPaste)
+      // 1) beforeinput (iOS envoie insertFromPaste) => renvoie bien le texte sur IOS => on garde cette voie
       const onBeforeInput = (e) => {
         if (e.inputType === 'insertFromPaste' && e.dataTransfer) {
           // 🟢 chemin idéal : on récupère direct
           e.preventDefault(); // évite l'insertion dans le DOM
           const txt = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || '';
           logToPage(`[onBeforeInput] ${txt?.slice(0,30)}`);
-          if (!done) finalize(txt);
+          finalize(txt);
         }
       };
 
-      // 2) paste fallback : laisser coller, puis lire proxy.textContent
+      // 2) paste fallback : laisser coller, puis lire proxy.textContent => ne renvoie rien sur IOS
       const onPaste = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          logToPage(`[onPaste] ${txt?.slice(0,30)}`);
-          if (!done) finalize(txt);
+          // logToPage(`[onPaste] ${txt?.slice(0,30)}`);
+          finalize(txt);
         }, 0);
       };
 
-      // 3) input fallback ultime : si ni beforeinput ni paste n’ont capté
+      // 3) input fallback ultime : si ni beforeinput ni paste n’ont capté => finalize au premier caractère tapé => inutile
       const onInput = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          logToPage(`[onInput] ${txt?.slice(0,30)}`);
+          // logToPage(`[onInput] ${txt?.slice(0,30)}`);
           if (txt) finalize(txt);
         }, 0);
       };
@@ -2903,8 +2901,8 @@ async function getClipBoardText(parser=null) {
       };
 
       proxy.addEventListener('beforeinput', onBeforeInput);
-      proxy.addEventListener('paste', onPaste);
-      proxy.addEventListener('input', onInput);
+      // proxy.addEventListener('paste', onPaste);
+      // proxy.addEventListener('input', onInput);
       popup.addEventListener('click', onBackdrop);
 
       popup._tmp = { onBeforeInput, onPaste, onInput, onBackdrop };
@@ -2946,7 +2944,7 @@ async function getClipBoardText(parser=null) {
 
 async function handleClipboardText(raw, parser=null) {
 
-  logToPage(`[Clipboard] ${(raw ?? 'NULL').slice(0,30)}`);
+  logToPage(`[handleClipboard] ${(raw ?? 'NULL').slice(0,30)}`);
 
   let parsed = null;
 
