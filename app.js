@@ -2911,8 +2911,7 @@ async function getClipBoardText(parser=null) {
 
   function finalize(txt) {
     cleanup();
-    handleClipboardText(txt, parser);
-    done = true;
+    importFromUrlOrTxt(txt, parser);
   }
 
   function cleanup() {
@@ -2934,7 +2933,7 @@ async function getClipBoardText(parser=null) {
   try {
     const txt = await navigator.clipboard?.readText();
     if (txt) {
-      handleClipboardText(txt, parser);
+      importFromUrlOrTxt(txt, parser);
       return;
     }
   } catch {}
@@ -2942,7 +2941,7 @@ async function getClipBoardText(parser=null) {
   if (isIOS) openPastePopup();
 };
 
-async function handleClipboardText(raw, parser=null) {
+async function importFromUrlOrTxt(raw, parser=null) {
 
   logToPage(`[handleClipboard] ${(raw ?? 'NULL').slice(0,30)}`);
 
