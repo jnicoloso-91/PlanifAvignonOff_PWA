@@ -2132,8 +2132,6 @@ function onCreneauxSelectionChanged(){
   const sel = g.api.getSelectedRows?.() || [];
   selectedSlot = sel[0] || null;
 
-  // logToPage(`onCreneauxSelectionChanged: selection ${sel}`);
-
   // rafraîchir la grille 4 (programmables)
   refreshGrid('grid-programmables');
 }
@@ -2212,10 +2210,6 @@ async function refreshGrid(gridId) {
   const nbRowsPred = api.getGridOption('rowData')?.length;
   const rows = await h.loader?.();
   const nbRows = rows.length;
-
-  // if (gridId == 'grid-programmables') {
-  //   logToPage(`refreshGrid: nbRows ${rows.length}`);
-  // }
 
   api.setGridOption?.('rowData', rows || []);
 
@@ -2875,7 +2869,6 @@ async function getClipBoardText(parser=null) {
           done = true;
           e.preventDefault(); // évite l'insertion dans le DOM
           const txt = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || '';
-          // logToPage(`[onBeforeInput] ${txt?.slice(0,30)}`);
           finalize(txt);
         }
       };
@@ -2886,11 +2879,8 @@ async function getClipBoardText(parser=null) {
       const onPaste = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          // logToPage(`[onPaste] ${txt?.slice(0,30)}`);
-          // finalize(txt);
           // si !done le clipboard est effectivement vide => on alerte et on ferme la popup 
           if (!done) {
-            // alert('Aucune information à coller');
             cleanup(); 
           }
         }, 100);
@@ -2901,8 +2891,6 @@ async function getClipBoardText(parser=null) {
       const onInput = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          // logToPage(`[onInput] ${txt?.slice(0,30)}`);
-          // if (txt) finalize(txt);
           cleanup(); 
         }, 0);
       };
@@ -2953,8 +2941,6 @@ async function getClipBoardText(parser=null) {
 };
 
 async function importFromUrlOrTxt(raw, parser=null) {
-
-  // logToPage(`[handleClipboard] ${(raw ?? 'NULL').slice(0,30)}`);
 
   let parsed = null;
 
@@ -4927,13 +4913,13 @@ function openSheetAide() {
             
             <p style="margin-bottom: 0.2em">Les fonctionnalités principales sont les suivantes :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
-              <li>Choix de la période à programmer</li>
-              <li>Chargement des activités à programmer à partir d'un fichier Excel ou par collage depuis un catalogue en ligne</li>
-              <li>Gestion de la programmation des activités sur les plages libres de la période à programmer, en évitant chevauchements et doublons (voir le chapitre "Règles de programmation")</li>
-              <li>Pour chaque activité gestion de liens vers la description détaillée de l'activité et la recherche d'itinéraire</li>
-              <li>Gestion du carnet d'adresses des lieux d'activités</li>
-              <li>Sauvegarde des données dans un fichier Excel ou vers le calendrier</li>
-              <li>Vérification de cohérence des données (chevauchements d'activités, marges trop courtes, formats de données)</li>
+              <li>Chargement des spectacles et activités à programmer à partir d'Excel ou par collage depuis les catalogues en ligne</li>
+              <li>Programmation des spectacles et activités, en évitant chevauchements et doublons</li>
+              <li>Identification des plages libres et des spectacles et activités programmables sur ces plages</li>
+              <li>Liens vers la description détaillée des spectacles et activités et les applications de recherche d'itinéraire</li>
+              <li>Carnet d'adresses des théâtres et sites de spectacles</li>
+              <li>Sauvegarde vers Excel ou le calendrier de votre programme de spectacles ou autres activités</li>
+              <li>Vérification de cohérence (chevauchements d'activités, respect des marges entre activités, formats des données)</li>
             </ul>            
           </div>
         </div>
@@ -4992,23 +4978,25 @@ function openSheetAide() {
 
             </p>Le bouton <u><i>Supprimer</u></i> situé en haut à droite du tableau <u><i>Stock</u></i> permet de supprimer l'activité sélectionnée.</p>
 
-            <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i> les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
-            et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne 'Réservé' est à Oui).</p>
+            <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i> toutes les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
+            et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne 'Réservé' est à Oui). Elles sont également 
+            triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur les entêtes de colonnes sur grands écrans ou boutons de filtrage sur
+            mobiles).</p>
 
-            <p>L'icône de la colonne <u><i>Activité</u></i> permet d'afficher la page Web donnée par la colonne <u><i>Hyperlien</u></i> et l'icône de la colonne <u><i>Lieu</u></i> permet de 
-            lancer une recherche d'itinéraire sur le lieu de l'activité. La recherche d'itinéraire utilise l'application choisie dans les paramètres 
-            et l'adresse du carnet d'adresse, ou à défaut le nom du lieu et la ville par défaut définie dans les paramètres.</p>
+            <p>L'icône de la colonne <u><i>Activité</u></i> permet d'afficher la page Web donnée par la colonne <u><i>Hyperlien</u></i> et 
+            l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité, via l'application choisie 
+            dans les paramètres et l'adresse du lieu d'activité renseignée dans le carnet d'adresse, ou à défaut le nom du lieu et un nom de ville ville défini dans les paramètres.</p>
                         
             <p style="margin-bottom: 0.2em">Deux menus permettent d'accéder des fonctionnalités complémentaires:</p>
             <ul style="margin-top: 0em">
               <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
                 <ul style="margin-top: 0em">
-                    <li><u><i>Fichier</u></i>: permet d'initialiser un nouveau programme, charger un programme depuis un fichier Excel ou depuis la copie 
-                    d'une page programme du catalogue du In ou du Off, sauvegarder le programme dans un fichier Excel ou vers le calendrier, 
+                    <li><u><i>Fichier</u></i>: permet de créer un nouveau programme, charger un programme depuis un fichier Excel ou depuis 
+                    les catalogues en ligne du In ou du Off, exporter le programme d'activites vers Excel ou vers calendrier, 
                     obtenir un rapport de cohérence des données.</li>
                     <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i>: permettent de défaire, refaire une opération.</li>
-                    <li><u><i>Coller</u></i>: collage d'activités depuis le presse-papier. Ce bouton nécessite préalablement de copier soit l'adresse 
-                    d'une page du catalogue In ou Off (via Partager/Copier ou par copie du champ adresse), soit son contenu. 
+                    <li><u><i>Coller</u></i>: collage d'activités depuis le presse-papier. Pour utiliser cette fonctionnalité, copier préalablement 
+                    soit l'adresse d'une page du catalogue du In ou du Off (via Partager/Copier ou par copie du champ adresse), soit son contenu. 
                     Il peut s'agir soit d'une page programme listant plusieurs spectacles, soit d'une page de détail d'un spectacle.</li>
                     <li><u><i>Ajouter</u></i>: ajout d'une activité</li>
                 </ul>
