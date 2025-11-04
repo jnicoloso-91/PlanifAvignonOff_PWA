@@ -27,6 +27,10 @@ html, body {
   touch-action: pan-y;           /* on gère le pan-x en JS */
   background: #fff;              /* fond par défaut */
 }
+/* iOS/modern: contrairement à 100vh permet à la page de s'ajuster en fonction de la barre/clavier */
+@supports (height: 100dvh) {
+  #pager { height: 100dvh; }
+}
 
 /* Rail horizontal des pages */
 #pager .pager-track {

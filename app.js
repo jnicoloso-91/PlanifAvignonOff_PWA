@@ -3200,7 +3200,7 @@ const fileMenuSheetInnerHtml = () => {
       <li class="file-sheet__item" data-action="new">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         <div class="file-sheet__text">
-          <span class="file-sheet__titleText">Nouveau planning</span>
+          <span class="file-sheet__titleText">Nouveau programme</span>
           <span class="file-sheet__subtitle">Réinitialise le planning</span>
         </div>
       </li>

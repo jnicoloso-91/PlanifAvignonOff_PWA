@@ -91,10 +91,9 @@ export function creerActivitesAPI(ctx) {
      * @returns {Array<object>}  liste de créneaux pour la grille
      */
     getCreneaux(df, activitesProgrammees, traiter_pauses = false, opts = {}) {
+      if (!df) return [];
       const creneaux = [];
       let bornes = []; // liste des [min,max] déjà vus pour la journée courante (évite doublons)
-
-      console.log(traiter_pauses);
 
       const periodeDebut = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); // dateint
       const periodeFin   = dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); // dateint
