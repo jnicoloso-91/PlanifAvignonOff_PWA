@@ -445,7 +445,8 @@ export function parseAvignonInSpecPageText(text) {
  * @param {boolean} opts.verbose    - logs console
  * @returns {Promise<Array>}        - liste d’objets parsés (Activite, Lieu, Session, Debut, Duree, Style, Hyperlien)
  */
-export async function parseAvignonOffProgPageUrl(url, { maxPages = 50, delayMs = 120, verbose = false } = {}) {
+export async function parseAvignonOffProgPageUrl(url, { maxPages = 2000, delayMs = 150, verbose = false } = {}) {
+
   const seen = new Set();
   const all  = [];
 
@@ -510,6 +511,96 @@ export async function parseAvignonOffProgPageUrl(url, { maxPages = 50, delayMs =
 
     if (delayMs) await new Promise(r => setTimeout(r, delayMs));
   }
+  
+// // --- AVANT la boucle --- (tu as déjà expectedTotal / perPage / lastPage)
+// function readTotalCount(doc) {
+//   const txt = doc.querySelector('.count')?.textContent || '';
+//   // Exemple : "Vous avez vu 6 spectacles sur 1812"
+//   const nums = txt.match(/\d+/g);
+//   if (!nums || nums.length === 0) return null;
+
+//   // prend le dernier nombre rencontré (le total)
+//   return parseInt(nums[nums.length - 1], 10);
+// }
+// function readPerPage(doc){
+//   const list = doc.querySelectorAll('.spectacle-card'); 
+//   return list.length || null;
+// }
+// const expectedTotal = readTotalCount(doc0) || null;   // 1812
+// const perPage = readPerPage(doc0) || readPerPageFromCount(doc0) || readPerPageHeuristics(doc0) || null;
+// const lastPage = (expectedTotal && perPage) ? Math.ceil(expectedTotal / perPage) : undefined;
+// if (verbose) console.debug('[OFF] totals:', { expectedTotal, perPage, lastPage });
+
+// // on démarre à 2, sans se fier au form
+// let nextPage = 2;
+
+// // helper: mettre la page sur tous les noms “connus”
+// function setAllPageParams(params, v) {
+//   let touched = false;
+//   ['page', 'paged', 'current_page'].forEach(k => {
+//     if (params.has(k)) { params.set(k, String(v)); touched = true; }
+//   });
+//   if (!touched) params.set('page', String(v)); // fallback
+// }
+
+// // lire un lien “suivant” si présent (GET)
+// function getNextLink(doc) {
+//   let a = doc.querySelector('a[rel="next"]');
+//   if (!a) {
+//     a = Array.from(doc.querySelectorAll('.pagination a, nav a, a'))
+//       .find(el => /\b(next|suivant|»|›)\b/i.test(el.textContent || ''));
+//   }
+//   return a?.href || null;
+// }
+
+// // tente POST, sinon GET de secours
+// async function fetchDocForPage(page) {
+//   // 1) POST
+//   const params = _formToParams(form);
+//   setAllPageParams(params, page);
+//   const resP = await _fetchViaCloudFlareWorker(url, {
+//     method: 'POST',
+//     headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+//     body: params.toString()
+//   });
+//   const htmlP = await resP.text();
+//   const docP  = _parseHTML(htmlP);
+
+//   // si le POST ramène un form ou des items, on accepte
+//   const itemsP = parseAvignonOffProgPageDom(docP) || [];
+//   if (docP.querySelector('#js-form-filtres') || itemsP.length > 0) {
+//     return { doc: docP, items: itemsP, method: 'POST' };
+//   }
+
+//   // 2) Fallback GET (via lien “suivant” ou construction naïve)
+//   const href = getNextLink(docP) || `${url}?page=${page}`;
+//   const resG = await _fetchViaCloudFlareWorker(href);
+//   const htmlG = await resG.text();
+//   const docG  = _parseHTML(htmlG);
+//   const itemsG = parseAvignonOffProgPageDom(docG) || [];
+//   return { doc: docG, items: itemsG, method: 'GET' };
+// }
+
+// // --- BOUCLE ---
+// for (let i = 2; i <= maxPages; i++, nextPage++) {
+//   if (lastPage && nextPage > lastPage) break; // arrêt propre si connu
+
+//   const { doc, items, method } = await fetchDocForPage(nextPage);
+//   const nAdded = pushItems(items);
+//   if (verbose) console.debug(`[OFF] page ${nextPage} via ${method}:`, { added: nAdded, total: all.length });
+
+//   // mettre à jour le form si on le trouve, sinon on continue avec l'ancien
+//   const newForm = doc.querySelector('#js-form-filtres');
+//   if (newForm) form.innerHTML = newForm.innerHTML;
+
+//   // NE PAS s'arrêter sur “page vide” tant que le total n'est pas atteint
+//   if (expectedTotal && all.length >= expectedTotal) break;
+
+//   if (delayMs) {
+//     const jitter = Math.floor(Math.random() * 80);
+//     await new Promise(r => setTimeout(r, delayMs + jitter));
+//   }
+// }
 
   return all;
 }
@@ -524,41 +615,6 @@ export function parseAvignonOffProgPageDom(doc) {
   // mois par défaut si non indiqué sur la carte (OFF = juillet)
   const DEFAULT_MM = '07';
 
-  // "du 5 au 26"  -> "[05-26]/07"
-  // "le 17"       -> "[17-17]/07"
-  const parseSession = (txt) => {
-    if (!txt) return null;
-    const s = String(txt).toLowerCase().replace(/\s+/g, ' ').trim();
-
-    // optionnel: essayer de capter un mois dans la ligne
-    const mMonth = s.match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/);
-    const moisNum = mMonth ? ({
-      janvier:1, fevrier:2, 'février':2, mars:3, avril:4, mai:5, juin:6,
-      juillet:7, aout:8, 'août':8, septembre:9, octobre:10, novembre:11,
-      decembre:12, 'décembre':12
-    }[mMonth[1]] || 7) : 7;
-
-    const mm = pad2(moisNum || 7);
-
-    const mDuAu = s.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
-    if (mDuAu) {
-      const d1 = pad2(mDuAu[1]), d2 = pad2(mDuAu[2]);
-      return `[${d1}-${d2}]/${mm}`;
-    }
-    const mLe = s.match(/\ble\s+(\d{1,2})\b/i);
-    if (mLe) {
-      const d = pad2(mLe[1]);
-      return `[${d}-${d}]/${mm}`;
-    }
-    // si juste "5-26" sans "du/au"
-    const mDash = s.match(/\b(\d{1,2})\s*-\s*(\d{1,2})\b/);
-    if (mDash) {
-      const d1 = pad2(mDash[1]), d2 = pad2(mDash[2]);
-      return `[${d1}-${d2}]/${mm}`;
-    }
-    return null;
-  };
-
   const items = [];
 
   doc.querySelectorAll('.global-card.spectacle-card, .spectacle-card').forEach(card => {
@@ -572,7 +628,7 @@ export function parseAvignonOffProgPageDom(doc) {
 
     // Session (dates)
     const dateTxt = card.querySelector('.card-content .date')?.textContent || '';
-    const Session = parseSession(dateTxt) || null;
+    const Session = _parseSession(dateTxt) || null;
 
     // Heures & durée
     const debutTxt = card.querySelector('.horaire-c .heure')?.textContent?.trim() || '';
@@ -840,6 +896,7 @@ export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
 
     if (parts.length) res.Relache = parts.join(', ');
   
+    // Sessions
     const session = _parseSession(bigText);
     if (session && session.length) res.Session = session;
   }
@@ -1275,42 +1332,104 @@ function _normalizeHeure(hhmm) {
   const mm = String(parseInt(m[2],10)).padStart(2,'0');
   return `${h}h${mm}`;
 }
-function _normalizeDuree(hhmm) {
-  const m = /(\d{1,2})h(\d{1,2})/.exec(_norm(hhmm));
-  if (!m) return null;
-  const h = String(parseInt(m[1],10));
-  const mm = String(parseInt(m[2],10)).padStart(2,'0');
-  return `${h}h${mm}`;
+function _normalizeDuree(dureeTxt) {
+  const mH = dureeTxt.match(/(\d{1,2})h(\d{0,2})/i);
+  const mM = dureeTxt.match(/(\d{1,3})\s*m(?:in)?s?/i);
+  if (mH) {
+    return _normalizeHhmmLoose(`${mH[1]}h${mH[2] ?? ''}`);
+  } else if (mM) {
+    return mmToHhmm(Number(mM[1]) || 0);
+  }
+  return null;
 }
 
-/** Extrait les dates de représentation en token */
-function _parseSession(text) {
-  const t = _norm(text || "");
-  const m = /du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+([a-zéû]+)/i.exec(t);
-  if (!m) return null;
+// "du 5 au 26"  -> "[05-26]/07"
+// "le 17"       -> "17/07"
+const _parseSession = (txt) => {
+  if (!txt) return null;
+  const s = String(txt).toLowerCase().replace(/\s+/g, ' ').trim();
 
-  const d1 = parseInt(m[1], 10);
-  const d2 = parseInt(m[2], 10);
-  const moisTxt = m[3];
-  const mois = MOIS[moisTxt] || null;
-  if (!mois) return null;
+  // optionnel: essayer de capter un mois dans la ligne
+  const mMonth = s.match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/);
+  const moisNum = mMonth ? ({
+    janvier:1, fevrier:2, 'février':2, mars:3, avril:4, mai:5, juin:6,
+    juillet:7, aout:8, 'août':8, septembre:9, octobre:10, novembre:11,
+    decembre:12, 'décembre':12
+  }[mMonth[1]] || 7) : 7;
 
-  return `[${d1}-${d2}]/${mois}`;
-}
+  const mm = pad2(moisNum || 7);
 
-// "(9,16,23)/7"
-function _parseRelache(text) {
-  const t = _norm(text);
-  const m = /rel[aâ]che\s+les\s+([0-9,\s]+)\s+([a-zéû]+)/i.exec(t);
-  if (!m) return null;
-  const jours = (m[1] || "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean)
-    .map(s => String(parseInt(s,10)));
-  const mois = MOIS[m[2]] || null;
-  if (!jours.length || !mois) return null;
-  return `(${jours.join(",")})/${mois}`;
+  const mDuAu = s.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
+  if (mDuAu) {
+    const d1 = pad2(mDuAu[1]), d2 = pad2(mDuAu[2]);
+    return `[${d1}-${d2}]/${mm}`;
+  }
+  const mLe = s.match(/\ble\s+(\d{1,2})\b/i);
+  if (mLe) {
+    const d = pad2(mLe[1]);
+    return `[${d}-${d}]/${mm}`;
+  }
+  // si juste "5-26" sans "du/au"
+  const mDash = s.match(/\b(\d{1,2})\s*-\s*(\d{1,2})\b/);
+  if (mDash) {
+    const d1 = pad2(mDash[1]), d2 = pad2(mDash[2]);
+    return `[${d1}-${d2}]/${mm}`;
+  }
+  return null;
+};
+
+// "Relâche le 17"       -> "17/07"
+function _parseRelache(txt) {
+  if (!txt) return null;
+
+  const s = String(txt)
+    .toLowerCase()
+    .replace(/[•|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const MOIS_MAP = {
+    janvier:1, fevrier:2, 'février':2, mars:3, avril:4, mai:5, juin:6,
+    juillet:7, aout:8, 'août':8, septembre:9, octobre:10, novembre:11,
+    decembre:12, 'décembre':12
+  };
+  const MONTH_RE = /(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/;
+  const pad2 = n => String(n).padStart(2, '0');
+
+  let jours = [];
+  let moisNum = null;
+
+  // 1️⃣ Cas complet : "relâche les 10, 12 et 20 juillet"
+  let m = s.match(/rel[aâ]ches?\s*(?:[:\-]|\s+)?(?:le|les)?\s*([0-9,\s;et\-er]+?)\s+(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/);
+
+  if (m) {
+    const joursRaw = m[1] || '';
+    const moisStr = m[2];
+    moisNum = MOIS_MAP[moisStr] || null;
+    jours = (joursRaw.match(/\d{1,2}/g) || []).map(x => String(parseInt(x, 10)));
+  } else {
+    // 2️⃣ Cas partiel : "relâche le 15" avec mois ailleurs
+    const mDays = s.match(/rel[aâ]ches?\s*(?:[:\-]|\s+)?(?:le|les)?\s*([0-9,\s;et\-er]+)/);
+    if (!mDays) return null;
+
+    const joursRaw = mDays[1] || '';
+    jours = (joursRaw.match(/\d{1,2}/g) || []).map(x => String(parseInt(x, 10)));
+
+    const mMonth = s.match(MONTH_RE);
+    if (mMonth) moisNum = MOIS_MAP[mMonth[1]] || null;
+  }
+
+  if (!moisNum) moisNum = 7; // fallback: juillet
+
+  // unicité, nettoyage
+  jours = Array.from(new Set(jours)).filter(Boolean);
+  if (!jours.length || !moisNum) return null;
+
+  const joursStr = jours.length === 1
+    ? jours[0]                      // une seule date → pas de parenthèses
+    : `(${jours.join(",")})`;       // plusieurs → entre parenthèses
+
+  return `${joursStr}/${pad2(moisNum)}`;
 }
 
 // Inversion de parité pour passer "jours joués" -> "relâche"
@@ -1335,63 +1454,63 @@ function _parseRelacheAvecParite(text) {
   return hadRelachePrefix ? pariteFound : _invertParite(pariteFound);
 }
 
-// Extrait Lieu / Session / Debut / Duree depuis la ligne 3
-function _parseInfoLine(line, defaultMonth = '07') {
-  const l = _strip(line);
+// // Extrait Lieu / Session / Debut / Duree depuis la ligne 3
+// function _parseInfoLine(line, defaultMonth = '07') {
+//   const l = _strip(line);
 
-  // Mois texte optionnel (ex: "juillet", "août")
-  const moisMatch = l.toLowerCase().match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/);
-  const moisNum = moisMatch ? MOIS[moisMatch[1].toLowerCase()] : defaultMonth;
+//   // Mois texte optionnel (ex: "juillet", "août")
+//   const moisMatch = l.toLowerCase().match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/);
+//   const moisNum = moisMatch ? MOIS[moisMatch[1].toLowerCase()] : defaultMonth;
 
-  // Lieu = avant " du " ou " le " ; sinon avant la 1re heure "HHhMM"
-  const idxDu = l.toLowerCase().indexOf(' du ');
-  const idxLe = l.toLowerCase().indexOf(' le ');
-  let cut = -1;
-  if (idxDu > -1) cut = idxDu;
-  else if (idxLe > -1) cut = idxLe;
-  if (cut === -1) {
-    const mH = l.match(/\b\d{1,2}h\d{2}\b/i);
-    if (mH) cut = l.indexOf(mH[0]);
-  }
-  const Lieu = _strip(cut > 0 ? l.slice(0, cut) : l);
+//   // Lieu = avant " du " ou " le " ; sinon avant la 1re heure "HHhMM"
+//   const idxDu = l.toLowerCase().indexOf(' du ');
+//   const idxLe = l.toLowerCase().indexOf(' le ');
+//   let cut = -1;
+//   if (idxDu > -1) cut = idxDu;
+//   else if (idxLe > -1) cut = idxLe;
+//   if (cut === -1) {
+//     const mH = l.match(/\b\d{1,2}h\d{2}\b/i);
+//     if (mH) cut = l.indexOf(mH[0]);
+//   }
+//   const Lieu = _strip(cut > 0 ? l.slice(0, cut) : l);
 
-  // Session: "du d1 au d2" OU "le d"
-  let Session = null;
-  const mDuAu = l.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
-  const mLe   = l.match(/\ble\s+(\d{1,2})\b/i);
-  if (mDuAu) {
-    const d1 = pad2(+mDuAu[1]);
-    const d2 = pad2(+mDuAu[2]);
-    Session = `[${d1}-${d2}]/${moisNum}`;
-  } else if (mLe) {
-    const d = pad2(+mLe[1]);
-    Session = `[${d}-${d}]/${moisNum}`;
-  }
+//   // Session: "du d1 au d2" OU "le d"
+//   let Session = null;
+//   const mDuAu = l.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
+//   const mLe   = l.match(/\ble\s+(\d{1,2})\b/i);
+//   if (mDuAu) {
+//     const d1 = pad2(+mDuAu[1]);
+//     const d2 = pad2(+mDuAu[2]);
+//     Session = `[${d1}-${d2}]/${moisNum}`;
+//   } else if (mLe) {
+//     const d = pad2(+mLe[1]);
+//     Session = `[${d}-${d}]/${moisNum}`;
+//   }
 
-  // Heures & Durée (supporte "HHhMM" et "NNmin")
-  const hTokens = [...l.matchAll(/\b(\d{1,2})h(\d{2})\b/gi)]
-    .map(m => ({ t: `${String(m[1]).padStart(2,'0')}h${m[2]}`, idx: m.index }));
-  const mTokens = [...l.matchAll(/\b(\d{1,3})\s*m(?:in)?s?\b/gi)]
-    .map(m => ({ mins: Number(m[1]), idx: m.index }));
+//   // Heures & Durée (supporte "HHhMM" et "NNmin")
+//   const hTokens = [...l.matchAll(/\b(\d{1,2})h(\d{2})\b/gi)]
+//     .map(m => ({ t: `${String(m[1]).padStart(2,'0')}h${m[2]}`, idx: m.index }));
+//   const mTokens = [...l.matchAll(/\b(\d{1,3})\s*m(?:in)?s?\b/gi)]
+//     .map(m => ({ mins: Number(m[1]), idx: m.index }));
 
-  let Debut = null, Duree = null;
-  if (hTokens.length >= 1) {
-    Debut = hTokens[0].t;
-    const startIdx = hTokens[0].idx ?? 0;
-    const durH = hTokens.find((x, i) => i > 0 && x.idx > startIdx);
-    if (durH) {
-      Duree = durH.t;                    // ex. "1h20"
-    } else {
-      const durM = mTokens.find(x => x.idx > startIdx) || mTokens[0];
-      if (durM) Duree = mmToHHhMM(durM.mins); // ex. "55min" -> "0h55"
-    }
-  } else if (mTokens.length) {
-    // Pas d'heure trouvée mais durée présente (rare)
-    Duree = mmToHHhMM(mTokens[0].mins);
-  }
+//   let Debut = null, Duree = null;
+//   if (hTokens.length >= 1) {
+//     Debut = hTokens[0].t;
+//     const startIdx = hTokens[0].idx ?? 0;
+//     const durH = hTokens.find((x, i) => i > 0 && x.idx > startIdx);
+//     if (durH) {
+//       Duree = durH.t;                    // ex. "1h20"
+//     } else {
+//       const durM = mTokens.find(x => x.idx > startIdx) || mTokens[0];
+//       if (durM) Duree = mmToHHhMM(durM.mins); // ex. "55min" -> "0h55"
+//     }
+//   } else if (mTokens.length) {
+//     // Pas d'heure trouvée mais durée présente (rare)
+//     Duree = mmToHHhMM(mTokens[0].mins);
+//   }
 
-  return { Lieu, Session, Debut, Duree };
-}
+//   return { Lieu, Session, Debut, Duree };
+// }
 
 function _parseDuree(line) {
   if (!line) return null;

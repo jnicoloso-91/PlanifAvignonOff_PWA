@@ -48,6 +48,10 @@ import {
   isAvignonOffSpecPageText,
 } from './parsers.js';
 
+import {
+  rowsToICS,
+} from './calendrier.js';
+
 let activitesAPI = null;
 
 // ===== Multi-grilles =====
@@ -1412,7 +1416,7 @@ function addExpanderButton({expanderId, id, title, innerHTML, onClick}) {
 
 function wireExpanderButtons() {
 
-  // Bouton Programmer
+  // Bouton Programmer sur Activités Programmables
   addExpanderButton({
     expanderId: 'exp-programmables',
     id: 'btn-programmer',
@@ -1434,7 +1438,28 @@ function wireExpanderButtons() {
     onClick: async () => {await doProgrammerActivite();},
   });
 
-  // Bouton Déprogrammer
+  // Bouton Filtres sur Activités Programmées
+  if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
+    expanderId: 'exp-programmees',
+    id: 'btn-filtrer-prog',
+    title: 'Filtrer', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône Filtre en forme d'entonnoir -->
+        <svg viewBox="0 0 24 24" width="24" height="24"
+            fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true" focusable="false">
+          <!-- entonnoir -->
+          <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+        </svg>
+      </span>
+      <span class="exp-label">Filtrer</span>
+    `,
+    onClick: () => { openSheetFiltres('grid-programmees'); },
+  });
+
+  // Bouton Déprogrammer sur Activités Programmées
   addExpanderButton({
     expanderId: 'exp-programmees',
     id: 'btn-deprogrammer',
@@ -1462,7 +1487,7 @@ function wireExpanderButtons() {
   // Bouton Filtres sur Activités Non Programmées
   if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
     expanderId: 'exp-non-programmees',
-    id: 'btn-filtrer',
+    id: 'btn-filtrer-non-prog',
     title: 'Filtrer', 
     innerHTML: `
       <span class="exp-icon" aria-hidden="true">
@@ -1480,7 +1505,7 @@ function wireExpanderButtons() {
     onClick: () => { openSheetFiltres('grid-non-programmees'); },
   });
 
-  // Bouton Supprimer
+  // Bouton Supprimer sur Activités Non Programmées
   addExpanderButton({
     expanderId: 'exp-non-programmees',
     id: 'btn-supprimer',
@@ -1894,6 +1919,7 @@ const gridOptionsActivitesProgrammees = {
     const btn = document.getElementById('btn-deprogrammer');
     btn.disabled = (sel.length > 0) ? activitesAPI.estActiviteReservee(sel[0]) : true;
   },
+  onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-prog')),
 }
 
 const gridOptionsActivitesNonProgrammees = {
@@ -2133,9 +2159,14 @@ async function refreshGrid(gridId) {
     // repaint + grid size (AG Grid v29+)
     api.refreshCells?.({ force: true });
 
-    // sur la grille des activités non programmées nécessaire de faire un redrawRaws pour appliquer correctement la colo (don't know why...) 
+    // traitements spécifiques de la grille des activités programmées
+    if (gridId == 'grid-programmees') {
+      updateGridCounters(api, document.getElementById('badge-prog'));
+    }
+
+    // traitements spécifiques de la grille des activités non programmées
     if (gridId == 'grid-non-programmees') {
-      api.redrawRows();  // ré-évalue getRowStyle
+      api.redrawRows();  // ré-évalue getRowStyle, nécessaire sur cette grille pour appliquer correctement la colo (don't know why...)
       updateGridCounters(api, document.getElementById('badge-non-prog'));
     }
 
@@ -2683,7 +2714,16 @@ async function doExportExcel() {
   }
 }
 
-// Export Excel
+// Export du programme au format Ics
+async function doExportIcs() {
+  const filteredRows = [];
+  window.grids?.get('grid-programmees').api.forEachNodeAfterFilterAndSort(node => {
+    filteredRows.push(node.data);
+  });  
+  rowsToICS(activitesAPI.getActivitesProgrammees(filteredRows));
+}
+
+// Vérification de cohérence des data
 async function doVerifCoherence() {
   openSheetCoherence(ctx.df);
 }
@@ -3185,11 +3225,18 @@ const fileMenuSheetInnerHtml = () => {
           <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du Off</span>
         </div>
       </li>
-      <li class="file-sheet__item" data-action="save">
+      <li class="file-sheet__item" data-action="exportExcel">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers Excel</span>
           <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier Excel</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="exportIcs">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Exporter vers calendrier</span>
+          <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier ics</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="rapportCoherence">
@@ -3228,7 +3275,8 @@ function openFileMenu(anchorBtn) {
     { id:'open', label:'Importer depuis Excel'      },
     { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
-    { id:'save', label:'Exporter vers Excel' },
+    { id:'exportExcel', label:'Exporter vers Excel' },
+    { id:'exportIcs', label:'Exporter vers calendrier' },
     { id:'rapportCoherence', label:'Rapport de vérification de cohérence' },
   ];
   menu.innerHTML = `
@@ -3264,7 +3312,8 @@ function openFileMenu(anchorBtn) {
       if (act === 'open') doImportExcel?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
-      if (act === 'save') doExportExcel?.();
+      if (act === 'exportExcel') doExportExcel?.();
+      if (act === 'exportIcs') doExportIcs?.();
       if (act === 'rapportCoherence') doVerifCoherence?.();
     });
   });
@@ -3333,7 +3382,8 @@ function openFileSheet() {
       if (act === 'open') doImportExcel?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
-      if (act === 'save') doExportExcel?.();
+      if (act === 'exportExcel') doExportExcel?.();
+      if (act === 'exportIcs') doExportIcs?.();
       if (act === 'rapportCoherence') doVerifCoherence?.();
     });
   });
