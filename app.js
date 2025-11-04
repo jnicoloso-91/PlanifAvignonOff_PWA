@@ -2912,7 +2912,7 @@ async function getClipBoardText(parser=null) {
       };
 
       proxy.addEventListener('beforeinput', onBeforeInput);
-      // proxy.addEventListener('paste', onPaste);
+      proxy.addEventListener('paste', onPaste);
       proxy.addEventListener('input', onInput);
       popup.addEventListener('click', onBackdrop);
 
@@ -2973,7 +2973,7 @@ async function importFromUrlOrTxt(raw, parser=null) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
       } 
       else {
-        alert("Il n'existe pas de parser pour cette adresse");
+        alert("Il n'existe pas de lecteur pour cette adresse, essayez de coller après avoir copié le texte de la page.");
       }
     } else {
       switch (true) {
@@ -2992,7 +2992,7 @@ async function importFromUrlOrTxt(raw, parser=null) {
       }
     }
     if (!parsed || parsed.length == 0) {
-      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogue, afficher le programme ou la page d'un spectacle et copier le texte de la page");
+      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogue, afficher le programme ou la page d'un spectacle et copier l'adresse ou le texte de la page");
       return null;
     }
   } else {
