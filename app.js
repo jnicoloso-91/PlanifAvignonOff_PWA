@@ -2638,14 +2638,16 @@ async function doImportExcel() {
   if (fi) fi.click();
 }
 
-// Import depuis catalogue du Off
-async function doImportFromCatOff() {
-  await getClipBoardText(ctx.df, 'parseAvignonOffProgPage');
-}
-
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
+  logToPage('doImportFromCatIn');
   await getClipBoardText(ctx.df, 'parseAvignonInProgPage');
+}
+
+// Import depuis catalogue du Off
+async function doImportFromCatOff() {
+  logToPage('doImportFromCatOff');
+  await getClipBoardText(ctx.df, 'parseAvignonOffProgPage');
 }
 
 // Export Excel
@@ -2906,7 +2908,7 @@ async function getClipBoardText(df, parser=null) {
 
   function finalize(txt) {
     cleanup();
-    if (txt) handleClipboardText(txt);
+    handleClipboardText(txt);
   }
 
   function cleanup() {
@@ -2938,7 +2940,7 @@ async function getClipBoardText(df, parser=null) {
 
 async function handleClipboardText(raw, df, parser=null) {
 
-  logToPage(`handleClipboardText ${(raw ?? 'NULL').slice(0,15)}`);
+  // logToPage(`[Clipboard] ${(raw ?? 'NULL').slice(0,30)}`);
 
   let parsed = null;
 
@@ -3338,8 +3340,8 @@ function openFileMenu(anchorBtn) {
   const items = [
     { id:'new',  label:'Nouveau programme'     },
     { id:'open', label:'Importer depuis Excel'      },
-    { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
+    { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
     { id:'exportExcel', label:'Exporter vers Excel' },
     { id:'exportIcs', label:'Exporter vers calendrier' },
     { id:'rapportCoherence', label:'Rapport de vérification de cohérence' },
@@ -3375,8 +3377,8 @@ function openFileMenu(anchorBtn) {
       close();
       if (act === 'new')  doNouveauContexte?.();
       if (act === 'open') doImportExcel?.();
-      if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
+      if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'exportExcel') doExportExcel?.();
       if (act === 'exportIcs') doExportIcs?.();
       if (act === 'rapportCoherence') doVerifCoherence?.();
