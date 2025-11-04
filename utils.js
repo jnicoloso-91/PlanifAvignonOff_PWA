@@ -17,6 +17,7 @@ export function logToPage(...args) {
     el.style.padding = '4px 6px';
     el.style.zIndex = '9999';
     el.style.whiteSpace = 'pre-wrap';
+    el.style.pointerEvents = 'none';
     document.body.appendChild(el);
   }
   el.textContent += args.map(a => 
