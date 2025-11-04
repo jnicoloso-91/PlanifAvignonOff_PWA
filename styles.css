@@ -9,6 +9,7 @@
   --safe-gap: 0px;              /* injecté par JS */
   --bar-height: 56px;           /* hauteur bottom bar (approx) */
   /*--dvh: 100dvh; fallback if JS not run yet */
+  --footer-h: 5em;
 }
 
 * { box-sizing: border-box; }
@@ -1336,6 +1337,7 @@ main, .page-wrap {
   gap: 10px;
   padding: 12px 16px;
   background: #fafafa;
+  height: var(--footer-h);
 }
 .has-border {
   border-top: 1px solid #ddd;
@@ -1483,6 +1485,7 @@ main, .page-wrap {
 
   border-top: 1px solid rgba(0,0,0,0.08);
   padding-top: 0px;
+  padding-bottom: var(--footer-h); /* Pour que le scrolle tienne compte de la hauteru du footer */
 }
 
 /* --- Chaque ligne de paramètre --- */
@@ -1513,7 +1516,7 @@ main, .page-wrap {
 .sheet-wrap .form-row input,
 .sheet-wrap .form-row select {
   flex: 0 0 auto;
-  width: 15rem;                     /* largeur stable */
+  width: 14rem;                     /* largeur stable */
   padding: 0.35rem 1rem;
   border-radius: 8px;
   border: 1px solid rgba(0,0,0,0.15);
