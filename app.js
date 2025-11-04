@@ -2640,14 +2640,12 @@ async function doImportExcel() {
 
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
-  logToPage('doImportFromCatIn');
-  await getClipBoardText('parseAvignonInProgPage');
+  importFromUrlOrTxt('https://festival-avignon.com/fr/edition-2025/programmation/par-categorie', 'parseAvignonInProgPage');
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
-  logToPage('doImportFromCatOff');
-  await getClipBoardText('parseAvignonOffProgPage');
+  importFromUrlOrTxt('https://www.festivaloffavignon.com/programme', 'parseAvignonOffProgPage');
 }
 
 // Export Excel
@@ -2851,6 +2849,8 @@ async function getClipBoardText(parser=null) {
       proxy.style.webkitUserSelect = 'text';    // iOS
       proxy.style.userSelect = 'text';
 
+      let done = false;
+
       // ⚠️ Deux frames pour laisser Safari peindre puis focus
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -2867,10 +2867,12 @@ async function getClipBoardText(parser=null) {
 
       // --- LISTENERS ---
 
-      // 1) beforeinput (iOS envoie insertFromPaste) => renvoie bien le texte sur IOS => on garde cette voie
+      // 1) beforeinput (iOS envoie insertFromPaste) 
+      // => ne se déclenche que si le clipboard contient du texte
       const onBeforeInput = (e) => {
         if (e.inputType === 'insertFromPaste' && e.dataTransfer) {
           // 🟢 chemin idéal : on récupère direct
+          done = true;
           e.preventDefault(); // évite l'insertion dans le DOM
           const txt = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || '';
           logToPage(`[onBeforeInput] ${txt?.slice(0,30)}`);
@@ -2878,21 +2880,30 @@ async function getClipBoardText(parser=null) {
         }
       };
 
-      // 2) paste fallback : laisser coller, puis lire proxy.textContent => ne renvoie rien sur IOS
+      // 2) paste fallback : laisser coller, puis lire proxy.textContent 
+      // => se declenche tout le temps sur paste utilisateur mais ne renvoie aucun texte
+      // => sert uniquement à fermer la popup et avertir que la clipboard est vide lorsqu'il est vide
       const onPaste = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          // logToPage(`[onPaste] ${txt?.slice(0,30)}`);
-          finalize(txt);
-        }, 0);
+          logToPage(`[onPaste] ${txt?.slice(0,30)}`);
+          // finalize(txt);
+          // si !done le clipboard est effectivement vide => on alerte et on ferme la popup 
+          if (!done) {
+            alert('Aucune information à coller');
+            cleanup(); 
+          }
+        }, 100);
       };
 
-      // 3) input fallback ultime : si ni beforeinput ni paste n’ont capté => finalize au premier caractère tapé => inutile
+      // 3) input fallback ultime : si ni beforeinput ni paste n’ont capté 
+      // => fermeture de la popup au premier caractère tapé
       const onInput = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          // logToPage(`[onInput] ${txt?.slice(0,30)}`);
-          if (txt) finalize(txt);
+          logToPage(`[onInput] ${txt?.slice(0,30)}`);
+          // if (txt) finalize(txt);
+          cleanup(); 
         }, 0);
       };
 
@@ -2902,7 +2913,7 @@ async function getClipBoardText(parser=null) {
 
       proxy.addEventListener('beforeinput', onBeforeInput);
       // proxy.addEventListener('paste', onPaste);
-      // proxy.addEventListener('input', onInput);
+      proxy.addEventListener('input', onInput);
       popup.addEventListener('click', onBackdrop);
 
       popup._tmp = { onBeforeInput, onPaste, onInput, onBackdrop };
