@@ -1956,7 +1956,7 @@ const gridOptionsActivitesProgrammables = {
 // Sélectionne dans une autre grille la ligne correspondant à celle qui vient d'être sélectionnée et la rend visible
 function synchronizeSelection(event, dstGridId) {
   // Évite les boucles si la sélection vient d'une action programmatique
-  if (event?.source === 'programmatic') return;
+  if (event?.source !== 'rowClicked') return;
 
   const srcApi = event.api;
   const dstApi = getGridApiById(dstGridId);
@@ -2875,7 +2875,7 @@ async function getClipBoardText(parser=null) {
           done = true;
           e.preventDefault(); // évite l'insertion dans le DOM
           const txt = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text') || '';
-          logToPage(`[onBeforeInput] ${txt?.slice(0,30)}`);
+          // logToPage(`[onBeforeInput] ${txt?.slice(0,30)}`);
           finalize(txt);
         }
       };
@@ -2886,7 +2886,7 @@ async function getClipBoardText(parser=null) {
       const onPaste = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          logToPage(`[onPaste] ${txt?.slice(0,30)}`);
+          // logToPage(`[onPaste] ${txt?.slice(0,30)}`);
           // finalize(txt);
           // si !done le clipboard est effectivement vide => on alerte et on ferme la popup 
           if (!done) {
@@ -2901,7 +2901,7 @@ async function getClipBoardText(parser=null) {
       const onInput = () => {
         setTimeout(() => {
           const txt = (proxy.textContent || '').trim();
-          logToPage(`[onInput] ${txt?.slice(0,30)}`);
+          // logToPage(`[onInput] ${txt?.slice(0,30)}`);
           // if (txt) finalize(txt);
           cleanup(); 
         }, 0);
@@ -2954,7 +2954,7 @@ async function getClipBoardText(parser=null) {
 
 async function importFromUrlOrTxt(raw, parser=null) {
 
-  logToPage(`[handleClipboard] ${(raw ?? 'NULL').slice(0,30)}`);
+  // logToPage(`[handleClipboard] ${(raw ?? 'NULL').slice(0,30)}`);
 
   let parsed = null;
 
