@@ -2641,13 +2641,13 @@ async function doImportExcel() {
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
   logToPage('doImportFromCatIn');
-  await getClipBoardText(ctx.df, 'parseAvignonInProgPage');
+  await getClipBoardText('parseAvignonInProgPage');
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
   logToPage('doImportFromCatOff');
-  await getClipBoardText(ctx.df, 'parseAvignonOffProgPage');
+  await getClipBoardText('parseAvignonOffProgPage');
 }
 
 // Export Excel
@@ -2820,10 +2820,10 @@ async function doAjoutActivite() {
 
 // Ajout activité avec collage
 async function doAjoutActivitesParCollage() {
-  await getClipBoardText(ctx.df);
+  await getClipBoardText();
 }
 
-async function getClipBoardText(df, parser=null) {
+async function getClipBoardText(parser=null) {
   const btn   = document.getElementById('btn-paste');
   const popup = document.getElementById('paste-popup');
   const proxy = document.getElementById('paste-proxy');
@@ -2908,7 +2908,7 @@ async function getClipBoardText(df, parser=null) {
 
   function finalize(txt) {
     cleanup();
-    handleClipboardText(txt);
+    handleClipboardText(txt, parser);
   }
 
   function cleanup() {
@@ -2930,7 +2930,7 @@ async function getClipBoardText(df, parser=null) {
   try {
     const txt = await navigator.clipboard?.readText();
     if (txt) {
-      handleClipboardText(txt, df, parser);
+      handleClipboardText(txt, parser);
       return;
     }
   } catch {}
@@ -2938,9 +2938,9 @@ async function getClipBoardText(df, parser=null) {
   if (isIOS) openPastePopup();
 };
 
-async function handleClipboardText(raw, df, parser=null) {
+async function handleClipboardText(raw, parser=null) {
 
-  // logToPage(`[Clipboard] ${(raw ?? 'NULL').slice(0,30)}`);
+  logToPage(`[Clipboard] ${(raw ?? 'NULL').slice(0,30)}`);
 
   let parsed = null;
 
