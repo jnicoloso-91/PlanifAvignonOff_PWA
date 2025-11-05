@@ -4779,7 +4779,7 @@ function openSheetParams() {
     title: 'Paramètres',
     panelHeight: '59vh', 
     panelMaxHeight: '59vh', 
-    swipeBody: true,
+    // swipeBody: true,
     mount: (body, {close}) => {
       body.innerHTML = `
         <div class="form">
@@ -5129,7 +5129,7 @@ function openSheetFiltres(gridId) {
     title: 'Filtres',
     panelHeight: '50vh',
     panelMaxHeight: '50vh',
-    swipeBody: true,
+    // swipeBody: true,
     mount: (body, { close }) => {
       // 1) Form rows avec bouton RAZ à gauche
       const rowsHtml = columns.map(col => {
