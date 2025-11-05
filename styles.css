@@ -1851,3 +1851,23 @@ body.lock-page-scroll {
   filter: none !important;
   backdrop-filter: none !important;
 }
+
+/* ================*/
+/* Sheet Filtres   */
+/* ================*/
+
+/* Classe activée seulement quand le champ est focus - MAIS empêche la form de scroller... */
+/* .sheet-filters-open .sheet-wrap,
+.sheet-filters-open .sheet-panel,
+.sheet-filters-open .sheet-body {
+  overflow: visible !important;
+} */
+
+/* Le VRAI tueur sur iPad : les transforms créent un nouveau contexte/stacking */
+.sheet-filters-open .sheet-panel {
+  transform: none !important;       /* annule l’animation pendant l’input */
+  will-change: auto !important;
+  contain: none !important;
+  z-index: 9999;                     /* par sécurité */
+}
+
