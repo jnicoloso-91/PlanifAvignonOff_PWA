@@ -1856,14 +1856,8 @@ body.lock-page-scroll {
 /* Sheet Filtres   */
 /* ================*/
 
-/* Classe activée seulement quand le champ est focus - MAIS empêche la form de scroller... */
-/* .sheet-filters-open .sheet-wrap,
-.sheet-filters-open .sheet-panel,
-.sheet-filters-open .sheet-body {
-  overflow: visible !important;
-} */
-
-/* Le VRAI tueur sur iPad : les transforms créent un nouveau contexte/stacking */
+/* Empêche sur iPad que les transforms créent un nouveau contexte/stacking - 
+   MAIS cela n'empêche pas sur IPad un affichage des datalist au centre de l'écran, ie détachées de leur champ input... */
 .sheet-filters-open .sheet-panel {
   transform: none !important;       /* annule l’animation pendant l’input */
   will-change: auto !important;

@@ -4193,9 +4193,9 @@ function openSheet({
   backdrop.addEventListener('click', destroy);
   closeBtn.addEventListener('click', destroy);
 
-  // =======================
-  // Swipe handler (patched)
-  // =======================
+  // =============
+  // Swipe handler 
+  // =============
   function attachSwipeToClose(wrap, panel, headerEl, handleEl, backdrop, onClose){
     let startY = 0, curY = 0, dragging = false;
 
@@ -4779,6 +4779,7 @@ function openSheetParams() {
     title: 'Paramètres',
     panelHeight: '59vh', 
     panelMaxHeight: '59vh', 
+    swipeBody: true,
     mount: (body, {close}) => {
       body.innerHTML = `
         <div class="form">
@@ -4889,6 +4890,7 @@ function openSheetAide() {
     title: 'Aide',
     panelMaxHeight: '70vh',
     panelHeight: '60vh',
+    swipeBody: true,
     mount: (body) => {
       body.innerHTML = `
         <!-- Table des matières -->
@@ -5127,6 +5129,7 @@ function openSheetFiltres(gridId) {
     title: 'Filtres',
     panelHeight: '50vh',
     panelMaxHeight: '50vh',
+    swipeBody: true,
     mount: (body, { close }) => {
       // 1) Form rows avec bouton RAZ à gauche
       const rowsHtml = columns.map(col => {
@@ -5283,57 +5286,11 @@ function openSheetFiltres(gridId) {
         close();
       });
 
-function openAutoCompletePortal(input, options){
-  let portal = document.getElementById('ac-portal');
-  if (!portal) {
-    portal = document.createElement('div');
-    portal.id = 'ac-portal';
-    portal.style.position = 'fixed';
-    portal.style.zIndex = '10000';
-    portal.style.maxHeight = '40vh';
-    portal.style.overflow = 'auto';
-    portal.style.background = 'white';
-    portal.style.border = '1px solid #ddd';
-    portal.style.borderRadius = '6px';
-    portal.style.boxShadow = '0 8px 24px rgba(0,0,0,.12)';
-    document.body.appendChild(portal);
-  }
-  const r = input.getBoundingClientRect();
-  portal.style.left   = r.left + 'px';
-  portal.style.top    = (r.bottom + 4) + 'px';
-  portal.style.width  = r.width + 'px';
-
-  portal.innerHTML = options.map(opt => `<div class="ac-item" data-v="${opt}">${opt}</div>`).join('');
-  portal.onclick = (e) => {
-    const v = e.target.closest('.ac-item')?.dataset.v;
-    if (v) { input.value = v; input.dispatchEvent(new Event('change', {bubbles:true})); closeAutoCompletePortal(); input.blur(); }
-  };
-}
-
-function closeAutoCompletePortal(){
-  document.getElementById('ac-portal')?.remove();
-}
-
-// Usage :
-const input = document.querySelector('#filter-input');
-const OPTIONS = ['Théâtre', 'Danse', 'Musique', 'Pluridisciplinaire']; // ex.
-
-
       // ===== Application des styles spécifiques sheet-filters-open =====
       const sheet = document.querySelector('.sheet-wrap'); 
       document.querySelectorAll('.filter-input').forEach(inp => {
-        // inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
-        // inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
-if (isIOS) {
-  inp.setAttribute('autocomplete','off');
-  inp.addEventListener('input', () => {
-    const q = inp.value.toLowerCase();
-    const items = OPTIONS; //.filter(o => o.toLowerCase().includes(q)).slice(0,50);
-    if (items.length) openAutoCompletePortal(inp, items); else closeAutoCompletePortal();
-  });
-  inp.addEventListener('blur',  () => setTimeout(closeAutoCompletePortal, 150));
-  window.addEventListener('resize', () => closeAutoCompletePortal()); // rotation
-}      
+        inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
+        inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
       })
 
       // (optionnel) regénérer les datalists si le dataset change
