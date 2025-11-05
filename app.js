@@ -4890,7 +4890,7 @@ function openSheetAide() {
     title: 'Aide',
     panelMaxHeight: '70vh',
     panelHeight: '60vh',
-    swipeBody: true,
+    // swipeBody: true,
     mount: (body) => {
       body.innerHTML = `
         <!-- Table des matières -->
