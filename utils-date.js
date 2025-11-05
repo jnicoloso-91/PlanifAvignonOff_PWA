@@ -4,6 +4,29 @@
 export const MIN_DAY = 0;                 // 00:00
 export const MAX_DAY = 23 * 60 + 59;      // 23:59
 
+// Vérifie si val est un entier ressemblant à yyyymmdd
+export function isDateint(val) {
+  // ✅ 1) Vérifie que c’est un entier à 8 chiffres
+  const n = Number(val);
+  if (!Number.isInteger(n) || n < 10000101 || n > 99991231) return false;
+
+  // ✅ 2) Décompose en y/m/d
+  const y = Math.floor(n / 10000);
+  const m = Math.floor((n % 10000) / 100);
+  const d = n % 100;
+
+  // ✅ 3) Vérifie bornes simples
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+
+  // ✅ 4) Vérifie cohérence réelle via Date
+  const dt = new Date(y, m - 1, d);
+  return (
+    dt.getFullYear() === y &&
+    dt.getMonth() === m - 1 &&
+    dt.getDate() === d
+  );
+}
+
 // yyyymmdd -> {y,m,d}
 export function dateintToYmd(di) {
   const y = Math.floor(di / 10000);

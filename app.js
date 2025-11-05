@@ -12,6 +12,7 @@ import {
   localDateToIsoDate,
   recalcFinForAll,
   recalcFin,
+  isDateint,
 } from './utils-date.js';
 
 import { 
@@ -3623,12 +3624,22 @@ function wireHiddenFileInput(){
           // d'abord tentative pretty
           di = prettyToDateint(String(o.Date).trim());
           // sinon Excel serial
-          if (!di && typeof o.Date === 'number') {
+          if (!isDateint(di) && typeof o.Date === 'number') {
             const ymd = excelSerialToYMD(o.Date);
             if (ymd) di = ymdToDateint(ymd);
           }
         }
         o.Date = di || null; // stock interne = dateint ou null
+
+        // Accepte Excel serial sur Session et Relache
+        if (typeof o.Session === 'number') {
+          const ymd = excelSerialToYMD(o.Session);
+          o.Session = (ymd) ? dateintToPretty(ymdToDateint(ymd)) : String(o.Session).trim();
+        }
+        if (typeof o.Relache === 'number') {
+          const ymd = excelSerialToYMD(o.Relache);
+          o.Relache = (ymd) ? dateintToPretty(ymdToDateint(ymd)) : String(o.Relache).trim();
+        }
 
         // 7) __uuid garanti
         if (!o.__uuid) {
