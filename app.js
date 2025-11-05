@@ -5072,7 +5072,7 @@ function openSheetAide() {
                 <li>Web : adresse du site Web</li>
             </ul>
 
-            <p>📥Un modèle Excel est disponible <a href="https://github.com/jnicoloso-91/PlanifAvignon-05/raw/main/Mod%C3%A8le%20Excel.xlsx" download>
+            <p>📥Un modèle Excel est disponible <a href="https://github.com/jnicoloso-91/PlanifAvignonOff_PWA/raw/main/Mod%C3%A8le%20Excel.xlsx" download>
             ici
             </a></p>
             <p>ℹ️ Si le téléchargement du modèle ne démarre pas, faites un clic droit → "Enregistrer le lien sous...".</p>
