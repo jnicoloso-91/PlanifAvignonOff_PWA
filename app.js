@@ -5306,7 +5306,7 @@ function openSheetFiltres(gridId) {
 function wireContext() {
 
   // Initialisation de la periode de programmation si contexte vide
-  if (!ctx.df) activitesAPI.initPeriodeProgrammation();
+  if (!ctx.df || ctx.df?.length == 0) activitesAPI.initPeriodeProgrammation();
 
   ctx.on('df:changed',        () => {
     refreshActivitesGrids(); // scheduleGlobalRefresh());
