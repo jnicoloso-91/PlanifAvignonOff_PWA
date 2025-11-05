@@ -321,6 +321,7 @@ export function creerActivitesAPI(ctx) {
           Session: null,
           Relache: null, 
           Style: null,
+          Orga: null,
           Reserve: null, 
           Priorite: null, 
           Hyperlien: `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
@@ -337,99 +338,6 @@ export function creerActivitesAPI(ctx) {
     getNouveauNomActivite(df, prefix='Activité') {
       return _getNouveauNomActivite(df, prefix=prefix);
     },
-
-
-    /**
-     * Crée de nouvelles activités en utilisant le clipboard pour initialiser les champs
-     * @param {*} df  
-     * @returns nouvellesActivites
-     */
-    // async creerActivitesParCollage(df, parser=null) {
-    //   let raw = null;
-    //   try { await _getClipBoardText(df, parser=null); } catch { return null; }
-
-    //   if (raw == null) return;
-
-    //   let parsed = null;
-
-    //   if (!parser) {
-    //     if (_looksLikeUrl(raw)) { 
-    //       if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
-    //         parsed = await _asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
-    //       } 
-    //       else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/")) {
-    //         parsed = await _asyncCallAvecOverlayAttente(parseAvignonInSpecPageUrl, raw, 'Echec collage');
-    //       } 
-    //       else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
-    //         parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
-    //       } 
-    //       else if (raw.includes("www.festivaloffavignon.com/spectacles")) {
-    //         parsed = await _asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
-    //       } 
-    //       else {
-    //         alert("Il n'existe pas de parser pour cette adresse");
-    //       }
-    //     } else {
-    //       switch (true) {
-    //         case isAvignonOffSpecPageText(raw):
-    //           parsed = _syncCallAvecOverlayAttente(parseAvignonOffSpecPageText, raw, 'Echec collage');
-    //           break;
-    //         case isAvignonOffProgPageText(raw):
-    //           parsed = _syncCallAvecOverlayAttente(parseAvignonOffProgPageText, raw, 'Echec collage');
-    //           break;
-    //         case isAvignonInProgPageText(raw):
-    //           parsed = _syncCallAvecOverlayAttente(parseAvignonInProgPageText, raw, 'Echec collage');
-    //           break;
-    //         case isAvignonInSpecPageText(raw):
-    //           parsed = _syncCallAvecOverlayAttente(parseAvignonInSpecPageText, raw, 'Echec collage');
-    //           break;
-    //       }
-    //     }
-    //     if (!parsed || parsed.length == 0) {
-    //       alert("Aucune valeur valide à coller. Commencer par aller dans un catalogues, afficher le programme ou la page d'un spectacle et copier le texte de la page");
-    //       return null;
-    //     }
-    //   } else {
-    //     if (parser == 'parseAvignonOffProgPage') {
-    //       parsed = parseAvignonOffProgPageText(raw);
-    //       if (!parsed || parsed.length == 0) {
-    //         alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
-    //         return null;
-    //       }
-    //     } else if (parser == 'parseAvignonInProgPage') {
-    //       parsed = parseAvignonInProgPageText(raw);
-    //       if (!parsed || parsed.length == 0) {
-    //         alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du In, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
-    //         return null;
-    //       }
-    //     } 
-    //   }
-
-    //   const nouvellesActivites = [];
-    //   if (!parsed || parsed.length == 0) parsed = [{...PARSED_DEFAULT}];
-
-    //   for (const row of parsed) {
-    //     const nouveauNom = getNouveauNomActivite(df, row.Activite);
-    //     const nouvelleActivite = {
-    //         __uuid: crypto.randomUUID?.() || String(Date.now()),
-    //         Date: null, 
-    //         Debut: row.Debut || null, 
-    //         Duree: row.Duree || null,
-    //         Activite: nouveauNom, 
-    //         Lieu: row.Lieu || null, 
-    //         Session: row.Session || null,
-    //         Relache: row.Relache || null, 
-    //         Style: row.Style || null,
-    //         Orga: row.Orga || null,
-    //         Reserve: null, 
-    //         Priorite: null, 
-    //         Hyperlien: row.Hyperlien || `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
-    //       }
-    //       nouvellesActivites.push(nouvelleActivite);
-    //   }
-    //   recalcFinForAll(nouvellesActivites);
-    //   return nouvellesActivites;
-    // },
 
     /** 
      * Indique si une valeur est valide pour le champ Debut d'une activité
@@ -626,7 +534,7 @@ export function creerActivitesAPI(ctx) {
         }
       }
 
-      // 3) 🕒 Erreurs de format (Date, Heure, Durée, Sessions/Relache)
+      // 3) 🕒 Erreurs de format (Date, Heure, Durée, Session/Relache)
       {
         const bloc = [];
         rows.forEach((row, idx) => {
@@ -648,34 +556,34 @@ export function creerActivitesAPI(ctx) {
             if (!isTimeLike(String(d ?? ''))) bloc.push(`Durée invalide à la ligne ${idx + 2} : ${d}`);
           }
 
-          // Sessions/Relache : utilise tes validateurs
-          if (!estSessionValideFn(row?.Sessions)) {
-            bloc.push(`Sessions invalides à la ligne ${idx + 2} : ${row?.Sessions}`);
+          // Session/Relache 
+          if (!estSessionValideFn(row?.Session)) {
+            bloc.push(`Période de validité invalide à la ligne ${idx + 2} : ${row?.Session}`);
           }
           if (!estRelacheValideFn(row?.Relaches ?? row?.Relache)) {
             const v = row?.Relaches ?? row?.Relache;
-            bloc.push(`Relache invalide à la ligne ${idx + 2} : ${v}`);
+            bloc.push(`Relâches invalides à la ligne ${idx + 2} : ${v}`);
           }
         });
         if (bloc.length) erreurs.push(bloc.join('\n'));
       }
 
-      // 4) 🛑 Date incompatible avec Sessions/Relache (via _estDateProgrammable)
+      // 4) 🛑 Date incompatible avec Session/Relache (via _estDateProgrammable)
       {
         const bloc = [];
         rows.forEach((row, idx) => {
           if (!estEntier(row?.Date)) return;
           const dateInt = parseInt(row.Date, 10);
-          const sessionsVal = row?.Sessions ?? row?.Session ?? '';
-          const relachesVal = row?.Relaches ?? row?.Relache ?? '';
+          const sessionVal = row?.Session ?? row?.Session ?? '';
+          const RelacheVal = row?.Relaches ?? row?.Relache ?? '';
 
           // On signale si la date n'est PAS programmable
-          const ok = estDateProgrammableFn(dateInt, sessionsVal, relachesVal);
+          const ok = estDateProgrammableFn(dateInt, sessionVal, RelacheVal);
           if (!ok && String(row?.Activite ?? '').trim() !== '') {
-            bloc.push(`${row.Activite} non programmable le ${dateInt} selon Sessions/Relâches (ligne ${idx + 2})`);
+            bloc.push(`${row.Activite} non programmable le ${dateInt} selon Validité/Relâches (ligne ${idx + 2})`);
           }
         });
-        if (bloc.length) erreurs.push('🛑 Dates incompatibles avec Sessions/Relâches:\n' + bloc.join('\n'));
+        if (bloc.length) erreurs.push('🛑 Dates incompatibles avec Validité/Relâches:\n' + bloc.join('\n'));
       }
 
       // 5) ⚠️ Heures non renseignées
@@ -1275,7 +1183,7 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
     if ((pariteRelache === "pair" && isEven) || (pariteRelache === "impair" && !isEven)) return false;
   }
 
-  // ===== Étape 2 : inclusions (session)
+  // ===== Étape 2 : inclusions (Session)
   for (const [lo, hi] of openIntervals) {
     if (lo <= dv && dv <= hi) return true;
   }
@@ -1286,9 +1194,9 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
   }
 
   // ===== Étape 3 : défaut
-  // S'il y a AU MOINS une contrainte de session et aucune ne matche -> false (non programmable)
+  // S'il y a AU MOINS une contrainte de Session et aucune ne matche -> false (non programmable)
   if (openIntervals.length || regroupSessionDays.length || pariteSession) return false;
-  // Sinon, aucune contrainte de session -> true (programmable par défaut)
+  // Sinon, aucune contrainte de Session -> true (programmable par défaut)
   return true;
 }
 
@@ -1543,7 +1451,7 @@ function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
 function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_creneau) {
   const date_ref = ligne_ref.Date;
 
-  // --- Constantes "session"
+  // --- Constantes "Session"
   const meta = (window.ctx?.meta) || {};
   const MARGE       = Math.max(0, Number(meta.MARGE        ?? 10) | 0); // minutes
   const DUREE_REPAS = Math.max(0, Number(meta.DUREE_REPAS  ?? 60) | 0); // minutes
