@@ -1805,8 +1805,8 @@ function buildColumnsCreneaux(){
         return ma-mb;
       }
     },
-    { field:'Activité avant', headerName:'Activité avant', minWidth:160, flex:1, editable:false,},
-    { field:'Activité après', headerName:'Activité après', minWidth:160, flex:1, editable:false,},
+    { field:'Activité-avant', headerName:'Activité avant', minWidth:160, flex:1, editable:false,},
+    { field:'Activité-après', headerName:'Activité après', minWidth:160, flex:1, editable:false,},
   ];
 }
 
@@ -1983,6 +1983,7 @@ const gridOptionsActivitesNonProgrammees = {
 
 const gridOptionsCreneaux = {
   onSelectionChanged: () => onCreneauxSelectionChanged(),
+  onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-creneaux')),
 }
 
 const gridOptionsActivitesProgrammables = {
@@ -1992,6 +1993,7 @@ const gridOptionsActivitesProgrammables = {
     document.getElementById('btn-programmer')?.toggleAttribute('disabled', !hasSel);
     synchronizeSelection(p, 'grid-non-programmees'); 
   },
+  onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-programmables')),
 }
 
 // Sélectionne dans une autre grille la ligne correspondant à celle qui vient d'être sélectionnée et la rend visible
@@ -2259,15 +2261,19 @@ async function refreshGrid(gridId) {
     // repaint + grid size (AG Grid v29+)
     api.refreshCells?.({ force: true });
 
-    // traitements spécifiques de la grille des activités programmées
+    // traitements spécifiques de grille
     if (gridId == 'grid-programmees') {
       updateGridCounters(api, document.getElementById('badge-prog'));
     }
-
-    // traitements spécifiques de la grille des activités non programmées
-    if (gridId == 'grid-non-programmees') {
+    else if (gridId == 'grid-non-programmees') {
       api.redrawRows();  // ré-évalue getRowStyle, nécessaire sur cette grille pour appliquer correctement la colo (don't know why...)
       updateGridCounters(api, document.getElementById('badge-non-prog'));
+    }
+    else if (gridId == 'grid-creneaux') {
+      updateGridCounters(api, document.getElementById('badge-creneaux'));
+    }
+    else if (gridId == 'grid-programmables') {
+      updateGridCounters(api, document.getElementById('badge-programmables'));
     }
 
     api.dispatchEvent?.({ type: 'gridSizeChanged' });
@@ -3674,12 +3680,22 @@ function wireHiddenFileInput(){
 
         // Accepte Excel serial sur Session et Relache
         if (typeof o.Session === 'number') {
-          const ymd = excelSerialToYMD(o.Session);
-          o.Session = (ymd) ? dateintToPretty(ymdToDateint(ymd)) : String(o.Session).trim();
+          if (o.Session < 0 || o.Session > 31) {
+            const ymd = excelSerialToYMD(o.Session);
+            if (ymd) {
+              const di = ymdToDateint(ymd);
+              o.Session = (isDateint(di)) ? dateintToPretty(di) : String(o.Session).trim();
+            } else String(o.Session).trim();
+          } else String(o.Session).trim();
         }
         if (typeof o.Relache === 'number') {
-          const ymd = excelSerialToYMD(o.Relache);
-          o.Relache = (ymd) ? dateintToPretty(ymdToDateint(ymd)) : String(o.Relache).trim();
+          if (o.Relache < 0 || o.Relache > 31) {
+            const ymd = excelSerialToYMD(o.Relache);
+            if (ymd) {
+              const di = ymdToDateint(ymd);
+              o.Relache = (isDateint(di)) ? dateintToPretty(di) : String(o.Relache).trim();
+            } else String(o.Relache).trim();
+          } else String(o.Relache).trim();
         }
 
         // 7) __uuid garanti

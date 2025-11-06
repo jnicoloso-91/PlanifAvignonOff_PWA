@@ -1035,8 +1035,8 @@ function _creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
     Date: dateStr,                         // string pour éviter l’icône filtre numérique
     Début: mmToHHhMM(start),
     Fin:   mmToHHhMM(end),
-    'Activité avant': avant || '',
-    'Activité après': apres || '',
+    'Activité-avant': avant || '',
+    'Activité-après': apres || '',
     __type_creneau: typeCreneau,           // "Avant" | "Après" | "Journée"
     __srcUuid: row.__uuid,
     __uuid: crypto.randomUUID(),
