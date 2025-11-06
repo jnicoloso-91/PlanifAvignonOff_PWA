@@ -5039,11 +5039,13 @@ function openSheetAide() {
                 <li>Soit en sélectionnant une plage libre, puis dans cette plage une activité programmable, puis en appuyant sur le bouton <u><i>Programmer</u></i> 
                 (situé en haut à droite du tableau <u><i>Programmer...</u></i>)</i> 
                 <li>Soit en sélectionnant une activité programmable (activités colorisées en vert menthe) dans le stock et en dépliant le menu de la 
-                colonne "Date", lequel liste les jours de programmation possible.</i> 
+                colonne <u><i>Date</u></i>, lequel liste les jours de programmation possible.</i> 
             </ul>
 
             </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau <u><i>Programme</u></i> et d'appuyer sur le bouton <u><i>Supprimer</u></i> 
-            (situé en haut à droite de ce même tableau). Pour la reprogrammer, déplier le menu de la colonne <u><i>Date</u></i> et sélectionner une autre date possible.</p>
+            (situé en haut à droite de ce même tableau). Une fois déprogrammée, l'activité bascule dans la tableau <u><i>Stock</u></i>.</p>
+            
+            </p>Pour la reprogrammer, déplier le menu de la colonne <u><i>Date</u></i> et sélectionner une autre date possible.</p>
 
             </p>Le bouton <u><i>Supprimer</u></i> situé en haut à droite du tableau <u><i>Stock</u></i> permet de supprimer l'activité sélectionnée.</p>
 
