@@ -1471,7 +1471,7 @@ function wireExpanderButtons() {
           <line x1="14" y1="10" x2="14" y2="17" />
         </svg>
       </span>
-      <span class="exp-label">Déprogrammer</span>
+      <span class="exp-label">Supprimer</span>
     `,
     onClick: async () => {await doDeprogrammerActivite();},
   });
@@ -5042,7 +5042,7 @@ function openSheetAide() {
                 colonne "Date", lequel liste les jours de programmation possible.</i> 
             </ul>
 
-            </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau <u><i>Programme</u></i> et d'appuyer sur le bouton <u><i>Déprogrammer</u></i> 
+            </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau <u><i>Programme</u></i> et d'appuyer sur le bouton <u><i>Supprimer</u></i> 
             (situé en haut à droite de ce même tableau). Pour la reprogrammer, déplier le menu de la colonne "Date" et sélectionner une autre date possible.</p>
 
             </p>Le bouton <u><i>Supprimer</u></i> situé en haut à droite du tableau <u><i>Stock</u></i> permet de supprimer l'activité sélectionnée.</p>
