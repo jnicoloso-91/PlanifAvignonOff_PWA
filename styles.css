@@ -873,7 +873,7 @@ main, .page-wrap {
 
 .bottom-bar__scroller {
   display: flex;
-  gap: 4px;  /* joue sur le gap entre boutons */
+  gap: 2px;  /* joue sur le gap entre boutons */
 
   /* scroll uniquement horizontal */
   overflow-x: auto;
@@ -982,7 +982,7 @@ main, .page-wrap {
   border: 0;
   box-shadow: none;
   outline: none;
-  padding: 2px;  /* Jouer sur ce paramètre pour diminuer la taille des icones */
+  padding: 1px;  /* Jouer sur ce paramètre pour diminuer la taille des icones */
   border-radius: 8px;
   min-width: 72px;
   display: inline-flex;

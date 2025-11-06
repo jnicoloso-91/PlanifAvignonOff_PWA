@@ -1430,28 +1430,6 @@ function addExpanderButton({expanderId, id, title, innerHTML, onClick}) {
 
 function wireExpanderButtons() {
 
-  // Bouton Programmer sur Activités Programmables
-  addExpanderButton({
-    expanderId: 'exp-programmables',
-    id: 'btn-programmer',
-    title: 'Programmer l’activité sélectionnée', 
-    innerHTML: `
-      <span class="exp-icon" aria-hidden="true">
-        <!-- Icône calendrier fin, noir -->
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="4.5" width="18" height="16" rx="2" ry="2"></rect>
-          <line x1="16" y1="3.5" x2="16" y2="7"></line>
-          <line x1="8"  y1="3.5" x2="8"  y2="7"></line>
-          <line x1="3"  y1="9"   x2="21" y2="9"></line>
-          <!-- petit carré de date pour le look -->
-          <rect x="7.5" y="12" width="4" height="3.8" rx="0.6" ry="0.6"></rect>
-        </svg>
-      </span>
-      <span class="exp-label">Programmer</span>
-    `,
-    onClick: async () => {await doProgrammerActivite();},
-  });
-
   // Bouton Filtres sur Activités Programmées
   if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
     expanderId: 'exp-programmees',
@@ -1498,6 +1476,49 @@ function wireExpanderButtons() {
     onClick: async () => {await doDeprogrammerActivite();},
   });
   
+  // Bouton Filtres sur Activités Programmables
+  if (agGridHasHeaderFilters('grid-programmables')) addExpanderButton({
+    expanderId: 'exp-programmables',
+    id: 'btn-filtrer-programmables',
+    title: 'Filtrer', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône Filtre en forme d'entonnoir -->
+        <svg viewBox="0 0 24 24" width="24" height="24"
+            fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true" focusable="false">
+          <!-- entonnoir -->
+          <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+        </svg>
+      </span>
+      <span class="exp-label">Filtrer</span>
+    `,
+    onClick: () => { openSheetFiltres('grid-programmables'); },
+  });
+
+  // Bouton Programmer sur Activités Programmables
+  addExpanderButton({
+    expanderId: 'exp-programmables',
+    id: 'btn-programmer',
+    title: 'Programmer l’activité sélectionnée', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône calendrier fin, noir -->
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4.5" width="18" height="16" rx="2" ry="2"></rect>
+          <line x1="16" y1="3.5" x2="16" y2="7"></line>
+          <line x1="8"  y1="3.5" x2="8"  y2="7"></line>
+          <line x1="3"  y1="9"   x2="21" y2="9"></line>
+          <!-- petit carré de date pour le look -->
+          <rect x="7.5" y="12" width="4" height="3.8" rx="0.6" ry="0.6"></rect>
+        </svg>
+      </span>
+      <span class="exp-label">Programmer</span>
+    `,
+    onClick: async () => {await doProgrammerActivite();},
+  });
+
   // Bouton Filtres sur Activités Non Programmées
   if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
     expanderId: 'exp-non-programmees',
@@ -1544,7 +1565,28 @@ function wireExpanderButtons() {
     onClick: async () => {await doSupprimerActivite();},
   });
 
-  // Toggle TraiterPauses
+  // Bouton Filtres sur Creneaux disponibles
+  if (agGridHasHeaderFilters('grid-creneaux')) addExpanderButton({
+    expanderId: 'exp-creneaux',
+    id: 'btn-filtrer-creneaux',
+    title: 'Filtrer', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône Filtre en forme d'entonnoir -->
+        <svg viewBox="0 0 24 24" width="24" height="24"
+            fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true" focusable="false">
+          <!-- entonnoir -->
+          <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+        </svg>
+      </span>
+      <span class="exp-label">Filtrer</span>
+    `,
+    onClick: () => { openSheetFiltres('grid-creneaux'); },
+  });
+
+  // Toggle TraiterPauses sur Creneaux disponibles
   (function addPausesToggleButton() {
     const id = 'btn-avec-pauses';
 
@@ -1615,7 +1657,6 @@ function wireExpanderButtons() {
   })();
 
 }
-
 
 function traiterPauses() {
   return localStorage.getItem('exp-creneaux:avec-pauses') === '1';
@@ -1752,13 +1793,13 @@ function buildColumnsCreneaux(){
       valueFormatter:p=>dateintStrToPretty(p.value), // Dans ActivitesProgrammables Date est en string et non en dateint
       comparator:(a,b)=>(safeDateint(a)||0)-(safeDateint(b)||0)
     },
-    { field:'Début', width, suppressSizeToFit:true, editable:false,
+    { field:'Début', headerName:'Début', width, suppressSizeToFit:true, editable:false,
       comparator:(a,b)=>{
         const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
         return ma-mb;
       }
     },
-    { field:'Fin', width, suppressSizeToFit:true, editable:false,
+    { field:'Fin', headerName:'Fin', width, suppressSizeToFit:true, editable:false,
       comparator:(a,b)=>{
         const ma=parseHHhMM(a)??Infinity, mb=parseHHhMM(b)??Infinity;
         return ma-mb;
