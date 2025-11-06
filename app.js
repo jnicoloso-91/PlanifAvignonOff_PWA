@@ -5043,7 +5043,7 @@ function openSheetAide() {
             </ul>
 
             </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau <u><i>Programme</u></i> et d'appuyer sur le bouton <u><i>Supprimer</u></i> 
-            (situé en haut à droite de ce même tableau). Une fois déprogrammée, l'activité bascule dans la tableau <u><i>Stock</u></i>.</p>
+            (situé en haut à droite de ce même tableau). Une fois déprogrammée, l'activité bascule dans le tableau <u><i>Stock</u></i>.</p>
             
             </p>Pour la reprogrammer, déplier le menu de la colonne <u><i>Date</u></i> et sélectionner une autre date possible.</p>
 
