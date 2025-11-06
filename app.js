@@ -5049,8 +5049,8 @@ function openSheetAide() {
 
             <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i> toutes les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
             et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne 'Réservé' est à Oui). Elles sont également 
-            triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur les entêtes de colonnes sur grand écran ou boutons de filtrage sur
-            mobile).</p>
+            triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur le bouton <u><i>Filtrer</u></i> des entêtes de grilles ou directement 
+            dans les entêtes de colonnes si la dimension de l'écran le permet).</p>
 
             <p>L'icône de la colonne <u><i>Activité</u></i> permet d'afficher la page Web donnée par la colonne <u><i>Hyperlien</u></i> et 
             l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité, via l'application choisie 
