@@ -4987,7 +4987,7 @@ function openSheetAide() {
               <li>Identification des plages libres et des spectacles et activités programmables sur ces plages</li>
               <li>Liens vers la description détaillée des spectacles et activités et les applications de recherche d'itinéraire</li>
               <li>Carnet d'adresses des théâtres et sites de spectacles</li>
-              <li>Sauvegarde vers Excel ou le calendrier de votre programme de spectacles ou autres activités</li>
+              <li>Sauvegarde vers Excel ou le calendrier</li>
               <li>Vérification de cohérence (chevauchements d'activités, respect des marges entre activités, formats des données).</li>
             </ul>            
           </div>
@@ -5043,12 +5043,12 @@ function openSheetAide() {
             </ul>
 
             </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau <u><i>Programme</u></i> et d'appuyer sur le bouton <u><i>Supprimer</u></i> 
-            (situé en haut à droite de ce même tableau). Pour la reprogrammer, déplier le menu de la colonne "Date" et sélectionner une autre date possible.</p>
+            (situé en haut à droite de ce même tableau). Pour la reprogrammer, déplier le menu de la colonne <u><i>Date</u></i> et sélectionner une autre date possible.</p>
 
             </p>Le bouton <u><i>Supprimer</u></i> situé en haut à droite du tableau <u><i>Stock</u></i> permet de supprimer l'activité sélectionnée.</p>
 
             <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i> toutes les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
-            et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne 'Réservé' est à Oui). Elles sont également 
+            et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne <u><i>Réservé</u></i> est à Oui). Elles sont également 
             triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur le bouton <u><i>Filtrer</u></i> des entêtes de grilles ou directement 
             dans les entêtes de colonnes si la dimension de l'écran le permet).</p>
 
@@ -5072,16 +5072,17 @@ function openSheetAide() {
               </li>
               <li>Menu "..." comprenant les items suivants:
                 <ul style="margin-top: 0em">
-                    <li><u><i>Carnet d'adresses</u></i>: présente le carnet d'adresses. Les champs Nom / Adresse / Numéro de Téléphone / Adresse Web de chaque 
-                    entrée peuvent être édités et des boutons permettent d'ajouter / supprimer des entrées, défaire / refaire ces opérations. 
-                    Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent d'appeler le numéro de téléphone ou aller sur le site Web correspondant.</li>
+                    <li><u><i>Carnet d'adresses</u></i>: présente le carnet d'adresses. Les champs <u><i></u>Nom</i> / <u><i></u>Adresse</i> / 
+                    <u><i></u>Téléphone</i> / <u><i></u>Web</i> de chaque entrée peuvent être édités et des boutons permettent d'ajouter / supprimer 
+                    des entrées, défaire / refaire ces opérations. Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent 
+                    d'appeler le numéro de téléphone ou aller sur le site Web correspondant.</li>
                     <li><u><i>Paramètres</u></i>: permet d'éditer les paramètres de l'application comprenant:
                       <ul>
-                        <li>la période de programmation</li>
-                        <li>la marge entre activités</li>
-                        <li>la durée des pauses repas et café</li>
-                        <li>le nom de l'application d'itinéraire (Google Maps, Apple, etc.)</li>
-                        <li>la ville de recherche par défaut pour la recherche d'itinéraire.</li>
+                        <li>la <u><i>période de programmation</u></i></li>
+                        <li>la <u><i>marge</u></i> entre activités</li>
+                        <li>la <u><i>durée</u></i> des pauses repas</li>
+                        <li>le nom de <u><i>l'application d'itinéraire</u></i> (Google Maps, Apple, etc.)</li>
+                        <li>la <u><i>ville</u></i> de recherche par défaut pour la recherche d'itinéraire.</li>
                       </ul>
                     </li>
                     <li><u><i>Aide</u></i>: la présente aide</li>
@@ -5099,15 +5100,15 @@ function openSheetAide() {
           <div class="help-block">
             <p style="margin-bottom: 0.2em">Le fichier Excel d'entrée doit contenir en feuille 1 au moins les colonnes suivantes:</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
-                <li>Date : Date de l'activité (entier)</li>
-                <li>Début : Heure de début de l'activité (format HHhMM)</li>
-                <li>Fin : Heure de fin de l'activité (format HHhMM)</li>
-                <li>Durée : Durée de l'activité (format HHhMM ou HHh)</li>
-                <li>Activité : Nom de l'activité (nom de spectacle, pause, visite, ...)</li>
-                <li>Lieu : Lieu de l'activité</li>
-                <li>Validité : Périodes de validité de l'activité (voir ci-dessous les formats acceptés)</li>
-                <li>Relâches : Jours / périodes de relâche ou de validité de l'activité (voir ci-dessous les formats acceptés)</li>
-                <li>Réservé : Indique si l'activité est réservée (Oui/Non, vide interpété comme Non)</li>
+                <li><u><i>Date</u></i> : Date de l'activité (entier)</li>
+                <li><u><i>Début</u></i> : Heure de début de l'activité (format HHhMM)</li>
+                <li><u><i>Fin</u></i> : Heure de fin de l'activité (format HHhMM)</li>
+                <li><u><i>Durée</u></i> : Durée de l'activité (format HHhMM ou HHh)</li>
+                <li><u><i>Activité</u></i> : Nom de l'activité (nom de spectacle, pause, visite, ...)</li>
+                <li><u><i>Lieu</u></i> : Lieu de l'activité</li>
+                <li><u><i>Validité</u></i> : Périodes de validité de l'activité (voir ci-dessous les formats acceptés)</li>
+                <li><u><i>Relâches</u></i> : Jours / périodes de relâche ou de validité de l'activité (voir ci-dessous les formats acceptés)</li>
+                <li><u><i>Réservé</u></i> : Indique si l'activité est réservée (Oui/Non, vide interpété comme Non)</li>
             </ul>
 
             <p style="margin-bottom: 0.2em">Les jours / périodes de validité ou de relâche sont une suite séparée par des virgules de l'une des formes suivantes:</p>
@@ -5123,10 +5124,10 @@ function openSheetAide() {
             <p style="margin-bottom: 0.2em">En feuille 2 peut figurer un carnet d'adresses des lieux d'activités. Il est utilisé pour la recherche d'itinéraire et
             doit comprendre au moins les colonnes suivantes:</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
-                <li>Nom : nom devant figurer dans la colonne Lieu des tableaux d'activités pour que l'adresse associée soit utilisée dans la recherche d'itinéraire</li>
-                <li>Adresse : adresse utilisée pour la recherche d'itinéraire</li>
-                <li>Téléphone : numéro de téléphone</li>
-                <li>Web : adresse du site Web</li>
+                <li><u><i>Nom</u></i> : nom devant figurer dans la colonne Lieu des tableaux d'activités pour que l'adresse associée soit utilisée dans la recherche d'itinéraire</li>
+                <li><u><i>Adresse</u></i> : adresse utilisée pour la recherche d'itinéraire</li>
+                <li><u><i>Téléphone</u></i> : numéro de téléphone</li>
+                <li><u><i>Web</u></i> : adresse du site Web</li>
             </ul>
 
             <p>📥Un modèle Excel est disponible <a href="https://github.com/jnicoloso-91/PlanifAvignonOff_PWA/raw/main/Mod%C3%A8le%20Excel.xlsx" download>
