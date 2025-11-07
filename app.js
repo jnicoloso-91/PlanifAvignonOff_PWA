@@ -4982,13 +4982,13 @@ function openSheetAide() {
             
             <p style="margin-bottom: 0.2em">Les fonctionnalités principales sont les suivantes :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
-              <li>Chargement des spectacles et activités à programmer à partir d'Excel ou par collage depuis les catalogues en ligne</li>
-              <li>Programmation des spectacles et activités, en évitant chevauchements et doublons</li>
-              <li>Identification des plages libres et des spectacles et activités programmables sur ces plages</li>
-              <li>Liens vers la description détaillée des spectacles et activités et les applications de recherche d'itinéraire</li>
+              <li>Chargement des activités à programmer à partir d'Excel ou depuis les catalogues en ligne</li>
+              <li>Programmation des activités, en évitant chevauchements et doublons</li>
+              <li>Identification des plages libres et des activités programmables sur ces plages</li>
+              <li>Liens vers la description détaillée des activités et les applications de recherche d'itinéraire</li>
               <li>Carnet d'adresses des théâtres et sites de spectacles</li>
               <li>Sauvegarde vers Excel ou le calendrier</li>
-              <li>Vérification de cohérence (chevauchements d'activités, respect des marges entre activités, formats des données).</li>
+              <li>Vérification de cohérence des données (chevauchements d'activités, respect des marges entre activités, formats des données).</li>
             </ul>            
           </div>
         </div>
@@ -4999,11 +4999,10 @@ function openSheetAide() {
             Retour
           </div>
           <div class="help-block">
-            <p style="margin-bottom: 0.2em">Règles adoptées pour la programmation des activités:</p>
+            <p style="margin-bottom: 0.2em">Les règles adoptées pour la programmation des activités sont les suivantes:</p>
             <ul style="margin-top: 0em; margin-bottom: 0.5em">
               <li>30 minutes de marge entre activités</li>
               <li>1 heure par pause repas</li>
-              <li>1/2 heure par pause café sans marge avec l'activité précédente ou suivante</li>
               <li>Respect des périodes pendant lesquelles l'activité est valide et des périodes ou jours de relâche.</li>
             </ul>
             <p>Ces valeurs par défaut sont paramétrables via le menu .../Paramètres.</p>
