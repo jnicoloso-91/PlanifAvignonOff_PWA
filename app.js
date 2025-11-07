@@ -5059,7 +5059,7 @@ function openSheetAide() {
             l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité, via l'application choisie 
             dans les paramètres et l'adresse du lieu d'activité renseignée dans le carnet d'adresse, ou à défaut le nom du lieu et un nom de ville défini dans les paramètres.</p>
                         
-            <p style="margin-bottom: 0.2em">Deux menus permettent d'accéder des fonctionnalités complémentaires:</p>
+            <p style="margin-bottom: 0.2em">Deux menus permettent d'accéder à des fonctionnalités complémentaires:</p>
             <ul style="margin-top: 0em">
               <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
                 <ul style="margin-top: 0em">
