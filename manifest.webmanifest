@@ -1,7 +1,7 @@
 {
-  "name": "PlanifAvignonOff",
-  "short_name": "AvignonOff",
-  "description": "Planificateur pour le festival d'Avignon Off",
+  "name": "In & Off",
+  "short_name": "In & Off",
+  "description": "Réaliser son programme de spectacles pour le festival d'Avignon",
   "lang": "fr-FR",
   "start_url": "./index.html",
   "scope": "./",
