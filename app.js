@@ -4978,7 +4978,7 @@ function openSheetAide() {
             <p>In & Off est là pour vous aider à bâtir votre programme de spectacles.</p>
             
             <p>L'application est paramétrée pour donner accès aux catalogues du In et du Off du festival d'Avignon mais peut répondre à toute utilisation 
-            nécessitant de choisir des activités dans un catalogue et de les programmer sur une période donnée. 
+            nécessitant de choisir des <u><i>activités</u></i> dans un catalogue et de les programmer sur une période donnée. 
             
             <p style="margin-bottom: 0.2em">Les fonctionnalités principales sont les suivantes :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
@@ -5015,10 +5015,12 @@ function openSheetAide() {
             Retour
           </div>
           <div class="help-block">
-            <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click sur les icônes gauche et centrale de l'entête.</p>
-
-            <p>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon et la deuxième <u><i>Mon programme</u></i> permet 
-            de construire un programme personnalisé de spectacles ou autres activités.</p>
+            <p style="margin-bottom: 0.2em">L'application comprend deux pages sélectionnables par balayage gauche / droite ou click sur les icônes gauche et centrale de l'entête:</p>
+            <ul style="margin-top: 0em">
+              <li>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon</li>
+              <li>La deuxième page <u><i>Mon programme</u></i> permet 
+              de construire un programme personnalisé d'activités.</li>
+            </ul>
                          
             <p style="margin-bottom: 0.2em">La page <u><i>Mon programme</u></i>, comprend quatre tableaux:</p>
             <ul style="margin-top: 0em">
