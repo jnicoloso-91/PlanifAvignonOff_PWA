@@ -1926,7 +1926,7 @@ function gridOptionsCommon(gridId, el) {
       if (pane && g) autosizeFromGridSafe(g, pane);
     },
     onCellFocused: () => setActiveGrid(gridId),
-    onGridSizeChanged: () => safeSizeToFitFor(gridId),
+    // onGridSizeChanged: () => safeSizeToFitFor(gridId),
     getRowStyle: p => {
       const bg = colorDate(p.data?.Date);
       const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
