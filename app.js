@@ -5595,9 +5595,9 @@ function openSheetFiltres(gridId) {
 
         inp.addEventListener('input',  () => { 
           sync(); markModified(); 
-          if (inp.getAttribute('list')) {
-            requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
-          }
+          // if (inp.getAttribute('list')) {
+          //   requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
+          // }
         });
 
         inp.addEventListener('change', () => { 
