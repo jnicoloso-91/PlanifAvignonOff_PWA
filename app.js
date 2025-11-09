@@ -5448,6 +5448,35 @@ function openSheetFiltres(gridId) {
       });
 
       // ===== Helpers list/datalist =====
+      function isKbOpen() {
+        return vv ? (window.innerHeight - vv.height) > 120 : false;
+      }
+      function applyKbInsets() {
+        if (!sheet || !scrollEl) return;
+        const kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height)) : 0;
+        sheet.style.setProperty('--kb-inset', (isKbOpen() ? kb : 0) + 'px');
+        const footerH = footer?.offsetHeight || 0;
+        scrollEl.style.paddingBottom = `calc(${footerH}px + var(--kb-inset, 0px))`;
+      }
+      function ensureFooterVisible({target=null, smooth=true} = {}) {
+        if (!scrollEl) return;
+        applyKbInsets();
+        // priorité: si un input a le focus, l’amener au centre
+        if (target && target.scrollIntoView) {
+          target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
+        }
+        // puis s’assurer que le footer n’est pas sous le clavier
+        requestAnimationFrame(() => {
+          const footerBottom = footer?.getBoundingClientRect?.().bottom ?? 0;
+          const safeHeight   = vv ? vv.height : window.innerHeight;
+          if (footerBottom > safeHeight - 8) {
+            scrollEl.scrollTo({
+              top: scrollEl.scrollTop + (footerBottom - safeHeight + 16),
+              behavior: smooth ? 'smooth' : 'auto'
+            });
+          }
+        });
+      }
       // Remplace CR/LF réels ET littéraux (\r\n, \n, \r) par un espace pour l’affichage
       function sanitizeDatalistValue(s) {
         return String(s)
@@ -5564,8 +5593,17 @@ function openSheetFiltres(gridId) {
 
         const markModified = () => { inp.dataset.modified = 'true'; };
 
-        inp.addEventListener('input',  () => { sync(); markModified(); });
-        inp.addEventListener('change', () => { sync(); markModified(); });
+        inp.addEventListener('input',  () => { 
+          sync(); markModified(); 
+          if (inp.getAttribute('list')) {
+            requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
+          }
+        });
+
+        inp.addEventListener('change', () => { 
+          sync(); markModified(); 
+          requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
+        });
 
         // Esc = RAZ rapide
         inp.addEventListener('keydown', (ev) => {
