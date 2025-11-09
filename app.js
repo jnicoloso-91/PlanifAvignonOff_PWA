@@ -5602,7 +5602,7 @@ function openSheetFiltres(gridId) {
 
         inp.addEventListener('change', () => { 
           sync(); markModified(); 
-          // requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
+          requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
         });
 
         // Esc = RAZ rapide
