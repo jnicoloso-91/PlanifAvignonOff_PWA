@@ -3329,28 +3329,28 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer depuis le catalogue du In</span>
-          <span class="file-sheet__subtitle">Importe des activités depuis le catalogue du In</span>
+          <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du In</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importCatOff">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer depuis le catalogue du Off</span>
-          <span class="file-sheet__subtitle">Importe des activités depuis le catalogue du Off</span>
+          <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du Off</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="exportExcel">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers Excel</span>
-          <span class="file-sheet__subtitle">Sauvegarde les données dans un fichier Excel</span>
+          <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="exportIcs">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers calendrier</span>
-          <span class="file-sheet__subtitle">Exporte le programme courant vers le calendrier</span>
+          <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier ics</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="rapportCoherence">
@@ -4978,17 +4978,17 @@ function openSheetAide() {
             <p>In & Off est là pour vous aider à bâtir votre programme de spectacles.</p>
             
             <p>L'application est paramétrée pour donner accès aux catalogues du In et du Off du festival d'Avignon mais peut répondre à toute utilisation 
-            nécessitant de choisir des <u><i>activités</u></i> dans un catalogue et de les programmer sur une période donnée. 
+            nécessitant de choisir des activités dans un catalogue et de les programmer sur une période donnée. 
             
             <p style="margin-bottom: 0.2em">Les fonctionnalités principales sont les suivantes :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
-              <li>Chargement des activités à programmer à partir d'Excel ou depuis les catalogues en ligne</li>
-              <li>Programmation des activités, en évitant chevauchements et doublons</li>
-              <li>Identification des plages libres et des activités programmables sur ces plages</li>
-              <li>Liens vers la description détaillée des activités et les applications de recherche d'itinéraire</li>
+              <li>Chargement des spectacles et activités à programmer à partir d'Excel ou par collage depuis les catalogues en ligne</li>
+              <li>Programmation des spectacles et activités, en évitant chevauchements et doublons</li>
+              <li>Identification des plages libres et des spectacles et activités programmables sur ces plages</li>
+              <li>Liens vers la description détaillée des spectacles et activités et les applications de recherche d'itinéraire</li>
               <li>Carnet d'adresses des théâtres et sites de spectacles</li>
               <li>Sauvegarde vers Excel ou le calendrier</li>
-              <li>Vérification de cohérence des données (chevauchements d'activités, respect des marges entre activités, formats des données).</li>
+              <li>Vérification de cohérence (chevauchements d'activités, respect des marges entre activités, formats des données).</li>
             </ul>            
           </div>
         </div>
@@ -4999,10 +4999,11 @@ function openSheetAide() {
             Retour
           </div>
           <div class="help-block">
-            <p style="margin-bottom: 0.2em">Les règles adoptées pour la programmation des activités sont les suivantes:</p>
+            <p style="margin-bottom: 0.2em">Règles adoptées pour la programmation des activités:</p>
             <ul style="margin-top: 0em; margin-bottom: 0.5em">
               <li>30 minutes de marge entre activités</li>
               <li>1 heure par pause repas</li>
+              <li>1/2 heure par pause café sans marge avec l'activité précédente ou suivante</li>
               <li>Respect des périodes pendant lesquelles l'activité est valide et des périodes ou jours de relâche.</li>
             </ul>
             <p>Ces valeurs par défaut sont paramétrables via le menu .../Paramètres.</p>
@@ -5015,12 +5016,10 @@ function openSheetAide() {
             Retour
           </div>
           <div class="help-block">
-            <p style="margin-bottom: 0.2em">L'application comprend deux pages sélectionnables par balayage gauche / droite ou click sur les icônes gauche et centrale de l'entête:</p>
-            <ul style="margin-top: 0em">
-              <li>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon</li>
-              <li>La deuxième page <u><i>Mon programme</u></i> permet 
-              de construire un programme personnalisé d'activités.</li>
-            </ul>
+            <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click sur les icônes gauche et centrale de l'entête.</p>
+
+            <p>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon et la deuxième <u><i>Mon programme</u></i> permet 
+            de construire un programme personnalisé de spectacles ou autres activités.</p>
                          
             <p style="margin-bottom: 0.2em">La page <u><i>Mon programme</u></i>, comprend quatre tableaux:</p>
             <ul style="margin-top: 0em">
@@ -5059,7 +5058,7 @@ function openSheetAide() {
             l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité, via l'application choisie 
             dans les paramètres et l'adresse du lieu d'activité renseignée dans le carnet d'adresse, ou à défaut le nom du lieu et un nom de ville défini dans les paramètres.</p>
                         
-            <p style="margin-bottom: 0.2em">Deux menus permettent d'accéder à des fonctionnalités complémentaires:</p>
+            <p style="margin-bottom: 0.2em">Deux menus permettent d'accéder des fonctionnalités complémentaires:</p>
             <ul style="margin-top: 0em">
               <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
                 <ul style="margin-top: 0em">
@@ -5188,21 +5187,204 @@ function openSheetCoherence(rows, {
 }
 
 // Feuille Filtres sur grille activités non programmées
+// function openSheetFiltres(gridId) {
+//   const gridApi = window.grids?.get(gridId).api;
+//   if (!gridApi) return;
+
+//   const currentFilters = gridApi.getFilterModel() || {};
+//   const columns = (gridApi.getColumnDefs() || []).filter(col => col.filter);
+//   const fields = columns.map(c => c.field);
+
+//   openSheetExclusive({
+//     title: 'Filtres',
+//     panelHeight: '50vh',
+//     panelMaxHeight: '50vh',
+//     // swipeBody: true,
+//     mount: (body, { close }) => {
+//       // 1) Form rows avec bouton RAZ à gauche
+//       const rowsHtml = columns.map(col => {
+//         const colId = col.field;
+//         const value = currentFilters[colId]?.filter || '';
+//         const hasVal = value ? ' has-val' : '';
+//         return `
+//           <div class="form-row filter-row">
+//             <label for="filter-${colId}">${col.headerName}</label>
+//             <div class="input-wrap${hasVal}">
+//               <button type="button" class="btn-clear" data-field="${colId}" aria-label="Effacer le filtre ${col.headerName}" title="Effacer">×</button>
+//               <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}" class="filter-input">
+//             </div>
+//           </div>
+//         `;
+//       }).join('');
+
+//       body.innerHTML = `
+//         <div class="form">
+//           ${rowsHtml}
+//         </div>
+//         <div id="dl-container" hidden></div>
+//         <div class="sheet-footer has-border">
+//           <div class="form-actions">
+//             <button id="btn-clear" class="bb-btn is-primary">Réinitialiser</button>
+//             <button id="btn-apply" class="bb-btn is-primary">Appliquer</button>
+//           </div>
+//         </div>
+//       `;
+
+//       // ===== CSS minimal pour mise en page du bouton (injecté une fois) =====
+//       if (!document.getElementById('filters-inline-css')) {
+//         const style = document.createElement('style');
+//         style.id = 'filters-inline-css';
+//         style.textContent = `
+//           .filter-row .input-wrap { position: relative; display:flex; align-items:center; gap:.5rem; }
+//           .filter-row .btn-clear {
+//             width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
+//             border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
+//             background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
+//             display: none; font-weight: 600; font-size: 1rem;
+//           }
+//           .filter-row .input-wrap.has-val .btn-clear { display: inline-block; }
+//           .filter-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
+//           @media (hover:hover) {
+//             .filter-row .btn-clear:hover { background:#eee; }
+//           }
+//         `;
+//         document.head.appendChild(style);
+//       }
+
+//       // ===== helpers + création datalist =====
+//       function collectRowsFromGrid(api, mode = 'all') {
+//         const out = [];
+//         if (mode === 'afterFilter' && api.forEachNodeAfterFilterAndSort) {
+//           api.forEachNodeAfterFilterAndSort(n => { if (n?.data) out.push(n.data); });
+//         } else if (api.forEachLeafNode) {
+//           api.forEachLeafNode(n => { if (n?.data) out.push(n.data); });
+//         } else if (api.getDisplayedRowCount) {
+//           const cnt = api.getDisplayedRowCount();
+//           for (let i = 0; i < cnt; i++) {
+//             const rowNode = api.getDisplayedRowAtIndex(i);
+//             if (rowNode?.data) out.push(rowNode.data);
+//           }
+//         }
+//         return out;
+//       }
+
+//       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
+//         const set = new Set();
+//         for (const r of rows || []) {
+//           let v = r?.[field];
+//           if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
+//           set.add(String(v));
+//           if (set.size >= max) break;
+//         }
+//         return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+//       }
+
+//       function wireDatalistForField(field, rows) {
+//         const input = body.querySelector(`#filter-${field}`);
+//         if (!input) return;
+//         const listId = `dl-${field}`;
+//         const dlContainer = body.querySelector('#dl-container');
+//         let dl = body.querySelector(`#${listId}`);
+//         if (!dl) {
+//           dl = document.createElement('datalist');
+//           dl.id = listId;
+//           dlContainer.appendChild(dl);
+//         }
+//         input.setAttribute('list', listId);
+//         const values = uniqueValues(rows, field);
+//         dl.replaceChildren(...values.map(v => {
+//           const o = document.createElement('option');
+//           o.value = v;
+//           return o;
+//         }));
+//       }
+
+//       function buildFilterLists(rows, fields) {
+//         fields.forEach(f => wireDatalistForField(f, rows));
+//       }
+
+//       const sourceRows = collectRowsFromGrid(gridApi, 'all');
+//       buildFilterLists(sourceRows, fields);
+
+//       // ===== logique RAZ par champ =====
+//       // 1) Délégation de clic sur les boutons ×
+//       body.addEventListener('click', (e) => {
+//         const btn = e.target.closest('.btn-clear');
+//         if (!btn) return;
+//         const field = btn.dataset.field;
+//         const input = body.querySelector(`#filter-${field}`);
+//         if (!input) return;
+//         input.value = '';
+//         input.dispatchEvent(new Event('input', { bubbles: true }));
+//         btn.parentElement.classList.remove('has-val');
+//         // (facultatif) focus de confort
+//         input.focus();
+//       });
+
+//       // 2) Marquer has-val quand l’input change (pour afficher/masquer le bouton)
+//       body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
+//         const wrap = inp.closest('.input-wrap');
+//         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
+//         inp.addEventListener('input', sync);
+//         inp.addEventListener('change', sync);
+//         // Esc pour RAZ rapide
+//         inp.addEventListener('keydown', (ev) => {
+//           if (ev.key === 'Escape') { inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); sync(); }
+//         });
+//         // init
+//         sync();
+//       });
+
+//       // ===== boutons Appliquer / Réinitialiser =====
+//       const applyBtn = body.querySelector('#btn-apply');
+//       const clearBtn = body.querySelector('#btn-clear');
+
+//       applyBtn.addEventListener('click', () => {
+//         const newModel = {};
+//         columns.forEach(col => {
+//           const val = body.querySelector(`#filter-${col.field}`).value.trim();
+//           if (val) newModel[col.field] = { type: 'contains', filter: val };
+//         });
+//         gridApi.setFilterModel(newModel);
+//         gridApi.onFilterChanged();
+//         close();
+//       });
+
+//       clearBtn.addEventListener('click', () => {
+//         gridApi.setFilterModel({});
+//         gridApi.onFilterChanged();
+//         close();
+//       });
+
+//       // ===== Application des styles spécifiques sheet-filters-open =====
+//       const sheet = document.querySelector('.sheet-wrap'); 
+//       document.querySelectorAll('.filter-input').forEach(inp => {
+//         inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
+//         inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
+//       })
+
+//       // (optionnel) regénérer les datalists si le dataset change
+//       // gridApi.addEventListener('modelUpdated', () => {
+//       //   const rows = collectRowsFromGrid(gridApi, 'all');
+//       //   buildFilterLists(rows, fields);
+//       // });
+//     }
+//   });
+// }
 function openSheetFiltres(gridId) {
-  const gridApi = window.grids?.get(gridId).api;
+  const gridApi = window.grids?.get?.(gridId)?.api;
   if (!gridApi) return;
 
-  const currentFilters = gridApi.getFilterModel() || {};
-  const columns = (gridApi.getColumnDefs() || []).filter(col => col.filter);
+  const currentFilters = gridApi.getFilterModel?.() || {};
+  const columns = (gridApi.getColumnDefs?.() || []).filter(col => col.filter);
   const fields = columns.map(c => c.field);
 
   openSheetExclusive({
     title: 'Filtres',
     panelHeight: '50vh',
     panelMaxHeight: '50vh',
-    // swipeBody: true,
     mount: (body, { close }) => {
-      // 1) Form rows avec bouton RAZ à gauche
+      // ===== Markup =====
       const rowsHtml = columns.map(col => {
         const colId = col.field;
         const value = currentFilters[colId]?.filter || '';
@@ -5231,7 +5413,7 @@ function openSheetFiltres(gridId) {
         </div>
       `;
 
-      // ===== CSS minimal pour mise en page du bouton (injecté une fois) =====
+      // ===== CSS inline minimal (une seule fois) =====
       if (!document.getElementById('filters-inline-css')) {
         const style = document.createElement('style');
         style.id = 'filters-inline-css';
@@ -5248,11 +5430,35 @@ function openSheetFiltres(gridId) {
           @media (hover:hover) {
             .filter-row .btn-clear:hover { background:#eee; }
           }
+          /* Hook repaint pour casser les "zones mortes" iOS */
+          .sheet-wrap.repaint { transform: translateZ(0); }
         `;
         document.head.appendChild(style);
       }
 
-      // ===== helpers + création datalist =====
+      // Préremplir inputs avec la valeur SANITIZÉE + stocker la RAW d'origine
+      columns.forEach(col => {
+        const raw = currentFilters[col.field]?.filter ?? '';
+        const san = sanitizeDatalistValue(raw);
+        const inp = body.querySelector(`#filter-${col.field}`);
+        if (!inp) return;
+        inp.value = san;
+        inp.dataset.rawDefault = String(raw);
+        inp.dataset.modified = 'false';
+      });
+
+      // ===== Helpers list/datalist =====
+      // Remplace CR/LF réels ET littéraux (\r\n, \n, \r) par un espace pour l’affichage
+      function sanitizeDatalistValue(s) {
+        return String(s)
+          .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+      // Si l’utilisateur tape "\r\n", on peut (optionnel) le retransformer en vrai saut de ligne
+      function unescapeCRLF(s) {
+        return String(s).replace(/\\r\\n|\\n|\\r/g, '\n');
+      }
       function collectRowsFromGrid(api, mode = 'all') {
         const out = [];
         if (mode === 'afterFilter' && api.forEachNodeAfterFilterAndSort) {
@@ -5268,7 +5474,6 @@ function openSheetFiltres(gridId) {
         }
         return out;
       }
-
       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
         const set = new Set();
         for (const r of rows || []) {
@@ -5279,7 +5484,25 @@ function openSheetFiltres(gridId) {
         }
         return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
       }
-
+      // function wireDatalistForField(field, rows) {
+      //   const input = body.querySelector(`#filter-${field}`);
+      //   if (!input) return;
+      //   const listId = `dl-${field}`;
+      //   const dlContainer = body.querySelector('#dl-container');
+      //   let dl = body.querySelector(`#${listId}`);
+      //   if (!dl) {
+      //     dl = document.createElement('datalist');
+      //     dl.id = listId;
+      //     dlContainer.appendChild(dl);
+      //   }
+      //   input.setAttribute('list', listId);
+      //   const values = uniqueValues(rows, field);
+      //   dl.replaceChildren(...values.map(v => {
+      //     const o = document.createElement('option');
+      //     o.value = v;
+      //     return o;
+      //   }));
+      // }
       function wireDatalistForField(field, rows) {
         const input = body.querySelector(`#filter-${field}`);
         if (!input) return;
@@ -5292,23 +5515,28 @@ function openSheetFiltres(gridId) {
           dlContainer.appendChild(dl);
         }
         input.setAttribute('list', listId);
-        const values = uniqueValues(rows, field);
-        dl.replaceChildren(...values.map(v => {
+
+        const rawValues = uniqueValues(rows, field);
+        dl.replaceChildren(); // reset
+
+        // éviter les doublons après sanitization
+        const seenSanitized = new Set();
+        for (const raw of rawValues) {
+          const san = sanitizeDatalistValue(raw);
+          if (!san) continue;
+          if (seenSanitized.has(san)) continue;
+          seenSanitized.add(san);
+
           const o = document.createElement('option');
-          o.value = v;
-          return o;
-        }));
+          o.value = san;           // ce que voit/saisit l’utilisateur
+          o.dataset.raw = String(raw); // la valeur brute (avec éventuels \r\n réels)
+          dl.appendChild(o);
+        }
       }
+      function buildFilterLists(rows, fields) { fields.forEach(f => wireDatalistForField(f, rows)); }
+      buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
 
-      function buildFilterLists(rows, fields) {
-        fields.forEach(f => wireDatalistForField(f, rows));
-      }
-
-      const sourceRows = collectRowsFromGrid(gridApi, 'all');
-      buildFilterLists(sourceRows, fields);
-
-      // ===== logique RAZ par champ =====
-      // 1) Délégation de clic sur les boutons ×
+      // ===== RAZ par champ (×) + sync has-val =====
       body.addEventListener('click', (e) => {
         const btn = e.target.closest('.btn-clear');
         if (!btn) return;
@@ -5318,57 +5546,192 @@ function openSheetFiltres(gridId) {
         input.value = '';
         input.dispatchEvent(new Event('input', { bubbles: true }));
         btn.parentElement.classList.remove('has-val');
-        // (facultatif) focus de confort
         input.focus();
       });
-
-      // 2) Marquer has-val quand l’input change (pour afficher/masquer le bouton)
+      // body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
+      //   const wrap = inp.closest('.input-wrap');
+      //   const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
+      //   inp.addEventListener('input', sync);
+      //   inp.addEventListener('change', sync);
+      //   inp.addEventListener('keydown', (ev) => {
+      //     if (ev.key === 'Escape') { inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); sync(); }
+      //   });
+      //   sync();
+      // });
       body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
         const wrap = inp.closest('.input-wrap');
         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
-        inp.addEventListener('input', sync);
-        inp.addEventListener('change', sync);
-        // Esc pour RAZ rapide
+
+        const markModified = () => { inp.dataset.modified = 'true'; };
+
+        inp.addEventListener('input',  () => { sync(); markModified(); });
+        inp.addEventListener('change', () => { sync(); markModified(); });
+
+        // Esc = RAZ rapide
         inp.addEventListener('keydown', (ev) => {
-          if (ev.key === 'Escape') { inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); sync(); }
+          if (ev.key === 'Escape') {
+            inp.value = '';
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            markModified();
+            sync();
+          }
         });
+
         // init
         sync();
       });
 
-      // ===== boutons Appliquer / Réinitialiser =====
+      // ===== Appliquer / Réinitialiser =====
       const applyBtn = body.querySelector('#btn-apply');
       const clearBtn = body.querySelector('#btn-clear');
+      // applyBtn.addEventListener('click', () => {
+      //   const newModel = {};
+      //   columns.forEach(col => {
+      //     const val = body.querySelector(`#filter-${col.field}`).value.trim();
+      //     if (val) newModel[col.field] = { type: 'contains', filter: val };
+      //   });
+      //   gridApi.setFilterModel(newModel);
+      //   gridApi.onFilterChanged?.();
+      //   close();
+      // });
+      // applyBtn.addEventListener('click', () => {
+      //   const newModel = {};
+      //   columns.forEach(col => {
+      //     const inp = body.querySelector(`#filter-${col.field}`);
+      //     let valSan = inp?.value?.trim() || '';
+      //     if (!valSan) return;
 
+      //     // retrouver l’option correspondante pour récupérer la valeur brute
+      //     const dl = body.querySelector(`#dl-${col.field}`);
+      //     let valRaw = null;
+      //     if (dl) {
+      //       // pas de CSS.escape -> on itère
+      //       for (const opt of dl.options) {
+      //         if (opt.value === valSan) { valRaw = opt.dataset.raw || null; break; }
+      //       }
+      //     }
+      //     // fallback : si pas d’option trouvée, on tente de “déséchapper” ce que l’utilisateur a tapé
+      //     const filterVal = unescapeCRLF(valRaw ?? valSan);
+
+      //     newModel[col.field] = { type: 'contains', filter: filterVal };
+      //   });
+
+      //   gridApi.setFilterModel(newModel);
+      //   gridApi.onFilterChanged?.();
+      //   close();
+      // });
       applyBtn.addEventListener('click', () => {
         const newModel = {};
         columns.forEach(col => {
-          const val = body.querySelector(`#filter-${col.field}`).value.trim();
-          if (val) newModel[col.field] = { type: 'contains', filter: val };
+          const inp = body.querySelector(`#filter-${col.field}`);
+          if (!inp) return;
+
+          const valSan = (inp.value || '').trim();
+          const rawDefault = inp.dataset.rawDefault || '';
+          const modified = inp.dataset.modified === 'true';
+
+          if (!valSan && !rawDefault) return;
+
+          let filterVal = null;
+
+          if (!modified && rawDefault) {
+            // L’utilisateur n’a rien changé → réappliquer EXACTEMENT la valeur brute précédente
+            filterVal = rawDefault;
+          } else {
+            // L’utilisateur a modifié (ou pas de rawDefault) → tenter de retrouver l’option correspondante
+            const dl = body.querySelector(`#dl-${col.field}`);
+            if (dl) {
+              let matchedRaw = null;
+              for (const opt of dl.options) {
+                if (opt.value === valSan) { matchedRaw = opt.dataset.raw || null; break; }
+              }
+              filterVal = matchedRaw ?? unescapeCRLF(valSan);
+            } else {
+              filterVal = unescapeCRLF(valSan);
+            }
+          }
+
+          if (filterVal) newModel[col.field] = { type: 'contains', filter: filterVal };
         });
+
         gridApi.setFilterModel(newModel);
-        gridApi.onFilterChanged();
+        gridApi.onFilterChanged?.();
         close();
       });
 
       clearBtn.addEventListener('click', () => {
         gridApi.setFilterModel({});
-        gridApi.onFilterChanged();
+        gridApi.onFilterChanged?.();
         close();
       });
 
-      // ===== Application des styles spécifiques sheet-filters-open =====
-      const sheet = document.querySelector('.sheet-wrap'); 
+      // ===== iOS/iPadOS keyboard-safe: gérer la "zone morte" au repli du clavier =====
+      const sheet = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
+      const scrollEl = sheet?.querySelector('.sheet-body') || body;
+      const footer   = sheet?.querySelector('.sheet-footer');
+      // expose hauteur footer pour padding initial
+      if (sheet) sheet.style.setProperty('--sheet-footer-h', `${footer?.offsetHeight || 0}px`);
+      if (scrollEl && sheet) scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
+
+      const vv = window.visualViewport;
+      let kbOpen = false;
+      const handlers = [];
+
+      const onVVChange = () => {
+        if (!sheet || !scrollEl || !vv) return;
+        // heuristique d’ouverture clavier
+        const isOpen = (window.innerHeight - vv.height) > 120;
+
+        if (isOpen && !kbOpen) {
+          kbOpen = true;
+          const kb = Math.max(0, Math.round(window.innerHeight - vv.height));
+          sheet.style.setProperty('--kb-inset', kb + 'px');
+          scrollEl.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
+          scrollEl.style.pointerEvents = 'auto';
+        }
+        if (!isOpen && kbOpen) {
+          kbOpen = false;
+          sheet.style.setProperty('--kb-inset', '0px');
+          scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
+          // force un léger repaint pour tuer la zone morte
+          // eslint-disable-next-line no-unused-expressions
+          sheet.offsetHeight;
+          sheet.classList.add('repaint');
+          requestAnimationFrame(() => sheet.classList.remove('repaint'));
+          scrollEl.style.pointerEvents = 'auto';
+          // poke scroll pour réveiller WebKit
+          requestAnimationFrame(() => {
+            const y = scrollEl.scrollTop;
+            scrollEl.scrollTop = Math.max(0, y - 1);
+            scrollEl.scrollTop = Math.max(0, y);
+          });
+        }
+      };
+
+      const focusoutHandler = () => setTimeout(onVVChange, 50);
+
+      if (vv) {
+        vv.addEventListener('resize', onVVChange);
+        vv.addEventListener('scroll', onVVChange);
+        handlers.push(() => { vv.removeEventListener('resize', onVVChange); vv.removeEventListener('scroll', onVVChange); });
+      }
+      document.addEventListener('focusout', focusoutHandler, true);
+      handlers.push(() => document.removeEventListener('focusout', focusoutHandler, true));
+
+      // cleanup quand la sheet disparaît (fermeture par swipe incluse)
+      const mo = new MutationObserver(() => {
+        if (sheet && !document.body.contains(sheet)) {
+          handlers.forEach(fn => { try { fn(); } catch {} });
+          mo.disconnect();
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+
+      // ===== styles visuels quand focus sur input (optionnel)
       document.querySelectorAll('.filter-input').forEach(inp => {
         inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
         inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
-      })
-
-      // (optionnel) regénérer les datalists si le dataset change
-      // gridApi.addEventListener('modelUpdated', () => {
-      //   const rows = collectRowsFromGrid(gridApi, 'all');
-      //   buildFilterLists(rows, fields);
-      // });
+      });
     }
   });
 }
