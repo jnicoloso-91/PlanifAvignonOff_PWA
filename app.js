@@ -5379,6 +5379,11 @@ function openSheetFiltres(gridId) {
   const columns = (gridApi.getColumnDefs?.() || []).filter(col => col.filter);
   const fields = columns.map(c => c.field);
 
+  const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
+  const sheetBody = sheet?.querySelector('.sheet-body') || body;
+  const footer    = sheet?.querySelector('.sheet-footer');
+  const vv        = window.visualViewport;
+
   openSheetExclusive({
     title: 'Filtres',
     panelHeight: '50vh',
@@ -5448,34 +5453,36 @@ function openSheetFiltres(gridId) {
       });
 
       // ===== Helpers list/datalist =====
-      function isKbOpen() {
-        return vv ? (window.innerHeight - vv.height) > 120 : false;
+      // padding bas pour ne pas que le footer passe sous le clavier
+      function kbInsetPx() {
+        return vv ? Math.max(0, window.innerHeight - vv.height) : 0;
       }
-      function applyKbInsets() {
-        if (!sheet || !scrollEl) return;
-        const kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height)) : 0;
-        sheet.style.setProperty('--kb-inset', (isKbOpen() ? kb : 0) + 'px');
-        const footerH = footer?.offsetHeight || 0;
-        scrollEl.style.paddingBottom = `calc(${footerH}px + var(--kb-inset, 0px))`;
+      function applyInsets() {
+        const kb = kbInsetPx();
+        const fb = footer?.offsetHeight || 0;
+        sheet?.style.setProperty('--kb-inset', kb + 'px');
+        // on donne de la place à scroller jusqu'au footer au-dessus du clavier
+        sheetBody.style.paddingBottom = `calc(${fb}px + var(--kb-inset, 0px))`;
       }
-      function ensureFooterVisible({target=null, smooth=true} = {}) {
-        if (!scrollEl) return;
-        applyKbInsets();
-        // priorité: si un input a le focus, l’amener au centre
-        if (target && target.scrollIntoView) {
-          target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
+
+      // scrolle UNIQUEMENT si la row est masquée par clavier+footer
+      function scrollRowIfOccluded(input, { smooth = true } = {}) {
+        if (!sheetBody) return;
+        const row = input.closest('.form-row') || input;
+        const r = row.getBoundingClientRect();
+
+        const safeH = vv ? vv.height : window.innerHeight;
+        const footerH = footer?.getBoundingClientRect?.().height || 0;
+        const margin = 12;
+
+        // lim inf visible au-dessus du clavier et du footer
+        const bottomLimit = safeH - footerH - margin;
+
+        // si la row déborde sous la limite, on avance le scroll juste ce qu’il faut
+        if (r.bottom > bottomLimit) {
+          const delta = r.bottom - bottomLimit;
+          sheetBody.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
         }
-        // puis s’assurer que le footer n’est pas sous le clavier
-        requestAnimationFrame(() => {
-          const footerBottom = footer?.getBoundingClientRect?.().bottom ?? 0;
-          const safeHeight   = vv ? vv.height : window.innerHeight;
-          if (footerBottom > safeHeight - 8) {
-            scrollEl.scrollTo({
-              top: scrollEl.scrollTop + (footerBottom - safeHeight + 16),
-              behavior: smooth ? 'smooth' : 'auto'
-            });
-          }
-        });
       }
       // Remplace CR/LF réels ET littéraux (\r\n, \n, \r) par un espace pour l’affichage
       function sanitizeDatalistValue(s) {
@@ -5565,6 +5572,23 @@ function openSheetFiltres(gridId) {
       function buildFilterLists(rows, fields) { fields.forEach(f => wireDatalistForField(f, rows)); }
       buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
 
+      // hooks visualViewport (iOS)
+      if (vv) {
+        const onVV = () => applyInsets();
+        vv.addEventListener('resize', onVV);
+        vv.addEventListener('scroll', onVV);
+        // cleanup quand la sheet est détruite
+        const mo = new MutationObserver(() => {
+          if (sheet && !document.body.contains(sheet)) {
+            vv.removeEventListener('resize', onVV);
+            vv.removeEventListener('scroll', onVV);
+            mo.disconnect();
+          }
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+      }
+      applyInsets();
+      
       // ===== RAZ par champ (×) + sync has-val =====
       body.addEventListener('click', (e) => {
         const btn = e.target.closest('.btn-clear');
@@ -5587,37 +5611,76 @@ function openSheetFiltres(gridId) {
       //   });
       //   sync();
       // });
+      // body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
+      //   const wrap = inp.closest('.input-wrap');
+      //   const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
+
+      //   const markModified = () => { inp.dataset.modified = 'true'; };
+
+      //   inp.addEventListener('input',  () => { 
+      //     sync(); markModified(); 
+      //     // if (inp.getAttribute('list')) {
+      //     //   requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
+      //     // }
+      //   });
+
+      //   inp.addEventListener('change', () => { 
+      //     sync(); markModified(); 
+      //     requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
+      //   });
+
+      //   // Esc = RAZ rapide
+      //   inp.addEventListener('keydown', (ev) => {
+      //     if (ev.key === 'Escape') {
+      //       inp.value = '';
+      //       inp.dispatchEvent(new Event('input', { bubbles: true }));
+      //       markModified();
+      //       sync();
+      //     }
+      //   });
+
+      //   // init
+      //   sync();
+      // });
       body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
         const wrap = inp.closest('.input-wrap');
         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
-
         const markModified = () => { inp.dataset.modified = 'true'; };
 
-        inp.addEventListener('input',  () => { 
-          sync(); markModified(); 
-          // if (inp.getAttribute('list')) {
-          //   requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
-          // }
+        // Tape clavier → on ne scrolle PAS (évite les “sauts”)
+        inp.addEventListener('input', () => {
+          sync();
+          markModified();
+          // Pas de scroll ici
         });
 
-        inp.addEventListener('change', () => { 
-          sync(); markModified(); 
-          requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
+        // Focus → scroller la ROW si masquée
+        inp.addEventListener('focus', () => {
+          applyInsets();
+          // petit rafraîchissement visuel avant calcul
+          requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: false }));
         });
 
-        // Esc = RAZ rapide
+        // Sélection via datalist → scroller la ROW si masquée
+        inp.addEventListener('change', () => {
+          applyInsets();
+          requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
+        });
+
+        // Enter : sécurise aussi
         inp.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') {
+            requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
+          }
           if (ev.key === 'Escape') {
             inp.value = '';
             inp.dispatchEvent(new Event('input', { bubbles: true }));
-            markModified();
-            sync();
           }
         });
 
-        // init
-        sync();
+        sync(); // init visuelle
       });
+
 
       // ===== Appliquer / Réinitialiser =====
       const applyBtn = body.querySelector('#btn-apply');
@@ -5704,19 +5767,15 @@ function openSheetFiltres(gridId) {
       });
 
       // ===== iOS/iPadOS keyboard-safe: gérer la "zone morte" au repli du clavier =====
-      const sheet = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
-      const scrollEl = sheet?.querySelector('.sheet-body') || body;
-      const footer   = sheet?.querySelector('.sheet-footer');
       // expose hauteur footer pour padding initial
       if (sheet) sheet.style.setProperty('--sheet-footer-h', `${footer?.offsetHeight || 0}px`);
-      if (scrollEl && sheet) scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
+      if (sheetBody && sheet) sheetBody.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
 
-      const vv = window.visualViewport;
       let kbOpen = false;
       const handlers = [];
 
       const onVVChange = () => {
-        if (!sheet || !scrollEl || !vv) return;
+        if (!sheet || !sheetBody || !vv) return;
         // heuristique d’ouverture clavier
         const isOpen = (window.innerHeight - vv.height) > 120;
 
@@ -5724,24 +5783,24 @@ function openSheetFiltres(gridId) {
           kbOpen = true;
           const kb = Math.max(0, Math.round(window.innerHeight - vv.height));
           sheet.style.setProperty('--kb-inset', kb + 'px');
-          scrollEl.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
-          scrollEl.style.pointerEvents = 'auto';
+          sheetBody.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
+          sheetBody.style.pointerEvents = 'auto';
         }
         if (!isOpen && kbOpen) {
           kbOpen = false;
           sheet.style.setProperty('--kb-inset', '0px');
-          scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
+          sheetBody.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
           // force un léger repaint pour tuer la zone morte
           // eslint-disable-next-line no-unused-expressions
           sheet.offsetHeight;
           sheet.classList.add('repaint');
           requestAnimationFrame(() => sheet.classList.remove('repaint'));
-          scrollEl.style.pointerEvents = 'auto';
+          sheetBody.style.pointerEvents = 'auto';
           // poke scroll pour réveiller WebKit
           requestAnimationFrame(() => {
-            const y = scrollEl.scrollTop;
-            scrollEl.scrollTop = Math.max(0, y - 1);
-            scrollEl.scrollTop = Math.max(0, y);
+            const y = sheetBody.scrollTop;
+            sheetBody.scrollTop = Math.max(0, y - 1);
+            sheetBody.scrollTop = Math.max(0, y);
           });
         }
       };
