@@ -5742,73 +5742,82 @@ function openSheetFiltres(gridId) {
       //     }
       //   };
       // }
+
 function attachAutocomplete(inp, values, { max = 500, minChars = 0 } = {}) {
-  let box = null, selIdx = -1, open = false;
+  let box = null, open = false;
   const vv = window.visualViewport;
 
-  function makeBox() {
+  const makeBox = () => {
     if (box) return box;
     box = document.createElement('div');
     box.className = 'bb-ac';
-    box.setAttribute('role','listbox');
     box.hidden = true;
     document.body.appendChild(box);
     return box;
-  }
+  };
 
-  // ---- ➜ NOUVEAU positionneur “intelligent” (haut/bas + clamp hauteur) ----
+  const getKeyboardOcclusion = () => {
+    // Hauteur de la zone masquée (clavier) = fenêtre CSS – (hauteur viewport visuel + son offsetTop)
+    // Sur iOS, vv.offsetTop > 0 quand le clavier “pousse” le viewport vers le bas
+    const winH = window.innerHeight || document.documentElement.clientHeight || 0;
+    const vH   = vv ? vv.height : winH;
+    const vTop = vv ? vv.offsetTop : 0;
+    const occluded = Math.max(0, winH - (vH + vTop));
+    return { occluded, vH, vTop };
+  };
+
   function posBox() {
     if (!box || box.hidden) return;
 
     const r = inp.getBoundingClientRect();
-    const insetTop  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('padding-top')) || 0;
-    const insetBot  = 0; // on peut lire env(safe-area-inset-bottom) via CSS si besoin
+    const { occluded, vH, vTop } = getKeyboardOcclusion();
     const gap = 6;
 
-    const vpY = vv ? vv.offsetTop : 0;
-    const vpX = vv ? vv.offsetLeft : 0;
-    const vpH = vv ? vv.height    : window.innerHeight;
-    const vpW = vv ? vv.width     : window.innerWidth;
+    // Espace utile réellement visible = winH - zone clavier
+    const visibleBottom = (vTop + vH); // bord bas du viewport visible
+    const visibleTop    = vTop;        // bord haut du viewport visible
 
-    // Espace disponible sous et au-dessus de l'input (dans le viewport utile)
-    const spaceBelow = Math.max(0, (vpY + vpH) - (r.bottom + gap));
-    const spaceAbove = Math.max(0, (r.top - gap) - vpY);
+    // espaces disponibles
+    const spaceBelow = Math.max(0, visibleBottom - (r.bottom + gap));
+    const spaceAbove = Math.max(0, (r.top - gap) - visibleTop);
 
-    // largeur minimale = largeur de l'input, mais on “clamp” à la largeur du viewport
+    // largeur mini (clé pour éviter les menus trop étroits reflowés)
+    const vpW = vv ? vv.width : window.innerWidth;
     const minW = Math.min(r.width, vpW - 12);
     box.style.minWidth = `${minW}px`;
 
-    // On positionne d’abord “sous” l’input par défaut
-    let place = 'bottom';
-    if (spaceBelow < 160 && spaceAbove > spaceBelow) place = 'top';
-
-    // On fixe temporairement une hauteur max optimiste, puis on mesure et re-clamp
+    // choix dessous/au-dessus ; si trop peu d’espace, on docke
+    const place = (spaceBelow >= 160 || spaceBelow >= spaceAbove) ? 'bottom' : 'top';
     const targetSpace = place === 'bottom' ? spaceBelow : spaceAbove;
-    const maxH = Math.max(120, Math.min(480, targetSpace - insetBot - 4));
-    box.style.maxHeight = `${maxH}px`;
 
-    // Position X/Y initiale
-    const left = r.left + vpX;
-    box.style.left = `${Math.max(6, Math.min(left, vpX + vpW - minW - 6))}px`;
+    // reset classe docké
+    box.classList.remove('bb-ac--docked');
 
-    if (place === 'bottom') {
-      const top = r.bottom + gap + vpY;
-      box.style.top = `${top}px`;
-      box.style.bottom = '';
-    } else {
-      // placer au-dessus : top = (haut du viewport) + (espace au-dessus) - hauteur box
-      box.style.bottom = `${(vpY + vpH) - (r.top - gap)}px`;
+    if (targetSpace < 140) {
+      // Mode docké (type bottom sheet) quand l’espace est vraiment trop faible
+      const maxH = Math.max(120, Math.min( Math.floor(vH * 0.55), 420 ));
+      box.classList.add('bb-ac--docked');
       box.style.top = '';
+      box.style.bottom = `${Math.max(8, occluded + 8)}px`; // au-dessus du clavier
+      box.style.left = '8px';
+      box.style.right = '8px';
+      box.style.maxHeight = `${maxH}px`;
+      return;
     }
 
-    // Re-clamp une fois la box peinte (hauteur réelle connue)
-    requestAnimationFrame(() => {
-      if (!box || box.hidden) return;
-      const bh = box.getBoundingClientRect().height;
-      if (bh > targetSpace) {
-        box.style.maxHeight = `${Math.max(120, targetSpace - 8)}px`;
-      }
-    });
+    // Position classique top/bottom
+    box.style.right = ''; // au cas où on sortait du mode docké
+    box.style.left  = `${Math.max(6, Math.min(r.left, (vv ? vv.offsetLeft : 0) + vpW - minW - 6))}px`;
+    box.style.maxHeight = `${Math.max(120, Math.min(480, targetSpace - 8))}px`;
+
+    if (place === 'bottom') {
+      box.style.top = `${r.bottom + gap + (vv ? vv.offsetTop : 0)}px`;
+      box.style.bottom = '';
+    } else {
+      // placer au-dessus : on ancre par le bas pour coller à l’input
+      box.style.bottom = `${(vv ? vv.offsetTop + vH : window.innerHeight) - (r.top - gap)}px`;
+      box.style.top = '';
+    }
   }
 
   function hide() { open = false; if (box) box.hidden = true; }
@@ -5817,85 +5826,68 @@ function attachAutocomplete(inp, values, { max = 500, minChars = 0 } = {}) {
   function render(list) {
     const b = makeBox();
     b.innerHTML = '';
-    selIdx = -1;
-    const frag = document.createDocumentFragment();
-    list.slice(0, max).forEach((v) => {
+    for (const v of list.slice(0, max)) {
       const it = document.createElement('div');
       it.className = 'bb-ac__item';
-      it.setAttribute('role','option');
       it.textContent = v;
       it.addEventListener('mousedown', (e) => { e.preventDefault(); commit(v); });
-      frag.appendChild(it);
-    });
-    b.appendChild(frag);
-    if (list.length) { show(); } else { hide(); }
+      b.appendChild(it);
+    }
+    if (list.length) show(); else hide();
   }
 
   function commit(val) {
     inp.value = val;
     hide();
-    inp.blur?.();
+    // Déclenchements standard
+    inp.dispatchEvent(new Event('input',  { bubbles:true }));
+    inp.dispatchEvent(new Event('change', { bubbles:true }));
+    // (optionnel) scrollreveal footer
     setTimeout(() => {
       const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
       if (!footer) return;
-      const r = footer.getBoundingClientRect();
-      const vh = window.innerHeight;
-      if (r.bottom > vh) {
-        window.scrollTo({ top: window.scrollY + (r.bottom - vh) + 8, behavior: 'smooth' });
+      const fr = footer.getBoundingClientRect();
+      const visH = (vv ? vv.height : window.innerHeight);
+      if (fr.bottom > visH) {
+        window.scrollBy({ top: fr.bottom - visH + 8, behavior: 'smooth' });
       }
     }, 40);
-    inp.dispatchEvent(new Event('input', { bubbles:true }));
-    inp.dispatchEvent(new Event('change', { bubbles:true }));
   }
 
-  // … (tes filtres/normalize existants)
-  const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  // filtrage simple (garde ta logique si tu as accent/normalize)
+  const normalize = s => String(s||'').toLowerCase();
   function filterNow() {
     const q = normalize(inp.value);
-    const out = !q ? values.slice(0, max)
-                   : values.filter(v => normalize(v).includes(q)).slice(0, max);
+    const out = !q ? values.slice(0, max) : values.filter(v => normalize(v).includes(q)).slice(0, max);
     render(out);
   }
 
-  // Events
+  // Événements
   inp.addEventListener('focus', () => { filterNow(); posBox(); });
   inp.addEventListener('input', filterNow);
-  inp.addEventListener('keydown', (e) => {
-    if (!open) return;
-    if (e.key === 'Escape') hide();
-  });
-  inp.addEventListener('blur', () => setTimeout(hide, 100));
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+  // ⚠️ On supprime la fermeture pointerdown “global click-outside”
+  // inp.addEventListener('blur', () => setTimeout(hide, 100));
+  // On garde blur si tu veux vraiment fermer quand on quitte l’input :
+  inp.addEventListener('blur', () => setTimeout(() => { if (!document.activeElement || document.activeElement !== inp) hide(); }, 80));
 
-  // Click-outside pour fermer (depuis réponse précédente)
-  const onPointerDown = (e) => {
-    if (!open) return;
-    const t = e.target;
-    if (t === inp) return;
-    if (box && box.contains(t)) return;
-    hide();
-  };
-  document.addEventListener('pointerdown', onPointerDown, true);
-
-  // Repositionner si clavier/viewport bouge
+  // Repositionnements sur changements viewport/clavier
   const rePos = () => { if (open) posBox(); };
-  window.addEventListener('scroll', rePos, true);
   window.addEventListener('resize', rePos);
+  window.addEventListener('scroll', rePos, true);
   vv?.addEventListener('resize', rePos);
   vv?.addEventListener('scroll', rePos);
 
   return {
     destroy() {
-      document.removeEventListener('pointerdown', onPointerDown, true);
-      window.removeEventListener('scroll', rePos, true);
       window.removeEventListener('resize', rePos);
+      window.removeEventListener('scroll', rePos, true);
       vv?.removeEventListener('resize', rePos);
       vv?.removeEventListener('scroll', rePos);
-      box?.remove();
-      box = null;
+      box?.remove(); box = null;
     }
   };
 }
-
 
       const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
       const sheetBody = sheet?.querySelector('.sheet-body') || body;

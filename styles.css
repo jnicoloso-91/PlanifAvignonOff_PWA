@@ -1759,8 +1759,6 @@ main, .page-wrap {
 .bb-ac {
   position: fixed;
   z-index: 99999;
-  /* on laisse JS piloter max-height */
-  max-height: none;
   overflow: auto;
   background: var(--bb-surface, #fff);
   border: 1px solid var(--bb-border, #ccc);
@@ -1768,9 +1766,13 @@ main, .page-wrap {
   box-shadow: 0 6px 24px rgba(0,0,0,.18);
   padding: .25rem;
   font-size: 1rem;
-  overscroll-behavior: contain; /* évite de “tirer” la page en bout de liste */
+  overscroll-behavior: contain;
 }
-.bb-ac__item {
+.bb-ac--docked {
+  left: 8px !important;
+  right: 8px !important;
+  border-radius: .75rem .75rem .5rem .5rem;
+}.bb-ac__item {
   padding: .4rem .6rem;
   cursor: pointer;
   white-space: nowrap;
