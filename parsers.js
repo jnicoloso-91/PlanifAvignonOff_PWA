@@ -1748,17 +1748,53 @@ function _sqlDateToParts(s) {
 }
 
 // Construit Session & Debut à partir de ev.calendar[].dateSummary
+// function _calendarToSessionAndDebut(calendarArr) {
+//   const parts = (calendarArr || [])
+//     .map(c => _sqlDateToParts(c?.dateSummary))
+//     .filter(Boolean);
+//   if (!parts.length) return { Session: null, Debut: null };
+
+//   // Debut = heure du 1er
+//   const first = parts[0];
+//   const Debut = (first.hh!=null && first.mm!=null) ? `${pad2(first.hh)}h${pad2(first.mm)}` : null;
+
+//   // regroupe par (y,mo) pour tolérer plusieurs mois
+//   const byMonth = new Map();
+//   for (const p of parts) {
+//     const key = `${p.y}-${pad2(p.mo)}`;
+//     if (!byMonth.has(key)) byMonth.set(key, new Set());
+//     byMonth.get(key).add(p.d);
+//   }
+
+//   const segments = [];
+//   for (const [key, daysSet] of byMonth) {
+//     const mm = key.slice(5,7);
+//     const days = [...daysSet].map(d => pad2(d)).sort();
+//     const seg = (days.length === 1)
+//       ? `[${days[0]}-${days[0]}]/${mm}`
+//       : `(${days.join(',')})/${mm}`;
+//     segments.push(seg);
+//   }
+
+//   // S'il n'y a qu'un mois, renvoie un seul segment ; sinon join
+//   const Session = segments.length === 1 ? segments[0] : segments.join('; ');
+//   return { Session, Debut };
+// }
 function _calendarToSessionAndDebut(calendarArr) {
   const parts = (calendarArr || [])
-    .map(c => _sqlDateToParts(c?.dateSummary))
+    .map(c => _sqlDateToParts(c?.dateSummary)) // doit renvoyer { y, mo, d, hh, mm }
     .filter(Boolean);
+
   if (!parts.length) return { Session: null, Debut: null };
 
-  // Debut = heure du 1er
-  const first = parts[0];
-  const Debut = (first.hh!=null && first.mm!=null) ? `${pad2(first.hh)}h${pad2(first.mm)}` : null;
+  // Debut = heure du premier créneau (on prend le plus tôt si mélangé)
+  const partsSorted = [...parts].sort((a,b) =>
+    a.y - b.y || a.mo - b.mo || a.d - b.d || (a.hh ?? 0) - (b.hh ?? 0) || (a.mm ?? 0) - (b.mm ?? 0)
+  );
+  const first = partsSorted[0];
+  const Debut = (first.hh != null && first.mm != null) ? `${pad2(first.hh)}h${pad2(first.mm)}` : null;
 
-  // regroupe par (y,mo) pour tolérer plusieurs mois
+  // Regroupe par (y,mo)
   const byMonth = new Map();
   for (const p of parts) {
     const key = `${p.y}-${pad2(p.mo)}`;
@@ -1766,17 +1802,27 @@ function _calendarToSessionAndDebut(calendarArr) {
     byMonth.get(key).add(p.d);
   }
 
+  // Trie les mois (y,mo) pour un rendu stable
+  const monthKeys = [...byMonth.keys()].sort((a,b) => a.localeCompare(b));
+
   const segments = [];
-  for (const [key, daysSet] of byMonth) {
-    const mm = key.slice(5,7);
-    const days = [...daysSet].map(d => pad2(d)).sort();
-    const seg = (days.length === 1)
-      ? `[${days[0]}-${days[0]}]/${mm}`
-      : `(${days.join(',')})/${mm}`;
-    segments.push(seg);
+  for (const key of monthKeys) {
+    const mm = key.slice(5, 7);
+    const days = [...byMonth.get(key)]
+      .map(Number)
+      .filter(Number.isFinite)
+      .sort((a,b) => a - b);
+
+    if (days.length === 1) {
+      // ⟶ jour unique : "DD/MM"
+      segments.push(`${pad2(days[0])}/${mm}`);
+    } else {
+      // ⟶ liste de jours : "(DD,DD,...)/MM"
+      const dlist = days.map(d => pad2(d)).join(',');
+      segments.push(`(${dlist})/${mm}`);
+    }
   }
 
-  // S'il n'y a qu'un mois, renvoie un seul segment ; sinon join
   const Session = segments.length === 1 ? segments[0] : segments.join('; ');
   return { Session, Debut };
 }
