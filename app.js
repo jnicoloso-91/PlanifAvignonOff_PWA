@@ -5583,44 +5583,196 @@ function openSheetFiltres(gridId) {
       //     return o;
       //   }));
       // }
-      function wireDatalistForField(field, rows) {
-        const input = body.querySelector(`#filter-${field}`);
-        if (!input) return;
-        const listId = `dl-${field}`;
-        const dlContainer = body.querySelector('#dl-container');
-        let dl = body.querySelector(`#${listId}`);
-        if (!dl) {
-          dl = document.createElement('datalist');
-          dl.id = listId;
-          dlContainer.appendChild(dl);
+      
+      // function wireDatalistForField(field, rows) {
+      //   const input = body.querySelector(`#filter-${field}`);
+      //   if (!input) return;
+      //   const listId = `dl-${field}`;
+      //   const dlContainer = body.querySelector('#dl-container');
+      //   let dl = body.querySelector(`#${listId}`);
+      //   if (!dl) {
+      //     dl = document.createElement('datalist');
+      //     dl.id = listId;
+      //     dlContainer.appendChild(dl);
+      //   }
+      //   input.setAttribute('list', listId);
+
+      //   const rawValues = uniqueValues(rows, field);
+      //   dl.replaceChildren(); // reset
+
+      //   // éviter les doublons après sanitization
+      //   const seenSanitized = new Set();
+      //   for (const raw of rawValues) {
+      //     const san = sanitizeDatalistValue(raw);
+      //     if (!san) continue;
+      //     if (seenSanitized.has(san)) continue;
+      //     seenSanitized.add(san);
+
+      //     const o = document.createElement('option');
+      //     o.value = san;           // ce que voit/saisit l’utilisateur
+      //     o.dataset.raw = String(raw); // la valeur brute (avec éventuels \r\n réels)
+      //     dl.appendChild(o);
+      //   }
+      // }
+      // function buildFilterLists(rows, fields) { fields.forEach(f => wireDatalistForField(f, rows)); }
+      // buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
+
+      function attachAutocomplete(inp, values, {max=300, minChars=0} = {}) {
+        let box = null, selIdx = -1, open = false;
+        const vv = window.visualViewport;
+
+        function makeBox() {
+          if (box) return box;
+          box = document.createElement('div');
+          box.className = 'bb-ac';
+          box.setAttribute('role','listbox');
+          box.hidden = true;
+          document.body.appendChild(box);
+          return box;
         }
-        input.setAttribute('list', listId);
-
-        const rawValues = uniqueValues(rows, field);
-        dl.replaceChildren(); // reset
-
-        // éviter les doublons après sanitization
-        const seenSanitized = new Set();
-        for (const raw of rawValues) {
-          const san = sanitizeDatalistValue(raw);
-          if (!san) continue;
-          if (seenSanitized.has(san)) continue;
-          seenSanitized.add(san);
-
-          const o = document.createElement('option');
-          o.value = san;           // ce que voit/saisit l’utilisateur
-          o.dataset.raw = String(raw); // la valeur brute (avec éventuels \r\n réels)
-          dl.appendChild(o);
+        function posBox() {
+          if (!box) return;
+          const r = inp.getBoundingClientRect();
+          const gap = 4;
+          const top = r.bottom + gap + (vv ? vv.offsetTop : 0);
+          const left = r.left + (vv ? vv.offsetLeft : 0);
+          box.style.top = `${top}px`;
+          box.style.left = `${left}px`;
+          box.style.minWidth = `${r.width}px`;
         }
+        function render(list) {
+          const b = makeBox();
+          b.innerHTML = '';
+          selIdx = -1;
+          const frag = document.createDocumentFragment();
+          list.slice(0, max).forEach((v, i) => {
+            const it = document.createElement('div');
+            it.className = 'bb-ac__item';
+            it.setAttribute('role','option');
+            it.textContent = v;
+            it.addEventListener('mousedown', (e) => {
+              e.preventDefault();          // empêche blur avant click
+              commit(v);
+            });
+            frag.appendChild(it);
+          });
+          b.appendChild(frag);
+          open = list.length > 0;
+          b.hidden = !open;
+          if (open) posBox();
+        }
+        function commit(val) {
+          inp.value = val;
+          hide();
+          // ferme le clavier pour libérer le footer, à la manière de ta sheet
+          inp.blur?.();
+          setTimeout(() => {
+            const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
+            if (!footer) return;
+            const r = footer.getBoundingClientRect();
+            const vh = window.innerHeight;
+            if (r.bottom > vh) {
+              window.scrollTo({ top: window.scrollY + (r.bottom - vh) + 8, behavior: 'smooth' });
+            }
+          }, 40);
+          // propage tes hooks existants
+          inp.dispatchEvent(new Event('input', { bubbles:true }));
+          inp.dispatchEvent(new Event('change', { bubbles:true }));
+        }
+        function hide() {
+          open = false;
+          if (box) box.hidden = true;
+        }
+        function items() { return box ? Array.from(box.querySelectorAll('.bb-ac__item')) : []; }
+        function highlight(idx) {
+          selIdx = idx;
+          items().forEach((el,i)=>el.setAttribute('aria-selected', String(i===idx)));
+        }
+        function move(delta) {
+          const it = items();
+          if (!it.length) return;
+          let n = selIdx + delta;
+          if (n < 0) n = it.length - 1;
+          if (n >= it.length) n = 0;
+          highlight(n);
+          it[n].scrollIntoView({ block:'nearest' });
+        }
+
+        // filtres (tu peux remplacer par ta sanitize/normalize)
+        const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        function filterNow() {
+          const q = normalize(inp.value);
+          if (q.length < minChars) { hide(); return; }
+          const out = [];
+          for (const v of values) {
+            if (normalize(v).includes(q)) out.push(v);
+          }
+          render(out);
+        }
+
+        // events
+        inp.addEventListener('focus', () => { filterNow(); posBox(); });
+        inp.addEventListener('input', filterNow);
+        inp.addEventListener('keydown', (e) => {
+          if (!open) return;
+          if (e.key === 'ArrowDown') { e.preventDefault(); move(+1); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+          else if (e.key === 'Enter') { 
+            if (selIdx >= 0) { e.preventDefault(); commit(items()[selIdx].textContent); }
+            else hide();
+          } else if (e.key === 'Escape') { hide(); }
+        });
+        inp.addEventListener('blur', () => setTimeout(hide, 100)); // laisse le click se faire
+
+        // suivre déplacements/clavier iOS
+        const rePos = () => { if (open) posBox(); };
+        window.addEventListener('scroll', rePos, true);
+        window.addEventListener('resize', rePos);
+        vv?.addEventListener('resize', rePos);
+        vv?.addEventListener('scroll', rePos);
+
+        return {
+          destroy() {
+            window.removeEventListener('scroll', rePos, true);
+            window.removeEventListener('resize', rePos);
+            vv?.removeEventListener('resize', rePos);
+            vv?.removeEventListener('scroll', rePos);
+            box?.remove();
+            box = null;
+          }
+        };
       }
-      function buildFilterLists(rows, fields) { fields.forEach(f => wireDatalistForField(f, rows)); }
-      buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
 
       const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
       const sheetBody = sheet?.querySelector('.sheet-body') || body;
       const footer    = sheet?.querySelector('.sheet-footer');
-      // const vv        = window.visualViewport;
-      const scrollEl = sheet?.querySelector('.sheet-body .form') || body;
+      const vv        = window.visualViewport;
+      const scrollEl  = sheet?.querySelector('.sheet-body .form') || body;
+
+      // 1️⃣ Récupère les valeurs uniques pour chaque champ filtrable
+      const sourceRows = collectRowsFromGrid(gridApi, 'all');
+      const valuesByField = Object.fromEntries(
+        fields.map(f => [f, uniqueValues(sourceRows, f)])
+      );
+
+      // 2️⃣ Attache un autocompléteur custom sur chaque input
+      const acHandles = [];
+      body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
+        const field = inp.id.replace(/^filter-/, '');
+        const values = valuesByField[field] || [];
+        const ac = attachAutocomplete(inp, values, { max: 500, minChars: 0 });
+        acHandles.push(ac);
+      });
+
+      // 3️⃣ Nettoyage à la fermeture de la sheet (optionnel)
+      const sw = document.querySelector('.sheet-wrap.is-open');
+      if (sw) {
+        sw.addEventListener('transitionend', (ev) => {
+          if (!sw.classList.contains('is-open')) {
+            acHandles.forEach(h => h.destroy());
+          }
+        });
+      }
 
       // hooks visualViewport (iOS)
       // if (vv) {
@@ -5692,7 +5844,7 @@ function openSheetFiltres(gridId) {
       //   // init
       //   sync();
       // });
-      body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
+      body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
         const wrap = inp.closest('.input-wrap');
         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
         const markModified = () => { inp.dataset.modified = 'true'; };
