@@ -5448,17 +5448,37 @@ function openSheetFiltres(gridId) {
       });
 
       // ===== Helpers list/datalist =====
+      function scrollPageToRevealFooter(footerEl, { margin = 12, smooth = true } = {}) {
+        if (!footerEl) return;
+        // viewport visible (en tenant compte d'un éventuel offset top du visualViewport)
+        const vpTop = vv ? vv.offsetTop : 0;
+        const vpH   = vv ? vv.height   : window.innerHeight;
+
+        const rect  = footerEl.getBoundingClientRect();
+        const bottomLimit = vpTop + vpH - margin; // limite basse utile
+
+        if (rect.bottom > bottomLimit) {
+          const delta = rect.bottom - bottomLimit;
+          window.scrollTo({
+            top: window.scrollY + delta,
+            behavior: smooth ? 'smooth' : 'auto'
+          });
+        }
+      }
+      // function pageKbInset() {
+      //   return vv ? Math.max(0, window.innerHeight - vv.height) : 0;
+      // }
       // padding bas pour ne pas que le footer passe sous le clavier
-      function kbInsetPx() {
-        return vv ? Math.max(0, window.innerHeight - vv.height) : 0;
-      }
-      function applyInsets() {
-        const kb = kbInsetPx();
-        const fb = footer?.offsetHeight || 0;
-        sheet?.style.setProperty('--kb-inset', kb + 'px');
-        // on donne de la place à scroller jusqu'au footer au-dessus du clavier
-        sheetBody.style.paddingBottom = `calc(${fb}px + var(--kb-inset, 0px))`;
-      }
+      // function kbInsetPx() {
+      //   return vv ? Math.max(0, window.innerHeight - vv.height) : 0;
+      // }
+      // function applyInsets() {
+      //   const kb = kbInsetPx();
+      //   const fb = footer?.offsetHeight || 0;
+      //   sheet?.style.setProperty('--kb-inset', kb + 'px');
+      //   // on donne de la place à scroller jusqu'au footer au-dessus du clavier
+      //   sheetBody.style.paddingBottom = `calc(${fb}px + var(--kb-inset, 0px))`;
+      // }
 
       // scrolle UNIQUEMENT si la row est masquée par clavier+footer
       function scrollRowIfOccluded(input, { smooth = true } = {}) {
@@ -5599,25 +5619,25 @@ function openSheetFiltres(gridId) {
       const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
       const sheetBody = sheet?.querySelector('.sheet-body') || body;
       const footer    = sheet?.querySelector('.sheet-footer');
-      const vv        = window.visualViewport;
+      // const vv        = window.visualViewport;
       const scrollEl = sheet?.querySelector('.sheet-body .form') || body;
 
       // hooks visualViewport (iOS)
-      if (vv) {
-        const onVV = () => applyInsets();
-        vv.addEventListener('resize', onVV);
-        vv.addEventListener('scroll', onVV);
-        // cleanup quand la sheet est détruite
-        const mo = new MutationObserver(() => {
-          if (sheet && !document.body.contains(sheet)) {
-            vv.removeEventListener('resize', onVV);
-            vv.removeEventListener('scroll', onVV);
-            mo.disconnect();
-          }
-        });
-        mo.observe(document.body, { childList: true, subtree: true });
-      }
-      applyInsets();
+      // if (vv) {
+      //   const onVV = () => applyInsets();
+      //   vv.addEventListener('resize', onVV);
+      //   vv.addEventListener('scroll', onVV);
+      //   // cleanup quand la sheet est détruite
+      //   const mo = new MutationObserver(() => {
+      //     if (sheet && !document.body.contains(sheet)) {
+      //       vv.removeEventListener('resize', onVV);
+      //       vv.removeEventListener('scroll', onVV);
+      //       mo.disconnect();
+      //     }
+      //   });
+      //   mo.observe(document.body, { childList: true, subtree: true });
+      // }
+      // applyInsets();
       
       // ===== RAZ par champ (×) + sync has-val =====
       body.addEventListener('click', (e) => {
@@ -5676,25 +5696,39 @@ function openSheetFiltres(gridId) {
         const wrap = inp.closest('.input-wrap');
         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
         const markModified = () => { inp.dataset.modified = 'true'; };
+        const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
 
         // Tape clavier → on ne scrolle PAS (évite les “sauts”)
         inp.addEventListener('input', () => {
           sync();
           markModified();
-          // Pas de scroll ici
+          if (inp.getAttribute('list')) {
+            // Ferme le clavier → boutons à nouveau cliquables
+            inp.blur();
+            // Laisse iOS animer le clavier, puis scrolle la PAGE pour révéler le footer
+            setTimeout(() => {
+              scrollPageToRevealFooter(footer, { smooth: true });
+            }, 50);
+          }
         });
 
         // Focus → scroller la ROW si masquée
         inp.addEventListener('focus', () => {
-          applyInsets();
+          // applyInsets();
           // petit rafraîchissement visuel avant calcul
           requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: false }));
         });
 
         // Sélection via datalist → scroller la ROW si masquée
         inp.addEventListener('change', () => {
-          applyInsets();
-          requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
+          sync();
+          markModified();
+          // applyInsets();
+          // requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
+          inp.blur();
+          setTimeout(() => {
+            scrollPageToRevealFooter(footer, { smooth: true });
+          }, 50);
         });
 
         // Enter : sécurise aussi
