@@ -5465,14 +5465,6 @@ function openSheetFiltres(gridId) {
           });
         }
       }
-      function withOneShotVV(callback, timeout = 200) {
-        if (!vv) { callback(); return; }
-        let done = false;
-        const off = () => { if (done) return; done = true; vv.removeEventListener('resize', onResize); clearTimeout(tid); };
-        const onResize = () => { off(); callback(); };
-        vv.addEventListener('resize', onResize, { once: true });
-        const tid = setTimeout(() => { off(); callback(); }, timeout);
-      }
       // function pageKbInset() {
       //   return vv ? Math.max(0, window.innerHeight - vv.height) : 0;
       // }
@@ -5700,111 +5692,54 @@ function openSheetFiltres(gridId) {
       //   // init
       //   sync();
       // });
-      // body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
-      //   const wrap = inp.closest('.input-wrap');
-      //   const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
-      //   const markModified = () => { inp.dataset.modified = 'true'; };
-      //   const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
-
-      //   // Tape clavier → on ne scrolle PAS (évite les “sauts”)
-      //   inp.addEventListener('input', () => {
-      //     sync();
-      //     markModified();
-      //     if (inp.getAttribute('list')) {
-      //       // Ferme le clavier → boutons à nouveau cliquables
-      //       inp.blur();
-      //       // Laisse iOS animer le clavier, puis scrolle la PAGE pour révéler le footer
-      //       setTimeout(() => {
-      //         scrollPageToRevealFooter(footer, { smooth: true });
-      //       }, 50);
-      //     }
-      //   });
-
-      //   // Focus → scroller la ROW si masquée
-      //   inp.addEventListener('focus', () => {
-      //     // applyInsets();
-      //     // petit rafraîchissement visuel avant calcul
-      //     requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: false }));
-      //   });
-
-      //   // Sélection via datalist → scroller la ROW si masquée
-      //   inp.addEventListener('change', () => {
-      //     sync();
-      //     markModified();
-      //     // applyInsets();
-      //     // requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
-      //     inp.blur();
-      //     setTimeout(() => {
-      //       scrollPageToRevealFooter(footer, { smooth: true });
-      //     }, 50);
-      //   });
-
-      //   // Enter : sécurise aussi
-      //   inp.addEventListener('keydown', (ev) => {
-      //     if (ev.key === 'Enter') {
-      //       requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
-      //     }
-      //     if (ev.key === 'Escape') {
-      //       inp.value = '';
-      //       inp.dispatchEvent(new Event('input', { bubbles: true }));
-      //     }
-      //   });
-
-      //   sync(); // init visuelle
-      // });
       body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
         const wrap = inp.closest('.input-wrap');
-        const listId = inp.getAttribute('list');
-        const dl = listId ? body.querySelector('#' + listId) : null;
-
         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
         const markModified = () => { inp.dataset.modified = 'true'; };
+        const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
 
-        // Cas normal: on tape → pas de scroll
+        // Tape clavier → on ne scrolle PAS (évite les “sauts”)
         inp.addEventListener('input', () => {
-          sync(); markModified();
-
-          // --- Heuristique datalist (un seul item OU valeur inchangée) ---
-          if (dl) {
-            const onlyOne = dl.options?.length === 1;
-            const sameAsOnly = onlyOne && dl.options[0].value === inp.value;
-            // Si on retape le même filtre (sélection identique) iOS a tendance à ouvrir le clavier : force blur + scroll
-            if (onlyOne || sameAsOnly) {
-              // fermer le clavier immédiatement
-              inp.blur();
-              // laisser iOS finir son micro-cycle, puis révéler le footer
-              setTimeout(() => scrollPageToRevealFooter(footer, { smooth: true }), 50);
-
-              // filet de sécurité: si le clavier s’est ouvert quand même, rescroll après le resize du viewport
-              withOneShotVV(() => scrollPageToRevealFooter(footer, { smooth: true }), 220);
-            }
-          }
-        });
-
-        // iOS déclenche parfois seulement 'change' après la sélection dans datalist
-        inp.addEventListener('change', () => {
-          sync(); markModified();
-          if (dl) {
+          sync();
+          markModified();
+          if (inp.getAttribute('list')) {
+            // Ferme le clavier → boutons à nouveau cliquables
             inp.blur();
-            setTimeout(() => scrollPageToRevealFooter(footer, { smooth: true }), 50);
-            withOneShotVV(() => scrollPageToRevealFooter(footer, { smooth: true }), 220);
+            // Laisse iOS animer le clavier, puis scrolle la PAGE pour révéler le footer
+            setTimeout(() => {
+              scrollPageToRevealFooter(footer, { smooth: true });
+            }, 50);
           }
         });
 
-        // Enter: petit confort
+        // Focus → scroller la ROW si masquée
+        inp.addEventListener('focus', () => {
+          // applyInsets();
+          // petit rafraîchissement visuel avant calcul
+          requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: false }));
+        });
+
+        // Sélection via datalist → scroller la ROW si masquée
+        inp.addEventListener('change', () => {
+          sync();
+          markModified();
+          // applyInsets();
+          // requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
+          inp.blur();
+          setTimeout(() => {
+            scrollPageToRevealFooter(footer, { smooth: true });
+          }, 50);
+        });
+
+        // Enter : sécurise aussi
         inp.addEventListener('keydown', (ev) => {
           if (ev.key === 'Enter') {
-            setTimeout(() => scrollPageToRevealFooter(footer, { smooth: true }), 0);
+            requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
           }
           if (ev.key === 'Escape') {
             inp.value = '';
             inp.dispatchEvent(new Event('input', { bubbles: true }));
           }
-        });
-
-        // Focus: on s’assure que la row est visible, sans scroller si inutile
-        inp.addEventListener('focus', () => {
-          // rien de spécial ici pour éviter les "sauts" pendant la frappe
         });
 
         sync(); // init visuelle
