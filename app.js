@@ -5617,131 +5617,285 @@ function openSheetFiltres(gridId) {
       // function buildFilterLists(rows, fields) { fields.forEach(f => wireDatalistForField(f, rows)); }
       // buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
 
-      function attachAutocomplete(inp, values, {max=300, minChars=0} = {}) {
-        let box = null, selIdx = -1, open = false;
-        const vv = window.visualViewport;
+      // function attachAutocomplete(inp, values, {max=300, minChars=0} = {}) {
+      //   let box = null, selIdx = -1, open = false;
+      //   const vv = window.visualViewport;
 
-        function makeBox() {
-          if (box) return box;
-          box = document.createElement('div');
-          box.className = 'bb-ac';
-          box.setAttribute('role','listbox');
-          box.hidden = true;
-          document.body.appendChild(box);
-          return box;
-        }
-        function posBox() {
-          if (!box) return;
-          const r = inp.getBoundingClientRect();
-          const gap = 4;
-          const top = r.bottom + gap + (vv ? vv.offsetTop : 0);
-          const left = r.left + (vv ? vv.offsetLeft : 0);
-          box.style.top = `${top}px`;
-          box.style.left = `${left}px`;
-          box.style.minWidth = `${r.width}px`;
-        }
-        function render(list) {
-          const b = makeBox();
-          b.innerHTML = '';
-          selIdx = -1;
-          const frag = document.createDocumentFragment();
-          list.slice(0, max).forEach((v, i) => {
-            const it = document.createElement('div');
-            it.className = 'bb-ac__item';
-            it.setAttribute('role','option');
-            it.textContent = v;
-            it.addEventListener('mousedown', (e) => {
-              e.preventDefault();          // empêche blur avant click
-              commit(v);
-            });
-            frag.appendChild(it);
-          });
-          b.appendChild(frag);
-          open = list.length > 0;
-          b.hidden = !open;
-          if (open) posBox();
-        }
-        function commit(val) {
-          inp.value = val;
-          hide();
-          // ferme le clavier pour libérer le footer, à la manière de ta sheet
-          inp.blur?.();
-          setTimeout(() => {
-            const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
-            if (!footer) return;
-            const r = footer.getBoundingClientRect();
-            const vh = window.innerHeight;
-            if (r.bottom > vh) {
-              window.scrollTo({ top: window.scrollY + (r.bottom - vh) + 8, behavior: 'smooth' });
-            }
-          }, 40);
-          // propage tes hooks existants
-          inp.dispatchEvent(new Event('input', { bubbles:true }));
-          inp.dispatchEvent(new Event('change', { bubbles:true }));
-        }
-        function hide() {
-          open = false;
-          if (box) box.hidden = true;
-        }
-        function items() { return box ? Array.from(box.querySelectorAll('.bb-ac__item')) : []; }
-        function highlight(idx) {
-          selIdx = idx;
-          items().forEach((el,i)=>el.setAttribute('aria-selected', String(i===idx)));
-        }
-        function move(delta) {
-          const it = items();
-          if (!it.length) return;
-          let n = selIdx + delta;
-          if (n < 0) n = it.length - 1;
-          if (n >= it.length) n = 0;
-          highlight(n);
-          it[n].scrollIntoView({ block:'nearest' });
-        }
+      //   function makeBox() {
+      //     if (box) return box;
+      //     box = document.createElement('div');
+      //     box.className = 'bb-ac';
+      //     box.setAttribute('role','listbox');
+      //     box.hidden = true;
+      //     document.body.appendChild(box);
+      //     return box;
+      //   }
+      //   function posBox() {
+      //     if (!box) return;
+      //     const r = inp.getBoundingClientRect();
+      //     const gap = 4;
+      //     const top = r.bottom + gap + (vv ? vv.offsetTop : 0);
+      //     const left = r.left + (vv ? vv.offsetLeft : 0);
+      //     box.style.top = `${top}px`;
+      //     box.style.left = `${left}px`;
+      //     box.style.minWidth = `${r.width}px`;
+      //   }
+      //   function render(list) {
+      //     const b = makeBox();
+      //     b.innerHTML = '';
+      //     selIdx = -1;
+      //     const frag = document.createDocumentFragment();
+      //     list.slice(0, max).forEach((v, i) => {
+      //       const it = document.createElement('div');
+      //       it.className = 'bb-ac__item';
+      //       it.setAttribute('role','option');
+      //       it.textContent = v;
+      //       it.addEventListener('mousedown', (e) => {
+      //         e.preventDefault();          // empêche blur avant click
+      //         commit(v);
+      //       });
+      //       frag.appendChild(it);
+      //     });
+      //     b.appendChild(frag);
+      //     open = list.length > 0;
+      //     b.hidden = !open;
+      //     if (open) posBox();
+      //   }
+      //   function commit(val) {
+      //     inp.value = val;
+      //     hide();
+      //     // ferme le clavier pour libérer le footer, à la manière de ta sheet
+      //     inp.blur?.();
+      //     setTimeout(() => {
+      //       const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
+      //       if (!footer) return;
+      //       const r = footer.getBoundingClientRect();
+      //       const vh = window.innerHeight;
+      //       if (r.bottom > vh) {
+      //         window.scrollTo({ top: window.scrollY + (r.bottom - vh) + 8, behavior: 'smooth' });
+      //       }
+      //     }, 40);
+      //     // propage tes hooks existants
+      //     inp.dispatchEvent(new Event('input', { bubbles:true }));
+      //     inp.dispatchEvent(new Event('change', { bubbles:true }));
+      //   }
+      //   function hide() {
+      //     open = false;
+      //     if (box) box.hidden = true;
+      //   }
+      //   function items() { return box ? Array.from(box.querySelectorAll('.bb-ac__item')) : []; }
+      //   function highlight(idx) {
+      //     selIdx = idx;
+      //     items().forEach((el,i)=>el.setAttribute('aria-selected', String(i===idx)));
+      //   }
+      //   function move(delta) {
+      //     const it = items();
+      //     if (!it.length) return;
+      //     let n = selIdx + delta;
+      //     if (n < 0) n = it.length - 1;
+      //     if (n >= it.length) n = 0;
+      //     highlight(n);
+      //     it[n].scrollIntoView({ block:'nearest' });
+      //   }
 
-        // filtres (tu peux remplacer par ta sanitize/normalize)
-        const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        function filterNow() {
-          const q = normalize(inp.value);
-          if (q.length < minChars) { hide(); return; }
-          const out = [];
-          for (const v of values) {
-            if (normalize(v).includes(q)) out.push(v);
-          }
-          render(out);
-        }
+      //   // filtres (tu peux remplacer par ta sanitize/normalize)
+      //   const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      //   function filterNow() {
+      //     const q = normalize(inp.value);
+      //     if (q.length < minChars) { hide(); return; }
+      //     const out = [];
+      //     for (const v of values) {
+      //       if (normalize(v).includes(q)) out.push(v);
+      //     }
+      //     render(out);
+      //   }
 
-        // events
-        inp.addEventListener('focus', () => { filterNow(); posBox(); });
-        inp.addEventListener('input', filterNow);
-        inp.addEventListener('keydown', (e) => {
-          if (!open) return;
-          if (e.key === 'ArrowDown') { e.preventDefault(); move(+1); }
-          else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
-          else if (e.key === 'Enter') { 
-            if (selIdx >= 0) { e.preventDefault(); commit(items()[selIdx].textContent); }
-            else hide();
-          } else if (e.key === 'Escape') { hide(); }
-        });
-        inp.addEventListener('blur', () => setTimeout(hide, 100)); // laisse le click se faire
+      //   // events
+      //   inp.addEventListener('focus', () => { filterNow(); posBox(); });
+      //   inp.addEventListener('input', filterNow);
+      //   inp.addEventListener('keydown', (e) => {
+      //     if (!open) return;
+      //     if (e.key === 'ArrowDown') { e.preventDefault(); move(+1); }
+      //     else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+      //     else if (e.key === 'Enter') { 
+      //       if (selIdx >= 0) { e.preventDefault(); commit(items()[selIdx].textContent); }
+      //       else hide();
+      //     } else if (e.key === 'Escape') { hide(); }
+      //   });
+      //   inp.addEventListener('blur', () => setTimeout(hide, 100)); // laisse le click se faire
 
-        // suivre déplacements/clavier iOS
-        const rePos = () => { if (open) posBox(); };
-        window.addEventListener('scroll', rePos, true);
-        window.addEventListener('resize', rePos);
-        vv?.addEventListener('resize', rePos);
-        vv?.addEventListener('scroll', rePos);
+      //   // suivre déplacements/clavier iOS
+      //   const rePos = () => { if (open) posBox(); };
+      //   window.addEventListener('scroll', rePos, true);
+      //   window.addEventListener('resize', rePos);
+      //   vv?.addEventListener('resize', rePos);
+      //   vv?.addEventListener('scroll', rePos);
 
-        return {
-          destroy() {
-            window.removeEventListener('scroll', rePos, true);
-            window.removeEventListener('resize', rePos);
-            vv?.removeEventListener('resize', rePos);
-            vv?.removeEventListener('scroll', rePos);
-            box?.remove();
-            box = null;
-          }
-        };
+      //   return {
+      //     destroy() {
+      //       window.removeEventListener('scroll', rePos, true);
+      //       window.removeEventListener('resize', rePos);
+      //       vv?.removeEventListener('resize', rePos);
+      //       vv?.removeEventListener('scroll', rePos);
+      //       box?.remove();
+      //       box = null;
+      //     }
+      //   };
+      // }
+function attachAutocomplete(inp, values, { max = 500, minChars = 0 } = {}) {
+  let box = null, selIdx = -1, open = false;
+  const vv = window.visualViewport;
+
+  function makeBox() {
+    if (box) return box;
+    box = document.createElement('div');
+    box.className = 'bb-ac';
+    box.setAttribute('role','listbox');
+    box.hidden = true;
+    document.body.appendChild(box);
+    return box;
+  }
+
+  // ---- ➜ NOUVEAU positionneur “intelligent” (haut/bas + clamp hauteur) ----
+  function posBox() {
+    if (!box || box.hidden) return;
+
+    const r = inp.getBoundingClientRect();
+    const insetTop  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('padding-top')) || 0;
+    const insetBot  = 0; // on peut lire env(safe-area-inset-bottom) via CSS si besoin
+    const gap = 6;
+
+    const vpY = vv ? vv.offsetTop : 0;
+    const vpX = vv ? vv.offsetLeft : 0;
+    const vpH = vv ? vv.height    : window.innerHeight;
+    const vpW = vv ? vv.width     : window.innerWidth;
+
+    // Espace disponible sous et au-dessus de l'input (dans le viewport utile)
+    const spaceBelow = Math.max(0, (vpY + vpH) - (r.bottom + gap));
+    const spaceAbove = Math.max(0, (r.top - gap) - vpY);
+
+    // largeur minimale = largeur de l'input, mais on “clamp” à la largeur du viewport
+    const minW = Math.min(r.width, vpW - 12);
+    box.style.minWidth = `${minW}px`;
+
+    // On positionne d’abord “sous” l’input par défaut
+    let place = 'bottom';
+    if (spaceBelow < 160 && spaceAbove > spaceBelow) place = 'top';
+
+    // On fixe temporairement une hauteur max optimiste, puis on mesure et re-clamp
+    const targetSpace = place === 'bottom' ? spaceBelow : spaceAbove;
+    const maxH = Math.max(120, Math.min(480, targetSpace - insetBot - 4));
+    box.style.maxHeight = `${maxH}px`;
+
+    // Position X/Y initiale
+    const left = r.left + vpX;
+    box.style.left = `${Math.max(6, Math.min(left, vpX + vpW - minW - 6))}px`;
+
+    if (place === 'bottom') {
+      const top = r.bottom + gap + vpY;
+      box.style.top = `${top}px`;
+      box.style.bottom = '';
+    } else {
+      // placer au-dessus : top = (haut du viewport) + (espace au-dessus) - hauteur box
+      box.style.bottom = `${(vpY + vpH) - (r.top - gap)}px`;
+      box.style.top = '';
+    }
+
+    // Re-clamp une fois la box peinte (hauteur réelle connue)
+    requestAnimationFrame(() => {
+      if (!box || box.hidden) return;
+      const bh = box.getBoundingClientRect().height;
+      if (bh > targetSpace) {
+        box.style.maxHeight = `${Math.max(120, targetSpace - 8)}px`;
       }
+    });
+  }
+
+  function hide() { open = false; if (box) box.hidden = true; }
+  function show() { open = true; makeBox().hidden = false; posBox(); }
+
+  function render(list) {
+    const b = makeBox();
+    b.innerHTML = '';
+    selIdx = -1;
+    const frag = document.createDocumentFragment();
+    list.slice(0, max).forEach((v) => {
+      const it = document.createElement('div');
+      it.className = 'bb-ac__item';
+      it.setAttribute('role','option');
+      it.textContent = v;
+      it.addEventListener('mousedown', (e) => { e.preventDefault(); commit(v); });
+      frag.appendChild(it);
+    });
+    b.appendChild(frag);
+    if (list.length) { show(); } else { hide(); }
+  }
+
+  function commit(val) {
+    inp.value = val;
+    hide();
+    inp.blur?.();
+    setTimeout(() => {
+      const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
+      if (!footer) return;
+      const r = footer.getBoundingClientRect();
+      const vh = window.innerHeight;
+      if (r.bottom > vh) {
+        window.scrollTo({ top: window.scrollY + (r.bottom - vh) + 8, behavior: 'smooth' });
+      }
+    }, 40);
+    inp.dispatchEvent(new Event('input', { bubbles:true }));
+    inp.dispatchEvent(new Event('change', { bubbles:true }));
+  }
+
+  // … (tes filtres/normalize existants)
+  const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  function filterNow() {
+    const q = normalize(inp.value);
+    const out = !q ? values.slice(0, max)
+                   : values.filter(v => normalize(v).includes(q)).slice(0, max);
+    render(out);
+  }
+
+  // Events
+  inp.addEventListener('focus', () => { filterNow(); posBox(); });
+  inp.addEventListener('input', filterNow);
+  inp.addEventListener('keydown', (e) => {
+    if (!open) return;
+    if (e.key === 'Escape') hide();
+  });
+  inp.addEventListener('blur', () => setTimeout(hide, 100));
+
+  // Click-outside pour fermer (depuis réponse précédente)
+  const onPointerDown = (e) => {
+    if (!open) return;
+    const t = e.target;
+    if (t === inp) return;
+    if (box && box.contains(t)) return;
+    hide();
+  };
+  document.addEventListener('pointerdown', onPointerDown, true);
+
+  // Repositionner si clavier/viewport bouge
+  const rePos = () => { if (open) posBox(); };
+  window.addEventListener('scroll', rePos, true);
+  window.addEventListener('resize', rePos);
+  vv?.addEventListener('resize', rePos);
+  vv?.addEventListener('scroll', rePos);
+
+  return {
+    destroy() {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('scroll', rePos, true);
+      window.removeEventListener('resize', rePos);
+      vv?.removeEventListener('resize', rePos);
+      vv?.removeEventListener('scroll', rePos);
+      box?.remove();
+      box = null;
+    }
+  };
+}
+
 
       const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
       const sheetBody = sheet?.querySelector('.sheet-body') || body;

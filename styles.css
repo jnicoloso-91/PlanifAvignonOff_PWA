@@ -1744,8 +1744,8 @@ main, .page-wrap {
 }
 
 /* menu flottant ancré à l'input */
-.bb-ac {
-  position: fixed;           /* ancré viewport = stable avec clavier iOS */
+/* .bb-ac {
+  position: fixed;           
   z-index: 99999;
   max-height: 40vh;
   overflow: auto;
@@ -1755,6 +1755,20 @@ main, .page-wrap {
   box-shadow: 0 6px 24px rgba(0,0,0,.18);
   padding: .25rem;
   font-size: 1rem;
+} */
+.bb-ac {
+  position: fixed;
+  z-index: 99999;
+  /* on laisse JS piloter max-height */
+  max-height: none;
+  overflow: auto;
+  background: var(--bb-surface, #fff);
+  border: 1px solid var(--bb-border, #ccc);
+  border-radius: .5rem;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18);
+  padding: .25rem;
+  font-size: 1rem;
+  overscroll-behavior: contain; /* évite de “tirer” la page en bout de liste */
 }
 .bb-ac__item {
   padding: .4rem .6rem;
