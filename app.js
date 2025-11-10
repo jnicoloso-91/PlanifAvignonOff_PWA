@@ -5379,11 +5379,6 @@ function openSheetFiltres(gridId) {
   const columns = (gridApi.getColumnDefs?.() || []).filter(col => col.filter);
   const fields = columns.map(c => c.field);
 
-  const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
-  const sheetBody = sheet?.querySelector('.sheet-body') || body;
-  const footer    = sheet?.querySelector('.sheet-footer');
-  const vv        = window.visualViewport;
-
   openSheetExclusive({
     title: 'Filtres',
     panelHeight: '50vh',
@@ -5484,6 +5479,35 @@ function openSheetFiltres(gridId) {
           sheetBody.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
         }
       }
+      // function isKbOpen() {
+      //   return vv ? (window.innerHeight - vv.height) > 120 : false;
+      // }
+      // function applyKbInsets() {
+      //   if (!sheet || !scrollEl) return;
+      //   const kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height)) : 0;
+      //   sheet.style.setProperty('--kb-inset', (isKbOpen() ? kb : 0) + 'px');
+      //   const footerH = footer?.offsetHeight || 0;
+      //   scrollEl.style.paddingBottom = `calc(${footerH}px + var(--kb-inset, 0px))`;
+      // }
+      // function ensureFooterVisible({target=null, smooth=true} = {}) {
+      //   if (!scrollEl) return;
+      //   applyKbInsets();
+      //   // priorité: si un input a le focus, l’amener au centre
+      //   if (target && target.scrollIntoView) {
+      //     target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
+      //   }
+      //   // puis s’assurer que le footer n’est pas sous le clavier
+      //   requestAnimationFrame(() => {
+      //     const footerBottom = footer?.getBoundingClientRect?.().bottom ?? 0;
+      //     const safeHeight   = vv ? vv.height : window.innerHeight;
+      //     if (footerBottom > safeHeight - 8) {
+      //       scrollEl.scrollTo({
+      //         top: scrollEl.scrollTop + (footerBottom - safeHeight + 16),
+      //         behavior: smooth ? 'smooth' : 'auto'
+      //       });
+      //     }
+      //   });
+      // }
       // Remplace CR/LF réels ET littéraux (\r\n, \n, \r) par un espace pour l’affichage
       function sanitizeDatalistValue(s) {
         return String(s)
@@ -5571,6 +5595,12 @@ function openSheetFiltres(gridId) {
       }
       function buildFilterLists(rows, fields) { fields.forEach(f => wireDatalistForField(f, rows)); }
       buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
+
+      const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
+      const sheetBody = sheet?.querySelector('.sheet-body') || body;
+      const footer    = sheet?.querySelector('.sheet-footer');
+      const vv        = window.visualViewport;
+      const scrollEl = sheet?.querySelector('.sheet-body .form') || body;
 
       // hooks visualViewport (iOS)
       if (vv) {
@@ -5769,13 +5799,13 @@ function openSheetFiltres(gridId) {
       // ===== iOS/iPadOS keyboard-safe: gérer la "zone morte" au repli du clavier =====
       // expose hauteur footer pour padding initial
       if (sheet) sheet.style.setProperty('--sheet-footer-h', `${footer?.offsetHeight || 0}px`);
-      if (sheetBody && sheet) sheetBody.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
+      if (scrollEl && sheet) scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
 
       let kbOpen = false;
       const handlers = [];
 
       const onVVChange = () => {
-        if (!sheet || !sheetBody || !vv) return;
+        if (!sheet || !scrollEl || !vv) return;
         // heuristique d’ouverture clavier
         const isOpen = (window.innerHeight - vv.height) > 120;
 
@@ -5783,24 +5813,24 @@ function openSheetFiltres(gridId) {
           kbOpen = true;
           const kb = Math.max(0, Math.round(window.innerHeight - vv.height));
           sheet.style.setProperty('--kb-inset', kb + 'px');
-          sheetBody.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
-          sheetBody.style.pointerEvents = 'auto';
+          scrollEl.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
+          scrollEl.style.pointerEvents = 'auto';
         }
         if (!isOpen && kbOpen) {
           kbOpen = false;
           sheet.style.setProperty('--kb-inset', '0px');
-          sheetBody.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
+          scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
           // force un léger repaint pour tuer la zone morte
           // eslint-disable-next-line no-unused-expressions
           sheet.offsetHeight;
           sheet.classList.add('repaint');
           requestAnimationFrame(() => sheet.classList.remove('repaint'));
-          sheetBody.style.pointerEvents = 'auto';
+          scrollEl.style.pointerEvents = 'auto';
           // poke scroll pour réveiller WebKit
           requestAnimationFrame(() => {
-            const y = sheetBody.scrollTop;
-            sheetBody.scrollTop = Math.max(0, y - 1);
-            sheetBody.scrollTop = Math.max(0, y);
+            const y = scrollEl.scrollTop;
+            scrollEl.scrollTop = Math.max(0, y - 1);
+            scrollEl.scrollTop = Math.max(0, y);
           });
         }
       };
