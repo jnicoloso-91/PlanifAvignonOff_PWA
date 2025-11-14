@@ -1290,6 +1290,26 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
     }
   }
 
+  // // --- Jours isolés de représentation (hors [], <> et ())
+  // {
+  //   const sessionStripped = sessionTxt
+  //     .replace(/\([^)]*\)/g, ' ')     // retire ( ... )
+  //     .replace(/\[[^\]]*\]/g, ' ')    // retire [ ... ]
+  //     .replace(/<[^>]*>/g, ' ')       // retire < ... >
+  //     .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')     // retire "14h" / "14h30"
+  //     .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');// retire "55min"
+
+  //   for (const m of sessionStripped.matchAll(/\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g)) {
+  //     const d  = Number(m[1]);
+  //     const mm = m[2] ? Number(m[2]) : dm;              // défaut = mois de dateVal
+  //     const yy = m[3] ? y2k(Number(m[3])) : dy;         // défaut = année de dateVal
+  //     if (Number.isFinite(d) && d >= 1 && d <= 31 &&
+  //         Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
+  //         Number.isFinite(yy)) {
+  //       regroupSessionDays.push(mkDateInt(yy, mm, d));
+  //     }
+  //   }
+  // }
   // --- Jours isolés de représentation (hors [], <> et ())
   {
     const sessionStripped = sessionTxt
@@ -1299,10 +1319,17 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
       .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')     // retire "14h" / "14h30"
       .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');// retire "55min"
 
-    for (const m of sessionStripped.matchAll(/\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g)) {
+    const reIso = /\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g;
+    for (const m of sessionStripped.matchAll(reIso)) {
+      const startIdx = m.index ?? 0;
+
+      // ⭐ NOUVEAU : si le nombre commence juste après un "/",
+      // on considère que c'est un mois ("/07") et PAS un jour isolé
+      if (startIdx > 0 && sessionStripped[startIdx - 1] === '/') continue;
+
       const d  = Number(m[1]);
-      const mm = m[2] ? Number(m[2]) : dm;              // défaut = mois de dateVal
-      const yy = m[3] ? y2k(Number(m[3])) : dy;         // défaut = année de dateVal
+      const mm = m[2] ? Number(m[2]) : dm;      // défaut = mois de dateVal
+      const yy = m[3] ? y2k(Number(m[3])) : dy; // défaut = année de dateVal
       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
           Number.isFinite(yy)) {
@@ -1342,6 +1369,26 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
     }
   }
 
+  // // --- Jours isolés de relâche (hors [], <> et ())
+  // {
+  //   const relacheStripped = relacheTxt
+  //     .replace(/\([^)]*\)/g, ' ')
+  //     .replace(/\[[^\]]*\]/g, ' ')
+  //     .replace(/<[^>]*>/g, ' ')
+  //     .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')
+  //     .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');
+
+  //   for (const m of relacheStripped.matchAll(/\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g)) {
+  //     const d  = Number(m[1]);
+  //     const mm = m[2] ? Number(m[2]) : dm;              // défaut = mois de dateVal
+  //     const yy = m[3] ? y2k(Number(m[3])) : dy;
+  //     if (Number.isFinite(d) && d >= 1 && d <= 31 &&
+  //         Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
+  //         Number.isFinite(yy)) {
+  //       regroupRelacheDays.push(mkDateInt(yy, mm, d));
+  //     }
+  //   }
+  // }
   // --- Jours isolés de relâche (hors [], <> et ())
   {
     const relacheStripped = relacheTxt
@@ -1351,9 +1398,15 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
       .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')
       .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');
 
-    for (const m of relacheStripped.matchAll(/\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g)) {
+    const reIso = /\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g;
+    for (const m of relacheStripped.matchAll(reIso)) {
+      const startIdx = m.index ?? 0;
+
+      // ⭐ NOUVEAU : ne pas interpréter "/07" comme un jour isolé
+      if (startIdx > 0 && relacheStripped[startIdx - 1] === '/') continue;
+
       const d  = Number(m[1]);
-      const mm = m[2] ? Number(m[2]) : dm;              // défaut = mois de dateVal
+      const mm = m[2] ? Number(m[2]) : dm;
       const yy = m[3] ? y2k(Number(m[3])) : dy;
       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
