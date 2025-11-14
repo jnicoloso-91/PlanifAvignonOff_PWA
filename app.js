@@ -6007,6 +6007,13 @@ function openSheetFiltres(gridId) {
           sheet.style.setProperty('--kb-inset', kb + 'px');
           scrollEl.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
           scrollEl.style.pointerEvents = 'auto';
+          
+          // 🔹 NOUVEAU : quand le clavier s’ouvre, on s’assure que le footer est visible
+          if (footer) {
+            setTimeout(() => {
+              scrollPageToRevealFooter(footer, { smooth: true });
+            }, 30);
+          }
         }
         if (!isOpen && kbOpen) {
           kbOpen = false;
