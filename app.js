@@ -3349,7 +3349,7 @@ const fileMenuSheetInnerHtml = () => {
       <li class="file-sheet__item" data-action="exportIcs">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
-          <span class="file-sheet__titleText">Exporter vers le calendrier</span>
+          <span class="file-sheet__titleText">Exporter vers calendrier</span>
           <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier ics</span>
         </div>
       </li>
@@ -5860,14 +5860,14 @@ function openSheetFiltres(gridId) {
         inp.addEventListener('input', () => {
           sync();
           markModified();
-          if (inp.getAttribute('list')) {
-            // Ferme le clavier → boutons à nouveau cliquables
-            inp.blur();
-            // Laisse iOS animer le clavier, puis scrolle la PAGE pour révéler le footer
-            setTimeout(() => {
-              scrollPageToRevealFooter(footer, { smooth: true });
-            }, 50);
-          }
+          // if (inp.getAttribute('list')) {
+          //   // Ferme le clavier → boutons à nouveau cliquables
+          //   inp.blur();
+          //   // Laisse iOS animer le clavier, puis scrolle la PAGE pour révéler le footer
+          //   setTimeout(() => {
+          //     scrollPageToRevealFooter(footer, { smooth: true });
+          //   }, 50);
+          // }
         });
 
         // Focus → scroller la ROW si masquée
