@@ -2761,7 +2761,7 @@ async function doExportExcel() {
     })
     
     cleanData = cleanRows(cleanData, 
-      ["__uuid", "Hyperlien", "__order"],
+      ["__uuid", "Hyperlien", "__order", "__type_activite", "__index"],
       { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Validité", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité" },
       [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Validité", "Relâches", "Style", "Orga", "Réservé", "Priorité" ],
       false
@@ -2813,7 +2813,7 @@ async function doExportExcel() {
       XLSX.utils.book_append_sheet(wb, wsCarnet, 'Carnet');
     }
 
-    XLSX.writeFile(wb, 'planning.xlsx');
+    XLSX.writeFile(wb, 'In & Off.xlsx');
   } catch (e) {
     console.error(e);
     alert('❌ Export KO');
@@ -3315,42 +3315,42 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Nouveau programme</span>
-          <span class="file-sheet__subtitle">Réinitialise le planning</span>
+          <span class="file-sheet__subtitle">Réinitialise le programme d'activités</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="open">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer depuis Excel</span>
-          <span class="file-sheet__subtitle">Choisissez un fichier Excel contenant une liste d'activités</span>
+          <span class="file-sheet__subtitle">Importe un fichier Excel contenant une liste d'activités</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importCatIn">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer depuis le catalogue du In</span>
-          <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du In</span>
+          <span class="file-sheet__subtitle">Importe le programme du catalogue du In</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importCatOff">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer depuis le catalogue du Off</span>
-          <span class="file-sheet__subtitle">Importer depuis une copie de texte faite dans le programme du catalogue du Off</span>
+          <span class="file-sheet__subtitle">Importe le programme du catalogue du Off</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="exportExcel">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers Excel</span>
-          <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier Excel</span>
+          <span class="file-sheet__subtitle">Sauvegarde la liste d'activités dans un fichier Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="exportIcs">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers calendrier</span>
-          <span class="file-sheet__subtitle">Sauvegarde le planning courant dans un fichier ics</span>
+          <span class="file-sheet__subtitle">Exporte le filtre sur le programme d'activités vers l'application calendrier</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="rapportCoherence">
@@ -3368,7 +3368,7 @@ const fileMenuSheetInnerHtml = () => {
         </svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Rapport de vérification de cohérence</span>
-          <span class="file-sheet__subtitle">Edite un rapport sur la cohérence des données (chevauchements, formats)</span>
+          <span class="file-sheet__subtitle">Edite un rapport sur la cohérence de la liste d'activités (chevauchements, formats)</span>
         </div>
       </li>
     </ul>
@@ -4872,11 +4872,6 @@ function openSheetParams() {
           </div>
 
           <div class="form-row">
-            <label>Durée des pauses café (min)</label>
-            <input id="p-cafe" type="number" min="0" step="5" value="${dureeCafe}"/>
-          </div>
-
-          <div class="form-row">
             <label>Application itinéraire</label>
             <select id="p-itin">
               <option ${itin==='Google Maps Web' ? 'selected':''}>Google Maps Web</option>
@@ -4908,11 +4903,16 @@ function openSheetParams() {
         </div>
       `;
 
+          // <div class="form-row">
+          //   <label>Durée des pauses café (min)</label>
+          //   <input id="p-cafe" type="number" min="0" step="5" value="${dureeCafe}"/>
+          // </div>
+
       const $deb = body.querySelector('#pp-debut');
       const $fin = body.querySelector('#pp-fin');
       const $mar = body.querySelector('#p-marge');
       const $rep = body.querySelector('#p-repas');
-      const $caf = body.querySelector('#p-cafe');
+      // const $caf = body.querySelector('#p-cafe');
       const $it  = body.querySelector('#p-itin');
       const $ci  = body.querySelector('#p-city');
 
@@ -4928,7 +4928,7 @@ function openSheetParams() {
 
         const mar = Math.max(0, Number($mar.value||0)|0);
         const rep = Math.max(0, Number($rep.value||0)|0);
-        const caf = Math.max(0, Number($caf.value||0)|0);
+        const caf = 30; //Math.max(0, Number($caf.value||0)|0);
         const it = $it.value;
         const ci = $ci.value;
 
@@ -5003,7 +5003,6 @@ function openSheetAide() {
             <ul style="margin-top: 0em; margin-bottom: 0.5em">
               <li>30 minutes de marge entre activités</li>
               <li>1 heure par pause repas</li>
-              <li>1/2 heure par pause café sans marge avec l'activité précédente ou suivante</li>
               <li>Respect des périodes pendant lesquelles l'activité est valide et des périodes ou jours de relâche.</li>
             </ul>
             <p>Ces valeurs par défaut sont paramétrables via le menu .../Paramètres.</p>
