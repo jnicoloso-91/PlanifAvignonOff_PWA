@@ -1767,13 +1767,16 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
 
   // 5) Reconstruire la liste finale des colDefs
   const newColDefs = [];
+  let hyperlinkCol = null;
+
+  // a) Construire toutes les colonnes sauf "Hyperlien"
   for (const field of knownFields) {
+    if (field === 'Hyperlien') continue;  // on la traitera ensuite
+
     const base = baseMap.get(field);
     if (base) {
-      // On réutilise tel quel le colDef de base
       newColDefs.push(base);
     } else {
-      // Colonne “supplémentaire” : on crée un colDef générique
       newColDefs.push({
         field,
         headerName: field,
@@ -1783,6 +1786,20 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
         filter: true,
       });
     }
+  }
+
+  // b) Ajouter "Hyperlien" en dernier si présente
+  if (knownFields.has('Hyperlien')) {
+    const base = baseMap.get('Hyperlien');
+    hyperlinkCol = base || {
+      field: 'Hyperlien',
+      headerName: 'Hyperlien',
+      minWidth: 100,
+      flex: 1,
+      sortable: true,
+      filter: true,
+    };
+    newColDefs.push(hyperlinkCol);
   }
 
   // 6) Appliquer proprement aux options du grid
