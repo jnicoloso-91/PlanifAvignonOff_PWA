@@ -1519,6 +1519,54 @@ function wireExpanderButtons() {
     onClick: async () => {await doProgrammerActivite();},
   });
 
+  // Bouton Colonnes sur Activités Non Programmées
+  if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-col-non-prog',
+    title: 'Colonnes', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône Colonnes -->
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8a4 4 0 1 1 0 8a4 4 0 0 1 0-8z" />
+          <path d="M3 12h2m14 0h2M12 3v2m0 14v2
+                  M5.6 5.6l1.4 1.4M17 17l1.4 1.4
+                  M17 7l1.4-1.4M5.6 18.4L7 17" />
+        </svg>
+      </span>
+      <span class="exp-label">Colonnes</span>
+    `,
+    onClick: () => { openColumnMenu(); },
+  });
+
+
+        // <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+        //     stroke-linecap="round" stroke-linejoin="round">
+        //   <circle cx="12" cy="12" r="3"></circle>
+        //   <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.82-.33
+        //           1.7 1.7 0 0 0-1 1.54V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.54 1.7 1.7 0 0 0-1.82.33l-.06.06
+        //           a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .33-1.82 1.7 1.7 0 0 0-1.54-1H3a2 2 0 1 1 0-4h.09
+        //           a1.7 1.7 0 0 0 1.54-1 1.7 1.7 0 0 0-.33-1.82l-.06-.06A2 2 0 0 1 7.07 3.4l.06.06a1.7 1.7 0 0 0 1.82.33
+        //           1.7 1.7 0 0 0 1-1.54V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.54 1.7 1.7 0 0 0 1.82-.33l.06-.06
+        //           a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.33 1.82 1.7 1.7 0 0 0 1.54 1H21a2 2 0 1 1 0 4h-.09
+        //           a1.7 1.7 0 0 0-1.54 1Z"/>
+        // </svg>
+
+        // <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+        //   <rect x="3"  y="5" width="4" height="14" rx="1"></rect>
+        //   <rect x="10" y="5" width="4" height="14" rx="1"></rect>
+        //   <rect x="17" y="5" width="4" height="14" rx="1"></rect>
+        // </svg>
+
+        // <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+        //   <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+        //   <line x1="9" y1="5" x2="9" y2="19"></line>
+        //   <line x1="15" y1="5" x2="15" y2="19"></line>
+        //   <circle cx="12" cy="12" r="2"></circle>
+        // </svg>
+
+
   // Bouton Filtres sur Activités Non Programmées
   if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
     expanderId: 'exp-non-programmees',
@@ -2784,6 +2832,10 @@ function wireExpanders(){
 }
 
 // ===== Actions =====
+
+// Menu Ajout / Suppression Colonne
+function openColumnMenu() {}
+
 // Reset du contexte
 async function doNouveauContexte() {
   ctx.beginAction('Nouveau contexte');
@@ -3523,14 +3575,6 @@ function openFileMenu(anchorBtn) {
       fileMenuSheetInnerHtml() +
     `</div>
   `;
-
-  // for (const it of items) {
-  //   const b = document.createElement('button');
-  //   b.className = 'kebab-menu__item';
-  //   b.textContent = it.label;
-  //   b.dataset.action = it.id;
-  //   menu.appendChild(b);
-  // }
 
   document.body.appendChild(menu);
 
