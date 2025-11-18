@@ -1680,6 +1680,398 @@ function agGridHasHeaderFilters(gridId) {
 }
 
 // ===== Builders de colonnes de grilles =====
+// function getFieldsFromDf(dfRows) {
+//   const acc = {};
+//   for (const r of dfRows || []) {
+//     if (r && typeof r === 'object') {
+//       for (const k of Object.keys(r)) acc[k] = true;
+//     }
+//   }
+//   return Object.keys(acc);
+// }
+
+// function rebuildColumnsForGrid(gridId) {
+//   const handle = window.grids?.get?.(gridId);
+//   if (!handle?.api) return;
+
+//   // 1) colonnes de base 
+//   const baseCols = handle.columnsBuilder?.() || [];
+
+//   // 2) tous les champs présents dans le DF courant
+//   const df = (window.ctx?.df) || [];
+//   const allFields = getFieldsFromDf(df);
+
+//   // champs déjà couverts par les colonnes de base
+//   const known = new Set(
+//     baseCols.map(c => c.field).filter(Boolean)
+//   );
+
+//   // champs “en plus” venant du DF courant
+//   const extraFields = allFields.filter(
+//     f => !known.has(f) && !String(f).startsWith('__')
+//   );
+
+//   // 3) colonnes génériques pour ces champs supplémentaires
+//   const extraCols = extraFields.map(f => ({
+//     field: f,
+//     headerName: String(f),
+//     minWidth: 120,
+//     flex: 1,
+//   }));
+
+//   const fullCols = [...baseCols, ...extraCols];
+
+//   // 4) injecter dans AgGrid
+//   handle.api.setColumnDefs(fullCols);
+// }
+// function rebuildColumnsForGrid(gridId, rowsFromDf) {
+//   const handle = window.grids?.get?.(gridId);
+//   if (!handle?.api) return;
+
+//   const api       = handle.api;
+//   const columnApi = api.getColumnApi?.() || api.columnApi; // selon version
+
+//   // 1) Colonnes de base = celles définies par ton builder
+//   const baseCols = handle.columnsBuilder ? handle.columnsBuilder() : [];
+//   const baseFields = new Set(
+//     baseCols.map(c => c.field).filter(Boolean)
+//   );
+
+//   // 2) Colonnes supplémentaires détectées dans les données (df)
+//   const extraFields = new Set();
+//   (rowsFromDf || []).forEach(r => {
+//     if (!r) return;
+//     for (const k of Object.keys(r)) {
+//       if (!baseFields.has(k) && k !== '__uuid') {
+//         extraFields.add(k);
+//       }
+//     }
+//   });
+
+//   const extraCols = [...extraFields].map(f => ({
+//     field: f,
+//     headerName: f,
+//     minWidth: 120,
+//     flex: 1,
+//     // pas de filter/valueParser spécifique par défaut
+//   }));
+
+//   const newDefs = [...baseCols, ...extraCols];
+
+//   // 3) Si les champs n'ont pas changé, on ne fait rien -> pas de risque sur le scroll
+//   const currentDefs = api.getColumnDefs?.() || [];
+//   const curFields = currentDefs.map(c => c.field || c.colId).filter(Boolean);
+//   const newFields = newDefs.map(c => c.field || c.colId).filter(Boolean);
+
+//   const same =
+//     curFields.length === newFields.length &&
+//     curFields.every((f, i) => f === newFields[i]);
+
+//   if (same) {
+//     // Rien à faire, les colonnes sont déjà dans ce layout
+//     return;
+//   }
+
+//   // 4) Sauvegarder l'état des colonnes (largeurs, ordre, hide, sort)
+//   const prevColState   = columnApi?.getColumnState?.() || [];
+//   const prevSortModel  = api.getSortModel?.() || [];
+//   const prevFilterModel = api.getFilterModel?.() || {};
+
+//   // 5) Appliquer les nouveaux columnDefs (sans toucher rowData ni domLayout)
+//   api.setGridOption?.('columnDefs', newDefs);
+
+//   // 6) Restaurer autant que possible l'état précédent
+//   if (prevColState.length && columnApi?.applyColumnState) {
+//     columnApi.applyColumnState({
+//       state: prevColState,
+//       applyOrder: true
+//     });
+//   }
+
+//   if (Object.keys(prevFilterModel).length) {
+//     api.setFilterModel?.(prevFilterModel);
+//   }
+//   if (prevSortModel.length) {
+//     api.setSortModel?.(prevSortModel);
+//   }
+
+//   // 7) Repeindre / recalculer les tailles
+//   api.refreshHeader?.();
+//   api.onColumnEverythingChanged?.();
+//   api.onGridSizeChanged?.();
+// }
+// function rebuildColumnsForGrid(gridId, dfRows) {
+//   const handle = grids.get(gridId);
+//   if (!handle) return;
+//   const api = handle.api;
+//   if (!api) return;
+
+//   // 1) Colonnes de base
+//   const baseCols = handle.columnsBuilder?.() || [];
+//   const known = new Set(baseCols.map(c => c.field));
+
+//   // 2) Colonnes supplémentaires détectées dans dfRows
+//   const extraFields = new Set();
+//   for (const r of dfRows || []) {
+//     if (!r) continue;
+//     for (const k of Object.keys(r)) {
+//       if (!known.has(k)) extraFields.add(k);
+//     }
+//   }
+
+//   const extraCols = [...extraFields].map(f => ({
+//     field: f,
+//     headerName: f,
+//     minWidth: 120,
+//     flex: 0.8,
+//   }));
+
+//   const newDefs = [...baseCols, ...extraCols];
+
+//   // 👉 API officielle pour modifier la définition des colonnes
+//   api.setColumnDefs(newDefs);
+//   api.refreshHeader?.();
+//   api.onGridSizeChanged?.();
+// }
+// function rebuildColumnsForGrid(gridId, dfRows = []) {
+//   const handle = grids.get(gridId);
+//   if (!handle) return;
+//   const api = handle.api;
+//   if (!api) return;
+
+//   // 1) Colonnes "de base"
+//   const baseCols = handle.columnsBuilder?.() || [];
+//   const known = new Set(baseCols.map(c => c.field));
+
+//   // 2) Colonnes supplémentaires détectées dans dfRows
+//   const extraFields = new Set();
+//   for (const r of dfRows) {
+//     if (!r) continue;
+//     for (const k of Object.keys(r)) {
+//       if (known.has(k)) continue;
+//       if (k === '__uuid') continue; // etc. si tu veux en exclure
+//       extraFields.add(k);
+//     }
+//   }
+
+//   const extraCols = [...extraFields].map(f => ({
+//     field: f,
+//     headerName: f,
+//     minWidth: 120,
+//     flex: 0.8,
+//   }));
+
+//   const newDefs = [...baseCols, ...extraCols];
+
+//   // 3) Appliquer les nouvelles colonnes
+//   api.setColumnDefs(newDefs);
+//   api.refreshHeader?.();
+//   api.onGridSizeChanged?.();
+
+//   // 4) S'assurer que le scroll molette reste fonctionnel
+//   ensureWheelScrollOnGrid(handle);
+// }
+// function rebuildColumnsForGrid(gridId, newCols) {
+//   const h = grids.get(gridId);
+//   if (!h) return;
+
+//   const api = h.api;
+
+//   // AG Grid moderne (v29+)
+//   api.updateGridOptions({ columnDefs: newCols });
+
+//   // Re-appliquer resize auto si tu en as besoin
+//   requestAnimationFrame(() => {
+//     api.sizeColumnsToFit();
+//     api.refreshHeader();     // plus propre
+//     api.refreshCells({ force: true });
+//   });
+// }
+
+// ====================Version qui marche=========================
+function rebuildColumnsForGrid(gridId, dfRows = null) {
+  const handle = window.grids?.get(gridId);
+  if (!handle) return;
+  const api = handle.api;
+  if (!api) return;
+
+  // 1) Colonnes de base (celles que tu définis dans buildColumnsActivitesXXX)
+  const baseCols = (handle.columnsBuilder?.() || []).slice(); // copie défensive
+
+  // 2) Ensemble des champs déjà connus
+  const knownFields = new Set(
+    baseCols
+      .map(c => c.field)
+      .filter(f => typeof f === 'string' && f.length)
+  );
+
+  // 3) Ajouter les champs trouvés dans les données (dfRows)
+  if (dfRows && dfRows.length) {
+    for (const row of dfRows) {
+      if (!row || typeof row !== 'object') continue;
+      for (const key of Object.keys(row)) {
+        if (!key) continue;
+        if (key.startsWith('__')) continue; // on ignore les colonnes techniques
+        if (!knownFields.has(key)) {
+          knownFields.add(key);
+        }
+      }
+    }
+  }
+
+  // 4) Map pour retrouver rapidement un colDef de base
+  const baseMap = new Map();
+  for (const col of baseCols) {
+    if (col.field) baseMap.set(col.field, col);
+  }
+
+  // 5) Reconstruire la liste finale des colDefs
+  const newColDefs = [];
+  for (const field of knownFields) {
+    const base = baseMap.get(field);
+    if (base) {
+      // On réutilise tel quel le colDef de base
+      newColDefs.push(base);
+    } else {
+      // Colonne “supplémentaire” : on crée un colDef générique
+      newColDefs.push({
+        field,
+        headerName: field,
+        minWidth: 100,
+        flex: 1,
+        sortable: true,
+        filter: true,
+      });
+    }
+  }
+
+  // 6) Appliquer proprement aux options du grid
+  // (AG Grid v29+ ; évite setColumnDefs déprécié)
+  api.setGridOption('columnDefs', newColDefs);
+  api.onColumnEverythingChanged?.();
+  ensureWheelScrollOnGrid(handle);
+
+  // Debug si besoin
+  // console.log('[rebuildColumnsForGrid]', gridId, newColDefs);
+}
+
+function ensureWheelScrollOnGrid(handle) {
+  if (!handle || handle._wheelPatched) return;
+
+  const root = handle.el;
+  if (!root) return;
+
+  // Conteneur qui scroll VERTICALEMENT dans AG Grid
+  const viewport =
+    root.querySelector('.ag-body-viewport') ||
+    root.querySelector('.ag-center-cols-viewport');
+
+  if (!viewport) return;
+
+  const onWheel = (e) => {
+    // Ctrl+wheel → zoom navigateur, on ne touche pas
+    if (e.ctrlKey) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = viewport;
+    const atTop    = scrollTop <= 0;
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+    const dy       = e.deltaY || 0;
+    const goingUp  = dy < 0;
+    const goingDown= dy > 0;
+
+    // Si on est déjà en haut/bas et que l'utilisateur continue, on laisse l'événement
+    // remonter pour que la PAGE scrolle éventuellement
+    if ((goingUp && atTop) || (goingDown && atBottom)) {
+      return;
+    }
+
+    // Sinon, on fait scroller la grille
+    viewport.scrollTop = Math.max(
+      0,
+      Math.min(scrollTop + dy, scrollHeight - clientHeight)
+    );
+
+    // Ici on PREVENT uniquement si on a bien consommé le scroll
+    e.preventDefault();
+  };
+
+  // Important : passive:false pour pouvoir preventDefault
+  viewport.addEventListener('wheel', onWheel, { passive: false });
+  handle._wheelPatched = true;
+}
+// ====================Version qui marche=========================
+
+// function ensureWheelScrollOnGrid(container) {
+//   if (!container) return;
+
+//   // évite les doublons
+//   if (container.__wheelPatched) return;
+//   container.__wheelPatched = true;
+
+//   container.addEventListener('wheel', (e) => {
+//     // si AG Grid gère déjà bien le scroll sur cette plateforme,
+//     // tu peux conditionner ce comportement.
+//     container.scrollTop += e.deltaY;
+//     e.preventDefault();
+//   }, { passive: false });
+// }
+// function rebuildColumnsForGrid(gridId, dfRows = null) {
+//   const handle = window.grids?.get(gridId);
+//   if (!handle) return;
+//   const api = handle.api;
+//   if (!api) return;
+
+//   const baseCols = (handle.columnsBuilder?.() || []).slice();
+//   const knownFields = new Set(
+//     baseCols.map(c => c.field).filter(f => typeof f === 'string' && f.length)
+//   );
+
+//   if (dfRows && dfRows.length) {
+//     for (const row of dfRows) {
+//       if (!row || typeof row !== 'object') continue;
+//       for (const key of Object.keys(row)) {
+//         if (!key) continue;
+//         if (key.startsWith('__')) continue;
+//         if (!knownFields.has(key)) knownFields.add(key);
+//       }
+//     }
+//   }
+
+//   const baseMap = new Map();
+//   for (const col of baseCols) {
+//     if (col.field) baseMap.set(col.field, col);
+//   }
+
+//   const newColDefs = [];
+//   for (const field of knownFields) {
+//     const base = baseMap.get(field);
+//     if (base) {
+//       newColDefs.push(base);
+//     } else {
+//       newColDefs.push({
+//         field,
+//         headerName: field,
+//         minWidth: 100,
+//         flex: 1,
+//         sortable: true,
+//         filter: true,
+//       });
+//     }
+//   }
+
+//   // mise à jour colonnes
+//   api.setGridOption('columnDefs', newColDefs);
+//   api.onColumnEverythingChanged?.();
+
+//   // 🔁 rebrancher la wheel sur le nouveau viewport AG Grid
+//   const root = handle.el;
+//   const viewport =
+//     root.querySelector('.ag-center-cols-viewport') ||
+//     root.querySelector('.ag-body-viewport');
+//   ensureWheelScrollOnGrid(viewport);
+// }
+
+
 // Colonnes des grilles d'activités programmées et non programmées
 function buildColumnsActivitesCommon(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 80;
@@ -2283,18 +2675,6 @@ async function refreshGrid(gridId) {
     // autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:api.getGridOption('rowData').length, nbRowsPred:nbRowsPred });
     autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:nbRows, nbRowsPred:nbRowsPred });
   };
-
-// function selectRowSilently(api, rowNode) {
-//   if (!rowNode) return;
-//   api.setNodesSelected({
-//     nodes: [rowNode],
-//     newValue: true,
-//     clearSelection: true,
-//     source: 'programmatic'
-//   });
-//   // Appel des selectionChanged
-//   queueMicrotask(() => api.dispatchEvent({ type: 'selectionChanged', source: 'manual' }));
-// }
 
   const selectAfterPaint = () => {
     // si déjà sélectionné (préservé via getRowId) -> ne rien faire
@@ -3735,7 +4115,7 @@ function wireHiddenFileInput(){
       // Recalcul de la colonne Fin
       recalcFinForAll(dfRows);
 
-      // 11) Initialisation de la période programmation
+      // 11) Initialisation de la période de programmation
       activitesAPI.initPeriodeProgrammation(dfRows);      
 
       // 12) Enregistrement des données dans le contexte
@@ -3746,7 +4126,26 @@ function wireHiddenFileInput(){
       } finally {
         ctx.endAction();                   
       }
+
+      // 13) Mise à jour des colonnes de grilles
+      rebuildColumnsForGrid('grid-programmees', dfRows);
+      rebuildColumnsForGrid('grid-non-programmees', dfRows);
+
+      // // 14) Rechargement des données dans les grilles
+      // const handleGridProg = grids.get('grid-programmees');
+      // const handleGridNonProg  = grids.get('grid-non-programmees');
+
+      // if (handleGridProg?.loader) {
+      //   const rowsProg = await handleGridProg.loader();   
+      //   handleGridProg.api.setRowData(rowsProg);
+      // }
+
+      // if (handleGridNonProg?.loader) {
+      //   const rowsNon = await handleGridNonProg.loader();
+      //   handleGridNonProg.api.setRowData(rowsNon);
+      // }
     }
+
     catch (e) {
       console.error('❌ Import Excel KO', e);
       alert("Echec de l'import : " + e.message);
