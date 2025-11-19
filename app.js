@@ -65,6 +65,8 @@ const MANDATORY_COLS = new Set([
   'Lieu',
   'Session',
   'Relache',
+  'Style',
+  'Orga',
   'Reserve',
   'Priorite',
   'Hyperlien',
@@ -1523,8 +1525,8 @@ function wireExpanderButtons() {
     onClick: () => {
       openKebabMenu($('btn-col-non-prog'), {
         items: [
-          { id:'add-column',       label:"Ajouter",        onClick: ()=>doAddColumn() },
-          { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSuppressColumn() },
+          { id:'add-column',       label:"Ajouter",        onClick: ()=>doAjouterColonne() },
+          { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
         ]
       });
     },
@@ -2823,7 +2825,7 @@ function wireExpanders(){
 // ===== Actions =====
 
 // Ajout d'une colonne
-function doAddColumn() {
+function doAjouterColonne() {
   const df  = ctx.df || [];
 
   openSheetExclusive({
@@ -2924,8 +2926,7 @@ function doAddColumn() {
           return;
         }
 
-        // facultatif : limiter un peu les caractères exotiques
-        // (tu peux commenter si tu veux tout autoriser)
+        // facultatif : limiter les caractères exotiques
         const sanitized = name.replace(/\s+/g, ' ').trim();
         name = sanitized;
 
@@ -2937,7 +2938,7 @@ function doAddColumn() {
           // on duplique chaque row en ajoutant la nouvelle clé
           const next = src.map(r => ({
             ...r,
-            [name]: null,   // ou '' si tu préfères
+            [name]: null,   
           }));
 
           // si df était vide : on crée une ligne vide pour que la colonne existe
@@ -2950,8 +2951,6 @@ function doAddColumn() {
         });
 
         try {
-          // Si tu as un helper qui s’occupe des deux grilles d’activités
-          // (cf. ce que tu m’as décrit)
           if (typeof rebuildColumnsForActiviteGrids === 'function') {
             rebuildColumnsForActiviteGrids(newDf || ctx.df || []);
           }
@@ -2983,7 +2982,7 @@ function doAddColumn() {
 }
 
 // Suppression d'une colonne
-function doSuppressColumn() {
+function doSupprimerColonne() {
   const df = window.ctx?.df || [];
   if (!Array.isArray(df) || df.length === 0) {
     alert('Aucune donnée chargée : impossible de supprimer une colonne.');
@@ -3050,7 +3049,7 @@ function doSuppressColumn() {
         }
 
         // Confirmation de confort
-        if (!confirm(`Supprimer définitivement la colonne "${col}" ?`)) return;
+        if (!confirm(`Supprimer la colonne "${col}" ?`)) return;
 
         if (!window.ctx?.mutateDf) {
           console.error('ctx.mutateDf est introuvable');
@@ -3261,12 +3260,12 @@ async function doVerifCoherence() {
 
 // Undo
 async function doUndo() {
-  try { await ctx.undo('df'); } catch {};
+  try { await ctx.undo('df'); } catch {}; rebuildColumnsForActiviteGrids(ctx.df);
 }
 
 // Redo
 async function doRedo() {
-  try { await ctx.redo(); } catch {};
+  try { await ctx.redo(); } catch {}; rebuildColumnsForActiviteGrids(ctx.df);
 }
 
 // Ajout activité
