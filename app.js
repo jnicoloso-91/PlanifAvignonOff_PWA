@@ -5491,7 +5491,8 @@ function openSheetAide() {
             
             </p>Pour la reprogrammer, déplier le menu de la colonne <u><i>Date</u></i> et sélectionner une autre date possible.</p>
 
-            </p>Le bouton <u><i>Supprimer</u></i> situé en haut à droite du tableau <u><i>Stock</u></i> permet de supprimer l'activité sélectionnée.</p>
+            </p>Le bouton <u><i>Supprimer</u></i> du tableau <u><i>Stock</u></i> permet de supprimer l'activité sélectionnée et le bouton <u><i>Colonnes</u></i> permet 
+            d'ajouter ou supprimer des colonnes sur les activités.</p>
 
             <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i> toutes les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
             et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne <u><i>Réservé</u></i> est à Oui). Elles sont également 
