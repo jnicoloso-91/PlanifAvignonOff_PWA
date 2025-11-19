@@ -3105,12 +3105,16 @@ async function doImportExcel() {
 
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
-  importFromUrlOrTxt('https://festival-avignon.com/fr/edition-2025/programmation/par-categorie', 'parseAvignonInProgPage');
+  // importFromUrlOrTxt('https://festival-avignon.com/fr/edition-2025/programmation/par-categorie', 'parseAvignonInProgPage');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=1127484801');
+  importFromXlsxFile(f, {add:true});
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
-  importFromUrlOrTxt('https://www.festivaloffavignon.com/programme', 'parseAvignonOffProgPage');
+  // importFromUrlOrTxt('https://www.festivaloffavignon.com/programme', 'parseAvignonOffProgPage');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=545295244');
+  importFromXlsxFile(f, {add:true});
 }
 
 // Export Excel
@@ -4038,89 +4042,98 @@ function wireHiddenFileInput(){
   if (!fi) return;
 
   fi.addEventListener('change', async (ev)=>{
-    const f = ev.target.files?.[0];
-    if (!f) return;
-    try {
-      overlayAttente.hidden = false; // Affiche l'overlay d'attente
+    const f = ev.target.files?.[0] || null;
+    importFromXlsxFile(f);
+    ev.target.value = '';
+  });
+}
 
-      const buf = await f.arrayBuffer();
-      const wb  = XLSX.read(buf, { type: 'array' });
-      const ws  = wb.Sheets[wb.SheetNames[0]];
+// Import de fichier Excel
+async function importFromXlsxFile(f, {add=false} = {}) {
 
-      // 1) JSON “classique” (valeurs) — garde toutes les colonnes
-      let dfRows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
-      dfRows = normalizeRowsKeys(dfRows);
+  if (!f) return;
+  try {
+    overlayAttente.hidden = false; // Affiche l'overlay d'attente
 
-      // 2) range de la feuille
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    const buf = await f.arrayBuffer();
+    const wb  = XLSX.read(buf, { type: 'array' });
+    const ws  = wb.Sheets[wb.SheetNames[0]];
 
-      // 3) Récupère la ligne d'entêtes brute (array)
-      const headerRow = (XLSX.utils.sheet_to_json(ws, { header: 1, range: range.s.r })[0] || []);
+    // 1) JSON “classique” (valeurs) — garde toutes les colonnes
+    let dfRows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+    dfRows = normalizeRowsKeys(dfRows);
 
-      // 4) Trouve l'index de la colonne "Activite" en normalisant l'entête
-      const colActivite = headerRow.findIndex(h => normalizeHeaderToCanon(h) === 'Activite');
+    // 2) range de la feuille
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
 
-      // 5) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
-      if (typeof colActivite === 'number') {
-        for (let i = 0; i < dfRows.length; i++) {
-          const r = i + 1; // +1 car row 0 = ligne 2 en Excel (entête sur r0)
-          const addr = XLSX.utils.encode_cell({ r: range.s.r + 1 + i, c: colActivite });
-          const cell = ws[addr];
-          const link = cell?.l?.Target || cell?.l?.target || null;
+    // 3) Récupère la ligne d'entêtes brute (array)
+    const headerRow = (XLSX.utils.sheet_to_json(ws, { header: 1, range: range.s.r })[0] || []);
 
-          // S’il y a déjà une colonne "Hyperlien" dans Excel, on la garde prioritaire,
-          // sinon on remplit depuis le lien de la cellule Activité.
-          if (!dfRows[i].Hyperlien && link) {
-            dfRows[i].Hyperlien = link;
-          }
+    // 4) Trouve l'index de la colonne "Activite" en normalisant l'entête
+    const colActivite = headerRow.findIndex(h => normalizeHeaderToCanon(h) === 'Activite');
+
+    // 5) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
+    if (typeof colActivite === 'number') {
+      for (let i = 0; i < dfRows.length; i++) {
+        const r = i + 1; // +1 car row 0 = ligne 2 en Excel (entête sur r0)
+        const addr = XLSX.utils.encode_cell({ r: range.s.r + 1 + i, c: colActivite });
+        const cell = ws[addr];
+        const link = cell?.l?.Target || cell?.l?.target || null;
+
+        // S’il y a déjà une colonne "Hyperlien" dans Excel, on la garde prioritaire,
+        // sinon on remplit depuis le lien de la cellule Activité.
+        if (!dfRows[i].Hyperlien && link) {
+          dfRows[i].Hyperlien = link;
         }
       }
+    }
 
-      // 6) normalisation colonnes + __uuid + Date->dateint 
-      dfRows = dfRows.map((r, i) => {
-        const o = { ...r };
+    // 6) normalisation colonnes + __uuid + Date->dateint 
+    dfRows = dfRows.map((r, i) => {
+      const o = { ...r };
 
-        // --- Date -> dateint ---
-        // Accepte Excel serial ou "dd/mm[/yy]"
-        let di = null;
-        if (o.Date != null && String(o.Date).trim() !== '') {
-          // d'abord tentative pretty
-          di = prettyToDateint(String(o.Date).trim());
-          // sinon Excel serial
-          if (!isDateint(di) && typeof o.Date === 'number') {
-            const ymd = excelSerialToYMD(o.Date);
-            if (ymd) di = ymdToDateint(ymd);
-          }
+      // --- Date -> dateint ---
+      // Accepte Excel serial ou "dd/mm[/yy]"
+      let di = null;
+      if (o.Date != null && String(o.Date).trim() !== '') {
+        // d'abord tentative pretty
+        di = prettyToDateint(String(o.Date).trim());
+        // sinon Excel serial
+        if (!isDateint(di) && typeof o.Date === 'number') {
+          const ymd = excelSerialToYMD(o.Date);
+          if (ymd) di = ymdToDateint(ymd);
         }
-        o.Date = di || null; // stock interne = dateint ou null
+      }
+      o.Date = di || null; // stock interne = dateint ou null
 
-        // Accepte Excel serial sur Session et Relache
-        if (typeof o.Session === 'number') {
-          if (o.Session < 0 || o.Session > 31) {
-            const ymd = excelSerialToYMD(o.Session);
-            if (ymd) {
-              const di = ymdToDateint(ymd);
-              o.Session = (isDateint(di)) ? dateintToPretty(di) : String(o.Session).trim();
-            } else String(o.Session).trim();
+      // Accepte Excel serial sur Session et Relache
+      if (typeof o.Session === 'number') {
+        if (o.Session < 0 || o.Session > 31) {
+          const ymd = excelSerialToYMD(o.Session);
+          if (ymd) {
+            const di = ymdToDateint(ymd);
+            o.Session = (isDateint(di)) ? dateintToPretty(di) : String(o.Session).trim();
           } else String(o.Session).trim();
-        }
-        if (typeof o.Relache === 'number') {
-          if (o.Relache < 0 || o.Relache > 31) {
-            const ymd = excelSerialToYMD(o.Relache);
-            if (ymd) {
-              const di = ymdToDateint(ymd);
-              o.Relache = (isDateint(di)) ? dateintToPretty(di) : String(o.Relache).trim();
-            } else String(o.Relache).trim();
+        } else String(o.Session).trim();
+      }
+      if (typeof o.Relache === 'number') {
+        if (o.Relache < 0 || o.Relache > 31) {
+          const ymd = excelSerialToYMD(o.Relache);
+          if (ymd) {
+            const di = ymdToDateint(ymd);
+            o.Relache = (isDateint(di)) ? dateintToPretty(di) : String(o.Relache).trim();
           } else String(o.Relache).trim();
-        }
+        } else String(o.Relache).trim();
+      }
 
-        // 7) __uuid garanti
-        if (!o.__uuid) {
-          o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
-        }
-        return o;
-      });
-      
+      // 7) __uuid garanti
+      if (!o.__uuid) {
+        o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
+      }
+      return o;
+    });
+    
+    if (!add) {
       // 8) Tri des données
       dfRows = sortDf(dfRows);
 
@@ -4148,7 +4161,7 @@ function wireHiddenFileInput(){
         console.log('✅ Import ca OK', caRows.length, 'lignes');
       }
 
-      // Recalcul de la colonne Fin
+      // 10) Recalcul de la colonne Fin
       recalcFinForAll(dfRows);
 
       // 11) Initialisation de la période de programmation
@@ -4166,15 +4179,27 @@ function wireHiddenFileInput(){
       // 13) Mise à jour des colonnes de grilles
       rebuildColumnsForActiviteGrids(dfRows);
     }
+    else {
+      recalcFinForAll(dfRows);
+      if (!dfRows || dfRows.length == 0) return;
+      // ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
+      ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(dfRows, rows, ['Activite', 'Debut', 'Session'])));
 
-    catch (e) {
-      console.error('❌ Import Excel KO', e);
-      alert("Echec de l'import : " + e.message);
-    } finally {
-      overlayAttente.hidden = true; // Masque l'overlay d'attente
-      ev.target.value = '';
+      // Maj des sélections
+      setTimeout(() => {
+        scrollToExpander?.('exp-non-programmees');
+        openExpander?.('exp-non-programmees');
+        selectRowByUuid('grid-non-programmees', dfRows[0].__uuid, { ensure: 'center', flash: null });
+      }, 50);  
     }
-  });
+  }
+
+  catch (e) {
+    console.error('❌ Import Excel KO', e);
+    alert("Echec de l'import : " + e.message);
+  } finally {
+    overlayAttente.hidden = true; // Masque l'overlay d'attente
+  }
 }
 
 function wireBottomBarToggle() {
