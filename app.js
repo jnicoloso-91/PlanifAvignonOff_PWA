@@ -3007,8 +3007,8 @@ function doSupprimerColonne() {
 
   openSheetExclusive({
     title: 'Supprimer une colonne',
-    panelHeight: '40vh',
-    panelMaxHeight: '50vh',
+    panelHeight: 'auto',
+    panelMaxHeight: '40vh',
     mount: (body, { close }) => {
       const optionsHtml = removable
         .map(name => `<option value="${name}">${name}</option>`)
