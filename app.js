@@ -21,6 +21,8 @@ import {
   looksLikeUrl, 
   mergeRowsNoDup,
   mergeRowsNoDupMultiKey, 
+  estNumerique,
+  capitalizeFirst,
 } from './utils.js';
 
 import { creerActivitesAPI, sortDf } from './activites.js'; 
@@ -53,26 +55,45 @@ import {
   rowsToICS,
 } from './calendrier.js';
 
+// Colonnes obligatoires d'un tableau d'activités
+const MANDATORY_COLS = new Set([
+  'Activite',
+  'Date',
+  'Debut',
+  'Duree',
+  'Fin',
+  'Lieu',
+  'Session',
+  'Relache',
+  'Reserve',
+  'Priorite',
+  'Hyperlien',
+  '__uuid'
+]);
+
+// ------- Interface Activités -------
 let activitesAPI = null;
 
-// ===== Multi-grilles =====
+// ------- Multi-grilles -------
 const grids = new Map();           // id -> { api, el, loader }
 window.grids = grids;
 let activeGridId = null;
 
-// Mémorise le créneau sélectionné (grille C)
+// ------- Créneau sélectionné -------
 let selectedSlot = null;
 
-// Etat local pour le double-tap
+// ------- Etat local pour le double-tap -------
 let lastTapKey = null;
 let lastTapTime = 0;
 const TAP_DELAY_MS = 350; // fenêtre de double-tap
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
+// ------- Constantes dates -------
 const TODAY = new Date();
 const CUR_Y = TODAY.getFullYear();
 const CUR_M = TODAY.getMonth() + 1;
 
+// ------- Phantom flight -------
 const PHANTOM_WITH_OFFSET = false;      // effet fantôme avec ou sans offset 
 const PHANTOM_DEFAULT_OFFSET = 0;   // décalage horizontal par default de la trajectoire de l'effet fantôme
 const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire de l'effet fantôme
@@ -80,7 +101,6 @@ const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire d
 const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
 
 // ------- Debug -------
-
 const DEBUG = false;
 function getCaller(depth = 2) {
   try {
@@ -95,7 +115,6 @@ function getCaller(depth = 2) {
 const log = (...a) => { if (DEBUG) console.debug(`[${getCaller(2)}]`, ...a); };
 
 // ------- Misc Helpers -------
-
 const ROW_H=32, HEADER_H=32, PAD=4;
 const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
 
@@ -104,33 +123,12 @@ const waitAF = () => new Promise(r => requestAnimationFrame(() => requestAnimati
 
 const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 
-const estNumerique = (val) => {
-  return typeof val === 'number'
-    ? Number.isFinite(val)
-    : !isNaN(val) && isFinite(Number(val));
-}
-
-const capitalizeFirst = (str) => {
-  const s = String(str ?? '').trim();
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 // Récupère l'API d'une grille par son id (selon ta structure window.grids)
 function getGridApiById(gridId) {
   return window.grids?.get(gridId)?.api || null;
 }
 
-/**
- * Renvoie la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
- * d'une ligne repérée par son __uuid de référence.
- * - Si rows est vide ou l'uuid introuvable → null
- * - Si possible → retourne le __uuid de la ligne suivante
- *   sinon celui de la ligne précédente
- * @param {Array<Object>} rows - tableau "df_display" (ordre d'affichage)
- * @param {string|null|undefined} uuid - identifiant __uuid de la ligne de référence
- * @returns {string|null} __uuid du voisin ou null
- */
+// Renvoie la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
 function getLigneVoisine(rows, uuid) {
   if (!rows || rows.length === 0) return null;
   if (uuid == null) return null;
@@ -146,16 +144,7 @@ function getLigneVoisine(rows, uuid) {
   return rows[neighborIdx];
 }
 
-/**
- * Renvoie le __uuid de la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
- * d'une ligne repérée par son __uuid de référence.
- * - Si rows est vide ou l'uuid introuvable → null
- * - Si possible → retourne le __uuid de la ligne suivante
- *   sinon celui de la ligne précédente
- * @param {Array<Object>} rows - tableau "df_display" (ordre d'affichage)
- * @param {string|null|undefined} uuid - identifiant __uuid de la ligne de référence
- * @returns {string|null} __uuid du voisin ou null
- */
+// Renvoie le __uuid de la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
 function getLigneVoisineUuid(rows, uuid) {
   if (!rows || rows.length === 0) return null;
   if (uuid == null) return null;
@@ -301,6 +290,7 @@ function normalizeRowsKeys(rows = [], { keepOriginal = false } = {}) {
 }
 
 // ===== Grid Helpers =====
+
 // Palette de couleurs de jours pour colorisation des activités programmées
 const DAY_COLORS = [
   '#fff2b3',  // jaune sable doux mais lumineux
@@ -641,10 +631,6 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
     }
   } 
 
-  // if (gridId === 'grid-programmables') {
-  //   logToPage(`nb calculé pour grid-programmables: ${n} nbRows: ${nbRows} nbRowsPred: ${nbRowsPred}`);
-  // }
-
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8: 0;
 
@@ -711,9 +697,6 @@ function getRowsFromGridId(gridId) {
   return rows;
 }
 
-// ---------------------------------------
-// Ouverture/Fermeture Expander (version censée corriger les pb aléatoires de blocage en position fermée)
-// ---------------------------------------
 const MIN_OPEN_PX = 16;          // jamais ouvrir en dessous de ça
 const ANIM_TIMEOUT_OPEN  = 900;  // fallback Safari si pas de transitionend
 const ANIM_TIMEOUT_CLOSE = 700;
@@ -756,6 +739,7 @@ function pickTargetHeight(pane, exp) {
   return target;
 }
 
+// Ouverture Expander 
 export function openExp(exp) {
   if (!exp) return;
   const pane = exp.querySelector('.st-expander-body');
@@ -819,6 +803,7 @@ export function openExp(exp) {
   }));
 }
 
+// Fermeture Expander 
 export function closeExp(exp) {
   if (!exp) return;
   const pane = exp.querySelector('.st-expander-body');
@@ -859,9 +844,6 @@ export function closeExp(exp) {
 
   requestAnimationFrame(() => { pane.style.height = '0px'; });
 }
-// ---------------------------------------
-// Ouverture/Fermeture Expander (version censée corriger les pb aléatoires de blocage en position fermée)
-// ---------------------------------------
 
 // Sélectionne par __uuid et rend visible
 function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {}) {
@@ -1196,7 +1178,7 @@ function scrollToExpander(expId) {
   scrollExpanderIntoViewCentered(exp);
 }
 
-// Rend visible un expander
+// Rend visible un expander (async)
 function scrollToExpanderAsync(expId) {
   const exp = document.getElementById(expId);
   if (!exp) return;
@@ -1215,6 +1197,7 @@ function openExpander(expId){
   }
 }
 
+// Ouvre un expander (async)
 function openExpanderAsync(id){
   const exp  = document.getElementById(id);
   if (!exp) return Promise.resolve();
@@ -1232,7 +1215,7 @@ function openExpanderAsync(id){
   });
 }
 
-// Attendre qu'un expander soit rendu avant d'appeler cb
+// Attend qu'un expander soit rendu avant d'appeler cb
 function ensureExpanderReady(expanderId, cb, { timeout = 3000 } = {}) {
   const exp = document.getElementById(expanderId);
   const header = exp?.querySelector('.st-expander-header');
@@ -1537,35 +1520,41 @@ function wireExpanderButtons() {
       </span>
       <span class="exp-label">Colonnes</span>
     `,
-    onClick: () => { openColumnMenu(); },
+    onClick: () => {
+      openKebabMenu($('btn-col-non-prog'), {
+        items: [
+          { id:'add-column',       label:"Ajouter",        onClick: ()=>doAddColumn() },
+          { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSuppressColumn() },
+        ]
+      });
+    },
   });
 
+  // Choix de svg pour le Bouton Colonnes
+  // <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+  //     stroke-linecap="round" stroke-linejoin="round">
+  //   <circle cx="12" cy="12" r="3"></circle>
+  //   <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.82-.33
+  //           1.7 1.7 0 0 0-1 1.54V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.54 1.7 1.7 0 0 0-1.82.33l-.06.06
+  //           a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .33-1.82 1.7 1.7 0 0 0-1.54-1H3a2 2 0 1 1 0-4h.09
+  //           a1.7 1.7 0 0 0 1.54-1 1.7 1.7 0 0 0-.33-1.82l-.06-.06A2 2 0 0 1 7.07 3.4l.06.06a1.7 1.7 0 0 0 1.82.33
+  //           1.7 1.7 0 0 0 1-1.54V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.54 1.7 1.7 0 0 0 1.82-.33l.06-.06
+  //           a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.33 1.82 1.7 1.7 0 0 0 1.54 1H21a2 2 0 1 1 0 4h-.09
+  //           a1.7 1.7 0 0 0-1.54 1Z"/>
+  // </svg>
 
-        // <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
-        //     stroke-linecap="round" stroke-linejoin="round">
-        //   <circle cx="12" cy="12" r="3"></circle>
-        //   <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.82-.33
-        //           1.7 1.7 0 0 0-1 1.54V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.54 1.7 1.7 0 0 0-1.82.33l-.06.06
-        //           a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .33-1.82 1.7 1.7 0 0 0-1.54-1H3a2 2 0 1 1 0-4h.09
-        //           a1.7 1.7 0 0 0 1.54-1 1.7 1.7 0 0 0-.33-1.82l-.06-.06A2 2 0 0 1 7.07 3.4l.06.06a1.7 1.7 0 0 0 1.82.33
-        //           1.7 1.7 0 0 0 1-1.54V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.54 1.7 1.7 0 0 0 1.82-.33l.06-.06
-        //           a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.33 1.82 1.7 1.7 0 0 0 1.54 1H21a2 2 0 1 1 0 4h-.09
-        //           a1.7 1.7 0 0 0-1.54 1Z"/>
-        // </svg>
+  // <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+  //   <rect x="3"  y="5" width="4" height="14" rx="1"></rect>
+  //   <rect x="10" y="5" width="4" height="14" rx="1"></rect>
+  //   <rect x="17" y="5" width="4" height="14" rx="1"></rect>
+  // </svg>
 
-        // <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-        //   <rect x="3"  y="5" width="4" height="14" rx="1"></rect>
-        //   <rect x="10" y="5" width="4" height="14" rx="1"></rect>
-        //   <rect x="17" y="5" width="4" height="14" rx="1"></rect>
-        // </svg>
-
-        // <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-        //   <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-        //   <line x1="9" y1="5" x2="9" y2="19"></line>
-        //   <line x1="15" y1="5" x2="15" y2="19"></line>
-        //   <circle cx="12" cy="12" r="2"></circle>
-        // </svg>
-
+  // <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+  //   <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+  //   <line x1="9" y1="5" x2="9" y2="19"></line>
+  //   <line x1="15" y1="5" x2="15" y2="19"></line>
+  //   <circle cx="12" cy="12" r="2"></circle>
+  // </svg>
 
   // Bouton Filtres sur Activités Non Programmées
   if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
@@ -1684,7 +1673,7 @@ function wireExpanderButtons() {
 
     const onChange = () => refreshGrid('grid-creneaux');
 
-    // 1) créer (ou réutiliser) le bouton via ton helper
+    // 1) créer (ou réutiliser) le bouton via helper
     addExpanderButton({
       expanderId: 'exp-creneaux',
       id,
@@ -2833,8 +2822,267 @@ function wireExpanders(){
 
 // ===== Actions =====
 
-// Menu Ajout / Suppression Colonne
-function openColumnMenu() {}
+// Ajout d'une colonne
+function doAddColumn() {
+  const df  = ctx.df || [];
+
+  openSheetExclusive({
+    title: 'Ajouter une colonne',
+    panelHeight: 'auto',
+    panelMaxHeight: '40vh',
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="form">
+          <div class="form-row">
+            <label for="new-col-name">Nom de la nouvelle colonne</label>
+            <input id="new-col-name"
+                   type="text"
+                   class="bb-input"
+                   placeholder="Ex. Commentaire, Classement…"
+                   autocomplete="off" />
+          </div>
+          <p class="form-error" id="new-col-error" style="display:none;color:#c00;font-size:0.85rem;"></p>
+        </div>
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button type="button" id="btn-cancel-add-col" class="bb-btn">Abandonner</button>
+            <button type="button" id="btn-apply-add-col" class="bb-btn is-primary">Appliquer</button>
+          </div>
+        </div>
+      `;
+
+      const input = body.querySelector('#new-col-name');
+      const errEl = body.querySelector('#new-col-error');
+      const btnCancel = body.querySelector('#btn-cancel-add-col');
+      const btnApply  = body.querySelector('#btn-apply-add-col');
+
+      const showError = (msg) => {
+        if (!errEl) return;
+        errEl.textContent = msg || '';
+        errEl.style.display = msg ? 'block' : 'none';
+      };
+
+      const clearError = () => showError('');
+
+      // Ensemble des colonnes existantes (insensible à la casse)
+      const existingFields = (() => {
+        const s = new Set();
+
+        // helper normalisation : " Nom " -> "nom"
+        const add = (name) => {
+          if (!name) return;
+          const norm = String(name).trim().toLowerCase();
+          if (!norm) return;
+          s.add(norm);
+        };
+
+        // 1) Noms de champs du DF
+        const rows = ctx.df || [];
+        for (const r of rows) {
+          if (!r || typeof r !== 'object') continue;
+          for (const k of Object.keys(r)) {
+            if (!k) continue;
+            add(k);              // nom de champ (field)
+          }
+        }
+
+        // 2) Noms de colonnes dans la grille (field + headerName)
+        const handle = window.grids?.get('grid-programmees');    // ou une autre grille de référence
+        const colDefs = handle?.api?.getColumnDefs?.() || [];
+        for (const col of colDefs) {
+          if (!col) continue;
+          if (col.field)      add(col.field);       // champ interne
+          if (col.headerName) add(col.headerName);  // titre visible
+        }
+
+        return s;
+      })();
+
+      function apply() {
+        clearError();
+        let name = (input.value || '').trim();
+
+        // validations de base
+        if (!name) {
+          showError('Veuillez saisir un nom de colonne.');
+          input.focus();
+          return;
+        }
+
+        // on déconseille fortement de commencer par "__"
+        if (name.startsWith('__')) {
+          showError('Le préfixe "__" est réservé aux colonnes techniques.');
+          input.focus();
+          return;
+        }
+
+        // éviter les doublons (insensible à la casse)
+        if (existingFields.has(name.toLowerCase())) {
+          showError('Une colonne portant ce nom existe déjà.');
+          input.focus();
+          input.select();
+          return;
+        }
+
+        // facultatif : limiter un peu les caractères exotiques
+        // (tu peux commenter si tu veux tout autoriser)
+        const sanitized = name.replace(/\s+/g, ' ').trim();
+        name = sanitized;
+
+        // On va construire le nouveau df et le garder pour rebuild
+        let newDf = null;
+        ctx.mutateDf?.(rows => {
+          const src = rows || [];
+
+          // on duplique chaque row en ajoutant la nouvelle clé
+          const next = src.map(r => ({
+            ...r,
+            [name]: null,   // ou '' si tu préfères
+          }));
+
+          // si df était vide : on crée une ligne vide pour que la colonne existe
+          if (!next.length) {
+            next.push({ [name]: null });
+          }
+
+          newDf = next;
+          return next;
+        });
+
+        try {
+          // Si tu as un helper qui s’occupe des deux grilles d’activités
+          // (cf. ce que tu m’as décrit)
+          if (typeof rebuildColumnsForActiviteGrids === 'function') {
+            rebuildColumnsForActiviteGrids(newDf || ctx.df || []);
+          }
+        } catch (e) {
+          console.error('rebuildColumnsForActiviteGrids error:', e);
+        }
+
+        close();
+      }
+
+      btnCancel?.addEventListener('click', () => close());
+      btnApply?.addEventListener('click', apply);
+
+      input?.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          apply();
+        }
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          close();
+        }
+      });
+
+      // focus initial
+      setTimeout(() => input?.focus(), 20);
+    }
+  });
+}
+
+// Suppression d'une colonne
+function doSuppressColumn() {
+  const df = window.ctx?.df || [];
+  if (!Array.isArray(df) || df.length === 0) {
+    alert('Aucune donnée chargée : impossible de supprimer une colonne.');
+    return;
+  }
+
+  // Récupère la liste des colonnes à partir de la première ligne
+  const sample = df[0] || {};
+  const allFields = Object.keys(sample);
+
+  // Colonnes candidates à la suppression : non techniques et non obligatoires
+  const removable = allFields.filter(f =>
+    f &&
+    !MANDATORY_COLS.has(f) &&
+    !f.startsWith('__')
+  );
+
+  if (!removable.length) {
+    alert('Aucune colonne facultative à supprimer.');
+    return;
+  }
+
+  openSheetExclusive({
+    title: 'Supprimer une colonne',
+    panelHeight: '40vh',
+    panelMaxHeight: '50vh',
+    mount: (body, { close }) => {
+      const optionsHtml = removable
+        .map(name => `<option value="${name}">${name}</option>`)
+        .join('');
+
+      body.innerHTML = `
+        <div class="form">
+          <div class="form-row">
+            <label for="col-to-remove">Colonne à supprimer</label>
+            <select id="col-to-remove" class="bb-input">
+              ${optionsHtml}
+            </select>
+          </div>
+        </div>
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button type="button" id="btn-cancel" class="bb-btn">Abandonner</button>
+            <button type="button" id="btn-apply" class="bb-btn is-primary">Supprimer</button>
+          </div>
+        </div>
+      `;
+
+      const sel   = body.querySelector('#col-to-remove');
+      const btnOk = body.querySelector('#btn-apply');
+      const btnKo = body.querySelector('#btn-cancel');
+
+      btnKo.addEventListener('click', () => close());
+
+      btnOk.addEventListener('click', () => {
+        const col = sel.value?.trim();
+        if (!col) {
+          alert('Veuillez choisir une colonne à supprimer.');
+          return;
+        }
+        if (MANDATORY_COLS.has(col)) {
+          alert(`La colonne "${col}" est obligatoire et ne peut pas être supprimée.`);
+          return;
+        }
+
+        // Confirmation de confort
+        if (!confirm(`Supprimer définitivement la colonne "${col}" ?`)) return;
+
+        if (!window.ctx?.mutateDf) {
+          console.error('ctx.mutateDf est introuvable');
+          return;
+        }
+
+        // Mise à jour du df (immutabilité "façon ctx.mutateDf")
+        window.ctx.mutateDf(rows => {
+          if (!Array.isArray(rows)) return rows;
+
+          const next = rows.map(r => {
+            if (!r || typeof r !== 'object') return r;
+            const copy = { ...r };
+            delete copy[col];
+            return copy;
+          });
+
+          // Rebuild des colonnes des grilles d’activités avec le nouveau df
+          try {
+            rebuildColumnsForActiviteGrids?.(next);
+          } catch (e) {
+            console.error('rebuildColumnsForActiviteGrids error:', e);
+          }
+
+          return next;
+        });
+
+        close();
+      });
+    }
+  });
+}
 
 // Reset du contexte
 async function doNouveauContexte() {
@@ -4115,6 +4363,7 @@ function createKebabItem(label, key) {
   b.textContent = label;
   return b;
 }
+
 function createKebabSep() {
   const d = document.createElement('div');
   d.className = 'kebab-sep';
@@ -4224,10 +4473,9 @@ function openKebabMenu(anchorBtn, { items = [] } = {}) {
 function wireAppKebab() {
   const btn = document.getElementById('btn-app-kebab');
   if (!btn) return;
-
-  // Évite que le clic se propage à un parent cliquable
+  
   btn.addEventListener('click', (e) => {
-    e.stopPropagation();
+    e.stopPropagation();  // Évite que le clic se propage à un parent cliquable
     openKebabMenu(btn, {
       items: [
         { id:'carnet', label:"Carnet d'adresses",          onClick: ()=>openSheetCarnet() },
@@ -5358,191 +5606,6 @@ function openSheetCoherence(rows, {
   });
 }
 
-// Feuille Filtres sur grille activités non programmées
-// function openSheetFiltres(gridId) {
-//   const gridApi = window.grids?.get(gridId).api;
-//   if (!gridApi) return;
-
-//   const currentFilters = gridApi.getFilterModel() || {};
-//   const columns = (gridApi.getColumnDefs() || []).filter(col => col.filter);
-//   const fields = columns.map(c => c.field);
-
-//   openSheetExclusive({
-//     title: 'Filtres',
-//     panelHeight: '50vh',
-//     panelMaxHeight: '50vh',
-//     // swipeBody: true,
-//     mount: (body, { close }) => {
-//       // 1) Form rows avec bouton RAZ à gauche
-//       const rowsHtml = columns.map(col => {
-//         const colId = col.field;
-//         const value = currentFilters[colId]?.filter || '';
-//         const hasVal = value ? ' has-val' : '';
-//         return `
-//           <div class="form-row filter-row">
-//             <label for="filter-${colId}">${col.headerName}</label>
-//             <div class="input-wrap${hasVal}">
-//               <button type="button" class="btn-clear" data-field="${colId}" aria-label="Effacer le filtre ${col.headerName}" title="Effacer">×</button>
-//               <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}" class="filter-input">
-//             </div>
-//           </div>
-//         `;
-//       }).join('');
-
-//       body.innerHTML = `
-//         <div class="form">
-//           ${rowsHtml}
-//         </div>
-//         <div id="dl-container" hidden></div>
-//         <div class="sheet-footer has-border">
-//           <div class="form-actions">
-//             <button id="btn-clear" class="bb-btn is-primary">Réinitialiser</button>
-//             <button id="btn-apply" class="bb-btn is-primary">Appliquer</button>
-//           </div>
-//         </div>
-//       `;
-
-//       // ===== CSS minimal pour mise en page du bouton (injecté une fois) =====
-//       if (!document.getElementById('filters-inline-css')) {
-//         const style = document.createElement('style');
-//         style.id = 'filters-inline-css';
-//         style.textContent = `
-//           .filter-row .input-wrap { position: relative; display:flex; align-items:center; gap:.5rem; }
-//           .filter-row .btn-clear {
-//             width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
-//             border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
-//             background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
-//             display: none; font-weight: 600; font-size: 1rem;
-//           }
-//           .filter-row .input-wrap.has-val .btn-clear { display: inline-block; }
-//           .filter-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
-//           @media (hover:hover) {
-//             .filter-row .btn-clear:hover { background:#eee; }
-//           }
-//         `;
-//         document.head.appendChild(style);
-//       }
-
-//       // ===== helpers + création datalist =====
-//       function collectRowsFromGrid(api, mode = 'all') {
-//         const out = [];
-//         if (mode === 'afterFilter' && api.forEachNodeAfterFilterAndSort) {
-//           api.forEachNodeAfterFilterAndSort(n => { if (n?.data) out.push(n.data); });
-//         } else if (api.forEachLeafNode) {
-//           api.forEachLeafNode(n => { if (n?.data) out.push(n.data); });
-//         } else if (api.getDisplayedRowCount) {
-//           const cnt = api.getDisplayedRowCount();
-//           for (let i = 0; i < cnt; i++) {
-//             const rowNode = api.getDisplayedRowAtIndex(i);
-//             if (rowNode?.data) out.push(rowNode.data);
-//           }
-//         }
-//         return out;
-//       }
-
-//       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
-//         const set = new Set();
-//         for (const r of rows || []) {
-//           let v = r?.[field];
-//           if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
-//           set.add(String(v));
-//           if (set.size >= max) break;
-//         }
-//         return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
-//       }
-
-//       function wireDatalistForField(field, rows) {
-//         const input = body.querySelector(`#filter-${field}`);
-//         if (!input) return;
-//         const listId = `dl-${field}`;
-//         const dlContainer = body.querySelector('#dl-container');
-//         let dl = body.querySelector(`#${listId}`);
-//         if (!dl) {
-//           dl = document.createElement('datalist');
-//           dl.id = listId;
-//           dlContainer.appendChild(dl);
-//         }
-//         input.setAttribute('list', listId);
-//         const values = uniqueValues(rows, field);
-//         dl.replaceChildren(...values.map(v => {
-//           const o = document.createElement('option');
-//           o.value = v;
-//           return o;
-//         }));
-//       }
-
-//       function buildFilterLists(rows, fields) {
-//         fields.forEach(f => wireDatalistForField(f, rows));
-//       }
-
-//       const sourceRows = collectRowsFromGrid(gridApi, 'all');
-//       buildFilterLists(sourceRows, fields);
-
-//       // ===== logique RAZ par champ =====
-//       // 1) Délégation de clic sur les boutons ×
-//       body.addEventListener('click', (e) => {
-//         const btn = e.target.closest('.btn-clear');
-//         if (!btn) return;
-//         const field = btn.dataset.field;
-//         const input = body.querySelector(`#filter-${field}`);
-//         if (!input) return;
-//         input.value = '';
-//         input.dispatchEvent(new Event('input', { bubbles: true }));
-//         btn.parentElement.classList.remove('has-val');
-//         // (facultatif) focus de confort
-//         input.focus();
-//       });
-
-//       // 2) Marquer has-val quand l’input change (pour afficher/masquer le bouton)
-//       body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
-//         const wrap = inp.closest('.input-wrap');
-//         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
-//         inp.addEventListener('input', sync);
-//         inp.addEventListener('change', sync);
-//         // Esc pour RAZ rapide
-//         inp.addEventListener('keydown', (ev) => {
-//           if (ev.key === 'Escape') { inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); sync(); }
-//         });
-//         // init
-//         sync();
-//       });
-
-//       // ===== boutons Appliquer / Réinitialiser =====
-//       const applyBtn = body.querySelector('#btn-apply');
-//       const clearBtn = body.querySelector('#btn-clear');
-
-//       applyBtn.addEventListener('click', () => {
-//         const newModel = {};
-//         columns.forEach(col => {
-//           const val = body.querySelector(`#filter-${col.field}`).value.trim();
-//           if (val) newModel[col.field] = { type: 'contains', filter: val };
-//         });
-//         gridApi.setFilterModel(newModel);
-//         gridApi.onFilterChanged();
-//         close();
-//       });
-
-//       clearBtn.addEventListener('click', () => {
-//         gridApi.setFilterModel({});
-//         gridApi.onFilterChanged();
-//         close();
-//       });
-
-//       // ===== Application des styles spécifiques sheet-filters-open =====
-//       const sheet = document.querySelector('.sheet-wrap'); 
-//       document.querySelectorAll('.filter-input').forEach(inp => {
-//         inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
-//         inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
-//       })
-
-//       // (optionnel) regénérer les datalists si le dataset change
-//       // gridApi.addEventListener('modelUpdated', () => {
-//       //   const rows = collectRowsFromGrid(gridApi, 'all');
-//       //   buildFilterLists(rows, fields);
-//       // });
-//     }
-//   });
-// }
 function openSheetFiltres(gridId) {
   const gridApi = window.grids?.get?.(gridId)?.api;
   if (!gridApi) return;
@@ -5637,20 +5700,6 @@ function openSheetFiltres(gridId) {
           });
         }
       }
-      // function pageKbInset() {
-      //   return vv ? Math.max(0, window.innerHeight - vv.height) : 0;
-      // }
-      // padding bas pour ne pas que le footer passe sous le clavier
-      // function kbInsetPx() {
-      //   return vv ? Math.max(0, window.innerHeight - vv.height) : 0;
-      // }
-      // function applyInsets() {
-      //   const kb = kbInsetPx();
-      //   const fb = footer?.offsetHeight || 0;
-      //   sheet?.style.setProperty('--kb-inset', kb + 'px');
-      //   // on donne de la place à scroller jusqu'au footer au-dessus du clavier
-      //   sheetBody.style.paddingBottom = `calc(${fb}px + var(--kb-inset, 0px))`;
-      // }
 
       // scrolle UNIQUEMENT si la row est masquée par clavier+footer
       function scrollRowIfOccluded(input, { smooth = true } = {}) {
@@ -5671,35 +5720,6 @@ function openSheetFiltres(gridId) {
           sheetBody.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
         }
       }
-      // function isKbOpen() {
-      //   return vv ? (window.innerHeight - vv.height) > 120 : false;
-      // }
-      // function applyKbInsets() {
-      //   if (!sheet || !scrollEl) return;
-      //   const kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height)) : 0;
-      //   sheet.style.setProperty('--kb-inset', (isKbOpen() ? kb : 0) + 'px');
-      //   const footerH = footer?.offsetHeight || 0;
-      //   scrollEl.style.paddingBottom = `calc(${footerH}px + var(--kb-inset, 0px))`;
-      // }
-      // function ensureFooterVisible({target=null, smooth=true} = {}) {
-      //   if (!scrollEl) return;
-      //   applyKbInsets();
-      //   // priorité: si un input a le focus, l’amener au centre
-      //   if (target && target.scrollIntoView) {
-      //     target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: smooth ? 'smooth' : 'auto' });
-      //   }
-      //   // puis s’assurer que le footer n’est pas sous le clavier
-      //   requestAnimationFrame(() => {
-      //     const footerBottom = footer?.getBoundingClientRect?.().bottom ?? 0;
-      //     const safeHeight   = vv ? vv.height : window.innerHeight;
-      //     if (footerBottom > safeHeight - 8) {
-      //       scrollEl.scrollTo({
-      //         top: scrollEl.scrollTop + (footerBottom - safeHeight + 16),
-      //         behavior: smooth ? 'smooth' : 'auto'
-      //       });
-      //     }
-      //   });
-      // }
       // Remplace CR/LF réels ET littéraux (\r\n, \n, \r) par un espace pour l’affichage
       function sanitizeDatalistValue(s) {
         return String(s)
@@ -6032,14 +6052,6 @@ function openSheetFiltres(gridId) {
         inp.addEventListener('input', () => {
           sync();
           markModified();
-          // if (inp.getAttribute('list')) {
-          //   // Ferme le clavier → boutons à nouveau cliquables
-          //   inp.blur();
-          //   // Laisse iOS animer le clavier, puis scrolle la PAGE pour révéler le footer
-          //   setTimeout(() => {
-          //     scrollPageToRevealFooter(footer, { smooth: true });
-          //   }, 50);
-          // }
         });
 
         // Focus → scroller la ROW si masquée

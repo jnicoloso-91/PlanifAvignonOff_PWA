@@ -118,6 +118,18 @@ export function isStandalonePWA() {
       || window.navigator.standalone === true; // iOS Safari
 }
 
+export function estNumerique(val) {
+  return typeof val === 'number'
+    ? Number.isFinite(val)
+    : !isNaN(val) && isFinite(Number(val));
+}
+
+export function capitalizeFirst(str) {
+  const s = String(str ?? '').trim();
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 // Normalizer par défaut : trim + lower + sans accents
 const _defaultNormalizer = v => String(v ?? '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
