@@ -2847,8 +2847,8 @@ function doAjouterColonne() {
         </div>
         <div class="sheet-footer has-border">
           <div class="form-actions">
-            <button type="button" id="btn-cancel-add-col" class="bb-btn">Abandonner</button>
-            <button type="button" id="btn-apply-add-col" class="bb-btn is-primary">Appliquer</button>
+            <button type="button" id="btn-cancel-add-col" class="bb-btn">Annuler</button>
+            <button type="button" id="btn-apply-add-col" class="bb-btn is-primary">Ajouter</button>
           </div>
         </div>
       `;
@@ -3025,7 +3025,7 @@ function doSupprimerColonne() {
         </div>
         <div class="sheet-footer has-border">
           <div class="form-actions">
-            <button type="button" id="btn-cancel" class="bb-btn">Abandonner</button>
+            <button type="button" id="btn-cancel" class="bb-btn">Annuler</button>
             <button type="button" id="btn-apply" class="bb-btn is-primary">Supprimer</button>
           </div>
         </div>
@@ -3253,8 +3253,8 @@ async function doExportIcs() {
   rowsToICS(activitesAPI.getActivitesProgrammees(filteredRows));
 }
 
-// Vérification de cohérence des data
-async function doVerifCoherence() {
+// Vérification de cohérence du tableau d'activités
+async function doVerifierCoherence() {
   openSheetCoherence(ctx.df);
 }
 
@@ -3269,7 +3269,7 @@ async function doRedo() {
 }
 
 // Ajout activité
-async function doAjoutActivite() {
+async function doAjouterActivite() {
   const nouvelleActivite = await activitesAPI.creerActivite(ctx.df);
   ctx.mutateDf(rows => sortDf([nouvelleActivite, ...rows]));
 
@@ -3282,7 +3282,7 @@ async function doAjoutActivite() {
 }
 
 // Ajout activité avec collage
-async function doAjoutActivitesParCollage() {
+async function doAjouterActivitesParCollage() {
   await getClipBoardText();
 }
 
@@ -3674,13 +3674,13 @@ function wireBottomBar() {
   // --- Ajouter avec collage ---
   $('btn-paste')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
-    doAjoutActivitesParCollage();
+    doAjouterActivitesParCollage();
   });
 
   // --- Ajouter ---
   $('btn-add')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
-    doAjoutActivite();
+    doAjouterActivite();
   });
 
 // Drag-to-scroll with mouse (desktop)
@@ -3844,7 +3844,7 @@ function openFileMenu(anchorBtn) {
       if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'exportExcel') doExportExcel?.();
       if (act === 'exportIcs') doExportIcs?.();
-      if (act === 'rapportCoherence') doVerifCoherence?.();
+      if (act === 'rapportCoherence') doVerifierCoherence?.();
     });
   });
 
@@ -3914,7 +3914,7 @@ function openFileSheet() {
       if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'exportExcel') doExportExcel?.();
       if (act === 'exportIcs') doExportIcs?.();
-      if (act === 'rapportCoherence') doVerifCoherence?.();
+      if (act === 'rapportCoherence') doVerifierCoherence?.();
     });
   });
 
