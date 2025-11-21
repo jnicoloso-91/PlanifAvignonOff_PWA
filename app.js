@@ -21,6 +21,7 @@ import {
   looksLikeUrl, 
   mergeRowsNoDup,
   mergeRowsNoDupMultiKey, 
+  overloadRowsOrInsert,
   estNumerique,
   capitalizeFirst,
 } from './utils.js';
@@ -39,6 +40,8 @@ import {
   parseAvignonInSpecPageUrl, 
   parseAvignonOffProgPageUrl, 
   parseAvignonOffSpecPageUrl, 
+  parseBilletReducProgPageUrl,
+  parseBilletReducSpecPageUrl,
 
   parseAvignonInProgPageText,
   parseAvignonInSpecPageText, 
@@ -247,10 +250,10 @@ const CANON = {
   'validite': 'Session',
   'session': 'Session',
   'sessions': 'Session',
-  'session(s)': 'Session',
+  'seance': 'Session',
+  'seances': 'Session',
   'relache': 'Relache',
   'relaches': 'Relache',
-  'relache(s)': 'Relache',
   'reserve': 'Reserve',
   'priorite': 'Priorite',
   // tolérances diverses
@@ -1875,7 +1878,7 @@ function buildColumnsActivitesCommon(){
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
-    { field:'Session', headerName: 'Validité', width:widthSR, minWidth:widthSR, valueParser: valueParserSession },
+    { field:'Session', headerName: 'Séances', width:widthSR, minWidth:widthSR, valueParser: valueParserSession },
     { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache },
     { field:'Style', headerName: 'Style', minWidth:160, flex:0.6 },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
@@ -2027,6 +2030,7 @@ function valueParserSession (params) {
      - "09/07/25" ou "09/07/2025"
      - "(9, 16, 23)/7" pour énumérer des dates du même mois
      - "[9-12]/07", [30/07-01/08] pour une période
+     - "[9-12]/07 lu ma", [30/07-01/08] lu ma pour des jours de la semaine sur une période 
      - "jours pairs" | "jours impairs"
      - chaîne vide => tous les jours de la période de programmation
     `);
@@ -2042,6 +2046,7 @@ function valueParserRelache (params) {
      - "09/07/25" ou "09/07/2025"
      - "(9, 16, 23)/7" pour énumérer des dates du même mois
      - "[9-12]/07", [30/07-01/08] pour une période
+     - "[9-12]/07 lu ma", [30/07-01/08] lu ma pour des jours de la semaine sur une période 
      - "jours pairs" | "jours impairs"
      - chaîne vide => pas de jours de relâche
     `);
@@ -3117,6 +3122,13 @@ async function doImportFromCatOff() {
   importFromXlsxFile(f, {add:true});
 }
 
+// Import depuis billet reduc
+async function doImportFromBilletReduc({ rubrique, region, dt }) {
+  const url = `https://www.billetreduc.com/search.htm?dt=${encodeURIComponent(dt)}&region=${encodeURIComponent(region)}&idrub=${encodeURIComponent(rubrique)}`;
+  importFromUrlOrTxt(url, 'parseBilletReducProgPage');
+}
+
+
 // Export Excel
 async function doExportExcel() {
 
@@ -3190,8 +3202,8 @@ async function doExportExcel() {
     
     cleanData = cleanRows(cleanData, 
       ["__uuid", "Hyperlien", "__order", "__type_activite", "__index"],
-      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Validité", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité" },
-      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Validité", "Relâches", "Style", "Orga", "Réservé", "Priorité" ],
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité" },
+      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Style", "Orga", "Réservé", "Priorité" ],
       false
     );
 
@@ -3418,6 +3430,7 @@ async function getClipBoardText(parser=null) {
 async function importFromUrlOrTxt(raw, parser=null) {
 
   let parsed = null;
+  let mergeMode = 0;
 
   if (!parser) {
     if (looksLikeUrl(raw)) { 
@@ -3430,8 +3443,15 @@ async function importFromUrlOrTxt(raw, parser=null) {
       else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
       } 
-      else if (raw.includes("www.festivaloffavignon.com/spectacles")) {
+      else if (raw.includes("https:www.festivaloffavignon.com/spectacles")) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
+      } 
+      else if (raw.includes("https://www.billetreduc.com/search")) {
+        parsed = await asyncCallAvecOverlayAttente(parseBilletReducProgPageUrl, raw, 'Echec collage');
+      } 
+      else if (raw.includes("https://www.billetreduc.com/spectacle")) {
+        parsed = await asyncCallAvecOverlayAttente(parseBilletReducSpecPageUrl, raw, 'Echec collage');
+        mergeMode = 1;
       } 
       else {
         alert("Il n'existe pas de lecteur pour cette adresse, essayez de coller après avoir copié le texte de la page.");
@@ -3453,7 +3473,7 @@ async function importFromUrlOrTxt(raw, parser=null) {
       }
     }
     if (!parsed || parsed.length == 0) {
-      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogue, afficher le programme ou la page d'un spectacle et copier l'adresse ou le texte de la page");
+      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogue, afficher le programme ou la page d'un spectacle et copier l'adresse ou le texte de la page.");
       return null;
     }
   } else {
@@ -3462,7 +3482,7 @@ async function importFromUrlOrTxt(raw, parser=null) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
       }      
       if (!parsed || parsed.length == 0) {
-        alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du In, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+        alert("Aucune activité valide à récupérer à l'adresse choisie.");
         return null;
       }
     } 
@@ -3471,12 +3491,21 @@ async function importFromUrlOrTxt(raw, parser=null) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
       }
       if (!parsed || parsed.length == 0) {
-        alert("Aucune valeur valide à coller. Commencer par aller dans le catalogue du Off, afficher le programme, sélectionner les spectacles désirés et copier le texte de la page");
+        alert("Aucune activité valide à récupérer à l'adresse choisie.");
+        return null;
+      }
+    } 
+    else if (parser == 'parseBilletReducProgPage') {
+      if (looksLikeUrl(raw) && raw.includes("https://www.billetreduc.com/search")) {
+        parsed = await asyncCallAvecOverlayAttente(parseBilletReducProgPageUrl, raw, 'Echec collage');
+      }
+      if (!parsed || parsed.length == 0) {
+        alert("Aucune activité valide à récupérer à l'adresse choisie.");
         return null;
       }
     } 
     if (!parsed || parsed.length == 0) {
-      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogue, afficher le programme ou la page d'un spectacle et copier le texte de la page");
+      alert("Aucune valeur valide à coller. Commencer par aller dans un catalogue, afficher le programme ou la page d'un spectacle et copier le texte de la page.");
       return null;
     }
   }
@@ -3489,9 +3518,11 @@ async function importFromUrlOrTxt(raw, parser=null) {
     const nom = row.Activite || null;
 
     const hyperlienDefault = (nom) ? 
-      (!row.Orga || row.Orga.trim().toLowerCase() == 'off') ? 
+      (row.Orga.trim().toLowerCase() == 'off') ? 
       `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nom.trim().replace(/\s+/g, '+')}` : 
+      (row.Orga.trim().toLowerCase() == 'in') ? 
       `https://festival-avignon.com/fr/edition-2025/programmation/par-categorie`: 
+      `https://www.billetreduc.com/search.htm?se=${nom.trim().replace(/\s+/g, '+')}` :
       null;
 
     const nouvelleActivite = {
@@ -3512,10 +3543,21 @@ async function importFromUrlOrTxt(raw, parser=null) {
       nouvellesActivites.push(nouvelleActivite);
   }
 
-  recalcFinForAll(nouvellesActivites);
   if (!nouvellesActivites || nouvellesActivites.length == 0) return;
-  // ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
-  ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(nouvellesActivites, rows, ['Activite', 'Debut', 'Session'])));
+  
+
+  if (mergeMode == 1) {
+    ctx.mutateDf(rows => { 
+      const next = sortDf(overloadRowsOrInsert(rows, nouvellesActivites[0], ['Activite', 'Lieu'], ['Duree'])); 
+      recalcFinForAll(next); 
+      return next;
+    });
+    
+  }
+  else {
+    recalcFinForAll(nouvellesActivites);
+    ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(nouvellesActivites, rows, ['Activite', 'Debut', 'Session'])));
+  }
 
   // Maj des sélections
   setTimeout(() => {
@@ -3767,6 +3809,13 @@ const fileMenuSheetInnerHtml = () => {
           <span class="file-sheet__subtitle">Importe le programme du catalogue du Off</span>
         </div>
       </li>
+      <li class="file-sheet__item" data-action="importBilletReduc">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Importer depuis Billet réduc</span>
+          <span class="file-sheet__subtitle">Importe depuis le site de billet réduc</span>
+        </div>
+      </li>
       <li class="file-sheet__item" data-action="exportExcel">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
@@ -3817,6 +3866,7 @@ function openFileMenu(anchorBtn) {
     { id:'open', label:'Importer depuis Excel'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
     { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
+    { id:'importBilletReduc', label:'Importer depuis Billet réduc'      },
     { id:'exportExcel', label:'Exporter vers Excel' },
     { id:'exportIcs', label:'Exporter vers calendrier' },
     { id:'rapportCoherence', label:'Rapport de vérification de cohérence' },
@@ -3846,6 +3896,7 @@ function openFileMenu(anchorBtn) {
       if (act === 'open') doImportExcel?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
+      if (act === 'importBilletReduc') openSheetImportBilletReduc?.();
       if (act === 'exportExcel') doExportExcel?.();
       if (act === 'exportIcs') doExportIcs?.();
       if (act === 'rapportCoherence') doVerifierCoherence?.();
@@ -3916,6 +3967,7 @@ function openFileSheet() {
       if (act === 'open') doImportExcel?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
+      if (act === 'importBilletReduc') openSheetImportBilletReduc?.();
       if (act === 'exportExcel') doExportExcel?.();
       if (act === 'exportIcs') doExportIcs?.();
       if (act === 'rapportCoherence') doVerifierCoherence?.();
@@ -5553,16 +5605,17 @@ function openSheetAide() {
                 <li><u><i>Durée</u></i> : Durée de l'activité (format HHhMM ou HHh)</li>
                 <li><u><i>Activité</u></i> : Nom de l'activité (nom de spectacle, pause, visite, ...)</li>
                 <li><u><i>Lieu</u></i> : Lieu de l'activité</li>
-                <li><u><i>Validité</u></i> : Périodes de validité de l'activité (voir ci-dessous les formats acceptés)</li>
-                <li><u><i>Relâches</u></i> : Jours / périodes de relâche ou de validité de l'activité (voir ci-dessous les formats acceptés)</li>
+                <li><u><i>Séances</u></i> : Jours / périodes de séance de l'activité (voir ci-dessous les formats acceptés)</li>
+                <li><u><i>Relâches</u></i> : Jours / périodes de relâche de l'activité (voir ci-dessous les formats acceptés)</li>
                 <li><u><i>Réservé</u></i> : Indique si l'activité est réservée (Oui/Non, vide interpété comme Non)</li>
             </ul>
 
-            <p style="margin-bottom: 0.2em">Les jours / périodes de validité ou de relâche sont une suite séparée par des virgules de l'une des formes suivantes:</p>
+            <p style="margin-bottom: 0.2em">Les jours / périodes de séance ou de relâche sont une suite séparée par des virgules de l'une des formes suivantes:</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
                 <li>Suite de dates de type jour ou jour/mois ou jour/mois/année, séparées par des virgules (mois ou année omis -> mois et année en cours)</li>
-                <li>Regroupement de jours de relâche : (j1, j2, ...)/mois ou (j1, j2, ...)/mois/année</li>
+                <li>Regroupement de jours : (j1, j2, ...)/mois ou (j1, j2, ...)/mois/année</li>
                 <li>Intervalle de dates: [dmin-dmax] ou [jmin-jmax]/mois ou /mois/année</li>
+                <li>Jours de la semaine sur un intervalle de dates: [dmin-dmax] j1 j2 ... ou [jmin-jmax]/mois j1 j2 ... ou /mois/année j1 j2 ..., avec ji jour de la semaine sur deux lettres </li>
                 <li>Spécification de jours pairs ou impairs: 'pair(s)' / 'impair(s)'</li>
                 <li>Exemple: '04/07/25, (8,10)/07, [20-22]/07, jours pairs' -> le 04/07/2025, les 8 et 10 juillet de l'année en cours, 
                 entre le 20 et le 22 juillet de l'année en cours et les jours pairs.</li>
@@ -6266,6 +6319,131 @@ function openSheetFiltres(gridId) {
       document.querySelectorAll('.filter-input').forEach(inp => {
         inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
         inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
+      });
+    }
+  });
+}
+
+const BILLETREDUC_RUBRIQUES = [
+  { label: 'Théâtre',                value: '68'  },
+  { label: 'Spectacles',             value: '37'  },
+  { label: 'Concerts',               value: '4'   },
+  { label: 'Spectacles Enfants',     value: '187' },
+  { label: 'Loisirs',                value: '36'  },
+  { label: 'Humour',                 value: '9'   },
+  { label: 'Cirque',                 value: '241' },
+  { label: 'Expériences',            value: '5'   },
+  { label: 'Expos',                  value: '7'   },
+  { label: 'Enfants',                value: '8'   },
+];
+
+const BILLETREDUC_REGIONS = [
+  { label: 'Paris - Île de France',              value: 'J' },
+  { label: 'Lyon - Rhône Alpes',                 value: 'V' },
+  { label: 'Marseille / Nice / Avignon / Aix',   value: 'U' },
+  { label: 'Lille - Nord-Pas de Calais',         value: 'O' },
+  { label: 'Nantes / Angers - Pays de Loire',    value: 'R' },
+  { label: 'Brest / Rennes - Bretagne',          value: 'E' },
+  { label: 'Basse Normandie',                    value: 'P' },
+  { label: 'Perpignan / Montpellier',            value: 'K' },
+  { label: 'Bordeaux - Aquitaine',               value: 'B' },
+  { label: 'Auvergne',                           value: 'C' },
+  { label: 'Toulouse - Midi Pyrénées',           value: 'N' },
+  { label: 'Rouen - Haute Picardie',             value: 'Q' },
+  { label: 'Poitou Charentes',                   value: 'T' },
+  { label: 'Centre',                             value: 'F' },
+  { label: 'Bourgogne',                          value: 'D' },
+  { label: 'Franche Comté',                      value: 'I' },
+  { label: 'Lorraine',                           value: 'M' },
+  { label: 'Picardie',                           value: 'S' },
+  { label: 'Champagne Ardennes',                 value: 'G' },
+  { label: 'Limousin',                           value: 'L' },
+];
+
+function openSheetImportBilletReduc() {
+  // mois courant au format yyyy-mm pour <input type="month">
+  const now = new Date();
+  const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  openSheetExclusive({
+    title: 'Import BilletReduc',
+    panelHeight: '50vh',
+    panelMaxHeight: '60vh',
+    mount: (body, { close }) => {
+      // Options <option> pour les selects
+      const rubOptions = BILLETREDUC_RUBRIQUES.map((r, idx) =>
+        `<option value="${r.value}" ${idx === 0 ? 'selected' : ''}>${r.label}</option>`
+      ).join('');
+
+      const regOptions = BILLETREDUC_REGIONS.map((r, idx) =>
+        `<option value="${r.value}" ${idx === 0 ? 'selected' : ''}>${r.label}</option>`
+      ).join('');
+
+      body.innerHTML = `
+        <div class="form">
+          <div class="form-row">
+            <label for="br-rubrique">Rubrique</label>
+            <select id="br-rubrique">
+              ${rubOptions}
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label for="br-region">Région</label>
+            <select id="br-region">
+              ${regOptions}
+            </select>
+          </div>
+
+          <div class="form-row">
+            <label for="br-month">Mois</label>
+            <input id="br-month" type="month" value="${curMonth}">
+          </div>
+        </div>
+
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button type="button" id="br-cancel" class="bb-btn">
+              Annuler
+            </button>
+            <button type="button" id="br-ok" class="bb-btn is-primary">
+              Continuer
+            </button>
+          </div>
+        </div>
+      `;
+
+      const selRub = body.querySelector('#br-rubrique');
+      const selReg = body.querySelector('#br-region');
+      const inpMonth = body.querySelector('#br-month');
+      const btnCancel = body.querySelector('#br-cancel');
+      const btnOk = body.querySelector('#br-ok');
+
+      btnCancel.addEventListener('click', () => {
+        close();
+      });
+
+      btnOk.addEventListener('click', async () => {
+        const rubrique = selRub.value;
+        const region   = selReg.value;
+        const ym       = (inpMonth.value || '').trim(); // "yyyy-mm"
+
+        if (!rubrique || !region || !ym) {
+          alert('Merci de choisir rubrique, région et mois.');
+          return;
+        }
+
+        // Normalisation du mois → dt=yyyy-mm
+        const dt = ym; // BilletReduc attend déjà ce format
+
+        close();
+
+        try {
+          await doImportFromBilletReduc({ rubrique, region, dt });
+        } catch (err) {
+          console.error('Import BilletReduc failed:', err);
+          alert('Erreur pendant l’import BilletReduc. Voir la console pour le détail.');
+        }
       });
     }
   });

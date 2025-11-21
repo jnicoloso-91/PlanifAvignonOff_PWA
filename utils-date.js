@@ -1,5 +1,11 @@
 // utils-date.js — helpers communs "date/heure" pour app.js et activites.js
 
+import { 
+  richValueSet,
+  richValueGetValue, 
+  richValueGetQuality,
+} from './utils.js';
+
 // Bornes "intra-jour" (minutes depuis minuit)
 export const MIN_DAY = 0;                 // 00:00
 export const MAX_DAY = 23 * 60 + 59;      // 23:59
@@ -403,13 +409,13 @@ export function recalcFin(row) {
   if (!row?.Debut || !row?.Duree) return null;
 
   const [h1, m1] = row.Debut.split("h").map(Number);
-  const [h2, m2] = row.Duree.split("h").map(Number);
+  const [h2, m2] = richValueGetValue(row.Duree).split("h").map(Number);
 
   const total = h1 * 60 + m1 + h2 * 60 + m2;
   const hh = Math.floor((total / 60) % 24);
   const mm = total % 60;
 
-  return `${String(hh).padStart(2, "0")}h${String(mm).padStart(2, "0")}`;
+  return richValueSet(`${String(hh).padStart(2, "0")}h${String(mm).padStart(2, "0")}`, richValueGetQuality(row.Duree));
 }
 
 /**

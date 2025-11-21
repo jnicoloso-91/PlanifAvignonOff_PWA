@@ -82,21 +82,74 @@ export function mergeRowsNoDup(arr1, arr2, col) {
   return Array.from(map.values());
 }
 
-// Merge deux tableaux sans duplication.
-// cols donne les colonnes à tester.
-// Si deux lignes ont la même valeur sur les colonnes données par cols la première est gardée.
-export function mergeRowsNoDupMultiKey(arr1, arr2, cols, normalizer) {
+/**
+ * Merge deux tableaux sans duplication.
+ * Si deux lignes ont la même valeur sur les colonnes données par keyCols 
+ * les valeurs de arr1 sont appliquées sur les colonnes données overloadCols 
+ * ou sur toutes les colonnes si overloadCols est null.
+ * @param {*} arr1 
+ * @param {*} arr2 
+ * @param {*} keyCols       colonnes à tester pour considérer qu'il y a doublon.
+ * @param {*} overloadCols  colonnes à surcharger en cas de doublon.
+ * @param {*} normalizer    fonction de normalisation des valeurs à comparer.
+ * 
+ * @returns 
+ */
+export function mergeRowsNoDupMultiKey(arr1, arr2, keyCols, overloadCols, normalizer) {
   const map = new Map();
   // On conserve l’ordre d’arrivée : d’abord arr1, puis arr2
   for (const r of arr1) {
-    const k = _buildKey(r, cols, normalizer);
+    const k = _buildKey(r, keyCols, normalizer);
     if (!map.has(k)) map.set(k, r);
   }
   for (const r of arr2) {
-    const k = _buildKey(r, cols, normalizer);
+    const k = _buildKey(r, keyCols, normalizer);
     if (!map.has(k)) map.set(k, r);
   }
   return Array.from(map.values());
+}
+
+/**
+ * Surcharge ou insère une ligne dans le tableau rows.
+ *
+ * - Si rows contient des lignes qui matchent row sur keyCols → on les surcharge sur overloadCols
+ * - Sinon → on ajoute row au tableau
+ *
+ * @param {Array<object>} rows
+ * @param {object}        row
+ * @param {Array<string>} keyCols
+ * @param {Array<string>} overloadCols
+ * @returns {Array<object>}  nouveau tableau
+ */
+export function overloadRowsOrInsert(rows, row, keyCols, overloadCols) {
+  if (!Array.isArray(rows) || !row) return rows;
+
+  let found = false;
+
+  const newRows = rows.map(r => {
+    if (!r || typeof r !== 'object') return r;
+
+    const isMatch = keyCols.every(col => (r?.[col] === row?.[col]));
+
+    if (!isMatch) return r;
+
+    found = true;
+
+    const updated = { ...r };
+    for (const col of overloadCols) {
+      if (Object.prototype.hasOwnProperty.call(row, col)) {
+        updated[col] = row[col];
+      }
+    }
+    return updated;
+  });
+
+  if (!found) {
+    // On ajoute une copie de row
+    newRows.push({ ...row });
+  }
+
+  return newRows;
 }
 
 export function isIOS() {
@@ -142,3 +195,49 @@ function _buildKey(row, cols, normalizer = _defaultNormalizer) {
   return cols.map(c => normalizer(row?.[c])).join(SEP);
 }
 
+// Retourne la valeur "nue" (sans indicateur de qualité)
+// ex: "~1h30"   -> "1h30"
+//     "1h30"    -> "1h30"
+//     null/""   -> null
+export function richValueGetValue(rv) {
+  if (rv == null) return null;
+  const s = String(rv).trim();
+  if (!s) return null;
+
+  const first = s[0];
+  // si le 1er char est un chiffre, on considère qu'il n'y a pas de quality
+  if (/[0-9]/.test(first)) return s;
+
+  // sinon on enlève juste ce premier char
+  return s.slice(1);
+}
+
+// Retourne la "quality" (1er caractère si non numérique) ou null
+// ex: "1h30"  -> ""
+//     "≈2h"    -> "≈"
+//     "1h30"   -> null
+export function richValueGetQuality(rv) {
+  if (rv == null) return null;
+  const s = String(rv).trim();
+  if (!s) return null;
+
+  const first = s[0];
+  return /[0-9]/.test(first) ? null : first;
+}
+
+// Construit une richValue à partir de value + quality
+// ex: richValueSet("1h30", "~") -> "~1h30"
+//     richValueSet("1h30", null) -> "1h30"
+export function richValueSet(value, quality = null) {
+  const v = value == null ? '' : String(value).trim();
+  const q = quality == null ? '' : String(quality);
+
+  if (!q) return v;          // pas de quality → juste la valeur
+  return q + v;              // on préfixe
+}
+
+// Retourne [value, quality] en une fois
+// ex: richValueGet("1h30") -> ["1h30", ""]
+export function richValueGet(rv) {
+  return [richValueGetValue(rv), richValueGetQuality(rv)];
+}

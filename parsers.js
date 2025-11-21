@@ -440,12 +440,12 @@ export function parseAvignonInSpecPageText(text) {
  * Parser d'une page programme du catalogue Avignon Off donnée par son URL
  * @param {string} url - URL du programme (ex: https://www.festivaloffavignon.com/programme)
  * @param {object}  opts
- * @param {number}  opts.maxPages   - sécurité (par défaut 50)
- * @param {number}  opts.delayMs    - pause entre requêtes (120ms par défaut)
+ * @param {number}  opts.maxPages   - sécurité (par défaut 1000)
+ * @param {number}  opts.delayMs    - pause entre requêtes (150ms par défaut)
  * @param {boolean} opts.verbose    - logs console
  * @returns {Promise<Array>}        - liste d’objets parsés (Activite, Lieu, Session, Debut, Duree, Style, Hyperlien)
  */
-export async function parseAvignonOffProgPageUrl(url, { maxPages = 2000, delayMs = 150, verbose = false } = {}) {
+export async function parseAvignonOffProgPageUrl(url, { maxPages = 1000, delayMs = 150, verbose = false } = {}) {
 
   const seen = new Set();
   const all  = [];
@@ -512,96 +512,6 @@ export async function parseAvignonOffProgPageUrl(url, { maxPages = 2000, delayMs
     if (delayMs) await new Promise(r => setTimeout(r, delayMs));
   }
   
-// // --- AVANT la boucle --- (tu as déjà expectedTotal / perPage / lastPage)
-// function readTotalCount(doc) {
-//   const txt = doc.querySelector('.count')?.textContent || '';
-//   // Exemple : "Vous avez vu 6 spectacles sur 1812"
-//   const nums = txt.match(/\d+/g);
-//   if (!nums || nums.length === 0) return null;
-
-//   // prend le dernier nombre rencontré (le total)
-//   return parseInt(nums[nums.length - 1], 10);
-// }
-// function readPerPage(doc){
-//   const list = doc.querySelectorAll('.spectacle-card'); 
-//   return list.length || null;
-// }
-// const expectedTotal = readTotalCount(doc0) || null;   // 1812
-// const perPage = readPerPage(doc0) || readPerPageFromCount(doc0) || readPerPageHeuristics(doc0) || null;
-// const lastPage = (expectedTotal && perPage) ? Math.ceil(expectedTotal / perPage) : undefined;
-// if (verbose) console.debug('[OFF] totals:', { expectedTotal, perPage, lastPage });
-
-// // on démarre à 2, sans se fier au form
-// let nextPage = 2;
-
-// // helper: mettre la page sur tous les noms “connus”
-// function setAllPageParams(params, v) {
-//   let touched = false;
-//   ['page', 'paged', 'current_page'].forEach(k => {
-//     if (params.has(k)) { params.set(k, String(v)); touched = true; }
-//   });
-//   if (!touched) params.set('page', String(v)); // fallback
-// }
-
-// // lire un lien “suivant” si présent (GET)
-// function getNextLink(doc) {
-//   let a = doc.querySelector('a[rel="next"]');
-//   if (!a) {
-//     a = Array.from(doc.querySelectorAll('.pagination a, nav a, a'))
-//       .find(el => /\b(next|suivant|»|›)\b/i.test(el.textContent || ''));
-//   }
-//   return a?.href || null;
-// }
-
-// // tente POST, sinon GET de secours
-// async function fetchDocForPage(page) {
-//   // 1) POST
-//   const params = _formToParams(form);
-//   setAllPageParams(params, page);
-//   const resP = await _fetchViaCloudFlareWorker(url, {
-//     method: 'POST',
-//     headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-//     body: params.toString()
-//   });
-//   const htmlP = await resP.text();
-//   const docP  = _parseHTML(htmlP);
-
-//   // si le POST ramène un form ou des items, on accepte
-//   const itemsP = parseAvignonOffProgPageDom(docP) || [];
-//   if (docP.querySelector('#js-form-filtres') || itemsP.length > 0) {
-//     return { doc: docP, items: itemsP, method: 'POST' };
-//   }
-
-//   // 2) Fallback GET (via lien “suivant” ou construction naïve)
-//   const href = getNextLink(docP) || `${url}?page=${page}`;
-//   const resG = await _fetchViaCloudFlareWorker(href);
-//   const htmlG = await resG.text();
-//   const docG  = _parseHTML(htmlG);
-//   const itemsG = parseAvignonOffProgPageDom(docG) || [];
-//   return { doc: docG, items: itemsG, method: 'GET' };
-// }
-
-// // --- BOUCLE ---
-// for (let i = 2; i <= maxPages; i++, nextPage++) {
-//   if (lastPage && nextPage > lastPage) break; // arrêt propre si connu
-
-//   const { doc, items, method } = await fetchDocForPage(nextPage);
-//   const nAdded = pushItems(items);
-//   if (verbose) console.debug(`[OFF] page ${nextPage} via ${method}:`, { added: nAdded, total: all.length });
-
-//   // mettre à jour le form si on le trouve, sinon on continue avec l'ancien
-//   const newForm = doc.querySelector('#js-form-filtres');
-//   if (newForm) form.innerHTML = newForm.innerHTML;
-
-//   // NE PAS s'arrêter sur “page vide” tant que le total n'est pas atteint
-//   if (expectedTotal && all.length >= expectedTotal) break;
-
-//   if (delayMs) {
-//     const jitter = Math.floor(Math.random() * 80);
-//     await new Promise(r => setTimeout(r, delayMs + jitter));
-//   }
-// }
-
   return all;
 }
 
@@ -1093,7 +1003,255 @@ export function parseAvignonOffSpecPageText(text) {
   return [res];
 }
 
+/**
+ * Parser des pages BilletReduc à partir d’une URL base + dt + region.
+ *
+ * @param {string} baseUrl - ex: "https://www.billetreduc.com/search.htm?dt=2025-11&region=J"
+ * @param {object} opts
+ * @param {number} [opts.maxPages=100]
+ * @param {number} [opts.delayMs=200]
+ * @param {boolean}[opts.verbose=false]
+ * @returns {Promise<Array>}   liste d’objets parsés (Activite, Lieu, Session, Debut, Duree, Style, Hyperlien, Orga)
+ */
+export async function parseBilletReducProgPageUrl(
+  baseUrl = 'https://www.billetreduc.com/search.htm?',
+  { maxPages = 100, delayMs = 200, verbose = false } = {}
+) {
 
+  const urlPage = (page) =>
+    page === 1
+      ? `${baseUrl}`
+      : `${baseUrl}&LISTEPEpg=${page}`;
+
+  const seen = new Set();
+  const all  = [];
+
+  const pushItems = (items, page) => {
+    let added = 0;
+    for (const it of items || []) {
+      const key = _makeKeyBilletReduc(it);
+      if (!seen.has(key)) {
+        seen.add(key);
+        all.push(it);
+        added++;
+      }
+    }
+    if (verbose) console.debug(`[BilletReduc] page ${page}: +${added}, total=${all.length}`);
+    return added;
+  };
+
+  // 1) Page 1 (GET)
+  for (let page = 1; page <= maxPages; page++) {
+    const url = urlPage(page);
+    if (verbose) console.debug('[BilletReduc] fetching', url);
+
+    const res = await _fetchViaCloudFlareWorker(url);    // même helper que pour le Off
+    if (!res.ok) {
+      if (verbose) console.warn('[BilletReduc] HTTP error', res.status);
+      break;
+    }
+    const html = await res.text();
+    const doc  = _parseHTML(html);                       // ton helper DOMParser
+
+    const items = parseBilletReducProgPageDom(doc);
+    const added = pushItems(items, page);
+
+    // Si aucune nouvelle activité → on suppose qu'il n'y a plus de page suivante
+    if (!added) break;
+
+    if (delayMs) {
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+
+  return all;
+}
+
+/**
+ * Parse le DOM d’une page BilletReduc (résultats de recherche)
+ * Retourne une liste d’activités "explosées" par horaire :
+ *   - même Activite/Lieu/Hyperlien
+ *   - une ligne par horaire (Debut) avec Session propre.
+ */
+function parseBilletReducProgPageDom(doc) {
+  const items = [];
+  const table = doc.querySelector('#preliste');
+  if (!table) return items;
+
+  table.querySelectorAll('td.bgbeige').forEach(td => {
+    // Titre & lien
+    const aTitle = td.querySelector('h3.h4 a.head.gtm-select-event');
+    const Activite  = aTitle?.textContent?.trim() || null;
+    let Hyperlien = aTitle?.getAttribute('href') || null;
+
+    // Si le lien est relatif → préfixer
+    if (Hyperlien && Hyperlien.startsWith('/')) {
+      Hyperlien = 'https://www.billetreduc.com' + Hyperlien;
+    }
+
+    // Lieu
+    const lieuSpan = td.querySelector('span.lieu a');
+    const Lieu = lieuSpan?.textContent?.replace(/\s+/g, ' ')?.trim() || null;
+
+    // Bloc dates / horaires
+    const pSb   = td.querySelector('p.sb');
+    const sbRaw = pSb?.textContent || '';
+
+    // Catégorie → Style
+    const catA  = td.querySelector('span.small a');
+    const Style = catA?.textContent?.replace(/\s+/g, ' ')?.trim() || null;
+
+    // BilletReduc ne donne pas la durée
+    const Duree = '~1h30';
+
+    if (!Activite) return;
+
+    const parsed = _parseBilletReducDatesEtHoraires(sbRaw);
+
+    if (!parsed) {
+      // fallback brut
+      items.push({
+        ...PARSED_DEFAULT,
+        Activite,
+        Lieu,
+        Session: sbRaw || null,
+        Debut: null,
+        Duree,
+        Style,
+        Orga: 'BilletReduc',
+        Hyperlien,
+      });
+      return;
+    }
+
+    const { rangePart, items: horaires } = parsed;
+
+    // Aucun horaire découpé → une seule entrée générique
+    if (!horaires || !horaires.length) {
+      items.push({
+        ...PARSED_DEFAULT,
+        Activite,
+        Lieu,
+        Session: rangePart || sbRaw || null,
+        Debut: null,
+        Duree,
+        Style,
+        Orga: 'BilletReduc',
+        Hyperlien,
+      });
+      return;
+    }
+
+    for (const h of horaires) {
+      let Session;
+
+      // Cas “date unique” : on t’a mis directement session dans le parsed
+      if (h.session) {
+        Session = h.session;
+      } else {
+        const daysPart =
+          h.days && h.days.length
+            ? ' ' + h.days.join(' ')
+            : '';
+
+        // simplification : si [x-y] + 7 jours → on garde juste [x-y]
+        if (rangePart && h.days && h.days.length === 7) {
+          Session = rangePart;
+        } else {
+          Session = (rangePart || '') + daysPart;
+        }
+      }
+
+      items.push({
+        ...PARSED_DEFAULT,
+        Activite,
+        Lieu,
+        Session,
+        Debut: h.Debut || null,
+        Duree,               
+        Style,
+        Orga: 'BilletReduc',
+        Hyperlien,
+      });
+    }
+  });
+
+  return items;
+}
+
+/**
+ * Parser d'une page spectacle du site Billet réduc donnée par son URL
+ * @param {*} doc 
+ * @returns 
+ */
+export async function parseBilletReducSpecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
+  const res  = await fetcher(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+  const html = await res.text();
+  const doc  = new DOMParser().parseFromString(html, 'text/html');
+  const parsed = parseBilletReducSpecPageDom(doc, url);
+  if (parsed) parsed.Hyperlien = url;
+  return parsed;
+}
+
+/**
+ * Parser d’une page de détail BilletReduc (DOM déjà parsé)
+ * @param {Document} doc
+ * @returns {object|null}  (Activite, Lieu, Session, Duree, Style, Hyperlien)
+ */
+function parseBilletReducSpecPageDom(doc) {
+  const root = doc.querySelector('.event_details');
+  if (!root) return null;
+
+  // --- Activité (titre)
+  const Activite = root.querySelector('.event_title h1')?.textContent?.trim() || null;
+
+  // --- Lieu
+  const Lieu = root
+    .querySelector('.event_infos .event_detail_venue_link')
+    ?.textContent?.replace(/\s+/g, ' ')
+    ?.trim() || null;
+
+  // --- Session (intervalle de dates)
+  const dateTxt = root.querySelector('.event_dates span')?.textContent?.trim() || '';
+  const Session = _parseBilletReducDetailDateRange(dateTxt) || (dateTxt || null);
+
+  // --- Durée (dans .event_data span contenant "h" ou "min")
+  let dureeRaw = null;
+  const dataSpans = Array.from(root.querySelectorAll('.event_data span'));
+  for (const sp of dataSpans) {
+    const t = sp.textContent || '';
+    if (/\d/.test(t) && /(h|min)/i.test(t)) {
+      dureeRaw = t;
+      break;
+    }
+  }
+  const Duree = _parseBilletReducDetailDuree(dureeRaw);
+
+  // --- Style = tags concaténés (.event_tags .tag / .public_tag)
+  const styleParts = [];
+  root.querySelectorAll('.event_tags .tag, .event_tags .public_tag').forEach(el => {
+    const t = el.textContent?.replace(/\s+/g, ' ').trim();
+    if (t) styleParts.push(t);
+  });
+  const Style = styleParts.length ? styleParts.join(' ') : null;
+
+  // --- Hyperlien (facultatif : on peut prendre location.href ou baseURI)
+  const Hyperlien = doc.baseURI || null;
+
+  if (!Activite) return null;
+
+  return [{
+    ...PARSED_DEFAULT,
+    Activite,
+    Lieu,
+    Session,
+    Duree,
+    Style,
+    Orga: 'BilletReduc',
+    Hyperlien,
+  }];
+}
 
 /**
  * Détermine si le texte correspond à une page CATALOGUE du In
@@ -1290,6 +1448,7 @@ export function isAvignonOffSpecPageText(text) {
 }
 
 
+
 // --- helpers généraux ---
 
 const MOIS = {
@@ -1453,64 +1612,6 @@ function _parseRelacheAvecParite(text) {
   const pariteFound = m[2].trim().toLowerCase(); // "jours pairs" | "jours impairs"
   return hadRelachePrefix ? pariteFound : _invertParite(pariteFound);
 }
-
-// // Extrait Lieu / Session / Debut / Duree depuis la ligne 3
-// function _parseInfoLine(line, defaultMonth = '07') {
-//   const l = _strip(line);
-
-//   // Mois texte optionnel (ex: "juillet", "août")
-//   const moisMatch = l.toLowerCase().match(/\b(janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b/);
-//   const moisNum = moisMatch ? MOIS[moisMatch[1].toLowerCase()] : defaultMonth;
-
-//   // Lieu = avant " du " ou " le " ; sinon avant la 1re heure "HHhMM"
-//   const idxDu = l.toLowerCase().indexOf(' du ');
-//   const idxLe = l.toLowerCase().indexOf(' le ');
-//   let cut = -1;
-//   if (idxDu > -1) cut = idxDu;
-//   else if (idxLe > -1) cut = idxLe;
-//   if (cut === -1) {
-//     const mH = l.match(/\b\d{1,2}h\d{2}\b/i);
-//     if (mH) cut = l.indexOf(mH[0]);
-//   }
-//   const Lieu = _strip(cut > 0 ? l.slice(0, cut) : l);
-
-//   // Session: "du d1 au d2" OU "le d"
-//   let Session = null;
-//   const mDuAu = l.match(/\bdu\s+(\d{1,2})\s+au\s+(\d{1,2})\b/i);
-//   const mLe   = l.match(/\ble\s+(\d{1,2})\b/i);
-//   if (mDuAu) {
-//     const d1 = pad2(+mDuAu[1]);
-//     const d2 = pad2(+mDuAu[2]);
-//     Session = `[${d1}-${d2}]/${moisNum}`;
-//   } else if (mLe) {
-//     const d = pad2(+mLe[1]);
-//     Session = `[${d}-${d}]/${moisNum}`;
-//   }
-
-//   // Heures & Durée (supporte "HHhMM" et "NNmin")
-//   const hTokens = [...l.matchAll(/\b(\d{1,2})h(\d{2})\b/gi)]
-//     .map(m => ({ t: `${String(m[1]).padStart(2,'0')}h${m[2]}`, idx: m.index }));
-//   const mTokens = [...l.matchAll(/\b(\d{1,3})\s*m(?:in)?s?\b/gi)]
-//     .map(m => ({ mins: Number(m[1]), idx: m.index }));
-
-//   let Debut = null, Duree = null;
-//   if (hTokens.length >= 1) {
-//     Debut = hTokens[0].t;
-//     const startIdx = hTokens[0].idx ?? 0;
-//     const durH = hTokens.find((x, i) => i > 0 && x.idx > startIdx);
-//     if (durH) {
-//       Duree = durH.t;                    // ex. "1h20"
-//     } else {
-//       const durM = mTokens.find(x => x.idx > startIdx) || mTokens[0];
-//       if (durM) Duree = mmToHHhMM(durM.mins); // ex. "55min" -> "0h55"
-//     }
-//   } else if (mTokens.length) {
-//     // Pas d'heure trouvée mais durée présente (rare)
-//     Duree = mmToHHhMM(mTokens[0].mins);
-//   }
-
-//   return { Lieu, Session, Debut, Duree };
-// }
 
 function _parseDuree(line) {
   if (!line) return null;
@@ -1747,39 +1848,6 @@ function _sqlDateToParts(s) {
   return { y:+y, mo:+mo, d:+d, hh: hh!=null?+hh:null, mm: mm!=null?+mm:null };
 }
 
-// Construit Session & Debut à partir de ev.calendar[].dateSummary
-// function _calendarToSessionAndDebut(calendarArr) {
-//   const parts = (calendarArr || [])
-//     .map(c => _sqlDateToParts(c?.dateSummary))
-//     .filter(Boolean);
-//   if (!parts.length) return { Session: null, Debut: null };
-
-//   // Debut = heure du 1er
-//   const first = parts[0];
-//   const Debut = (first.hh!=null && first.mm!=null) ? `${pad2(first.hh)}h${pad2(first.mm)}` : null;
-
-//   // regroupe par (y,mo) pour tolérer plusieurs mois
-//   const byMonth = new Map();
-//   for (const p of parts) {
-//     const key = `${p.y}-${pad2(p.mo)}`;
-//     if (!byMonth.has(key)) byMonth.set(key, new Set());
-//     byMonth.get(key).add(p.d);
-//   }
-
-//   const segments = [];
-//   for (const [key, daysSet] of byMonth) {
-//     const mm = key.slice(5,7);
-//     const days = [...daysSet].map(d => pad2(d)).sort();
-//     const seg = (days.length === 1)
-//       ? `[${days[0]}-${days[0]}]/${mm}`
-//       : `(${days.join(',')})/${mm}`;
-//     segments.push(seg);
-//   }
-
-//   // S'il n'y a qu'un mois, renvoie un seul segment ; sinon join
-//   const Session = segments.length === 1 ? segments[0] : segments.join('; ');
-//   return { Session, Debut };
-// }
 function _calendarToSessionAndDebut(calendarArr) {
   const parts = (calendarArr || [])
     .map(c => _sqlDateToParts(c?.dateSummary)) // doit renvoyer { y, mo, d, hh, mm }
@@ -1896,7 +1964,6 @@ function _normalizeDebutLoose(h) {
 }
 
 
-
 // ==== Helpers SpecPageIn ====
 function _plainifyWithAbbr(el) {
   if (!el) return '';
@@ -1905,5 +1972,214 @@ function _plainifyWithAbbr(el) {
     ab.replaceWith(document.createTextNode(ab.textContent || ''));
   }
   return clone.textContent.replace(/\s+/g, ' ').trim();
+}
+
+// ==== Helpers ProgBilletReduc ====
+
+// Construit une clé pour dédoublonner
+function _makeKeyBilletReduc(it) {
+  return [
+    it.Activite || '',
+    it.Lieu || '',
+    it.Debut || '',
+    it.Session || '',
+    it.Hyperlien || ''
+  ].join('@@');
+}
+
+function _extractDays(s) {
+  const jours = [];
+  s.split(/,|et/).forEach(tok => {
+    const j = _abbrDay(tok.trim());
+    if (j) jours.push(j);
+  });
+  return jours;
+}
+
+function _expandDays(j1, j2) {
+  const all = ['lu','ma','me','je','ve','sa','di'];
+  const i1 = all.indexOf(_abbrDay(j1));
+  const i2 = all.indexOf(_abbrDay(j2));
+  if (i1 === -1 || i2 === -1) return [];
+  if (i1 <= i2) return all.slice(i1, i2 + 1);
+  return [...all.slice(i1), ...all.slice(0, i2 + 1)];
+}
+
+function _abbrDay(j) {
+  j = j.slice(0,3);
+  const map = {
+    lun:'lu', mar:'ma', mer:'me', jeu:'je', ven:'ve', sam:'sa', dim:'di'
+  };
+  return map[j] || null;
+}
+
+function _moisToNum(m) {
+  if (!m) return '??';
+  const map = {
+    '1':'01','01':'01','janvier':'01',
+    '2':'02','02':'02','fevrier':'02','février':'02',
+    '3':'03','03':'03','mars':'03',
+    '4':'04','04':'04','avril':'04',
+    '5':'05','05':'05','mai':'05',
+    '6':'06','06':'06','juin':'06',
+    '7':'07','07':'07','juillet':'07',
+    '8':'08','08':'08','aout':'08','août':'08',
+    '9':'09','09':'09','septembre':'09',
+    '10':'10','10':'10','octobre':'10',
+    '11':'11','11':'11','novembre':'11',
+    '12':'12','12':'12','decembre':'12','décembre':'12'
+  };
+  return map[m] || '??';
+}
+
+function _parseBilletReducDatesEtHoraires(txt) {
+  if (!txt) return null;
+
+  // normalisation : accents + espaces
+  let str = txt.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  str = str.replace(/\s+/g, ' ').trim().toLowerCase();
+
+  const items = [];
+  let rangePart = null;
+  const currentYear = new Date().getFullYear();
+
+  // === 1) Plage de dates "du 19/11/2025 au 03/05/2026" ===
+  const mRange = str.match(
+    /du\s+(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\s+au\s+(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/
+  );
+  if (mRange) {
+    const [, d1, m1, y1, d2, m2, y2] = mRange;
+    const a1 = y1 ? y1.padStart(2, '0') : '';
+    const a2 = y2 ? y2.padStart(2, '0') : '';
+    rangePart =
+      `[${d1.padStart(2, '0')}/${m1.padStart(2, '0')}` +
+      (a1 ? '/' + a1.slice(-2) : '') +
+      `-${d2.padStart(2, '0')}/${m2.padStart(2, '0')}` +
+      (a2 ? '/' + a2.slice(-2) : '') +
+      `]`;
+  }
+
+  // === 2) Cas spécial "du jeudi au samedi à 19h" ===
+  const mRangeDays = str.match(
+    /du\s+(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+au\s+(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+a\s+(\d{1,2}(?:h\d{0,2})?)/
+  );
+  if (mRangeDays) {
+    const [, j1, j2, heure] = mRangeDays;
+    const jours = _expandDays(j1, j2);
+    items.push({
+      days: jours,
+      Debut: _normalizeHhmmLoose(heure),
+    });
+    return { rangePart: rangePart || null, items };
+  }
+
+  // === 3) Cas générique multi-segments :
+  // "mardi et vendredi à 18h30, mercredi et jeudi à 16h30 et 18h30, samedi à 14h30"
+  const dayPattern = '(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)';
+  const reMulti = new RegExp(
+    `(${dayPattern}(?:\\s*(?:,|et)\\s*${dayPattern})*)\\s+a\\s+` +
+      `((?:\\d{1,2}(?:h\\d{0,2})?)(?:\\s*et\\s*\\d{1,2}(?:h\\d{0,2})?)*)`,
+    'g'
+  );
+
+  for (const m of str.matchAll(reMulti)) {
+    const joursRaw  = m[1];   // ex: "mardi et vendredi" ou "mercredi et jeudi"
+    const heuresRaw = m[2];   // ex: "16h30 et 18h30"
+
+    const jours = _extractDays(joursRaw); // → ['ma','ve'] etc.
+    const heures = heuresRaw
+      .split(/\s*et\s*/i)
+      .map(h => _normalizeHhmmLoose(h))
+      .filter(Boolean);
+
+    for (const Debut of heures) {
+      items.push({ days: jours, Debut });
+    }
+  }
+
+  // === 4) Cas "Le jeudi 20 novembre 2025 à 14h45" / "Le samedi 22 novembre à 11h00"
+  const mOneDate = str.match(
+    /le\s+(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s*(?:\/| )?([0-9]{1,2}|janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)?(?:\s*(\d{4}))?\s+a\s+(\d{1,2}(?:h\d{0,2})?)/
+  );
+  if (mOneDate) {
+    const [, jourNum, moisTxt, anTxt, heureTxt] = mOneDate;
+    const mois = _moisToNum(moisTxt); // "11" par ex.
+
+    // Année : celle du texte si présente, sinon année courante
+    const year = anTxt ? Number(anTxt) : currentYear;
+    const yy   = String(year % 100).padStart(2, '0');
+    const dd   = jourNum.padStart(2, '0');
+    const mm   = mois;
+
+    // Règle demandée :
+    //  - si year == année courante -> "JJ/MM"
+    //  - sinon -> "JJ/MM/AA"
+    const session = (year === currentYear)
+      ? `${dd}/${mm}`
+      : `${dd}/${mm}/${yy}`;
+
+    const Debut = _normalizeHhmmLoose(heureTxt);
+    items.push({ days: [], Debut, session });
+    return { rangePart: session, items };
+  }
+
+  // === 5) Aucun bloc horaire détecté, mais plage de dates connue ===
+  if (!items.length && rangePart) {
+    items.push({ days: [], Debut: null });
+  }
+
+  return { rangePart, items };
+}
+
+// "20 novembre au 20 décembre 2025" -> "[20/11/25-20/12/25]"
+function _parseBilletReducDetailDateRange(txt) {
+  if (!txt) return null;
+
+  let s = String(txt).normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  s = s.replace(/\s+/g, ' ').trim().toLowerCase();
+
+  // ex : "20 novembre au 20 decembre 2025"
+  const re = /(\d{1,2})\s+([a-z]+)\s+au\s+(\d{1,2})\s+([a-z]+)\s+(\d{4})/;
+  const m = s.match(re);
+  if (!m) return null;
+
+  const [, d1, mois1, d2, mois2, yearStr] = m;
+  const mm1 = _moisToNum(mois1);
+  const mm2 = _moisToNum(mois2);
+  if (!mm1 || !mm2) return null;
+
+  const yy = yearStr.slice(-2);
+  const dd1 = d1.padStart(2, '0');
+  const dd2 = d2.padStart(2, '0');
+
+  return `[${dd1}/${mm1}/${yy}-${dd2}/${mm2}/${yy}]`;
+}
+
+// Durée "1 h 15 min" ou "1h15" -> "1h15"
+function _parseBilletReducDetailDuree(dureeTxt) {
+  if (!dureeTxt) return null;
+  const s = dureeTxt.replace(/\s+/g, ' ').trim().toLowerCase();
+
+  // "1 h 15 min" / "1h15" / "1 h" / "75 min"
+  let minutes = 0;
+
+  let m = s.match(/(\d{1,2})\s*h(?:\s*(\d{1,2})\s*min)?/);
+  if (m) {
+    const h = Number(m[1] || 0);
+    const mn = Number(m[2] || 0);
+    minutes = h * 60 + mn;
+  } else {
+    m = s.match(/(\d{1,3})\s*min/);
+    if (m) {
+      minutes = Number(m[1] || 0);
+    }
+  }
+
+  if (!minutes || !Number.isFinite(minutes) || minutes <= 0) return null;
+
+  // si tu as déjà mmToHhmm, utilise-le; sinon :
+  const h = Math.floor(minutes / 60);
+  const mn = minutes % 60;
+  return `${h}h${String(mn).padStart(2, '0')}`;
 }
 

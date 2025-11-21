@@ -14,6 +14,7 @@ import {
 
 import {
   logToPage,
+  richValueGetValue,
 } from './utils.js';
 
 let _ctx = null;
@@ -472,7 +473,7 @@ export function creerActivitesAPI(ctx) {
       };
 
       const getDebutMinutes = (r) => hhmmToMinutes(r?.Debut);
-      const getDureeMinutes = (r) => hhmmToMinutes(r?.Duree);
+      const getDureeMinutes = (r) => hhmmToMinutes(richValueGetValue(r?.Duree));
 
       // Lignes pertinentes (activité non vide) pour doublons
       const rowsValid = rows.filter(r => r && String(r.Activite ?? '').trim() !== '');
@@ -482,7 +483,7 @@ export function creerActivitesAPI(ctx) {
         const seen = new Map();
         for (const r of rowsValid) {
           if (isPause(r)) continue;
-          const key = norm(r.Activite);
+          const key = norm(r.Activite)+norm(r.Debut)+norm(r.Lieu)+r.Session+r.Relache;
           if (!seen.has(key)) seen.set(key, []);
           seen.get(key).push(r);
         }
@@ -551,7 +552,7 @@ export function creerActivitesAPI(ctx) {
 
           // Heure/Durée si Activite présente
           if (String(row?.Activite ?? '').trim() !== '') {
-            const h = row?.Debut, d = row?.Duree;
+            const h = row?.Debut, d = richValueGetValue(row?.Duree);
             if (!isTimeLike(String(h ?? ''))) bloc.push(`Heure invalide à la ligne ${idx + 2} : ${h}`);
             if (!isTimeLike(String(d ?? ''))) bloc.push(`Durée invalide à la ligne ${idx + 2} : ${d}`);
           }
@@ -745,7 +746,7 @@ function _estActiviteReservee(row) {
  * @returns {boolean}
  */
 function _estActiviteProgrammableADate(activite, dateRef) {
-  return _estDateProgrammable(dateRef, activite.Session, activite.Relache) && _estHeureValide(activite.Debut) && _estDureeValide(activite.Duree);
+  return _estDateProgrammable(dateRef, activite.Session, activite.Relache) && _estHeureValide(activite.Debut) && _estDureeValide(richValueGetValue(activite.Duree));
 }
 
 
@@ -763,7 +764,7 @@ function _existActivitesProgrammables(activitesNonProgrammees, dateRef, traiter_
   if (!Array.isArray(activitesNonProgrammees) || activitesNonProgrammees.length === 0) return false;
 
   return activitesNonProgrammees.some(r => {
-    return _estDateProgrammable(dateRef, r.Session, r.Relache) && _estHeureValide(r.Debut) && _estDureeValide(r.Duree);
+    return _estDateProgrammable(dateRef, r.Session, r.Relache) && _estHeureValide(r.Debut) && _estDureeValide(richValueGetValue(r.Duree));
   });
 }
 
@@ -790,7 +791,7 @@ function _getActivitesProgrammees(df) {
   const filtered = df.filter(r =>
     estFloatValide(r.Date) &&
     isNotNull(r.Debut) &&
-    isNotNull(r.Duree) &&
+    isNotNull(richValueGetValue(r.Duree)) &&
     isNotNull(r.Activite)
   );
 
@@ -836,10 +837,10 @@ function _getDatesFromRows(rows) {
   return out;
 }
 
-// Vérifie qu'une activité est potentiellement programmable
+// Vérifie qu'une activité est potentiellement programmable (i.e. qu'elle n'est pas programmée et que son heure de début et sa durée sont valides)
 function _estActiviteProgrammable(row) {
   const d = row?.Date;
-  return (d == null || d === '' || Number.isNaN(+d)) && _estHeureValide(row?.Debut) && _estDureeValide(row?.Duree);
+  return (d == null || d === '' || Number.isNaN(+d)) && _estHeureValide(row?.Debut) && _estDureeValide(richValueGetValue(row?.Duree));
 }
 
 // Renvoie les dates du Festival: fetch best-effort + cache
@@ -1052,8 +1053,8 @@ function _estCreneauValide(creneau) {
 /**
  * Détermine si une date est programmable, ie. est dans Session et pas dans Relache.
  * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
- * @param {string|null} sessionVal - Description des dates de session (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
- * @param {string|null} relacheVal - Description des dates de relâche (ex: "[5-26]", "(8,25)/07", "jours pairs", etc.)
+ * @param {string|null} sessionVal - Description des dates de session (ex: "[5-26], [5-26] lu ma", "(8,25)/07", "jours pairs", etc.)
+ * @param {string|null} relacheVal - Description des dates de relâche (grammaire identique à celle des sessions)
  * @param {Date} [today] - Date de référence pour l'année/mois par défaut (par défaut mois / année courants)
  * @returns {boolean} - true = jour jouable / false = relâche
  */
@@ -1066,13 +1067,17 @@ function _estCreneauValide(creneau) {
 //   const dy = Math.floor(dv / 10000);
 //   const dm = Math.floor((dv / 100) % 100);
 //   const dd = dv % 100;
+
 //   const defY = today.getFullYear();
 //   const defM = today.getMonth() + 1;
 
-//   const y2k = y => (Number.isFinite(y) && y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
+//   // --- Helpers ---
+//   const y2k = (y) => (Number.isFinite(y) && y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
 //   const mkDateInt = (y, m, d) => (y * 10000 + m * 100 + d);
+
+//   // "12", "12/07", "12/07/2025" -> [y,m,d] avec yy/mm défaut si absent
 //   const parseDayMaybeDmY = (s, yy, mm) => {
-//     const parts = s.split("/").map(x => x.trim());
+//     const parts = String(s).split("/").map(x => x.trim());
 //     let d, m = mm, y = yy;
 //     if (parts.length === 3) [d, m, y] = parts.map(n => Number(n));
 //     else if (parts.length === 2) [d, m] = parts.map(n => Number(n));
@@ -1081,17 +1086,32 @@ function _estCreneauValide(creneau) {
 //     return [y, m, d];
 //   };
 
+//   // Liste "12,21,25" ou "12 21 25" (avec NBSP, espaces multiples...)
+//   const _parseDaysList = (raw) => {
+//     if (!raw) return [];
+//     const s = String(raw)
+//       .replace(/\u00A0/g, ' ')   // NBSP -> space
+//       .replace(/\s+/g, ' ')      // espaces multiples -> un
+//       .trim();
+//     return s
+//       .split(/[,\s]+/)           // virgules OU espaces
+//       .map(x => Number(x.trim()))
+//       .filter(n => Number.isFinite(n) && n >= 1 && n <= 31);
+//   };
+
 //   const sessionTxt = String(sessionVal || '').trim().toLowerCase();
-//   const relacheTxt  = String(relacheVal  || '').trim().toLowerCase();
+//   const relacheTxt = String(relacheVal || '').trim().toLowerCase();
 
-//   const openIntervals = [];
-//   const regroupSessionDays = [];
-//   const closedIntervals = [];
-//   const regroupRelacheDays = [];
+//   const openIntervals = [];        // inclusions: [aDI, bDI]
+//   const regroupSessionDays = [];   // inclusions: dates uniques
+//   const closedIntervals = [];      // exclusions: [aDI, bDI]
+//   const regroupRelacheDays = [];   // exclusions: dates uniques
 
-//   // --- Fenêtres de représentation [A–B]  
+//   // ====== SESSION (inclusions) ======
+
+//   // Fenêtres de représentation [A–B] (/MM[/YYYY] optionnel)
 //   for (const m of sessionTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//     const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
+//     const [ , aTxt, bTxt, mmTxt, yyTxt ] = m;
 //     const mmDef = mmTxt ? Number(mmTxt) : defM;
 //     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
 //     const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
@@ -1103,16 +1123,9 @@ function _estCreneauValide(creneau) {
 //     }
 //   }
 
-//   // --- Jours de représentation (a,b,c)
-//   // for (const m of sessionTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//   //   const [_, joursTxt, mmTxt, yyTxt] = m;
-//   //   const mmDef = mmTxt ? Number(mmTxt) : defM;
-//   //   const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-//   //   const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(n => Number.isFinite(n));
-//   //   for (const jd of jours) regroupSessionDays.push(mkDateInt(yyDef, mmDef, jd));
-//   // }
+//   // Jours listés (a,b,c) (/MM[/YYYY] optionnel)
 //   for (const m of sessionTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//     const [_, rawJours, mmTxt, yyTxt] = m;
+//     const [ , rawJours, mmTxt, yyTxt ] = m;
 //     const mmDef = mmTxt ? Number(mmTxt) : defM;
 //     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
 //     for (const jd of _parseDaysList(rawJours)) {
@@ -1120,28 +1133,44 @@ function _estCreneauValide(creneau) {
 //     }
 //   }
 
-//   // --- Jours isolés de représentation
-//   for (const part of sessionTxt.split(",").map(p => p.trim())) {
-//     if (!part || /jour/.test(part)) continue;
-//     if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
-//     const mday = part.match(/^(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?$/);
-//     if (!mday) continue;
-//     const d = Number(mday[1]);
-//     const mm = mday[2] ? Number(mday[2]) : defM;
-//     const yy = mday[3] ? y2k(Number(mday[3])) : defY;
-//     if (Number.isFinite(d) && Number.isFinite(mm) && Number.isFinite(yy)) {
-//       regroupSessionDays.push(mkDateInt(yy, mm, d));
+//   // --- Jours isolés de représentation (hors [], <> et ())
+//   {
+//     const sessionStripped = sessionTxt
+//       .replace(/\([^)]*\)/g, ' ')     // retire ( ... )
+//       .replace(/\[[^\]]*\]/g, ' ')    // retire [ ... ]
+//       .replace(/<[^>]*>/g, ' ')       // retire < ... >
+//       .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')     // retire "14h" / "14h30"
+//       .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');// retire "55min"
+
+//     const reIso = /\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g;
+//     for (const m of sessionStripped.matchAll(reIso)) {
+//       const startIdx = m.index ?? 0;
+
+//       // ⭐ NOUVEAU : si le nombre commence juste après un "/",
+//       // on considère que c'est un mois ("/07") et PAS un jour isolé
+//       if (startIdx > 0 && sessionStripped[startIdx - 1] === '/') continue;
+
+//       const d  = Number(m[1]);
+//       const mm = m[2] ? Number(m[2]) : dm;      // défaut = mois de dateVal
+//       const yy = m[3] ? y2k(Number(m[3])) : dy; // défaut = année de dateVal
+//       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
+//           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
+//           Number.isFinite(yy)) {
+//         regroupSessionDays.push(mkDateInt(yy, mm, d));
+//       }
 //     }
 //   }
 
-//   // --- Parité représentations
+//   // Parité
 //   let pariteSession = null;
-//   if (/\bjours?\s+pairs?\b/.test(sessionTxt))  pariteSession = "pair";
+//   if (/\bjours?\s+pairs?\b/.test(sessionTxt))   pariteSession = "pair";
 //   if (/\bjours?\s+impairs?\b/.test(sessionTxt)) pariteSession = "impair";
 
-//   // --- Fenêtres de relâche [A–B]
+//   // ====== RELÂCHES (exclusions) ======
+
+//   // Fenêtres de relâche [A–B]
 //   for (const m of relacheTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//     const [_, aTxt, bTxt, mmTxt, yyTxt] = m;
+//     const [ , aTxt, bTxt, mmTxt, yyTxt ] = m;
 //     const mmDef = mmTxt ? Number(mmTxt) : defM;
 //     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
 //     const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
@@ -1153,16 +1182,9 @@ function _estCreneauValide(creneau) {
 //     }
 //   }
 
-//   // --- Jours de relâche (a,b,c)
-//   // for (const m of relacheTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//   //   const [_, joursTxt, mmTxt, yyTxt] = m;
-//   //   const mmDef = mmTxt ? Number(mmTxt) : defM;
-//   //   const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-//   //   const jours = joursTxt.split(",").map(x => Number(x.trim())).filter(n => Number.isFinite(n));
-//   //   for (const jd of jours) regroupRelacheDays.push(mkDateInt(yyDef, mmDef, jd));
-//   // }
+//   // Jours listés (a,b,c)
 //   for (const m of relacheTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//     const [_, rawJours, mmTxt, yyTxt] = m;
+//     const [ , rawJours, mmTxt, yyTxt ] = m;
 //     const mmDef = mmTxt ? Number(mmTxt) : defM;
 //     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
 //     for (const jd of _parseDaysList(rawJours)) {
@@ -1170,26 +1192,39 @@ function _estCreneauValide(creneau) {
 //     }
 //   }
 
-//   // --- Jours isolés de relâche
-//   for (const part of relacheTxt.split(",").map(p => p.trim())) {
-//     if (!part || /jour/.test(part)) continue;
-//     if (/^\[.*\]$|^<.*>$|^\(.*\)$/.test(part)) continue;
-//     const mday = part.match(/^(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?$/);
-//     if (!mday) continue;
-//     const d = Number(mday[1]);
-//     const mm = mday[2] ? Number(mday[2]) : defM;
-//     const yy = mday[3] ? y2k(Number(mday[3])) : defY;
-//     if (Number.isFinite(d) && Number.isFinite(mm) && Number.isFinite(yy)) {
-//       regroupRelacheDays.push(mkDateInt(yy, mm, d));
+//   // --- Jours isolés de relâche (hors [], <> et ())
+//   {
+//     const relacheStripped = relacheTxt
+//       .replace(/\([^)]*\)/g, ' ')
+//       .replace(/\[[^\]]*\]/g, ' ')
+//       .replace(/<[^>]*>/g, ' ')
+//       .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')
+//       .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');
+
+//     const reIso = /\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g;
+//     for (const m of relacheStripped.matchAll(reIso)) {
+//       const startIdx = m.index ?? 0;
+
+//       // ⭐ NOUVEAU : ne pas interpréter "/07" comme un jour isolé
+//       if (startIdx > 0 && relacheStripped[startIdx - 1] === '/') continue;
+
+//       const d  = Number(m[1]);
+//       const mm = m[2] ? Number(m[2]) : dm;
+//       const yy = m[3] ? y2k(Number(m[3])) : dy;
+//       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
+//           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
+//           Number.isFinite(yy)) {
+//         regroupRelacheDays.push(mkDateInt(yy, mm, d));
+//       }
 //     }
 //   }
 
-//   // --- Parité relâches
+//   // Parité
 //   let pariteRelache = null;
-//   if (/\bjours?\s+pairs?\b/.test(relacheTxt))  pariteRelache = "pair";
+//   if (/\bjours?\s+pairs?\b/.test(relacheTxt))   pariteRelache = "pair";
 //   if (/\bjours?\s+impairs?\b/.test(relacheTxt)) pariteRelache = "impair";
 
-//   // ===== Étape 1 : exclusions (relâches), si présentes
+//   // ===== Étape 1 : Exclusions (relâches)
 //   for (const [lo, hi] of closedIntervals) {
 //     if (lo <= dv && dv <= hi) return false;
 //   }
@@ -1199,7 +1234,7 @@ function _estCreneauValide(creneau) {
 //     if ((pariteRelache === "pair" && isEven) || (pariteRelache === "impair" && !isEven)) return false;
 //   }
 
-//   // ===== Étape 2 : inclusions (Session)
+//   // ===== Étape 2 : Inclusions (sessions)
 //   for (const [lo, hi] of openIntervals) {
 //     if (lo <= dv && dv <= hi) return true;
 //   }
@@ -1210,8 +1245,9 @@ function _estCreneauValide(creneau) {
 //   }
 
 //   // ===== Étape 3 : défaut
-//   // S'il y a AU MOINS une contrainte de Session et aucune ne matche -> false (non programmable)
+//   // S'il y a des contraintes de Session mais aucune ne matche -> false
 //   if (openIntervals.length || regroupSessionDays.length || pariteSession) return false;
+
 //   // Sinon, aucune contrainte de Session -> true (programmable par défaut)
 //   return true;
 // }
@@ -1256,28 +1292,80 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
       .filter(n => Number.isFinite(n) && n >= 1 && n <= 31);
   };
 
+  // Codes jours courts
+  const WEEKDAY_SHORT = ['di','lu','ma','me','je','ve','sa'];
+  const weekdayCodeForDateInt = (di) => {
+    const y = Math.floor(di / 10000);
+    const m = Math.floor((di / 100) % 100);
+    const d = di % 100;
+    const js = new Date(y, m - 1, d);
+    const dow = js.getDay(); // 0=dimanche
+    return WEEKDAY_SHORT[dow] || null;
+  };
+
+  // --- Helpers pour les jours de semaine
+  const WEEKDAYS_ORDER = ['lu','ma','me','je','ve','sa','di'];
+  const weekdayCodeFromDateInt = (di) => {
+    const y = Math.floor(di / 10000);
+    const m = Math.floor((di / 100) % 100);
+    const d = di % 100;
+    const jsDate = new Date(y, m - 1, d);
+    const dow = jsDate.getDay(); // 0=dimanche ... 6=samedi
+    // On mappe sur lu ma me... en partant de dimanche=di
+    const map = ['di','lu','ma','me','je','ve','sa'];
+    return map[dow];
+  };
+
+  const parseWeekdaysSuffix = (txt) => {
+    if (!txt) return null;
+    // on cherche tous les tokens lu|ma|...
+    const m = txt.match(/\b(lu|ma|me|je|ve|sa|di)\b/g);
+    if (!m || !m.length) return null;
+    // unicité + tri dans l’ordre lu→di
+    const set = new Set(m);
+    return WEEKDAYS_ORDER.filter(code => set.has(code));
+  };
+
   const sessionTxt = String(sessionVal || '').trim().toLowerCase();
   const relacheTxt = String(relacheVal || '').trim().toLowerCase();
 
-  const openIntervals = [];        // inclusions: [aDI, bDI]
-  const regroupSessionDays = [];   // inclusions: dates uniques
-  const closedIntervals = [];      // exclusions: [aDI, bDI]
-  const regroupRelacheDays = [];   // exclusions: dates uniques
+  // On passe maintenant les intervalles sous forme d'objets { lo, hi, days }
+  const openIntervals   = [];   // inclusions: {lo, hi, days:Set|null}
+  const regroupSessionDays = []; // inclusions: dates uniques (int)
+  const closedIntervals = [];   // exclusions: {lo, hi, days:Set|null}
+  const regroupRelacheDays = []; // exclusions: dates uniques
 
   // ====== SESSION (inclusions) ======
 
-  // Fenêtres de représentation [A–B] (/MM[/YYYY] optionnel)
-  for (const m of sessionTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-    const [ , aTxt, bTxt, mmTxt, yyTxt ] = m;
+  // Fenêtres de représentation [A–B] (/MM[/YYYY] optionnel) + éventuels jours "lu ma ..."
+  //
+  // Exemples supportés :
+  //   [01/07/25-30/07/25]
+  //   [10-13]/08
+  //   [01/07/25-30/07/25] lu ma me
+  //
+  const reIntervalSess =
+    /\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\](?:\/(\d{1,2})(?:\/(\d{2,4}))?)?([^;]*)/g;
+
+  for (const m of sessionTxt.matchAll(reIntervalSess)) {
+    const [, aTxt, bTxt, mmTxt, yyTxt, suffix] = m;
+
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
+
     const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
     const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
+
     const aDi = mkDateInt(Ay, Am, Ad);
     const bDi = mkDateInt(By, Bm, Bd);
-    if (Number.isFinite(aDi) && Number.isFinite(bDi)) {
-      openIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
-    }
+    if (!Number.isFinite(aDi) || !Number.isFinite(bDi)) continue;
+
+    const lo = Math.min(aDi, bDi);
+    const hi = Math.max(aDi, bDi);
+
+    const wdTxt = suffix ? suffix.trim() : '';
+    const days = parseWeekdaysSuffix(wdTxt); // null => tous les jours
+    openIntervals.push({ lo, hi, days });
   }
 
   // Jours listés (a,b,c) (/MM[/YYYY] optionnel)
@@ -1290,41 +1378,20 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
     }
   }
 
-  // // --- Jours isolés de représentation (hors [], <> et ())
-  // {
-  //   const sessionStripped = sessionTxt
-  //     .replace(/\([^)]*\)/g, ' ')     // retire ( ... )
-  //     .replace(/\[[^\]]*\]/g, ' ')    // retire [ ... ]
-  //     .replace(/<[^>]*>/g, ' ')       // retire < ... >
-  //     .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')     // retire "14h" / "14h30"
-  //     .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');// retire "55min"
-
-  //   for (const m of sessionStripped.matchAll(/\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g)) {
-  //     const d  = Number(m[1]);
-  //     const mm = m[2] ? Number(m[2]) : dm;              // défaut = mois de dateVal
-  //     const yy = m[3] ? y2k(Number(m[3])) : dy;         // défaut = année de dateVal
-  //     if (Number.isFinite(d) && d >= 1 && d <= 31 &&
-  //         Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
-  //         Number.isFinite(yy)) {
-  //       regroupSessionDays.push(mkDateInt(yy, mm, d));
-  //     }
-  //   }
-  // }
   // --- Jours isolés de représentation (hors [], <> et ())
   {
     const sessionStripped = sessionTxt
+      .replace(/\[[^\]]*\]/g, ' ')    // retire [ ... ] (intervalles déjà traités)
       .replace(/\([^)]*\)/g, ' ')     // retire ( ... )
-      .replace(/\[[^\]]*\]/g, ' ')    // retire [ ... ]
       .replace(/<[^>]*>/g, ' ')       // retire < ... >
       .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')     // retire "14h" / "14h30"
-      .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');// retire "55min"
+      .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');// retire "55min";
 
     const reIso = /\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g;
     for (const m of sessionStripped.matchAll(reIso)) {
       const startIdx = m.index ?? 0;
 
-      // ⭐ NOUVEAU : si le nombre commence juste après un "/",
-      // on considère que c'est un mois ("/07") et PAS un jour isolé
+      // ne pas interpréter "/07" comme un jour isolé (c'est le mois)
       if (startIdx > 0 && sessionStripped[startIdx - 1] === '/') continue;
 
       const d  = Number(m[1]);
@@ -1345,23 +1412,34 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
 
   // ====== RELÂCHES (exclusions) ======
 
-  // Fenêtres de relâche [A–B]
-  for (const m of relacheTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-    const [ , aTxt, bTxt, mmTxt, yyTxt ] = m;
+  // Fenêtres de relâche "[A–B]" (/MM[/YYYY] optionnel) + éventuels jours ("lu ma ve")
+  const reIntervalRel =
+    /\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\](?:\/(\d{1,2})(?:\/(\d{2,4}))?)?([^;]*)/g;
+
+  for (const m of relacheTxt.matchAll(reIntervalRel)) {
+    const [, aTxt, bTxt, mmTxt, yyTxt, suffix] = m;
+
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
+
     const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
     const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
+
     const aDi = mkDateInt(Ay, Am, Ad);
     const bDi = mkDateInt(By, Bm, Bd);
-    if (Number.isFinite(aDi) && Number.isFinite(bDi)) {
-      closedIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
-    }
-  }
+    if (!Number.isFinite(aDi) || !Number.isFinite(bDi)) continue;
 
+    const lo = Math.min(aDi, bDi);
+    const hi = Math.max(aDi, bDi);
+
+    const wdTxt = suffix ? suffix.trim() : '';
+    const days = parseWeekdaysSuffix(wdTxt); // null => tous les jours
+    closedIntervals.push({ lo, hi, days });
+  }
+  
   // Jours listés (a,b,c)
   for (const m of relacheTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-    const [ , rawJours, mmTxt, yyTxt ] = m;
+    const [, rawJours, mmTxt, yyTxt] = m;
     const mmDef = mmTxt ? Number(mmTxt) : defM;
     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
     for (const jd of _parseDaysList(rawJours)) {
@@ -1369,31 +1447,11 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
     }
   }
 
-  // // --- Jours isolés de relâche (hors [], <> et ())
-  // {
-  //   const relacheStripped = relacheTxt
-  //     .replace(/\([^)]*\)/g, ' ')
-  //     .replace(/\[[^\]]*\]/g, ' ')
-  //     .replace(/<[^>]*>/g, ' ')
-  //     .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')
-  //     .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');
-
-  //   for (const m of relacheStripped.matchAll(/\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g)) {
-  //     const d  = Number(m[1]);
-  //     const mm = m[2] ? Number(m[2]) : dm;              // défaut = mois de dateVal
-  //     const yy = m[3] ? y2k(Number(m[3])) : dy;
-  //     if (Number.isFinite(d) && d >= 1 && d <= 31 &&
-  //         Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
-  //         Number.isFinite(yy)) {
-  //       regroupRelacheDays.push(mkDateInt(yy, mm, d));
-  //     }
-  //   }
-  // }
   // --- Jours isolés de relâche (hors [], <> et ())
   {
     const relacheStripped = relacheTxt
-      .replace(/\([^)]*\)/g, ' ')
       .replace(/\[[^\]]*\]/g, ' ')
+      .replace(/\([^)]*\)/g, ' ')
       .replace(/<[^>]*>/g, ' ')
       .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')
       .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');
@@ -1402,7 +1460,6 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
     for (const m of relacheStripped.matchAll(reIso)) {
       const startIdx = m.index ?? 0;
 
-      // ⭐ NOUVEAU : ne pas interpréter "/07" comme un jour isolé
       if (startIdx > 0 && relacheStripped[startIdx - 1] === '/') continue;
 
       const d  = Number(m[1]);
@@ -1416,14 +1473,25 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
     }
   }
 
-  // Parité
+  // Parité relâche
   let pariteRelache = null;
   if (/\bjours?\s+pairs?\b/.test(relacheTxt))   pariteRelache = "pair";
   if (/\bjours?\s+impairs?\b/.test(relacheTxt)) pariteRelache = "impair";
 
+  // === Jour de semaine du dateVal ===
+  const dayCode = weekdayCodeForDateInt(dv); // "lu"..."di"
+
   // ===== Étape 1 : Exclusions (relâches)
-  for (const [lo, hi] of closedIntervals) {
-    if (lo <= dv && dv <= hi) return false;
+  for (const it of closedIntervals) {
+    const { lo, hi, days } = it;
+    if (lo <= dv && dv <= hi) {
+      // pas de contrainte de jours -> relâche
+      if (!days) return false;
+
+      // Avec contrainte de jours : on regarde le code jour de dv
+      const wd = weekdayCodeFromDateInt(dv); // ex "lu", "ma", ...
+      if (days.includes(wd)) return false;
+    }
   }
   if (regroupRelacheDays.length && regroupRelacheDays.includes(dv)) return false;
   if (pariteRelache) {
@@ -1432,8 +1500,16 @@ function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date(
   }
 
   // ===== Étape 2 : Inclusions (sessions)
-  for (const [lo, hi] of openIntervals) {
-    if (lo <= dv && dv <= hi) return true;
+  for (const iv of openIntervals) {
+    const { lo, hi, days } = iv;
+    if (lo <= dv && dv <= hi) {
+      // Sans contrainte de jours → OK directement
+      if (!days || !days.length) return true;
+
+      // Avec contrainte de jours : on regarde le code jour de dv
+      const wd = weekdayCodeFromDateInt(dv); // ex "lu", "ma", ...
+      if (days.includes(wd)) return true;
+    }
   }
   if (regroupSessionDays.length && regroupSessionDays.includes(dv)) return true;
   if (pariteSession) {
@@ -1644,48 +1720,199 @@ function _isIntInRange(x, min, max) {
  * @param {string} tok
  * @param {{ defaultMonth?: number, defaultYear?: number }} [opts]
  */
+// function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
+//   const t = String(tok || '').toLowerCase().trim();
+//   if (!t) return false;
+
+//   // 1) Parité
+//   if (/^jours?\s+(pairs?|impairs?)$/.test(t)) return true;
+
+//   // 2) Jour isolé: "23" ou "23/7"
+//   {
+//     const m = t.match(/^(\d{1,2})(?:\/(0?[1-9]|1[0-2]))?$/);
+//     if (m) {
+//       const [, d, mm] = m;
+//       const M = mm ? Number(mm) : (defaultMonth ?? null);
+//       return _isIntInRange(d, 1, 31) && (M == null || _isIntInRange(M, 1, 12));
+//     }
+//   }
+
+//   // 3) Liste: "(9,16,23)" ou "(9,16,23)/7"
+//   {
+//     const m = t.match(/^\(\s*([0-9,\s]+)\s*\)(?:\/(0?[1-9]|1[0-2]))?$/);
+//     if (m) {
+//       const [, list, mm] = m;
+//       const M = mm ? Number(mm) : (defaultMonth ?? null);
+//       const days = list.split(',').map(s => s.trim()).filter(Boolean);
+//       if (!days.length) return false;
+//       if (M != null && !_isIntInRange(M, 1, 12)) return false;
+//       return days.every(d => _isIntInRange(d, 1, 31));
+//     }
+//   }
+
+//   // 4) Intervalle: "[5-26]", "[5-26]/7"
+//   {
+//     const m = t.match(/^\[\s*(\d{1,2})\s*-\s*(\d{1,2})\s*\](?:\/(0?[1-9]|1[0-2]))?$/);    
+//     if (m) {
+//       const [, d1, d2, mm] = m;
+//       const M = mm ? Number(mm) : (defaultMonth ?? null);
+//       const okDays = _isIntInRange(d1, 1, 31) && _isIntInRange(d2, 1, 31) && Number(d1) <= Number(d2);
+//       const okMonth = (M == null) || _isIntInRange(M, 1, 12);
+//       return okDays && okMonth;
+//     }
+//   }
+
+//   return false;
+// }
+
+/**
+ * Valide un "token" de Session / Relâche.
+ * Gère notamment :
+ *  - parité : "jours pairs", "jours impairs"
+ *  - jour isolé : "23", "23/7", "23/07/25"
+ *  - liste : "(9,16,23)", "(9,16,23)/7", "(9,16,23)/07/25"
+ *  - intervalle :
+ *       [5-26]
+ *       [5-26]/07
+ *       [19/11-03/12]
+ *       [19/11/25-03/12/26]
+ *       [10-13]/08 ma me
+ *       [19/11-03/12] me je ve
+ *
+ * Règles pour les intervalles :
+ *  - soit on factorise mois(/année) : [10-13]/08 ou [10-13]/08/25
+ *  - soit on met les mois (et années) dans chacune des bornes : [10/11-01/12], [10/11/25-01/12/26]
+ *  - pas de mélange "mois externe" + "mois interne"
+ *  - pas de mélange "année sur une borne seulement"
+ *
+ * @param {string} tok
+ * @param {{ defaultMonth?: number, defaultYear?: number }} [opts]
+ */
 function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
-  const t = String(tok || '').toLowerCase().trim();
+  let t = String(tok || '').toLowerCase().trim();
   if (!t) return false;
 
   // 1) Parité
   if (/^jours?\s+(pairs?|impairs?)$/.test(t)) return true;
 
-  // 2) Jour isolé: "23" ou "23/7"
+  // Helpers
+  const _validMonth = (m) => m == null || _isIntInRange(m, 1, 12);
+  const _validDay   = (d) => _isIntInRange(d, 1, 31);
+  const _validYear  = (y) => y == null || Number.isFinite(Number(y));
+
+  // 2) Jour isolé : "23", "23/7", "23/07/25"
   {
-    const m = t.match(/^(\d{1,2})(?:\/(0?[1-9]|1[0-2]))?$/);
+    const m = t.match(/^(\d{1,2})(?:\/(0?[1-9]|1[0-2]))?(?:\/(\d{2,4}))?$/);
     if (m) {
-      const [, d, mm] = m;
+      const [, d, mm, yy] = m;
+      const D = Number(d);
       const M = mm ? Number(mm) : (defaultMonth ?? null);
-      return _isIntInRange(d, 1, 31) && (M == null || _isIntInRange(M, 1, 12));
+      const Y = yy ? Number(yy) : (defaultYear ?? null);
+      return _validDay(D) && _validMonth(M) && _validYear(Y);
     }
   }
 
-  // 3) Liste: "(9,16,23)" ou "(9,16,23)/7"
+  // 3) Liste : "(9,16,23)", "(9,16,23)/7", "(9,16,23)/07/25"
   {
-    const m = t.match(/^\(\s*([0-9,\s]+)\s*\)(?:\/(0?[1-9]|1[0-2]))?$/);
+    const m = t.match(/^\(\s*([0-9,\s]+)\s*\)(?:\/(0?[1-9]|1[0-2]))?(?:\/(\d{2,4}))?$/);
     if (m) {
-      const [, list, mm] = m;
+      const [, list, mm, yy] = m;
       const M = mm ? Number(mm) : (defaultMonth ?? null);
+      const Y = yy ? Number(yy) : (defaultYear ?? null);
+      if (!_validMonth(M) || !_validYear(Y)) return false;
+
       const days = list.split(',').map(s => s.trim()).filter(Boolean);
       if (!days.length) return false;
-      if (M != null && !_isIntInRange(M, 1, 12)) return false;
-      return days.every(d => _isIntInRange(d, 1, 31));
+      return days.every(d => _validDay(Number(d)));
     }
   }
 
-  // 4) Intervalle: "[5-26]", "[5-26]/7"
+  // 4) Intervalle avec éventuellement des jours de semaine :
+  //    "[10-13]/08 ma me", "[19/11-03/12] me je ve", etc.
+  //
+  //    On sépare la "partie intervalle" du suffixe de jours de semaine.
+  //    Les jours de semaine sont facultatifs et ignorés pour la validation.
+  if (t.startsWith('[')) {
+    // lu, ma, me, je, ve, sa, di + versions longues
+    const reDaysSuffix =
+      /^(\[[^\]]+\](?:\/\d{1,2}(?:\/\d{2,4})?)?)\s+(?:lu|ma|me|je|ve|sa|di|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)(?:[\s,]+(?:lu|ma|me|je|ve|sa|di|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche))*$/;
+    const md = t.match(reDaysSuffix);
+    let main = t;
+    if (md) {
+      main = md[1].trim(); // on ne garde que la partie [ ... ](/MM[/YY])
+    }
+
+    // Intervalle général :
+    // [d1[-/m1[/y1]] - d2[-/m2[/y2]]] (mois/année facultatifs sur chaque borne)
+    // avec éventuellement "/MM[/YY]" factorisé après le crochet.
+    const reInterval = /^\[\s*(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\s*-\s*(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\s*\](?:\/(\d{1,2})(?:\/(\d{2,4}))?)?$/;
+
+    const m = main.match(reInterval);
+    if (m) {
+      const [
+        _whole,
+        d1, m1, y1,
+        d2, m2, y2,
+        mExt, yExt,
+      ] = m;
+
+      const D1 = Number(d1);
+      const D2 = Number(d2);
+      const M1 = m1 ? Number(m1) : null;
+      const M2 = m2 ? Number(m2) : null;
+      const Y1 = y1 ? Number(y1) : null;
+      const Y2 = y2 ? Number(y2) : null;
+      const Mext = mExt ? Number(mExt) : null;
+      const Yext = yExt ? Number(yExt) : null;
+
+      // jours valides
+      if (!_validDay(D1) || !_validDay(D2)) return false;
+
+      // Cas A : mois (et éventuellement année) factorisés après le crochet :
+      //   [10-13]/08
+      //   [10-13]/08/25
+      if (Mext != null) {
+        // pas le droit d'avoir aussi des mois/années internes
+        if (M1 != null || M2 != null || Y1 != null || Y2 != null) return false;
+        if (!_validMonth(Mext) || !_validYear(Yext)) return false;
+        return true;
+      }
+
+      // Cas B : pas de mois externe → on regarde les bornes
+      // - si un mois est renseigné sur une borne, il doit l'être sur l'autre
+      if ((M1 != null) !== (M2 != null)) return false;
+      if (!_validMonth(M1) || !_validMonth(M2)) return false;
+
+      // - si une année est renseignée sur une borne, elle doit l'être sur l'autre
+      if ((Y1 != null) !== (Y2 != null)) return false;
+      if (!_validYear(Y1) || !_validYear(Y2)) return false;
+
+      // Ici on ne vérifie pas l'ordre chronologique (d1<=d2) en cas de
+      // changement de mois/année : on se contente de la validité syntaxique.
+      // Pour un intervalle intra-mois sans mois : [5-26] → OK
+      // Pour intra-mois avec mois: [5/07-26/07] → OK
+      // Pour inter-mois: [19/11-03/12] → OK (M1, M2 tous deux présents)
+      // Pour inter-années: [19/11/25-03/12/26] → OK (Y1, Y2 tous deux présents)
+      return true;
+    }
+  }
+
+  // 5) Intervalle simple d'origine : "[5-26]", "[5-26]/7"
+  // (on le garde pour compat, mais il sera en pratique déjà capté par la regex ci-dessus)
   {
-    const m = t.match(/^\[\s*(\d{1,2})\s*-\s*(\d{1,2})\s*\](?:\/(0?[1-9]|1[0-2]))?$/);    
+    const m = t.match(/^\[\s*(\d{1,2})\s*-\s*(\d{1,2})\s*\](?:\/(0?[1-9]|1[0-2]))?$/);
     if (m) {
       const [, d1, d2, mm] = m;
-      const M = mm ? Number(mm) : (defaultMonth ?? null);
-      const okDays = _isIntInRange(d1, 1, 31) && _isIntInRange(d2, 1, 31) && Number(d1) <= Number(d2);
-      const okMonth = (M == null) || _isIntInRange(M, 1, 12);
+      const D1 = Number(d1);
+      const D2 = Number(d2);
+      const M  = mm ? Number(mm) : (defaultMonth ?? null);
+      const okDays  = _validDay(D1) && _validDay(D2) && D1 <= D2;
+      const okMonth = _validMonth(M);
       return okDays && okMonth;
     }
   }
 
+  // Rien de ce qui précède n'a matché → non valide
   return false;
 }
 
