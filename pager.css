@@ -327,8 +327,8 @@ html, body {
   /* justify-content: center; */
   width: 100%;
 
-  /* Hauteur ajustable : modifie la 2e valeur pour plus/moins haut */
-  height: clamp(56px, 15vh, 140px);
+  /* Hauteur ajustable : modifier la 2e valeur pour ajuster la hauteur des boutons au nombre de boutons (15vh pour 4 boutons, 13 vh pour 5) */
+  height: clamp(56px, 13vh, 140px);
   -webkit-tap-highlight-color: transparent;
   appearance: none;
   border: 1px solid rgba(255,255,255,.16);
