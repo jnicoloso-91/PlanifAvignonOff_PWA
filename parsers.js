@@ -1073,16 +1073,124 @@ export async function parseBilletReducProgPageUrl(
  *   - même Activite/Lieu/Hyperlien
  *   - une ligne par horaire (Debut) avec Session propre.
  */
+// function parseBilletReducProgPageDom(doc) {
+//   const items = [];
+//   const table = doc.querySelector('#preliste');
+//   if (!table) return items;
+
+//   table.querySelectorAll('td.bgbeige').forEach(td => {
+//     // Titre & lien
+//     const aTitle = td.querySelector('h3.h4 a.head.gtm-select-event');
+//     const Activite  = aTitle?.textContent?.trim() || null;
+//     let Hyperlien = aTitle?.getAttribute('href') || null;
+
+//     // Si le lien est relatif → préfixer
+//     if (Hyperlien && Hyperlien.startsWith('/')) {
+//       Hyperlien = 'https://www.billetreduc.com' + Hyperlien;
+//     }
+
+//     // Lieu
+//     const lieuSpan = td.querySelector('span.lieu a');
+//     const Lieu = lieuSpan?.textContent?.replace(/\s+/g, ' ')?.trim() || null;
+
+//     // Bloc dates / horaires
+//     const pSb   = td.querySelector('p.sb');
+//     const sbRaw = pSb?.textContent || '';
+
+//     // Catégorie → Style
+//     const catA  = td.querySelector('span.small a');
+//     const Style = catA?.textContent?.replace(/\s+/g, ' ')?.trim() || null;
+
+//     // BilletReduc ne donne pas la durée
+//     const Duree = '~1h30';
+
+//     if (!Activite) return;
+
+//     const parsed = _parseBilletReducDatesEtHoraires(sbRaw);
+
+//     if (!parsed) {
+//       // fallback brut
+//       items.push({
+//         ...PARSED_DEFAULT,
+//         Activite,
+//         Lieu,
+//         Session: sbRaw || null,
+//         Debut: null,
+//         Duree,
+//         Style,
+//         Orga: 'BilletReduc',
+//         Hyperlien,
+//       });
+//       return;
+//     }
+
+//     const { rangePart, items: horaires } = parsed;
+
+//     // Aucun horaire découpé → une seule entrée générique
+//     if (!horaires || !horaires.length) {
+//       items.push({
+//         ...PARSED_DEFAULT,
+//         Activite,
+//         Lieu,
+//         Session: rangePart || sbRaw || null,
+//         Debut: null,
+//         Duree,
+//         Style,
+//         Orga: 'BilletReduc',
+//         Hyperlien,
+//       });
+//       return;
+//     }
+
+//     for (const h of horaires) {
+//       let Session;
+
+//       // Cas “date unique” : session dans le parsed
+//       if (h.session) {
+//         Session = h.session;
+//       } else {
+//         const daysPart =
+//           h.days && h.days.length
+//             ? ' ' + h.days.join(' ')
+//             : '';
+
+//         // simplification : si [x-y] + 7 jours → on garde juste [x-y]
+//         if (rangePart && h.days && h.days.length === 7) {
+//           Session = rangePart;
+//         } else {
+//           Session = (rangePart || '') + daysPart;
+//         }
+//       }
+
+//       items.push({
+//         ...PARSED_DEFAULT,
+//         Activite,
+//         Lieu,
+//         Session,
+//         Debut: h.Debut || null,
+//         Duree,               
+//         Style,
+//         Orga: 'BilletReduc',
+//         Hyperlien,
+//       });
+//     }
+//   });
+
+//   return items;
+// }
 function parseBilletReducProgPageDom(doc) {
   const items = [];
   const table = doc.querySelector('#preliste');
   if (!table) return items;
 
+  // ordre canonique pour les codes de jours
+  const DAY_ORDER = ['lu', 'ma', 'me', 'je', 've', 'sa', 'di'];
+
   table.querySelectorAll('td.bgbeige').forEach(td => {
     // Titre & lien
     const aTitle = td.querySelector('h3.h4 a.head.gtm-select-event');
     const Activite  = aTitle?.textContent?.trim() || null;
-    let Hyperlien = aTitle?.getAttribute('href') || null;
+    let Hyperlien   = aTitle?.getAttribute('href') || null;
 
     // Si le lien est relatif → préfixer
     if (Hyperlien && Hyperlien.startsWith('/')) {
@@ -1093,7 +1201,7 @@ function parseBilletReducProgPageDom(doc) {
     const lieuSpan = td.querySelector('span.lieu a');
     const Lieu = lieuSpan?.textContent?.replace(/\s+/g, ' ')?.trim() || null;
 
-    // Bloc dates / horaires
+    // Bloc dates / horaires brut
     const pSb   = td.querySelector('p.sb');
     const sbRaw = pSb?.textContent || '';
 
@@ -1101,7 +1209,7 @@ function parseBilletReducProgPageDom(doc) {
     const catA  = td.querySelector('span.small a');
     const Style = catA?.textContent?.replace(/\s+/g, ' ')?.trim() || null;
 
-    // BilletReduc ne donne pas la durée
+    // BilletReduc ne donne pas la durée → approx
     const Duree = '~1h30';
 
     if (!Activite) return;
@@ -1109,7 +1217,7 @@ function parseBilletReducProgPageDom(doc) {
     const parsed = _parseBilletReducDatesEtHoraires(sbRaw);
 
     if (!parsed) {
-      // fallback brut
+      // fallback brut si on n'a rien compris
       items.push({
         ...PARSED_DEFAULT,
         Activite,
@@ -1142,20 +1250,59 @@ function parseBilletReducProgPageDom(doc) {
       return;
     }
 
+    // ========= REGROUPEMENT des horaires =========
+    // clé = type + rangePart + session + début
+    const agg = new Map();
     for (const h of horaires) {
+      const debut = h.Debut || null;
+      const sessionUnique = h.session || null; // pour les “Le 20/11 à 14h45…”
+
+      const key = sessionUnique
+        ? `single|${sessionUnique}|${debut || ''}`
+        : `range|${rangePart || ''}|${debut || ''}`;
+
+      let entry = agg.get(key);
+      if (!entry) {
+        entry = {
+          Debut: debut,
+          session: sessionUnique,
+          allDays: false,
+          days: new Set(), // codes "lu ma me…"
+        };
+        agg.set(key, entry);
+      }
+
+      // Si pas de session unique : on fusionne les jours
+      if (!sessionUnique) {
+        if (!h.days || !h.days.length) {
+          // pas de jours = “tous les jours” → on marque, et on peut ignorer les autres
+          entry.allDays = true;
+          entry.days.clear();
+        } else if (!entry.allDays) {
+          for (const d of h.days) entry.days.add(d);
+        }
+      }
+    }
+
+    // ========= Génération des activités à partir de l’agrégat =========
+    for (const entry of agg.values()) {
       let Session;
 
-      // Cas “date unique” : on t’a mis directement session dans le parsed
-      if (h.session) {
-        Session = h.session;
+      if (entry.session) {
+        // Cas “date unique” : session imposée (ex: "22/11" ou "22/11/25")
+        Session = entry.session;
       } else {
-        const daysPart =
-          h.days && h.days.length
-            ? ' ' + h.days.join(' ')
-            : '';
+        let daysPart = '';
 
-        // simplification : si [x-y] + 7 jours → on garde juste [x-y]
-        if (rangePart && h.days && h.days.length === 7) {
+        if (!entry.allDays) {
+          const orderedDays = DAY_ORDER.filter(d => entry.days.has(d));
+          if (orderedDays.length) {
+            daysPart = ' ' + orderedDays.join(' ');
+          }
+        }
+
+        // simplification : si [x-y] et “tous les jours” → on garde juste [x-y]
+        if (rangePart && (entry.allDays || entry.days.size === DAY_ORDER.length)) {
           Session = rangePart;
         } else {
           Session = (rangePart || '') + daysPart;
@@ -1167,8 +1314,8 @@ function parseBilletReducProgPageDom(doc) {
         Activite,
         Lieu,
         Session,
-        Debut: h.Debut || null,
-        Duree,               
+        Debut: entry.Debut || null,
+        Duree,
         Style,
         Orga: 'BilletReduc',
         Hyperlien,
