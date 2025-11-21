@@ -1004,7 +1004,7 @@ export function parseAvignonOffSpecPageText(text) {
 }
 
 /**
- * Parser des pages BilletReduc à partir d’une URL base + dt + region.
+ * Parser d'une page programme de BilletReduc à partir d’une URL comportant base + dt + region + idrub.
  *
  * @param {string} baseUrl - ex: "https://www.billetreduc.com/search.htm?dt=2025-11&region=J"
  * @param {object} opts
@@ -1068,116 +1068,11 @@ export async function parseBilletReducProgPageUrl(
 }
 
 /**
- * Parse le DOM d’une page BilletReduc (résultats de recherche)
+ * Parse le DOM d’une page programme de BilletReduc obtenue par parseBilletReducProgPageUrl 
  * Retourne une liste d’activités "explosées" par horaire :
  *   - même Activite/Lieu/Hyperlien
  *   - une ligne par horaire (Debut) avec Session propre.
  */
-// function parseBilletReducProgPageDom(doc) {
-//   const items = [];
-//   const table = doc.querySelector('#preliste');
-//   if (!table) return items;
-
-//   table.querySelectorAll('td.bgbeige').forEach(td => {
-//     // Titre & lien
-//     const aTitle = td.querySelector('h3.h4 a.head.gtm-select-event');
-//     const Activite  = aTitle?.textContent?.trim() || null;
-//     let Hyperlien = aTitle?.getAttribute('href') || null;
-
-//     // Si le lien est relatif → préfixer
-//     if (Hyperlien && Hyperlien.startsWith('/')) {
-//       Hyperlien = 'https://www.billetreduc.com' + Hyperlien;
-//     }
-
-//     // Lieu
-//     const lieuSpan = td.querySelector('span.lieu a');
-//     const Lieu = lieuSpan?.textContent?.replace(/\s+/g, ' ')?.trim() || null;
-
-//     // Bloc dates / horaires
-//     const pSb   = td.querySelector('p.sb');
-//     const sbRaw = pSb?.textContent || '';
-
-//     // Catégorie → Style
-//     const catA  = td.querySelector('span.small a');
-//     const Style = catA?.textContent?.replace(/\s+/g, ' ')?.trim() || null;
-
-//     // BilletReduc ne donne pas la durée
-//     const Duree = '~1h30';
-
-//     if (!Activite) return;
-
-//     const parsed = _parseBilletReducDatesEtHoraires(sbRaw);
-
-//     if (!parsed) {
-//       // fallback brut
-//       items.push({
-//         ...PARSED_DEFAULT,
-//         Activite,
-//         Lieu,
-//         Session: sbRaw || null,
-//         Debut: null,
-//         Duree,
-//         Style,
-//         Orga: 'BilletReduc',
-//         Hyperlien,
-//       });
-//       return;
-//     }
-
-//     const { rangePart, items: horaires } = parsed;
-
-//     // Aucun horaire découpé → une seule entrée générique
-//     if (!horaires || !horaires.length) {
-//       items.push({
-//         ...PARSED_DEFAULT,
-//         Activite,
-//         Lieu,
-//         Session: rangePart || sbRaw || null,
-//         Debut: null,
-//         Duree,
-//         Style,
-//         Orga: 'BilletReduc',
-//         Hyperlien,
-//       });
-//       return;
-//     }
-
-//     for (const h of horaires) {
-//       let Session;
-
-//       // Cas “date unique” : session dans le parsed
-//       if (h.session) {
-//         Session = h.session;
-//       } else {
-//         const daysPart =
-//           h.days && h.days.length
-//             ? ' ' + h.days.join(' ')
-//             : '';
-
-//         // simplification : si [x-y] + 7 jours → on garde juste [x-y]
-//         if (rangePart && h.days && h.days.length === 7) {
-//           Session = rangePart;
-//         } else {
-//           Session = (rangePart || '') + daysPart;
-//         }
-//       }
-
-//       items.push({
-//         ...PARSED_DEFAULT,
-//         Activite,
-//         Lieu,
-//         Session,
-//         Debut: h.Debut || null,
-//         Duree,               
-//         Style,
-//         Orga: 'BilletReduc',
-//         Hyperlien,
-//       });
-//     }
-//   });
-
-//   return items;
-// }
 function parseBilletReducProgPageDom(doc) {
   const items = [];
   const table = doc.querySelector('#preliste');
@@ -1342,7 +1237,7 @@ export async function parseBilletReducSpecPageUrl(url, { fetcher = _fetchViaClou
 }
 
 /**
- * Parser d’une page de détail BilletReduc (DOM déjà parsé)
+ * Parser d'une page spectacle du site Billet réduc donnée par son HTML
  * @param {Document} doc
  * @returns {object|null}  (Activite, Lieu, Session, Duree, Style, Hyperlien)
  */
@@ -1398,6 +1293,56 @@ function parseBilletReducSpecPageDom(doc) {
     Orga: 'BilletReduc',
     Hyperlien,
   }];
+}
+
+/**
+ * Parser d'une page collection du site Billet réduc donnée par son URL
+ * @param {*} doc 
+ * @returns 
+ */
+export async function parseBilletReducCollecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
+  const res  = await fetcher(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+  const html = await res.text();
+  const doc  = new DOMParser().parseFromString(html, 'text/html');
+  const parsed = parseBilletReducCollecPageDom(doc, url);
+  if (parsed) parsed.Hyperlien = url;
+  return parsed;
+}
+
+// Parser d'une page collection du site Billet réduc donnée par son HTML
+export function parseBilletReducCollecPageDom(docOrRoot) {
+  const root = docOrRoot?.querySelectorAll
+    ? docOrRoot
+    : new DOMParser().parseFromString(String(docOrRoot || ''), 'text/html');
+
+  const items = [];
+
+  // Chaque bloc carte
+  root.querySelectorAll('.event_card_information').forEach(card => {
+    const a = card.querySelector('h3.event_name a.event_link');
+    const ActiviteRaw  = a?.textContent || '';
+    let   HyperlienRaw = a?.getAttribute('href') || '';
+
+    const Activite = ActiviteRaw.trim() || null;
+    if (!Activite) return; // rien à faire
+
+    // Normalisation du lien
+    let Hyperlien = HyperlienRaw || null;
+    if (Hyperlien && Hyperlien.startsWith('/')) {
+      Hyperlien = 'https://www.billetreduc.com' + Hyperlien;
+    }
+
+    items.push({
+      ...PARSED_DEFAULT,
+      Activite,
+      Hyperlien,
+      Orga: 'BilletReduc',
+      // les autres champs restent à null (Lieu, Session, Debut, Duree, Style…)
+    });
+  });
+
+  return items;
 }
 
 /**

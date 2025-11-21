@@ -42,6 +42,7 @@ import {
   parseAvignonOffSpecPageUrl, 
   parseBilletReducProgPageUrl,
   parseBilletReducSpecPageUrl,
+  parseBilletReducCollecPageUrl,
 
   parseAvignonInProgPageText,
   parseAvignonInSpecPageText, 
@@ -3452,6 +3453,9 @@ async function importFromUrlOrTxt(raw, parser=null) {
       else if (raw.includes("https://www.billetreduc.com/spectacle")) {
         parsed = await asyncCallAvecOverlayAttente(parseBilletReducSpecPageUrl, raw, 'Echec collage');
         mergeMode = 1;
+      } 
+      else if (raw.includes("https://www.billetreduc.com/collection")) {
+        parsed = await asyncCallAvecOverlayAttente(parseBilletReducCollecPageUrl, raw, 'Echec collage');
       } 
       else {
         alert("Il n'existe pas de lecteur pour cette adresse, essayez de coller après avoir copié le texte de la page.");
