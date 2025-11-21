@@ -200,6 +200,16 @@ import {
 				openUrl(raw);
 			});
 		});
+		document.querySelectorAll('.mini-corner-btn[data-url]').forEach(btn => {
+			// Est-ce bien un “button” cliquable
+			btn.type = 'button';
+			btn.addEventListener('click', (e) => {
+				e.stopPropagation(); // évite d’interférer avec le swipe
+				const raw = (btn.dataset.url || '').trim();
+				if (!raw) return;
+				openUrl(raw);
+			});
+		});
 		const btnMonProgramme = document.querySelector('#mon-programme.catalog-btn')
 		btnMonProgramme.addEventListener('click', (e) => {
 			goto(getPageIndexByClass('page--planning'));

@@ -327,7 +327,9 @@ html, body {
   /* justify-content: center; */
   width: 100%;
 
-  /* Hauteur ajustable : modifier la 2e valeur pour ajuster la hauteur des boutons au nombre de boutons (15vh pour 4 boutons, 13 vh pour 5) */
+  /* Hauteur ajustable : modifier la 2e valeur pour 
+     ajuster la hauteur des boutons au nombre de boutons 
+     (15vh pour 4 boutons, 13 vh pour 5) */
   height: clamp(56px, 15vh, 140px);
   -webkit-tap-highlight-color: transparent;
   appearance: none;
@@ -390,6 +392,39 @@ html, body {
   background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
   color: #fff;
   border-color: rgba(255,255,255,.25);
+}
+
+/* Corner button */
+.catalog-btn {
+  position: relative;
+}
+
+.mini-corner-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-size: clamp(12px, 1.5vh, 14px);
+  line-height: 1.2;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
+  color: #b2bbc9;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.9;
+}
+
+.mini-corner-btn:hover {
+  opacity: 1;
+}
+
+.my-two-lines {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;   /* ← centre horizontalement */
+  text-align: center;    /* ← sécurise le centrage du texte */
+  line-height: 1.1;
 }
 
 /*============================
