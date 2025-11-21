@@ -5560,8 +5560,8 @@ function openSheetAide() {
               <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
                 <ul style="margin-top: 0em">
                     <li><u><i>Fichier</u></i>: permet de créer un nouveau programme d'activités, charger un programme d'activités depuis un fichier 
-                    Excel ou depuis les catalogues en ligne du In ou du Off, exporter le programme d'activités vers Excel ou vers le calendrier, 
-                    obtenir un rapport de cohérence des données.</li>
+                    Excel, importer des activités depuis les catalogues en ligne du In et du Off ou le site de billet réduc, exporter le programme d'activités 
+                    vers Excel ou vers le calendrier, obtenir un rapport de cohérence des données.</li>
                     <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i>: permettent de défaire, refaire une opération.</li>
                     <li><u><i>Coller</u></i>: collage d'activités depuis le presse-papier. Pour utiliser cette fonctionnalité, copier préalablement 
                     soit l'adresse d'une page du catalogue du In ou du Off (via Partager/Copier ou par copie du champ adresse), soit son contenu. 
