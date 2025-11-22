@@ -5478,12 +5478,12 @@ function openSheetAide() {
           <div class="help-block">
             <p><u><i>In & Off</u></i> est là pour vous aider à bâtir votre programme de spectacles.</p>
             
-            <p>Vous y trouverez un accès aux programmes de spectacles du festival d'Avignon mais <u><i>In & Off</u></i> peut répondre à toute utilisation 
-            nécessitant de choisir des activités dans un catalogue et de les programmer sur une période donnée. 
+            <p>Vous y trouverez un accès direct aux catalogues du festival d'Avignon, mais <u><i>In & Off</u></i> peut répondre plus généralement à toute utilisation 
+            nécessitant de programmer des activités sur une période donnée. 
             
             <p style="margin-bottom: 0.2em"><u><i>In & Off</u></i> vous permettra notamment :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
-              <li>de <u><i>charger</u></i> des spectacles et activités à programmer à partir d'un fichier Excel, ou par collage depuis des catalogues en ligne,</li>
+              <li>de <u><i>charger</u></i> des spectacles et des activités à programmer à partir d'un fichier Excel, ou par collage depuis des catalogues en ligne,</li>
               <li>de <u><i>programmer</u></i> des spectacles et activités, en évitant chevauchements et doublons,</li>
               <li>d'identifier les <u><i>plages libres</u></i> de votre programme, ainsi que les spectacles et <u><i>activités programmables</u></i> sur ces plages,</li>
               <li>de <u><i>naviguer</u></i> vers la description détaillée des spectacles et activités et rechercher l'<u><i>itinéraire</u></i> de vos sites de spectacles,</li>
@@ -5493,8 +5493,8 @@ function openSheetAide() {
             </ul>            
           </div>
 
-            <p>Pour démarrer, rien de plus simple : allez dans <u><i>Mon programme</u></i>, importez un catalogue de spectacles (menu <u><i>Fichier/Importer...</u></i>), 
-            définissez la période de programmation désirée (menu <u><i>.../Paramètres</u></i>), chosissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
+            <p>Pour démarrer, rien de plus simple : allez dans <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
+            définissez une période de programmation (menu <u><i>.../Paramètres</u></i>), chosissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
         </div>
             
         <div id="help-regles-programmation" class="help-chapter">
