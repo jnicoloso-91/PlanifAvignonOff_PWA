@@ -4885,7 +4885,7 @@ function openSheet({
 function openSheetExclusive({
   title = '',
   mount,            // (bodyEl, helpers) => { bodyEl.innerHTML='...' }
-  classes = {       // mapping classes (tes noms par défaut)
+  classes = {       // mapping classes (noms par défaut)
     wrap: 'sheet-wrap',
     backdrop: 'sheet-backdrop',
     panel: 'sheet-panel',
@@ -5476,24 +5476,27 @@ function openSheetAide() {
             Retour
           </div>
           <div class="help-block">
-            <p>In & Off est là pour vous aider à bâtir votre programme de spectacles.</p>
+            <p><u><i>In & Off</u></i> est là pour vous aider à bâtir votre programme de spectacles.</p>
             
-            <p>L'application est paramétrée pour donner accès aux catalogues du In et du Off du festival d'Avignon mais peut répondre à toute utilisation 
+            <p>Vous y trouverez un accès aux programmes de spectacles du festival d'Avignon mais <u><i>In & Off</u></i> peut répondre à toute utilisation 
             nécessitant de choisir des activités dans un catalogue et de les programmer sur une période donnée. 
             
-            <p style="margin-bottom: 0.2em">Les fonctionnalités principales sont les suivantes :</p>
+            <p style="margin-bottom: 0.2em"><u><i>In & Off</u></i> vous permettra notamment :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
-              <li>Chargement des spectacles et activités à programmer à partir d'Excel ou par collage depuis les catalogues en ligne</li>
-              <li>Programmation des spectacles et activités, en évitant chevauchements et doublons</li>
-              <li>Identification des plages libres et des spectacles et activités programmables sur ces plages</li>
-              <li>Liens vers la description détaillée des spectacles et activités et les applications de recherche d'itinéraire</li>
-              <li>Carnet d'adresses des théâtres et sites de spectacles</li>
-              <li>Sauvegarde vers Excel ou le calendrier</li>
-              <li>Vérification de cohérence (chevauchements d'activités, respect des marges entre activités, formats des données).</li>
+              <li>de <u><i>charger</u></i> des spectacles et activités à programmer à partir d'un fichier Excel, ou par collage depuis des catalogues en ligne,</li>
+              <li>de <u><i>programmer</u></i> des spectacles et activités, en évitant chevauchements et doublons,</li>
+              <li>d'identifier les <u><i>plages libres</u></i> de votre programme, ainsi que les spectacles et <u><i>activités programmables</u></i> sur ces plages,</li>
+              <li>de <u><i>naviguer</u></i> vers la description détaillée des spectacles et activités et rechercher l'<u><i>itinéraire</u></i> de vos sites de spectacles,</li>
+              <li>de gérer un <u><i>carnet d'adresses</u></i> des sites de spectacles,</li>
+              <li>de <u><i>sauvegarder</u></i> votre programme vers Excel ou votre application calendrier,</li>
+              <li>de <u><i>vérifier la cohérence</u></i> de vos données (chevauchements d'activités, respect des marges entre activités, format des données).</li>
             </ul>            
           </div>
-        </div>
 
+            <p>Pour démarrer, rien de plus simple : allez dans <u><i>Mon programme</u></i>, importez un catalogue de spectacles (menu <u><i>Fichier/Importer...</u></i>), 
+            définissez la période de programmation désirée (menu <u><i>.../Paramètres</u></i>), chosissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
+        </div>
+            
         <div id="help-regles-programmation" class="help-chapter">
           <div class="help-back" data-back>
             <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -6446,7 +6449,7 @@ function openSheetImportBilletReduc() {
           await doImportFromBilletReduc({ rubrique, region, dt });
         } catch (err) {
           console.error('Import BilletReduc failed:', err);
-          alert('Erreur pendant l’import BilletReduc. Voir la console pour le détail.');
+          alert('Erreur pendant l’import BilletReduc.');
         }
       });
     }
