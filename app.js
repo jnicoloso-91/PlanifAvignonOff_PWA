@@ -5493,7 +5493,7 @@ function openSheetAide() {
             </ul>            
           </div>
 
-            <p>Pour démarrer, rien de plus simple : allez dans <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
+            <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
             définissez une période de programmation (menu <u><i>.../Paramètres</u></i>), chosissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
         </div>
             
@@ -5521,8 +5521,8 @@ function openSheetAide() {
           <div class="help-block">
             <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click sur les icônes gauche et centrale de l'entête.</p>
 
-            <p>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon et la deuxième <u><i>Mon programme</u></i> permet 
-            de construire un programme personnalisé de spectacles ou autres activités.</p>
+            <p>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon et le site Billet réduc, la deuxième 
+            <u><i>Mon programme</u></i> permet de construire un programme personnalisé de spectacles ou autres activités.</p>
                          
             <p style="margin-bottom: 0.2em">La page <u><i>Mon programme</u></i>, comprend quatre tableaux:</p>
             <ul style="margin-top: 0em">
@@ -5534,9 +5534,10 @@ function openSheetAide() {
       
             </p>Dans les tableaux <u><i>Programme</u></i>, <u><i>Plages libres</u></i> et <u><i>Programmer...</u></i> les lignes sont colorisées en fonction de leur Date et dans le tableau
             <u><i>Stock</u></i> les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe. 
-            Dans le tableau <u><i>Programme</u></i> les activités réservées sont libellées en rouge. 
+            Dans le tableau <u><i>Programme</u></i> les activités <u><i>réservées</u></i> sont libellées en rouge (une activité <u><i>réservée</u></i> ne peut être ni déprogrammée
+            ni reprogrammée). 
 
-            <p style="margin-bottom: 0.2em">Une activité programmable peut être programmée (i.e. insérée dans le tableau <u><i>Programme</u></i> à une date donnée)
+            <p style="margin-bottom: 0.2em">Une activité peut être programmée (i.e. insérée dans le tableau <u><i>Programme</u></i> à une date donnée)
             de deux manières différentes:
             <ul style="margin-top: 0em">
                 <li>Soit en sélectionnant une plage libre, puis dans cette plage une activité programmable, puis en appuyant sur le bouton <u><i>Programmer</u></i> 
@@ -5554,9 +5555,10 @@ function openSheetAide() {
             d'ajouter ou supprimer des colonnes sur les activités.</p>
 
             <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i> toutes les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
-            et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne <u><i>Réservé</u></i> est à Oui). Elles sont également 
-            triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur le bouton <u><i>Filtrer</u></i> des entêtes de grilles ou directement 
-            dans les entêtes de colonnes si la dimension de l'écran le permet).</p>
+            et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne <u><i>Réservé</u></i> est à Oui).</p>
+            
+            <p>Elles sont également triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur le bouton <u><i>Filtrer</u></i> des entêtes de grilles ou 
+            directement dans les entêtes de colonnes si la dimension de l'écran le permet).</p>
 
             <p>L'icône de la colonne <u><i>Activité</u></i> permet d'afficher la page Web donnée par la colonne <u><i>Hyperlien</u></i> et 
             l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité, via l'application choisie 
@@ -5567,7 +5569,7 @@ function openSheetAide() {
               <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
                 <ul style="margin-top: 0em">
                     <li><u><i>Fichier</u></i>: permet de créer un nouveau programme d'activités, charger un programme d'activités depuis un fichier 
-                    Excel, importer des activités depuis les catalogues en ligne du In et du Off ou le site de billet réduc, exporter le programme d'activités 
+                    Excel, importer des activités depuis les catalogues en ligne du In et du Off ou le site Billet réduc, exporter le programme d'activités 
                     vers Excel ou vers le calendrier, obtenir un rapport de cohérence des données.</li>
                     <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i>: permettent de défaire, refaire une opération.</li>
                     <li><u><i>Coller</u></i>: collage d'activités depuis le presse-papier. Pour utiliser cette fonctionnalité, copier préalablement 
