@@ -5478,7 +5478,7 @@ function openSheetAide() {
           <div class="help-block">
             <p><u><i>In & Off</u></i> est là pour vous aider à bâtir votre programme de spectacles.</p>
             
-            <p>Il est paramétré pour offrir un accès direct aux catalogues du festival d'Avignon, mais peut répondre plus généralement à toute utilisation 
+            <p>L'application est paramétrée pour offrir un accès direct aux catalogues du festival d'Avignon, mais peut répondre plus généralement à toute utilisation 
             nécessitant de programmer des activités sur une période donnée. 
             
             <p style="margin-bottom: 0.2em"><u><i>In & Off</u></i> vous permettra notamment :</p>
