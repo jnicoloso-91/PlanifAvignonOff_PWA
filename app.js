@@ -24,6 +24,7 @@ import {
   overloadRowsOrInsert,
   estNumerique,
   capitalizeFirst,
+  richValueGetValue,
 } from './utils.js';
 
 import { creerActivitesAPI, sortDf } from './activites.js'; 
@@ -2017,7 +2018,7 @@ function valueParserHeure(params) {
   else return params.newValue;
 }
 function valueParserDuree (params) {
-  if (!activitesAPI.estDureeValide(params.newValue)) {
+  if (!activitesAPI.estDureeValide(richValueGetValue(params.newValue))) {
     alert("⛔ Format attendu : HhMM (ex : 1h00 ou 0h30)");
     return params.oldValue;
   }
@@ -5479,7 +5480,7 @@ function openSheetAide() {
             <p><u><i>In & Off</u></i> est là pour vous aider à bâtir votre programme de spectacles.</p>
             
             <p>L'application est paramétrée pour offrir un accès direct aux catalogues du festival d'Avignon, mais peut répondre plus généralement à toute utilisation 
-            nécessitant de programmer des activités sur une période donnée. 
+            nécessitant de programmer des activités sur une période donnée.</p>
             
             <p style="margin-bottom: 0.2em"><u><i>In & Off</u></i> vous permettra notamment :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
@@ -5494,7 +5495,8 @@ function openSheetAide() {
           </div>
 
             <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
-            définissez une période de programmation (menu <u><i>.../Paramètres</u></i>), chosissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
+            chosissez une plage libre et un spectacle et appuyez sur le bouton <u><i>Programmer</u></i> ! 
+            La période de programmation peut être modifiée en allant dans le menu <u><i>.../Paramètres</u></i>.</p>
         </div>
             
         <div id="help-regles-programmation" class="help-chapter">

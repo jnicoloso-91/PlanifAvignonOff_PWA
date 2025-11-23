@@ -137,7 +137,7 @@ export function overloadRowsOrInsert(rows, row, keyCols, overloadCols) {
 
     const updated = { ...r };
     for (const col of overloadCols) {
-      if (Object.prototype.hasOwnProperty.call(row, col)) {
+      if (Object.prototype.hasOwnProperty.call(row, col) && row[col]) {
         updated[col] = row[col];
       }
     }
