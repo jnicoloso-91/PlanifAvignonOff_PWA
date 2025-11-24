@@ -5495,7 +5495,7 @@ function openSheetAide() {
           </div>
 
             <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
-            chosissez une plage libre et un spectacle et appuyez sur le bouton <u><i>Programmer</u></i> ! 
+            choisissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
             La période de programmation peut être modifiée en allant dans le menu <u><i>.../Paramètres</u></i>.</p>
         </div>
             
