@@ -6946,114 +6946,113 @@ function openSheetAssistantProgrammation() {
        *  3) filtrage par fenêtre horaire (Debut/Fin)
        *  4) vérification Session/Relâche vs date_min/date_max via ta fonction métier.
        */
-      function getCandidateRows(constraints) {
-        const allRows = ctx?.df || [];
+function getCandidateRows(constraints) {
+  const df = ctx?.df || [];
+  let rows = [];
 
-        //
-        // 1) Point de départ : soit la grille filtrée, soit tout df
-        //
-        let rows = activitesAPI.getActivitesNonProgrammees(ctx.df);
+  //
+  // 1) Point de départ : ACTIVITÉS NON PROGRAMMÉES
+  //    - Si "Utiliser uniquement les spectacles filtrés" est coché :
+  //      -> on essaie d'abord de lire directement la grille `grid-non-programmees`
+  //         (qui est déjà "non programmées" + filtres d'UI)
+  //      -> sinon on retombe sur ActivitesAPI.getActivitesNonProgrammees ou Date null
+  //
+  if (constraints.utiliser_filtres_grille) {
+    const handle = window.grids?.get?.("grid-non-programmees");
+    const api = handle?.api;
 
-        if (constraints.utiliser_filtres_grille) {
-          const handle = window.grids?.get?.("grid-activites"); // adapte l'ID si besoin
-          const api = handle?.api;
-          if (api) {
-            api.forEachNodeAfterFilterAndSort(node => {
-              if (node?.data) rows.push(node.data);
-            });
-          } else {
-            rows = allRows;
-          }
-        } else {
-          rows = allRows;
+    if (api && typeof api.forEachNodeAfterFilterAndSort === "function") {
+      const tmp = [];
+      api.forEachNodeAfterFilterAndSort((node) => {
+        if (node?.data) tmp.push(node.data);
+      });
+      rows = tmp;
+    } else if (typeof ActivitesAPI?.getActivitesNonProgrammees === "function") {
+      rows = ActivitesAPI.getActivitesNonProgrammees(df);
+    } else {
+      // fallback minimal : Date null => non programmées
+      rows = df.filter((r) => r && (r.Date == null || r.Date === 0));
+    }
+  } else {
+    // Pas de "filtre grille" => juste la liste des non programmées
+    if (typeof ActivitesAPI?.getActivitesNonProgrammees === "function") {
+      rows = ActivitesAPI.getActivitesNonProgrammees(df);
+    } else {
+      rows = df.filter((r) => r && (r.Date == null || r.Date === 0));
+    }
+  }
+
+  //
+  // 2) Mots-clés sur la colonne Style uniquement
+  //    - mots_cles_inclus : tous doivent apparaître dans Style
+  //    - mots_cles_exclus : aucun ne doit apparaître dans Style
+  //
+  const inc = constraints.mots_cles_inclus || [];
+  const exc = constraints.mots_cles_exclus || [];
+
+  if (inc.length || exc.length) {
+    rows = rows.filter((r) => {
+      if (!r) return false;
+      const styleText = String(r.Style || "").toLowerCase();
+
+      if (inc.length) {
+        for (const kw of inc) {
+          const needle = String(kw || "").toLowerCase();
+          if (!needle) continue;
+          if (!styleText.includes(needle)) return false;
         }
-
-        //
-        // 2) Filtres standard + mots-clés
-        //    -> les “filtres standard” sont déjà appliqués si on part de la grille filtrée.
-        //    Ici on ajoute juste les mots-clés pour élaguer au plus tôt.
-        //
-        const inc = constraints.mots_cles_inclus || [];
-        const exc = constraints.mots_cles_exclus || [];
-
-        if (inc.length || exc.length) {
-          rows = rows.filter(r => {
-            const txt = (
-              (r.Spectacle || "") +
-              " " +
-              (r.Autres || "") +
-              " " +
-              (r.Theatre || "")
-            ).toLowerCase();
-
-            if (inc.length) {
-              for (const kw of inc) {
-                if (!txt.includes(String(kw).toLowerCase())) return false;
-              }
-            }
-            if (exc.length) {
-              for (const kw of exc) {
-                if (txt.includes(String(kw).toLowerCase())) return false;
-              }
-            }
-            return true;
-          });
-        }
-
-        //
-        // 4) Fenêtre horaire : Debut >= debut_min ET Fin <= fin_max
-        //
-        const minMinutes = constraints.debut_min
-          ? timeLabelToMinutes(constraints.debut_min)
-          : null;
-
-        const maxMinutes = constraints.fin_max
-          ? timeLabelToMinutes(constraints.fin_max)
-          : null;
-
-        if (minMinutes != null || maxMinutes != null) {
-          rows = rows.filter(r => {
-            const tDeb = timeLabelToMinutes(r.Debut);
-            const tFin = timeLabelToMinutes(r.Fin);
-            if (tDeb == null || tFin == null) return false;
-
-            if (minMinutes != null && tDeb < minMinutes) return false;
-            if (maxMinutes != null && tFin > maxMinutes) return false;
-
-            return true;
-          });
-        }
-
-        //
-        // 5) Session / Relâche / période -> ta fonction métier existante
-        //    Ici j'appelle une fonction générique que tu dois brancher :
-        //      isActiviteCompatiblePeriode(row, dateMinInt, dateMaxInt)
-        //
-        const dateMinInt = constraints.date_min || null; // dateint
-        const dateMaxInt = constraints.date_max || null; // dateint
-
-        if (dateMinInt || dateMaxInt) {
-          rows = rows.filter(r =>
-            isActiviteProgrammableDansPeriode(r, dateMinInt, dateMaxInt)
-          );
-        } else {
-          // fallback: simple filtre numérique sur r.Date (déjà aligné app)
-          if (dateMinInt) {
-            rows = rows.filter(r => {
-              const d = r.Date != null ? Number(r.Date) : NaN;
-              return !isNaN(d) && d >= dateMinInt;
-            });
-          }
-          if (dateMaxInt) {
-            rows = rows.filter(r => {
-              const d = r.Date != null ? Number(r.Date) : NaN;
-              return !isNaN(d) && d <= dateMaxInt;
-            });
-          }
-        }
-
-        return rows;
       }
+
+      if (exc.length) {
+        for (const kw of exc) {
+          const needle = String(kw || "").toLowerCase();
+          if (!needle) continue;
+          if (styleText.includes(needle)) return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  //
+  // 3) Fenêtre horaire Debut / Fin (en minutes)
+  //    -> exactement ce que tu décrivais :
+  //       df.Debut >= debut_min ET df.Fin <= fin_max
+  //
+  const minMinutes = constraints.debut_min
+    ? hmStrToMinutes(constraints.debut_min)
+    : null;
+
+  const maxMinutes = constraints.fin_max
+    ? hmStrToMinutes(constraints.fin_max)
+    : null;
+
+  if (minMinutes != null || maxMinutes != null) {
+    rows = rows.filter((r) => {
+      const sMin = hmStrToMinutes(r.Debut);
+      const eMin = hmStrToMinutes(r.Fin);
+      if (sMin == null || eMin == null) return false;
+
+      if (minMinutes != null && sMin < minMinutes) return false;
+      if (maxMinutes != null && eMin > maxMinutes) return false;
+
+      return true;
+    });
+  }
+
+  //
+  // 4) C'est tout pour getCandidateRows :
+  //    - Activites non programmées
+  //    - éventuellement filtrées par la grille `grid-non-programmees`
+  //    - filtrées par Style via les mots-clés
+  //    - filtrées par fenêtre horaire
+  //
+  // La compatibilité Session / Relâche / période (date_min / date_max)
+  // est gérée ensuite dans buildProgram via ActivitesAPI.estActiviteProgrammableADate.
+  //
+  return rows;
+}
 
       function buildProgram(constraints) {
         const allRows = ctx?.df || [];
