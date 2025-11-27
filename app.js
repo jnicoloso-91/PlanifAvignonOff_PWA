@@ -4617,7 +4617,7 @@ function wireAppKebab() {
       items: [
         { id:'carnet',    label:"Carnet d'adresses",        onClick: ()=>openSheetCarnet() },
         { id:'AI',        label:"Assistant programmation",  onClick: ()=>openSheetAssistantProgrammation() },
-        { id:'AI',        label:"Assistant chat",           onClick: ()=>openSheetAssistantChat() },
+        { id:'AI',        label:"Assistant IA",           onClick: ()=>openSheetAssistantChat() },
         { id:'settings',  label:'Paramètres',               onClick: ()=>openSheetParams() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
       ]
@@ -6669,7 +6669,7 @@ function openSheetAssistantProgrammation() {
   const defaultGap = params.MARGE != null ? Number(params.MARGE) : 30;
 
   openSheetExclusive({
-    title: "Assistant programme",
+    title: "Assistant programmation",
     panelHeight: "auto",
     panelMaxHeight: "85vh",
     mount: (body, { close }) => {
@@ -7235,7 +7235,7 @@ function getCandidateRows(constraints) {
           for (const slot of sortedSlots) {
             const r = slot.row || {};
             const h = minutesToHHMM(slot.startMin);
-            const titre   = r.Spectacle || "(sans titre)";
+            const titre   = r.Activite || "(sans titre)";
             const theatre = r.Theatre   || "";
             const theatrePart = theatre ? ` @ ${theatre}` : "";
             lines.push(`- ${h} – ${titre}${theatrePart}`);
