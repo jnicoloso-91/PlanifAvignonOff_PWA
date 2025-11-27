@@ -74,30 +74,6 @@ export class AppContext {
     });
   }
 
-  // async #init() {
-  //   // Hydrate RAM depuis IndexedDB (best-effort)
-  //   try {
-  //     const [df, carnet] = await Promise.all([
-  //       df_getAllOrdered().catch(() => []),
-  //       carnet_getAll?.().catch?.(()=>[]) || Promise.resolve([]),
-  //     ]);
-  //     this.#df = Array.isArray(df) ? df : [];
-  //     this.#carnet = Array.isArray(carnet) ? carnet : [];
-
-  //     // meta : optionnellement depuis localStorage
-  //     const rawMeta = localStorage.getItem('app.meta');
-  //     this.#meta = rawMeta ? safeParseJson(rawMeta, {}) : {};
-
-  //     // garantis __uuid
-  //     this.#df = normalizeUuid(this.#df);
-  //     this.#carnet = normalizeUuid(this.#carnet);
-  //   } catch (e) {
-  //     console.error('AppContext init error:', e);
-  //     this.#df = [];
-  //     this.#carnet = [];
-  //     this.#meta = {};
-  //   }
-  // }
   async #init() {
     try {
       // --- Hydrate df + carnet depuis IndexedDB
@@ -200,28 +176,6 @@ export class AppContext {
   }
 
   // ---------- Sauvegarde ----------
-  // async save() {
-  //   if (this.#saving) return; // throttle
-  //   this.#saving = true;
-  //   try {
-  //     const ops = [];
-  //     if (this.#dirty.df) {
-  //       ops.push(df_clear().then(() => df_putMany(this.#df)));
-  //     }
-  //     if (this.#dirty.carnet && carnet_clear && carnet_putMany) {
-  //       ops.push(carnet_clear().then(() => carnet_putMany(this.#carnet)));
-  //     }
-  //     if (this.#dirty.meta) {
-  //       localStorage.setItem('app.meta', JSON.stringify(this.#meta));
-  //     }
-  //     await Promise.all(ops);
-  //     this.#dirty = { df: false, carnet: false, meta: false };
-  //   } catch (e) {
-  //     console.error('AppContext save error:', e);
-  //   } finally {
-  //     this.#saving = false;
-  //   }
-  // }
   async save() {
     // --- anti-chevauchement : si un save est en cours, on mémorise qu'il faudra relancer
     if (this.#saving) { this.#savePending = true; return; }
@@ -363,35 +317,57 @@ export class AppContext {
     return this.#meta[key] ?? defaultValue;
   }
 
+  // setMetaParam(key, value) {
+  //   this.#withHistory('meta','setMeta', () => {
+  //     if (!this.#meta || typeof this.#meta !== 'object') {
+  //       this.#meta = {};
+  //     }
+
+  //     // Évite les writes inutiles
+  //     if (this.#meta[key] === value) return;
+
+  //     this.#meta[key] = value;
+  //     this.#dirty.meta = true;
+  //     this.#em.emit('meta:changed', { reason: 'patch' });
+  //   });
+  // }
+
+  // updMetaParams(patch = {}) {
+  //   this.#withHistory('meta','setMeta', () => {
+  //     if (!this.#meta || typeof this.#meta !== 'object') {
+  //       this.#meta = {};
+  //     }
+
+  //     let changed = false;
+  //     for (const [k, v] of Object.entries(patch)) {
+  //       if (this.#meta[k] !== v) {
+  //         this.#meta[k] = v;
+  //         changed = true;
+  //       }
+  //     }
+
+  //     if (changed) {
+  //       this.#dirty.meta = true;
+  //       // this.saveDebounced?.();
+  //     }
+  //     this.#em.emit('meta:changed', { reason: 'patch' });
+  //   });
+  // }
   setMetaParam(key, value) {
-    if (!this.#meta || typeof this.#meta !== 'object') {
-      this.#meta = {};
-    }
-
-    // Évite les writes inutiles
-    if (this.#meta[key] === value) return;
-
-    this.#meta[key] = value;
-    this.#dirty.meta = true;
+    this.setMeta({ [key]: value });
   }
 
   updMetaParams(patch = {}) {
-    if (!this.#meta || typeof this.#meta !== 'object') {
+    if (!patch || typeof patch !== 'object') return;
+    this.setMeta(patch);
+  }
+
+  clearMeta() {
+    this.#withHistory('meta','clearMeta', () => {
       this.#meta = {};
-    }
-
-    let changed = false;
-    for (const [k, v] of Object.entries(patch)) {
-      if (this.#meta[k] !== v) {
-        this.#meta[k] = v;
-        changed = true;
-      }
-    }
-
-    if (changed) {
       this.#dirty.meta = true;
-      // this.saveDebounced?.();
-    }
+      this.#em.emit('meta:changed', { reason: 'clear' });
+    });
   }
 
   // Historique
@@ -408,34 +384,6 @@ export class AppContext {
   off(evt, fn){ return this.#em.off(evt, fn); }
 
   // --- Snapshot helpers ---
-  // #makeSnapshot() {
-  //   // clones superficiels (les rows sont des objets “plats” → OK)
-  //   return {
-  //     df: this.#df.slice(),
-  //     carnet: this.#carnet.slice(),
-  //     meta: { ...(this.#meta || {}) },
-  //     ui: captureUiStateFromGrids(), 
-  //   };
-  // }
-  // #restoreSnapshot(snap) {
-  //   this.#df = snap.df.slice();
-  //   this.#carnet = snap.carnet.slice();
-  //   this.#meta = { ...(snap.meta || {}) };
-  //   // émettre les events de changement
-  //   this.#em.emit('df:changed', { reason: 'restore' });
-  //   this.#em.emit('carnet:changed', { reason: 'restore' });
-  //   this.#em.emit('meta:changed', { reason: 'restore' });
-
-  //   // 🔁 Puis restaurer l'UI (sélection + scroll) juste après repaint
-  //   const ui = snap.ui;
-  //   if (ui) {
-  //     requestAnimationFrame(() => {
-  //       requestAnimationFrame(() => {
-  //         try { restoreUiStateToGrids(ui); } catch {}
-  //       });
-  //     });
-  //   }
-  // }
   #restoreUIStateToGrids(snap) {
     const ui = snap.ui;
     if (ui) {
@@ -470,20 +418,6 @@ export class AppContext {
     if (domain === 'meta')   this.#em.emit('meta:changed',   { reason:'restore' });
 
   }
-  // #pushUndo(snap) {
-  //   this.#undo.push(snap);
-  //   if (this.#undo.length > MAX_HISTORY) this.#undo.shift();
-  //   this.#em.emit('history:change', this.historyState());
-  // }
-  // #clearRedo() {
-  //   if (this.#redo.length) {
-  //     this.#redo = [];
-  //     this.#em.emit('history:change', this.historyState());
-  //   }
-  // }
-  // historyState() { return { canUndo: this.canUndo(), canRedo: this.canRedo(), undoLen: this.#undo.length, redoLen: this.#redo.length }; }
-  // canUndo(){ return this.#undo.length > 0; }
-  // canRedo(){ return this.#redo.length > 0; }
   #ensureStacks(domain){
     if (!this.#undo[domain]) this.#undo[domain] = [];
     if (!this.#redo[domain]) this.#redo[domain] = [];
@@ -510,18 +444,6 @@ export class AppContext {
   }
 
   // --- Regroupement d’actions (coalescing) ---
-  // beginAction(label='op'){
-  //   if (this.#inAction) return; // déjà en cours
-  //   this.#inAction = { label, baseSnapshot: this.#makeSnapshot() };
-  // }
-  // endAction(){
-  //   // si rien n’a changé → pas d’entrée d’historique
-  //   if (!this.#inAction) return;
-  //   const snap = this.#inAction.baseSnapshot;
-  //   this.#inAction = null;
-  //   this.#pushUndo(snap);
-  //   this.#clearRedo();
-  // }
   beginAction(domain='df'){
     if (this.#inAction[domain]) return;
     this.#inAction[domain] = { baseSnapshot: this.#makeDomainSnapshot(domain) };
@@ -535,31 +457,6 @@ export class AppContext {
   }
 
   // --- Wrapper de modification avec historique ---
-  // #withHistory(reason, mutator) {
-  //   // si on coalesce : on n’empile pas à chaque mutation
-  //   const base = this.#inAction ? this.#inAction.baseSnapshot : this.#makeSnapshot();
-  //   const beforeJson = JSON.stringify(base); // garde-fou simple
-
-  //   mutator(); // applique la mutation (setDf, upsert, etc.)
-
-  //   const afterSnap = this.#makeSnapshot();
-  //   const afterJson = JSON.stringify(afterSnap);
-
-  //   // si état inchangé → on ne crée pas d’entrée d’historique
-  //   if (beforeJson === afterJson) return;
-
-  //   if (this.#inAction) {
-  //     // on ne pushe pas maintenant : endAction() poussera baseSnapshot
-  //     // mais on garde la modif en RAM évidemment
-  //   } else {
-  //     this.#pushUndo(base);
-  //     this.#clearRedo();
-  //   }
-
-  //   // autosave débouncée
-  //   this.#autoSave();
-  //   this.#em.emit('history:change', this.historyState());
-  // }
   #withHistory(domain, reason, mutator){
     const inAct = this.#inAction[domain] || null;
     const base = inAct ? inAct.baseSnapshot : this.#makeDomainSnapshot(domain);
@@ -584,25 +481,6 @@ export class AppContext {
   // ---------- Mutations (ré-écrites pour passer par #withHistory) ----------
 
   // ---------- Undo / Redo ----------
-  // async undo() {
-  //   if (!this.canUndo()) return;
-  //   const snap = this.#undo.pop();
-  //   const cur  = this.#makeSnapshot();
-  //   this.#redo.push(cur);
-  //   this.#restoreSnapshot(snap);
-  //   this.#em.emit('history:change', this.historyState());
-  //   this.#autoSave(); // on sauve l’état restauré
-  // }
-
-  // async redo() {
-  //   if (!this.canRedo()) return;
-  //   const snap = this.#redo.pop();
-  //   const cur  = this.#makeSnapshot();
-  //   this.#undo.push(cur);
-  //   this.#restoreSnapshot(snap);
-  //   this.#em.emit('history:change', this.historyState());
-  //   this.#autoSave();
-  // }
   _pushHistory(domain) {
     const snap = this.#makeDomainSnapshot(domain);
     if (snap == null) return;

@@ -58,39 +58,6 @@ export async function df_getAllOrdered() {
   return idx.getAll(); // renvoie trié par __order
 }
 
-// export async function df_putMany(rows) {
-//   const db = await dbp;
-//   const tx = db.transaction(STORES.df, 'readwrite');
-
-//   let orderBase = Date.now(); // base unique pour cet import
-
-//   const putOne = (r, i = 0) => {
-//     if (!r || typeof r !== 'object' || Array.isArray(r)) return; // ignore non-objets
-//     const obj = { ...r }; // clone, on ne mutera pas l’original
-
-//     // UUID unique
-//     if (!obj.__uuid) {
-//       obj.__uuid =
-//         (crypto.randomUUID && crypto.randomUUID()) ||
-//         (`${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
-//     }
-
-//     // Ordre (si absent)
-//     if (obj.__order == null) {
-//       obj.__order = orderBase + i;
-//     }
-
-//     tx.store.put(obj);
-//   };
-
-//   if (Array.isArray(rows)) {
-//     rows.forEach((r, i) => putOne(r, i));
-//   } else {
-//     putOne(rows, 0);
-//   }
-
-//   await tx.done;
-// }
 export async function df_putMany(rows) {
   const db = await dbp;
   const tx = db.transaction(STORES.df, 'readwrite');
@@ -146,10 +113,6 @@ export async function df_clear() {
 }
 
 // ------- meta -------
-// export async function meta_get() {
-//   const db = await dbp;
-//   return (await db.get(STORES.meta, META_KEY)) ?? {};
-// }
 export async function meta_get() {
   const db = await dbp;
   const v = await db.get(STORES.meta, META_KEY);

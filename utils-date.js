@@ -42,15 +42,33 @@ export function dateintToYmd(di) {
 }
 
 // "HHhMM" -> minutes (ex: "09h30" => 570)
+// export function hmStrToMinutes(hm) {
+//   if (!hm) return null;
+//   const m = String(hm).match(/^\s*(\d{1,2})h(\d{2})\s*$/i);
+//   if (!m) return null;
+//   const H = +m[1], M = +m[2];
+//   if (H < 0 || H > 23 || M < 0 || M > 59) return null;
+//   return H * 60 + M;
+// }
+// "10h00" ou "10:00" -> minutes
 export function hmStrToMinutes(hm) {
   if (!hm) return null;
-  const m = String(hm).match(/^\s*(\d{1,2})h(\d{2})\s*$/i);
-  if (!m) return null;
-  const H = +m[1], M = +m[2];
-  if (H < 0 || H > 23 || M < 0 || M > 59) return null;
-  return H * 60 + M;
-}
+  const s = String(hm).trim().toLowerCase();
 
+  // format "10h00"
+  let m = /^(\d{1,2})h(\d{2})$/.exec(s);
+
+  // format "10:00"
+  if (!m) m = /^(\d{1,2}):(\d{2})$/.exec(s);
+
+  if (!m) return null;
+
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (isNaN(h) || isNaN(min)) return null;
+
+  return h * 60 + min;
+}
 // "XhYY" -> minutes (ex: "1h20" => 80)
 export function durationStrToMinutes(s) {
   if (!s) return null;

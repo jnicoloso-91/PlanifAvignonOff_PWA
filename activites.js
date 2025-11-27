@@ -280,11 +280,24 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
-     * Indique si l'activité passée en paramètre est programmable
+     * Indique si l'activité passée en paramètre est programmable 
+     * (i.e. s'il existe des jours pour lesquels elle peut être programmée)
      */
     estActiviteProgrammable(row) {
         const jp = _getJoursPossibles(row);
         return (Array.isArray(jp) && jp.length > 0);
+    },
+
+    /**
+     * Renvoie true si une activité est programmable 
+     * (i.e. non en relâche et dans la période de validité) pour la journée `dateRef` (AAAAMMJJ).
+     *
+     * @param {object} activite - activité
+     * @param {number} dateRef - entier AAAAMMJJ
+     * @returns {boolean}
+     */
+    estActiviteProgrammableADate(activite, dateRef) {
+      return _estActiviteProgrammableADate(activite, dateRef);
     },
 
     /**
@@ -1058,199 +1071,6 @@ function _estCreneauValide(creneau) {
  * @param {Date} [today] - Date de référence pour l'année/mois par défaut (par défaut mois / année courants)
  * @returns {boolean} - true = jour jouable / false = relâche
  */
-// function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date()) {
-//   if (dateVal == null) return true;
-
-//   const dv = Number(dateVal);
-//   if (!Number.isFinite(dv)) return true;
-
-//   const dy = Math.floor(dv / 10000);
-//   const dm = Math.floor((dv / 100) % 100);
-//   const dd = dv % 100;
-
-//   const defY = today.getFullYear();
-//   const defM = today.getMonth() + 1;
-
-//   // --- Helpers ---
-//   const y2k = (y) => (Number.isFinite(y) && y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
-//   const mkDateInt = (y, m, d) => (y * 10000 + m * 100 + d);
-
-//   // "12", "12/07", "12/07/2025" -> [y,m,d] avec yy/mm défaut si absent
-//   const parseDayMaybeDmY = (s, yy, mm) => {
-//     const parts = String(s).split("/").map(x => x.trim());
-//     let d, m = mm, y = yy;
-//     if (parts.length === 3) [d, m, y] = parts.map(n => Number(n));
-//     else if (parts.length === 2) [d, m] = parts.map(n => Number(n));
-//     else if (parts.length === 1) d = Number(parts[0]);
-//     y = y2k(y);
-//     return [y, m, d];
-//   };
-
-//   // Liste "12,21,25" ou "12 21 25" (avec NBSP, espaces multiples...)
-//   const _parseDaysList = (raw) => {
-//     if (!raw) return [];
-//     const s = String(raw)
-//       .replace(/\u00A0/g, ' ')   // NBSP -> space
-//       .replace(/\s+/g, ' ')      // espaces multiples -> un
-//       .trim();
-//     return s
-//       .split(/[,\s]+/)           // virgules OU espaces
-//       .map(x => Number(x.trim()))
-//       .filter(n => Number.isFinite(n) && n >= 1 && n <= 31);
-//   };
-
-//   const sessionTxt = String(sessionVal || '').trim().toLowerCase();
-//   const relacheTxt = String(relacheVal || '').trim().toLowerCase();
-
-//   const openIntervals = [];        // inclusions: [aDI, bDI]
-//   const regroupSessionDays = [];   // inclusions: dates uniques
-//   const closedIntervals = [];      // exclusions: [aDI, bDI]
-//   const regroupRelacheDays = [];   // exclusions: dates uniques
-
-//   // ====== SESSION (inclusions) ======
-
-//   // Fenêtres de représentation [A–B] (/MM[/YYYY] optionnel)
-//   for (const m of sessionTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//     const [ , aTxt, bTxt, mmTxt, yyTxt ] = m;
-//     const mmDef = mmTxt ? Number(mmTxt) : defM;
-//     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-//     const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
-//     const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
-//     const aDi = mkDateInt(Ay, Am, Ad);
-//     const bDi = mkDateInt(By, Bm, Bd);
-//     if (Number.isFinite(aDi) && Number.isFinite(bDi)) {
-//       openIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
-//     }
-//   }
-
-//   // Jours listés (a,b,c) (/MM[/YYYY] optionnel)
-//   for (const m of sessionTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//     const [ , rawJours, mmTxt, yyTxt ] = m;
-//     const mmDef = mmTxt ? Number(mmTxt) : defM;
-//     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-//     for (const jd of _parseDaysList(rawJours)) {
-//       regroupSessionDays.push(mkDateInt(yyDef, mmDef, jd));
-//     }
-//   }
-
-//   // --- Jours isolés de représentation (hors [], <> et ())
-//   {
-//     const sessionStripped = sessionTxt
-//       .replace(/\([^)]*\)/g, ' ')     // retire ( ... )
-//       .replace(/\[[^\]]*\]/g, ' ')    // retire [ ... ]
-//       .replace(/<[^>]*>/g, ' ')       // retire < ... >
-//       .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')     // retire "14h" / "14h30"
-//       .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');// retire "55min"
-
-//     const reIso = /\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g;
-//     for (const m of sessionStripped.matchAll(reIso)) {
-//       const startIdx = m.index ?? 0;
-
-//       // ⭐ NOUVEAU : si le nombre commence juste après un "/",
-//       // on considère que c'est un mois ("/07") et PAS un jour isolé
-//       if (startIdx > 0 && sessionStripped[startIdx - 1] === '/') continue;
-
-//       const d  = Number(m[1]);
-//       const mm = m[2] ? Number(m[2]) : dm;      // défaut = mois de dateVal
-//       const yy = m[3] ? y2k(Number(m[3])) : dy; // défaut = année de dateVal
-//       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
-//           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
-//           Number.isFinite(yy)) {
-//         regroupSessionDays.push(mkDateInt(yy, mm, d));
-//       }
-//     }
-//   }
-
-//   // Parité
-//   let pariteSession = null;
-//   if (/\bjours?\s+pairs?\b/.test(sessionTxt))   pariteSession = "pair";
-//   if (/\bjours?\s+impairs?\b/.test(sessionTxt)) pariteSession = "impair";
-
-//   // ====== RELÂCHES (exclusions) ======
-
-//   // Fenêtres de relâche [A–B]
-//   for (const m of relacheTxt.matchAll(/\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\]\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//     const [ , aTxt, bTxt, mmTxt, yyTxt ] = m;
-//     const mmDef = mmTxt ? Number(mmTxt) : defM;
-//     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-//     const [Ay, Am, Ad] = parseDayMaybeDmY(aTxt, yyDef, mmDef);
-//     const [By, Bm, Bd] = parseDayMaybeDmY(bTxt, yyDef, mmDef);
-//     const aDi = mkDateInt(Ay, Am, Ad);
-//     const bDi = mkDateInt(By, Bm, Bd);
-//     if (Number.isFinite(aDi) && Number.isFinite(bDi)) {
-//       closedIntervals.push(aDi <= bDi ? [aDi, bDi] : [bDi, aDi]);
-//     }
-//   }
-
-//   // Jours listés (a,b,c)
-//   for (const m of relacheTxt.matchAll(/\(\s*([\d\s,]+)\s*\)\s*(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?/g)) {
-//     const [ , rawJours, mmTxt, yyTxt ] = m;
-//     const mmDef = mmTxt ? Number(mmTxt) : defM;
-//     const yyDef = yyTxt ? y2k(Number(yyTxt)) : defY;
-//     for (const jd of _parseDaysList(rawJours)) {
-//       regroupRelacheDays.push(mkDateInt(yyDef, mmDef, jd));
-//     }
-//   }
-
-//   // --- Jours isolés de relâche (hors [], <> et ())
-//   {
-//     const relacheStripped = relacheTxt
-//       .replace(/\([^)]*\)/g, ' ')
-//       .replace(/\[[^\]]*\]/g, ' ')
-//       .replace(/<[^>]*>/g, ' ')
-//       .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')
-//       .replace(/\b\d{1,3}\s*min(?:s)?\b/gi, ' ');
-
-//     const reIso = /\b(\d{1,2})(?:\/(\d{1,2})(?:\/(\d{2,4}))?)?\b/g;
-//     for (const m of relacheStripped.matchAll(reIso)) {
-//       const startIdx = m.index ?? 0;
-
-//       // ⭐ NOUVEAU : ne pas interpréter "/07" comme un jour isolé
-//       if (startIdx > 0 && relacheStripped[startIdx - 1] === '/') continue;
-
-//       const d  = Number(m[1]);
-//       const mm = m[2] ? Number(m[2]) : dm;
-//       const yy = m[3] ? y2k(Number(m[3])) : dy;
-//       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
-//           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
-//           Number.isFinite(yy)) {
-//         regroupRelacheDays.push(mkDateInt(yy, mm, d));
-//       }
-//     }
-//   }
-
-//   // Parité
-//   let pariteRelache = null;
-//   if (/\bjours?\s+pairs?\b/.test(relacheTxt))   pariteRelache = "pair";
-//   if (/\bjours?\s+impairs?\b/.test(relacheTxt)) pariteRelache = "impair";
-
-//   // ===== Étape 1 : Exclusions (relâches)
-//   for (const [lo, hi] of closedIntervals) {
-//     if (lo <= dv && dv <= hi) return false;
-//   }
-//   if (regroupRelacheDays.length && regroupRelacheDays.includes(dv)) return false;
-//   if (pariteRelache) {
-//     const isEven = dd % 2 === 0;
-//     if ((pariteRelache === "pair" && isEven) || (pariteRelache === "impair" && !isEven)) return false;
-//   }
-
-//   // ===== Étape 2 : Inclusions (sessions)
-//   for (const [lo, hi] of openIntervals) {
-//     if (lo <= dv && dv <= hi) return true;
-//   }
-//   if (regroupSessionDays.length && regroupSessionDays.includes(dv)) return true;
-//   if (pariteSession) {
-//     const isEven = dd % 2 === 0;
-//     if ((pariteSession === "pair" && isEven) || (pariteSession === "impair" && !isEven)) return true;
-//   }
-
-//   // ===== Étape 3 : défaut
-//   // S'il y a des contraintes de Session mais aucune ne matche -> false
-//   if (openIntervals.length || regroupSessionDays.length || pariteSession) return false;
-
-//   // Sinon, aucune contrainte de Session -> true (programmable par défaut)
-//   return true;
-// }
 function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date()) {
   if (dateVal == null) return true;
 
@@ -1542,7 +1362,8 @@ function _getActivitesProgrammeesDuJourTriees(jour){
                .sort((a,b)=>a._min - b._min);
 }
 
-// Calcule les jours possibles pour poser une activité
+// Calcule les jours possibles pour programmer une activité en tenant compte 
+// de la période de programmation des séances et relaches et des activités déja programmées
 function _getJoursPossibles(rowActivite) {
   const jours = [];
   const debutMinute = mmFromHHhMM(rowActivite['Debut']);

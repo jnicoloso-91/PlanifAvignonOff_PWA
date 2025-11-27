@@ -8,6 +8,8 @@ import {
   ymdToDateint, 
   safeDateint, 
   toDateint,
+  dateToDateint,
+  hmStrToMinutes,
   isoDateToLocalDate,
   localDateToIsoDate,
   recalcFinForAll,
@@ -1851,6 +1853,7 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
   api.setGridOption('columnDefs', newColDefs);
   api.onColumnEverythingChanged?.();
   ensureWheelScrollOnGrid(handle);
+  requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
 }
 
 // Met à jour la definition des colonnes sur les grilles qui affichent des activités
@@ -2131,6 +2134,11 @@ function gridOptionsCommon(gridId, el) {
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
+    onColumnMoved: (p) => saveGridStateToMeta(p, gridId),
+    onColumnPinned: (p) => saveGridStateToMeta(p, gridId),
+    onColumnVisible: (p) => saveGridStateToMeta(p, gridId),
+    onSortChanged: (p) => saveGridStateToMeta(p, gridId),
+  
     // floatingFilter: true,
     // suppressMenuHide: false,
     // suppressColumnVirtualisation: false,
@@ -2147,7 +2155,7 @@ const gridOptionsActivitesProgrammees = {
     const btn = document.getElementById('btn-deprogrammer');
     btn.disabled = (sel.length > 0) ? activitesAPI.estActiviteReservee(sel[0]) : true;
   },
-  onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-prog')),
+  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-prog')); saveGridStateToMeta(p, 'grid-programmees'); },
 }
 
 const gridOptionsActivitesNonProgrammees = {
@@ -2160,12 +2168,12 @@ const gridOptionsActivitesNonProgrammees = {
     document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);
     synchronizeSelection(p, 'grid-programmables'); 
   },
-  onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-non-prog')),
+  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-non-prog')); saveGridStateToMeta(p, 'grid-non-programmees'); },
 }
 
 const gridOptionsCreneaux = {
   onSelectionChanged: () => onCreneauxSelectionChanged(),
-  onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-creneaux')),
+  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-creneaux')); saveGridStateToMeta(p, 'grid-creneaux'); },
 }
 
 const gridOptionsActivitesProgrammables = {
@@ -2175,7 +2183,7 @@ const gridOptionsActivitesProgrammables = {
     document.getElementById('btn-programmer')?.toggleAttribute('disabled', !hasSel);
     synchronizeSelection(p, 'grid-non-programmees'); 
   },
-  onFilterChanged: p => updateGridCounters(p.api, document.getElementById('badge-programmables')),
+  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-programmables')); saveGridStateToMeta(p, 'grid-programmables'); },
 }
 
 // Sélectionne dans une autre grille la ligne correspondant à celle qui vient d'être sélectionnée et la rend visible
@@ -2233,6 +2241,54 @@ function synchronizeSelection(event, dstGridId) {
       dstApi.ensureNodeVisible(targetNode, 'middle'); // 'top' | 'middle' | 'bottom'
     } catch {}
   });
+}
+
+function saveGridStateToMeta(e, gridId) {
+  const api = e.api;
+  if (!api) return;
+
+  const columnState = api.getColumnState?.() || [];
+  const filterModel = api.getFilterModel?.() || null;
+
+  const prev = ctx.getMeta()?.gridState || {};
+
+  const next = {
+    ...prev,
+    [gridId]: {
+      columnState,
+      filterModel,
+    },
+  };
+
+  ctx.setMetaParam('gridState', next);
+}
+
+function restoreGridStateFromMeta(gridId) {
+  const handle = window.grids?.get(gridId);
+  if (!handle) return;
+  const api = handle.api;
+  if (!api) return;
+
+  const meta = ctx.getMeta?.() || {};
+  const allStates = meta.gridState || {};
+  const state = allStates[gridId];
+  if (!state) return;
+
+  const { columnState, filterModel } = state;
+
+  // 1) Colonnes : ordre, tri, pinning, visibilité
+  if (columnState && Array.isArray(columnState) && columnState.length) {
+    api.applyColumnState?.({
+      state: columnState,
+      applyOrder: true,   // important pour restaurer l’ordre
+    });
+  }
+
+  // 2) Filtres
+  if (filterModel) {
+    api.setFilterModel?.(filterModel);
+    api.onFilterChanged?.(); // pour forcer la prise en compte
+  }
 }
 
 // ===== Loaders de grilles =====
@@ -2406,6 +2462,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   const handle = { id: gridId, el, api, loader, columnsBuilder }; //, nbRowsPred: null };
   grids.set(gridId, handle);
   if (!activeGridId) setActiveGrid(gridId);
+  requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
   return handle;
 }
 
@@ -3129,7 +3186,6 @@ async function doImportFromBilletReduc({ rubrique, region, dt }) {
   const url = `https://www.billetreduc.com/search.htm?dt=${encodeURIComponent(dt)}&region=${encodeURIComponent(region)}&idrub=${encodeURIComponent(rubrique)}`;
   importFromUrlOrTxt(url, 'parseBilletReducProgPage');
 }
-
 
 // Export Excel
 async function doExportExcel() {
@@ -4559,9 +4615,11 @@ function wireAppKebab() {
     e.stopPropagation();  // Évite que le clic se propage à un parent cliquable
     openKebabMenu(btn, {
       items: [
-        { id:'carnet', label:"Carnet d'adresses",          onClick: ()=>openSheetCarnet() },
-        { id:'settings', label:'Paramètres',               onClick: ()=>openSheetParams() },
-        { id:'help',     label:'Aide',                     onClick: ()=>openSheetAide() },
+        { id:'carnet',    label:"Carnet d'adresses",        onClick: ()=>openSheetCarnet() },
+        { id:'AI',        label:"Assistant programmation",  onClick: ()=>openSheetAssistantProgrammation() },
+        { id:'AI',        label:"Assistant chat",           onClick: ()=>openSheetAssistantChat() },
+        { id:'settings',  label:'Paramètres',               onClick: ()=>openSheetParams() },
+        { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
       ]
     });
   }, { passive: true });
@@ -5434,7 +5492,7 @@ function openSheetParams() {
         const it = $it.value;
         const ci = $ci.value;
 
-        window.ctx?.setMeta({
+        ctx?.updMetaParams({
           periode_a_programmer_debut: d1,
           periode_a_programmer_fin:   d2,
           MARGE:          mar,
@@ -5695,6 +5753,7 @@ function openSheetCoherence(rows, {
   });
 }
 
+// Feuille Filtres 
 function openSheetFiltres(gridId) {
   const gridApi = window.grids?.get?.(gridId)?.api;
   if (!gridApi) return;
@@ -6180,42 +6239,6 @@ function openSheetFiltres(gridId) {
       // ===== Appliquer / Réinitialiser =====
       const applyBtn = body.querySelector('#btn-apply');
       const clearBtn = body.querySelector('#btn-clear');
-      // applyBtn.addEventListener('click', () => {
-      //   const newModel = {};
-      //   columns.forEach(col => {
-      //     const val = body.querySelector(`#filter-${col.field}`).value.trim();
-      //     if (val) newModel[col.field] = { type: 'contains', filter: val };
-      //   });
-      //   gridApi.setFilterModel(newModel);
-      //   gridApi.onFilterChanged?.();
-      //   close();
-      // });
-      // applyBtn.addEventListener('click', () => {
-      //   const newModel = {};
-      //   columns.forEach(col => {
-      //     const inp = body.querySelector(`#filter-${col.field}`);
-      //     let valSan = inp?.value?.trim() || '';
-      //     if (!valSan) return;
-
-      //     // retrouver l’option correspondante pour récupérer la valeur brute
-      //     const dl = body.querySelector(`#dl-${col.field}`);
-      //     let valRaw = null;
-      //     if (dl) {
-      //       // pas de CSS.escape -> on itère
-      //       for (const opt of dl.options) {
-      //         if (opt.value === valSan) { valRaw = opt.dataset.raw || null; break; }
-      //       }
-      //     }
-      //     // fallback : si pas d’option trouvée, on tente de “déséchapper” ce que l’utilisateur a tapé
-      //     const filterVal = unescapeCRLF(valRaw ?? valSan);
-
-      //     newModel[col.field] = { type: 'contains', filter: filterVal };
-      //   });
-
-      //   gridApi.setFilterModel(newModel);
-      //   gridApi.onFilterChanged?.();
-      //   close();
-      // });
       applyBtn.addEventListener('click', () => {
         const newModel = {};
         columns.forEach(col => {
@@ -6371,6 +6394,7 @@ const BILLETREDUC_REGIONS = [
   { label: 'Limousin',                           value: 'L' },
 ];
 
+// Feuille Import Billet Réduc 
 function openSheetImportBilletReduc() {
   // mois courant au format yyyy-mm pour <input type="month">
   const now = new Date();
@@ -6460,7 +6484,803 @@ function openSheetImportBilletReduc() {
   });
 }
 
-// ------- Boot -------
+/**
+ * Appelle le backend IA Cloudflare.
+ * @param {string} message - Requête utilisateur.
+ * @param {string} context - Contexte optionnel (planning, sélection, etc.).
+ * @returns {Promise<string>} - Réponse texte de l'IA.
+ */
+async function callAI(message, context = "") {
+  // URL du worker Cloudflare
+  const AI_ENDPOINT = "https://off-proxy.joel-nicoloso.workers.dev/ai";
+
+  const res = await fetch(AI_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, context })
+  });
+
+  if (!res.ok) {
+    throw new Error("Erreur backend IA: " + res.status);
+  }
+
+  const data = await res.json();
+  return data.reply || "";
+}
+
+/**
+ * Construit un petit contexte texte à partir de la grille / du df.
+ */
+function buildAIContext() {
+  const rows = ctx?.df || [];
+  if (!rows.length) return "";
+
+  // On limite pour ne pas envoyer un roman complet
+  const max = 50;
+  const lines = [];
+
+  for (let i = 0; i < rows.length && i < max; i++) {
+    const r = rows[i];
+    if (!r) continue;
+
+    const date = r.Date || r.date || "";
+    const debut = r.Debut || r.debut || "";
+    const duree = r.Duree || r.duree || "";
+    const titre = r.Spectacle || r.spectacle || r.Titre || r.titre || "";
+    const theatre = r.Theatre || r.theatre || "";
+
+    lines.push(
+      `${date} ${debut} (${duree}) - ${titre} @ ${theatre}`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+// Feuille Interface AI
+function openSheetAssistantChat() {
+  const contextSnapshot = buildAIContext(); // ou "" si tu veux temporairement sans contexte
+
+  openSheetExclusive({
+    title: "Assistant IA",
+    panelHeight: "auto",
+    panelMaxHeight: "80vh",
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="ai-chat-container">
+
+          <div class="ai-input-wrapper">
+            <textarea id="ai-request"
+                      class="ai-input"
+                      rows="3"
+                      placeholder="Demandez quelque chose… (ex : Résume ce planning, propose 3 spectacles, explique les conflits, etc.)"></textarea>
+            <button id="btn-ai-send"
+                    type="button"
+                    class="ai-send-icon-btn"
+                    aria-label="Envoyer">
+              ↑
+            </button>
+          </div>
+
+          <div id="ai-response-container" class="ai-response-box" hidden>
+            <div class="ai-response-label">Réponse</div>
+            <div id="ai-response" class="ai-response-bubble"></div>
+          </div>
+
+          <p id="ai-error" class="ai-error" hidden></p>
+        </div>
+      `;
+
+      const inputReq  = body.querySelector("#ai-request");
+      const respBox   = body.querySelector("#ai-response-container");
+      const respEl    = body.querySelector("#ai-response");
+      const btnSend   = body.querySelector("#btn-ai-send");
+      const errEl     = body.querySelector("#ai-error");
+
+      const showError = (msg) => {
+        if (!errEl) return;
+        errEl.textContent = msg || "";
+        errEl.hidden = !msg;
+      };
+
+      const clearError = () => showError("");
+
+      async function send() {
+        clearError();
+        const msg = (inputReq?.value || "").trim();
+        if (!msg) {
+          showError("Merci de saisir une requête.");
+          inputReq?.focus();
+          return;
+        }
+
+        respBox.hidden = false;
+        if (respEl) respEl.textContent = "⏳ L’IA réfléchit…";
+        btnSend.disabled = true;
+
+        try {
+          const reply = await callAI(msg, contextSnapshot);
+          if (respEl) {
+            respEl.textContent = reply || "";
+          }
+        } catch (e) {
+          console.error("AI error:", e);
+          showError("Erreur lors de l'appel à l’IA.");
+          if (respEl) respEl.textContent = "";
+        } finally {
+          btnSend.disabled = false;
+        }
+      }
+
+      btnSend?.addEventListener("click", send);
+
+      inputReq?.addEventListener("keydown", (ev) => {
+        // Ctrl+Enter ou Cmd+Enter -> envoyer
+        if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) {
+          ev.preventDefault();
+          send();
+        }
+        // Escape -> fermer la sheet
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          close();
+        }
+      });
+
+      // focus initial
+      setTimeout(() => inputReq?.focus(), 20);
+    }
+  });
+}
+
+function normalizeDateForInput(val) {
+  if (!val) return "";
+  const s = String(val).trim();
+
+  // Déjà au bon format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // Format "20250721" -> "2025-07-21"
+  if (/^\d{8}$/.test(s)) {
+    return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  }
+
+  // Dernier recours : tenter un Date()
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().slice(0, 10);
+  }
+
+  return "";
+}
+
+function openSheetAssistantProgrammation() {
+  const df    = ctx?.df || [];
+  const meta  = ctx?.meta || {};
+  const params = meta;
+  const aiProg = meta?.aiProgramme || {};
+
+  const globalDebRaw = params.periode_a_programmer_debut || "";
+  const globalFinRaw = params.periode_a_programmer_fin   || "";
+
+  const globalDeb = normalizeDateForInput(aiProg?.date_min || globalDebRaw);
+  const globalFin = normalizeDateForInput(aiProg?.date_max || globalFinRaw);
+
+  const defaultGap = params.MARGE != null ? Number(params.MARGE) : 30;
+
+  openSheetExclusive({
+    title: "Assistant programme",
+    panelHeight: "auto",
+    panelMaxHeight: "85vh",
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="form">
+
+          <!-- Description libre, style chat -->
+          <div class="ai-chat-container">
+            <textarea id="prog-request"
+                      class="ai-input"
+                      rows="3"
+                      placeholder="Ex. : 3 jours, comédies, pas après 22h, max 4 spectacles/jour…">${aiProg.request || ""}</textarea>
+          </div>
+
+          <!-- SECTION : Période -->
+          <div class="ai-section">
+            <div class="form-row">
+              <label for="prog-date-min">Début de la période à programmer</label>
+              <input id="prog-date-min"
+                     type="date"
+                     value="${globalDeb}">
+            </div>
+
+            <div class="form-row">
+              <label for="prog-date-max">Fin de la période à programmer</label>
+              <input id="prog-date-max"
+                     type="date"
+                     value="${globalFin}">
+            </div>
+          </div>
+
+          <!-- SECTION : Horaires & cadence -->
+          <div class="ai-section">
+            <div class="form-row">
+              <label for="prog-debut-min">Heure de début au plus tôt</label>
+              <input id="prog-debut-min"
+                     type="time"
+                     value="${aiProg.debut_min || "10:00"}">
+            </div>
+
+            <div class="form-row">
+              <label for="prog-fin-max">Heure de fin au plus tard</label>
+              <input id="prog-fin-max"
+                     type="time"
+                     value="${aiProg.fin_max || "23:00"}">
+            </div>
+
+            <div class="form-row">
+              <label for="prog-max-par-jour">Max spectacles / jour</label>
+              <input id="prog-max-par-jour"
+                     type="number"
+                     min="1"
+                     value="${aiProg.max_par_jour != null ? aiProg.max_par_jour : 4}">
+            </div>
+
+            <div class="form-row">
+              <label for="prog-gap-minutes">Marge minimale entre spectacles (min)</label>
+              <input id="prog-gap-minutes"
+                     type="number"
+                     min="0"
+                     step="5"
+                     value="${aiProg.gap_minutes != null ? aiProg.gap_minutes : defaultGap}">
+            </div>
+          </div>
+
+          <!-- SECTION : Filtrage -->
+          <div class="ai-section">
+            <div class="form-row">
+              <label class="ai-checkbox">
+                <span>Utiliser uniquement les spectacles filtrés dans la grille</span>
+                <input id="prog-use-filters"
+                       type="checkbox"
+                       ${aiProg.utiliser_filtres_grille !== false ? "checked" : ""}>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label for="prog-include-keywords">Mots-clés à inclure (optionnel)</label>
+              <input id="prog-include-keywords"
+                     type="text"
+                     class="bb-input"
+                     value="${(aiProg.mots_cles_inclus || []).join(", ")}"
+                     placeholder="Ex. : comédie, musique, jeune public">
+            </div>
+
+            <div class="form-row">
+              <label for="prog-exclude-keywords">Mots-clés à exclure (optionnel)</label>
+              <input id="prog-exclude-keywords"
+                     type="text"
+                     class="bb-input"
+                     value="${(aiProg.mots_cles_exclus || []).join(", ")}"
+                     placeholder="Ex. : tragédie, danse, sombre">
+            </div>
+          </div>
+
+          <!-- SECTION : Résultat -->
+          <div class="ai-section">
+            <div class="form-row">
+              <label>Résultat</label>
+              <div id="prog-response-box"
+                   class="ai-response-box"
+                   style="width:100%;"
+                   hidden>
+                <div class="ai-response-label">Programme généré</div>
+                <div id="prog-response" class="ai-response-bubble"></div>
+              </div>
+            </div>
+          </div>
+
+          <p id="prog-error" class="ai-error" style="display:none;"></p>
+
+        </div>
+
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button class="bb-btn" id="btn-prog-cancel">
+              Annuler
+            </button>
+            <button class="bb-btn is-primary" id="btn-prog-apply">
+              Appliquer
+            </button>
+          </div>
+        </div>
+      `;
+
+      // --- refs DOM
+      const elReq      = body.querySelector("#prog-request");
+      const elErr      = body.querySelector("#prog-error");
+      const elRespBox  = body.querySelector("#prog-response-box");
+      const elResp     = body.querySelector("#prog-response");
+      const btnApply   = body.querySelector("#btn-prog-apply");
+      const btnCancel  = body.querySelector("#btn-prog-cancel");
+
+      const elDateMin  = body.querySelector("#prog-date-min");
+      const elDateMax  = body.querySelector("#prog-date-max");
+      const elDebMin   = body.querySelector("#prog-debut-min");
+      const elFinMax   = body.querySelector("#prog-fin-max");
+      const elMaxJour  = body.querySelector("#prog-max-par-jour");
+      const elGapMin   = body.querySelector("#prog-gap-minutes");
+      const elUseFilt  = body.querySelector("#prog-use-filters");
+      const elIncKW    = body.querySelector("#prog-include-keywords");
+      const elExcKW    = body.querySelector("#prog-exclude-keywords");
+
+      const showError = (msg) => {
+        elErr.textContent = msg || "";
+        elErr.style.display = msg ? "block" : "none";
+      };
+      const clearError = () => showError("");
+
+      const parseKeywords = (inputEl) => {
+        const raw = (inputEl?.value || "").trim();
+        if (!raw) return [];
+        return raw.split(",").map(s => s.trim()).filter(Boolean);
+      };
+
+      function buildConstraints() {
+        const constraints = {
+          request: elReq.value || "",
+          date_min: dateToDateint(elDateMin.value),
+          date_max: dateToDateint(elDateMax.value),
+          debut_min: elDebMin.value || null,
+          fin_max: elFinMax.value || null,
+          max_par_jour: elMaxJour.value ? Number(elMaxJour.value) : null,
+          gap_minutes: elGapMin.value ? Number(elGapMin.value) : defaultGap,
+          utiliser_filtres_grille: !!elUseFilt.checked,
+          mots_cles_inclus: parseKeywords(elIncKW),
+          mots_cles_exclus: parseKeywords(elExcKW),
+          exclure_deja_programmes: true
+        };
+        return constraints;
+      }
+
+      function savePrefs(constraints) {
+        try {
+          if (ctx && typeof ctx.updMetaParams === "function") {
+            ctx.updMetaParams({
+              aiProgramme: { ...constraints }
+            });
+          } else if (ctx && typeof ctx.setMeta === "function") {
+            ctx.setMeta({
+              ...(ctx.meta || {}),
+              aiProgramme: { ...constraints }
+            });
+          } else if (ctx && ctx.meta) {
+            ctx.meta.aiProgramme = { ...constraints };
+          }
+        } catch (e) {
+          console.warn("Impossible de sauvegarder aiProgramme dans meta:", e);
+        }
+      }
+
+      function timeLabelToMinutes(val) {
+        if (!val) return null;
+        const s = String(val).trim().toLowerCase();
+
+        // formats possibles : "10h00", "10:00"
+        let m = /^(\d{1,2})h(\d{2})$/.exec(s);
+        if (!m) m = /^(\d{1,2}):(\d{2})$/.exec(s);
+        if (!m) return null;
+
+        const h = Number(m[1]);
+        const min = Number(m[2]);
+        if (isNaN(h) || isNaN(min)) return null;
+
+        return h * 60 + min;  // minutes depuis minuit
+      }
+
+      function addOneDayDateint(dateInt) {
+        const s = String(dateInt);
+        if (s.length !== 8) return dateInt;
+        const year  = Number(s.slice(0, 4));
+        const month = Number(s.slice(4, 6)) - 1; // JS: 0-11
+        const day   = Number(s.slice(6, 8));
+
+        const d = new Date(year, month, day);
+        d.setDate(d.getDate() + 1);
+
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return Number(`${y}${m}${dd}`);
+      }
+
+      // Gère le conflit avec marge
+      function slotsConflict(aStart, aEnd, bStart, bEnd, gap) {
+        return !(
+          aEnd + gap <= bStart ||
+          aStart >= bEnd + gap
+        );
+      }
+
+      function minutesToHHMM(min) {
+        if (min == null || isNaN(min)) return "";
+        const h = Math.floor(min / 60);
+        const m = min % 60;
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      }
+      
+      function dateintToLabel(di) {
+        if (!di) return "";
+        const s = String(di);
+        if (s.length !== 8) return s;
+        const y = s.slice(0, 4);
+        const m = s.slice(4, 6);
+        const d = s.slice(6, 8);
+        return `${y}-${m}-${d}`; // ou tu peux mettre un format FR "dd/mm/yyyy" si tu préfères
+      }
+
+      function isActiviteProgrammableDansPeriode(activite, dateMinInt, dateMaxInt) {
+        if (!dateMinInt && !dateMaxInt) return true;
+
+        let start = dateMinInt || dateMaxInt;
+        let end   = dateMaxInt || dateMinInt;
+
+        if (start > end) {
+          const tmp = start;
+          start = end;
+          end = tmp;
+        }
+
+        for (let d = start; d <= end; d = addOneDayDateint(d)) {
+          if (activitesAPI.estActiviteProgrammableADate(activite, d)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      /**
+       * Retourne la liste des activités candidates à la programmation,
+       * après:
+       *  1) filtres standard + mots-clés
+       *  2) exclusion des déjà programmées
+       *  3) filtrage par fenêtre horaire (Debut/Fin)
+       *  4) vérification Session/Relâche vs date_min/date_max via ta fonction métier.
+       */
+      function getCandidateRows(constraints) {
+        const allRows = ctx?.df || [];
+
+        //
+        // 1) Point de départ : soit la grille filtrée, soit tout df
+        //
+        let rows = activitesAPI.getActivitesNonProgrammees(ctx.df);
+
+        if (constraints.utiliser_filtres_grille) {
+          const handle = window.grids?.get?.("grid-activites"); // adapte l'ID si besoin
+          const api = handle?.api;
+          if (api) {
+            api.forEachNodeAfterFilterAndSort(node => {
+              if (node?.data) rows.push(node.data);
+            });
+          } else {
+            rows = allRows;
+          }
+        } else {
+          rows = allRows;
+        }
+
+        //
+        // 2) Filtres standard + mots-clés
+        //    -> les “filtres standard” sont déjà appliqués si on part de la grille filtrée.
+        //    Ici on ajoute juste les mots-clés pour élaguer au plus tôt.
+        //
+        const inc = constraints.mots_cles_inclus || [];
+        const exc = constraints.mots_cles_exclus || [];
+
+        if (inc.length || exc.length) {
+          rows = rows.filter(r => {
+            const txt = (
+              (r.Spectacle || "") +
+              " " +
+              (r.Autres || "") +
+              " " +
+              (r.Theatre || "")
+            ).toLowerCase();
+
+            if (inc.length) {
+              for (const kw of inc) {
+                if (!txt.includes(String(kw).toLowerCase())) return false;
+              }
+            }
+            if (exc.length) {
+              for (const kw of exc) {
+                if (txt.includes(String(kw).toLowerCase())) return false;
+              }
+            }
+            return true;
+          });
+        }
+
+        //
+        // 4) Fenêtre horaire : Debut >= debut_min ET Fin <= fin_max
+        //
+        const minMinutes = constraints.debut_min
+          ? timeLabelToMinutes(constraints.debut_min)
+          : null;
+
+        const maxMinutes = constraints.fin_max
+          ? timeLabelToMinutes(constraints.fin_max)
+          : null;
+
+        if (minMinutes != null || maxMinutes != null) {
+          rows = rows.filter(r => {
+            const tDeb = timeLabelToMinutes(r.Debut);
+            const tFin = timeLabelToMinutes(r.Fin);
+            if (tDeb == null || tFin == null) return false;
+
+            if (minMinutes != null && tDeb < minMinutes) return false;
+            if (maxMinutes != null && tFin > maxMinutes) return false;
+
+            return true;
+          });
+        }
+
+        //
+        // 5) Session / Relâche / période -> ta fonction métier existante
+        //    Ici j'appelle une fonction générique que tu dois brancher :
+        //      isActiviteCompatiblePeriode(row, dateMinInt, dateMaxInt)
+        //
+        const dateMinInt = constraints.date_min || null; // dateint
+        const dateMaxInt = constraints.date_max || null; // dateint
+
+        if (dateMinInt || dateMaxInt) {
+          rows = rows.filter(r =>
+            isActiviteProgrammableDansPeriode(r, dateMinInt, dateMaxInt)
+          );
+        } else {
+          // fallback: simple filtre numérique sur r.Date (déjà aligné app)
+          if (dateMinInt) {
+            rows = rows.filter(r => {
+              const d = r.Date != null ? Number(r.Date) : NaN;
+              return !isNaN(d) && d >= dateMinInt;
+            });
+          }
+          if (dateMaxInt) {
+            rows = rows.filter(r => {
+              const d = r.Date != null ? Number(r.Date) : NaN;
+              return !isNaN(d) && d <= dateMaxInt;
+            });
+          }
+        }
+
+        return rows;
+      }
+
+      function buildProgram(constraints) {
+        const allRows = ctx?.df || [];
+        const GAP_MIN = constraints.gap_minutes || defaultGap || 30;
+        const GAP     = GAP_MIN; // minutes
+
+        const dateMinInt = constraints.date_min || null;
+        const dateMaxInt = constraints.date_max || null;
+
+        const minMinutes = constraints.debut_min ? hmStrToMinutes(constraints.debut_min) : null;
+        const maxMinutes = constraints.fin_max   ? hmStrToMinutes(constraints.fin_max)   : null;
+
+        const maxPerDay = constraints.max_par_jour || Infinity;
+
+        // 1) Candidats déjà filtrés (filtres std, mots-clés, non programmées, session/relâche, horaires…)
+        const rawCandidates = getCandidateRows(constraints) || [];
+
+        // 2) Slots déjà programmés existants (Prog === true) :
+        //    eux, ils ONT une date et des horaires (Date / Debut / Fin)
+        const existingByDay = new Map(); // dateint -> [{startMin, endMin}]
+        for (const r of allRows) {
+          if (!r || !r.Prog) continue;
+          const dInt = r.Date != null ? Number(r.Date) : NaN;
+          if (!dInt || isNaN(dInt)) continue;
+
+          const sMin = hmStrToMinutes(r.Debut);
+          const eMin = hmStrToMinutes(r.Fin);
+          if (sMin == null || eMin == null) continue;
+
+          if (!existingByDay.has(dInt)) existingByDay.set(dInt, []);
+          existingByDay.get(dInt).push({ startMin: sMin, endMin: eMin });
+        }
+
+        // 3) Map résultat : dateint -> [ { row, dateInt, startMin, endMin } ]
+        const selectedByDay = new Map();
+
+        // 🔴 Important : on ne regarde PAS r.Date pour les candidats.
+        // On parcourt les dates de la période et on demande à activitesAPI
+        // si l'activité est jouable ce jour-là, puis on tente de la placer.
+        for (const r of rawCandidates) {
+          if (!r) continue;
+
+          const sMin = hmStrToMinutes(r.Debut);
+          const eMin = hmStrToMinutes(r.Fin);
+          if (sMin == null || eMin == null) continue;
+
+          // garde-fou sur fenêtre horaire (ça a déjà été fait dans getCandidateRows, mais on laisse la ceinture + bretelles)
+          if (minMinutes != null && sMin < minMinutes) continue;
+          if (maxMinutes != null && eMin > maxMinutes) continue;
+
+          // si pas de période définie, on ne peut pas chercher de date -> on ignore
+          if (!dateMinInt || !dateMaxInt) {
+            continue;
+          }
+
+          let placed = false;
+
+          // On essaie chaque date de la période, dans l'ordre
+          for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
+            // 1) est-ce que l'activité est programmable ce jour-là ?
+            if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
+              if (!activitesAPI.estActiviteProgrammableADate(r, d)) {
+                continue;
+              }
+            }
+
+            const existingForDay  = existingByDay.get(d) || [];
+            const selectedForDay  = selectedByDay.get(d) || [];
+
+            // 2) max / jour
+            if (selectedForDay.length >= maxPerDay) {
+              continue;
+            }
+
+            // 3) Conflit avec déjà programmé ce jour-là ?
+            let conflict = false;
+            for (const ex of existingForDay) {
+              if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
+                conflict = true;
+                break;
+              }
+            }
+            if (conflict) continue;
+
+            // 4) Conflit avec ce qu'on a déjà sélectionné pour ce jour dans ce run ?
+            for (const ex of selectedForDay) {
+              if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
+                conflict = true;
+                break;
+              }
+            }
+            if (conflict) continue;
+
+            // ✅ OK : on place l'activité ce jour-là
+            selectedForDay.push({
+              row: r,
+              dateInt: d,
+              startMin: sMin,
+              endMin: eMin
+            });
+            selectedByDay.set(d, selectedForDay);
+            placed = true;
+            break; // on sort de la boucle de dates, on passe à l'activité suivante
+          }
+
+          // si placed === false → impossible de placer l'activité dans la période
+        }
+
+        return selectedByDay;
+      }
+
+      function applyProgramToDf(selectedByDay) {
+        // Aplatir selectedByDay en uuid -> dateInt
+        const dateByUUID = new Map();
+
+        for (const [dayInt, slots] of selectedByDay.entries()) {
+          for (const slot of slots) {
+            const r = slot.row;
+            if (!r || !r.__uuid) continue;
+            // On force la date choisie par le moteur pour cette activité
+            dateByUUID.set(r.__uuid, dayInt);
+          }
+        }
+
+        if (!dateByUUID.size) {
+          return 0;
+        }
+
+        let addedCount = 0;
+
+        ctx.mutateDf?.((rows) => {
+          const src = rows || [];
+
+          const next = src.map((r) => {
+            if (!r || !r.__uuid) return r;
+
+            const newDate = dateByUUID.get(r.__uuid);
+            if (!newDate) return r; // cette row n'a pas été sélectionnée
+
+            // Si la date est déjà la même, on ne compte rien
+            if (Number(r.Date || 0) === Number(newDate)) {
+              return r;
+            }
+
+            addedCount++;
+
+            return {
+              ...r,
+              Date: newDate
+            };
+          });
+
+          return next;
+        });
+
+        return addedCount;
+      }
+
+      function summarizeProgram(selectedByDay, addedCount) {
+        if (!addedCount) {
+          return "Aucun spectacle supplémentaire n'a pu être ajouté au programme avec ces contraintes.";
+        }
+
+        const lines = [];
+        lines.push(`✅ ${addedCount} spectacle(s) ajouté(s) au programme.`);
+
+        // selectedByDay : Map<dateInt, [{ row, dateInt, startMin, endMin }]>
+        const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
+
+        for (const dayInt of days) {
+          const slots = selectedByDay.get(dayInt) || [];
+          if (!slots.length) continue;
+
+          const dayLabel = dateintToLabel(dayInt);
+          lines.push(`\n📅 ${dayLabel} :`);
+
+          // on trie par heure de début pour l’affichage
+          const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
+
+          for (const slot of sortedSlots) {
+            const r = slot.row || {};
+            const h = minutesToHHMM(slot.startMin);
+            const titre   = r.Spectacle || "(sans titre)";
+            const theatre = r.Theatre   || "";
+            const theatrePart = theatre ? ` @ ${theatre}` : "";
+            lines.push(`- ${h} – ${titre}${theatrePart}`);
+          }
+        }
+
+        return lines.join("\n");
+      }
+
+      function applyProgram() {
+        clearError();
+        elRespBox.hidden = false;
+        elResp.textContent = "⏳ Génération du programme…";
+
+        try {
+          const constraints   = buildConstraints();
+          savePrefs(constraints);
+          const selectedByDay = buildProgram(constraints);
+          const addedCount    = applyProgramToDf(selectedByDay);
+          const summary       = summarizeProgram(selectedByDay, addedCount);
+          elResp.textContent  = summary;
+        } catch (e) {
+          console.error("generateProgram error:", e);
+          showError("Erreur lors de la génération du programme.");
+          elResp.textContent = "";
+        }
+      }
+
+      btnApply.addEventListener("click", applyProgram);
+      btnCancel.addEventListener("click", () => close());
+
+      elReq.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          close();
+        }
+      });
+
+      setTimeout(() => elReq.focus(), 20);
+    }
+  });
+}
+
+
 function wireContext() {
 
   // Initialisation de la periode de programmation si contexte vide
@@ -6490,7 +7310,6 @@ function wireContext() {
 function initSheetGrids() {
   window.sheetGrids = window.sheetGrids || new Map();
 }
-
 
 function enableKeyboardAutoScroll() {
   document.addEventListener('focusin', (e) => {
