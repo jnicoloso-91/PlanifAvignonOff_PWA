@@ -700,9 +700,60 @@ export function sortDf(df, opts = {}) {
     m: parseTimeHhMM(r[timeKey]),
   }));
 
+  // indexed.sort((A, B) => {
+  //   const aNoDate = A.d == null;
+  //   const bNoDate = B.d == null;
+
+  //   // 0) Sans date : toujours APRES ceux avec date
+  //   if (aNoDate && !bNoDate) return 1;
+  //   if (!aNoDate && bNoDate) return -1;
+
+  //   if (!aNoDate && !bNoDate) {
+  //     // 1) Les deux ont une date -> comparer Date
+  //     if (A.d !== B.d) return (A.d - B.d) * dir;
+
+  //     // 2) Puis l'heure (nulls après)
+  //     const aNull = A.m == null, bNull = B.m == null;
+  //     if (aNull && bNull) return A.i - B.i;   // stabilité
+  //     if (aNull) return 1;
+  //     if (bNull) return -1;
+  //     return (A.m - B.m) * dir;
+  //   }
+
+  //   // 3) Les deux sont sans date -> trier par Début (nulls après)
+  //   const aNull = A.m == null, bNull = B.m == null;
+  //   if (aNull && bNull) return A.i - B.i;
+  //   if (aNull) return 1;
+  //   if (bNull) return -1;
+  //   return A.m - B.m;
+  // });
   indexed.sort((A, B) => {
     const aNoDate = A.d == null;
     const bNoDate = B.d == null;
+
+    // 🔹 NOUVEAU : helper 3ᵉ clé = Activite (ordre alpha, insensible à la casse)
+    const cmpActivite = () => {
+      const aLabel = (A.r?.Activite ?? '').toString().trim();
+      const bLabel = (B.r?.Activite ?? '').toString().trim();
+
+      const aEmpty = aLabel === '';
+      const bEmpty = bLabel === '';
+
+      // on place les lignes sans Activite après celles qui en ont une
+      if (aEmpty && !bEmpty) return 1;
+      if (!aEmpty && bEmpty) return -1;
+
+      if (!aEmpty || !bEmpty) {
+        const cmp = aLabel.localeCompare(bLabel, 'fr', {
+          sensitivity: 'base',
+          numeric: true,
+        });
+        if (cmp !== 0) return cmp * dir;
+      }
+
+      // fallback ultra-stable : index d'origine
+      return A.i - B.i;
+    };
 
     // 0) Sans date : toujours APRES ceux avec date
     if (aNoDate && !bNoDate) return 1;
@@ -714,18 +765,36 @@ export function sortDf(df, opts = {}) {
 
       // 2) Puis l'heure (nulls après)
       const aNull = A.m == null, bNull = B.m == null;
-      if (aNull && bNull) return A.i - B.i;   // stabilité
+      if (aNull && bNull) {
+        // 🔹 AVANT : return A.i - B.i;
+        // 🔹 MAINTENANT : 3ᵉ clé = Activite
+        return cmpActivite();
+      }
       if (aNull) return 1;
       if (bNull) return -1;
-      return (A.m - B.m) * dir;
+
+      const diffM = A.m - B.m;
+      if (diffM !== 0) return diffM * dir;
+
+      // 3ᵉ clé si même heure
+      return cmpActivite();
     }
 
     // 3) Les deux sont sans date -> trier par Début (nulls après)
     const aNull = A.m == null, bNull = B.m == null;
-    if (aNull && bNull) return A.i - B.i;
+    if (aNull && bNull) {
+      // 🔹 AVANT : return A.i - B.i;
+      // 🔹 MAINTENANT : 3ᵉ clé = Activite
+      return cmpActivite();
+    }
     if (aNull) return 1;
     if (bNull) return -1;
-    return A.m - B.m;
+
+    const diffM2 = A.m - B.m;
+    if (diffM2 !== 0) return diffM2 * dir;
+
+    // même heure, sans date -> Activite
+    return cmpActivite();
   });
 
   return indexed.map(x => x.r);

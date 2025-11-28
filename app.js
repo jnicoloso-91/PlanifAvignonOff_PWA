@@ -3160,6 +3160,97 @@ async function doNouveauContexte() {
   rebuildColumnsForActiviteGrids([]);
 }
 
+// Reset du programme
+// async function doInitProg() {
+//   ctx.mutateDf(rows => {
+//     let next = rows.slice();
+
+//     // indexation de df par id
+//     const indexById = new Map(
+//       next.map((row, i) => [row.__uuid, i])
+//     );
+
+//     const prog = activitesAPI.getActivitesProgrammees();
+//     if (!prog) return next;
+
+//     for (const row of prog) {
+//       if (activitesAPI.estPause(row)) {
+//         const idx = indexById.get(row.__uuid);
+//         if (idx !== undefined) {
+//           next.splice(idx, 1);
+//           indexById.delete(row.__uuid);     
+//         }
+//         continue;
+//       }
+//       else {
+//         row = { ...row, Date: null };                 // modif propagée dans df
+//       }
+//     }
+//     next = sortDf(next);
+//     return next;
+//   });
+
+//   activitesAPI.initPeriodeProgrammation(ctx.getDf());
+//   rebuildColumnsForActiviteGrids([]);
+// }
+async function doInitProg() {
+  ctx.mutateDf(rows => {
+    if (!Array.isArray(rows) || !rows.length) return rows;
+
+    // on part d'une copie superficielle du df
+    let next = rows.slice();
+
+    // indexation de df par __uuid -> index
+    const indexById = new Map();
+    next.forEach((r, i) => {
+      if (r && r.__uuid != null) {
+        indexById.set(r.__uuid, i);
+      }
+    });
+
+    const prog = activitesAPI.getActivitesProgrammees(next) || [];
+    if (!prog.length) {
+      next = sortDf(next);
+      return next;
+    }
+
+    // uuids des lignes à supprimer (pauses)
+    const uuidsToDelete = new Set();
+
+    for (const pr of prog) {
+      const uuid = pr.__uuid;
+      if (uuid == null) continue;
+
+      const idx = indexById.get(uuid);
+      if (idx === undefined) continue; // pas trouvé dans df → on ignore
+
+      const rowInDf = next[idx];
+
+      if (activitesAPI.estPause(pr)) {
+        // on marque pour suppression (on ne fait pas encore de splice)
+        uuidsToDelete.add(uuid);
+      } else {
+        // activité programmée normale : on garde la ligne mais Date = null
+        next[idx] = { ...rowInDf, Date: null };
+      }
+    }
+
+    // suppression effective des pauses
+    if (uuidsToDelete.size > 0) {
+      next = next.filter(r => !uuidsToDelete.has(r.__uuid));
+    }
+
+    next = sortDf(next);
+    return next;
+  });
+
+  // recalcul de la période de prog sur le df nettoyé
+  activitesAPI.initPeriodeProgrammation(ctx.getDf());
+
+  // on revient aux colonnes standard pour les grilles d'activités
+  rebuildColumnsForActiviteGrids([]);
+}
+
 // Import Excel
 async function doImportExcel() {
   // déclenche l’input caché
@@ -3845,6 +3936,13 @@ const fileMenuSheetInnerHtml = () => {
       <li class="file-sheet__item" data-action="new">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Nouveau contexte</span>
+          <span class="file-sheet__subtitle">Réinitialise le programme et le stock d'activités</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="initProg">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        <div class="file-sheet__text">
           <span class="file-sheet__titleText">Nouveau programme</span>
           <span class="file-sheet__subtitle">Réinitialise le programme d'activités</span>
         </div>
@@ -3923,7 +4021,8 @@ function openFileMenu(anchorBtn) {
 
   // items
   const items = [
-    { id:'new',  label:'Nouveau programme'     },
+    { id:'new',  label:'Nouveau contexte'     },
+    { id:'initProg',  label:'Nouveau programme'     },
     { id:'open', label:'Importer depuis Excel'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
     { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
@@ -3954,6 +4053,7 @@ function openFileMenu(anchorBtn) {
       const act = li.dataset.action;
       close();
       if (act === 'new')  doNouveauContexte?.();
+      if (act === 'initProg')  doInitProg?.();
       if (act === 'open') doImportExcel?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
@@ -4025,6 +4125,7 @@ function openFileSheet() {
       const act = li.dataset.action;
       close();
       if (act === 'new')  doNouveauContexte?.();
+      if (act === 'initProg')  doInitProg?.();
       if (act === 'open') doImportExcel?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
@@ -5618,7 +5719,8 @@ function openSheetAide() {
             et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne <u><i>Réservé</u></i> est à Oui).</p>
             
             <p>Elles sont également triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur le bouton <u><i>Filtrer</u></i> des entêtes de grilles ou 
-            directement dans les entêtes de colonnes si la dimension de l'écran le permet).</p>
+            directement dans les entêtes de colonnes si la dimension de l'écran le permet). Vous pouvez également modifier l'ordre des colonnes en sélectionnant une entête 
+            et en la déplaçant.</p>
 
             <p>L'icône de la colonne <u><i>Activité</u></i> permet d'afficher la page Web donnée par la colonne <u><i>Hyperlien</u></i> et 
             l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité, via l'application choisie 
@@ -5628,7 +5730,7 @@ function openSheetAide() {
             <ul style="margin-top: 0em">
               <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
                 <ul style="margin-top: 0em">
-                    <li><u><i>Fichier</u></i>: permet de créer un nouveau programme d'activités, charger un programme d'activités depuis un fichier 
+                    <li><u><i>Fichier</u></i>: permet de créer un nouveau programme / stock d'activités, charger un programme d'activités depuis un fichier 
                     Excel, importer des activités depuis les catalogues en ligne du In et du Off ou le site Billet réduc, exporter le programme d'activités 
                     vers Excel ou vers le calendrier, obtenir un rapport de cohérence des données.</li>
                     <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i>: permettent de défaire, refaire une opération.</li>
@@ -5644,6 +5746,11 @@ function openSheetAide() {
                     <u><i></u>Téléphone</i> / <u><i></u>Web</i> de chaque entrée peuvent être édités et des boutons permettent d'ajouter / supprimer 
                     des entrées, défaire / refaire ces opérations. Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent 
                     d'appeler le numéro de téléphone ou aller sur le site Web correspondant.</li>
+                    <li><u><i>Assistant programmation</u></i>: permet de générer automatiquement un programme d'activités en en donnant une spécification par texte libre 
+                    incluant des préférences sur les spectacles, ou par des critères de dates, horaires, nombre d'activités par jour, prise en compte ou non du filtrage 
+                    courant sur le stock, mots clefs portant sur les styles.</li>
+                    <li><u><i>Assistant IA</u></i>: permet d'interroger une IA au travers d'une interface de chat sur des sujets généraux ou liés aux programmes de spectacles 
+                    importés.</li>
                     <li><u><i>Paramètres</u></i>: permet d'éditer les paramètres de l'application comprenant:
                       <ul>
                         <li>la <u><i>période de programmation</u></i></li>
@@ -6788,6 +6895,9 @@ function openSheetAssistantProgrammation() {
             <button class="bb-btn" id="btn-prog-cancel">
               Annuler
             </button>
+            <button class="bb-btn" id="btn-prog-gen">
+              Générer
+            </button>
             <button class="bb-btn is-primary" id="btn-prog-apply">
               Appliquer
             </button>
@@ -6801,6 +6911,7 @@ function openSheetAssistantProgrammation() {
       const elRespBox  = body.querySelector("#prog-response-box");
       const elResp     = body.querySelector("#prog-response");
       const btnApply   = body.querySelector("#btn-prog-apply");
+      const btnGen     = body.querySelector("#btn-prog-gen");
       const btnCancel  = body.querySelector("#btn-prog-cancel");
 
       const elDateMin  = body.querySelector("#prog-date-min");
@@ -6812,6 +6923,10 @@ function openSheetAssistantProgrammation() {
       const elUseFilt  = body.querySelector("#prog-use-filters");
       const elIncKW    = body.querySelector("#prog-include-keywords");
       const elExcKW    = body.querySelector("#prog-exclude-keywords");
+
+      btnApply.disabled = true;
+      let progError = true;
+      let selectedByDay = [];
 
       const showError = (msg) => {
         elErr.textContent = msg || "";
@@ -6946,113 +7061,113 @@ function openSheetAssistantProgrammation() {
        *  3) filtrage par fenêtre horaire (Debut/Fin)
        *  4) vérification Session/Relâche vs date_min/date_max via ta fonction métier.
        */
-function getCandidateRows(constraints) {
-  const df = ctx?.df || [];
-  let rows = [];
+      function getCandidateRows(constraints) {
+        const df = ctx?.df || [];
+        let rows = [];
 
-  //
-  // 1) Point de départ : ACTIVITÉS NON PROGRAMMÉES
-  //    - Si "Utiliser uniquement les spectacles filtrés" est coché :
-  //      -> on essaie d'abord de lire directement la grille `grid-non-programmees`
-  //         (qui est déjà "non programmées" + filtres d'UI)
-  //      -> sinon on retombe sur ActivitesAPI.getActivitesNonProgrammees ou Date null
-  //
-  if (constraints.utiliser_filtres_grille) {
-    const handle = window.grids?.get?.("grid-non-programmees");
-    const api = handle?.api;
+        //
+        // 1) Point de départ : ACTIVITÉS NON PROGRAMMÉES
+        //    - Si "Utiliser uniquement les spectacles filtrés" est coché :
+        //      -> on essaie d'abord de lire directement la grille `grid-non-programmees`
+        //         (qui est déjà "non programmées" + filtres d'UI)
+        //      -> sinon on retombe sur activitesAPI.getActivitesNonProgrammees ou Date null
+        //
+        if (constraints.utiliser_filtres_grille) {
+          const handle = window.grids?.get?.("grid-non-programmees");
+          const api = handle?.api;
 
-    if (api && typeof api.forEachNodeAfterFilterAndSort === "function") {
-      const tmp = [];
-      api.forEachNodeAfterFilterAndSort((node) => {
-        if (node?.data) tmp.push(node.data);
-      });
-      rows = tmp;
-    } else if (typeof ActivitesAPI?.getActivitesNonProgrammees === "function") {
-      rows = ActivitesAPI.getActivitesNonProgrammees(df);
-    } else {
-      // fallback minimal : Date null => non programmées
-      rows = df.filter((r) => r && (r.Date == null || r.Date === 0));
-    }
-  } else {
-    // Pas de "filtre grille" => juste la liste des non programmées
-    if (typeof ActivitesAPI?.getActivitesNonProgrammees === "function") {
-      rows = ActivitesAPI.getActivitesNonProgrammees(df);
-    } else {
-      rows = df.filter((r) => r && (r.Date == null || r.Date === 0));
-    }
-  }
-
-  //
-  // 2) Mots-clés sur la colonne Style uniquement
-  //    - mots_cles_inclus : tous doivent apparaître dans Style
-  //    - mots_cles_exclus : aucun ne doit apparaître dans Style
-  //
-  const inc = constraints.mots_cles_inclus || [];
-  const exc = constraints.mots_cles_exclus || [];
-
-  if (inc.length || exc.length) {
-    rows = rows.filter((r) => {
-      if (!r) return false;
-      const styleText = String(r.Style || "").toLowerCase();
-
-      if (inc.length) {
-        for (const kw of inc) {
-          const needle = String(kw || "").toLowerCase();
-          if (!needle) continue;
-          if (!styleText.includes(needle)) return false;
+          if (api && typeof api.forEachNodeAfterFilterAndSort === "function") {
+            const tmp = [];
+            api.forEachNodeAfterFilterAndSort((node) => {
+              if (node?.data) tmp.push(node.data);
+            });
+            rows = tmp;
+          } else if (typeof activitesAPI?.getActivitesNonProgrammees === "function") {
+            rows = activitesAPI.getActivitesNonProgrammees(df);
+          } else {
+            // fallback minimal : Date null => non programmées
+            rows = df.filter((r) => r && (r.Date == null || r.Date === 0));
+          }
+        } else {
+          // Pas de "filtre grille" => juste la liste des non programmées
+          if (typeof activitesAPI?.getActivitesNonProgrammees === "function") {
+            rows = activitesAPI.getActivitesNonProgrammees(df);
+          } else {
+            rows = df.filter((r) => r && (r.Date == null || r.Date === 0));
+          }
         }
-      }
 
-      if (exc.length) {
-        for (const kw of exc) {
-          const needle = String(kw || "").toLowerCase();
-          if (!needle) continue;
-          if (styleText.includes(needle)) return false;
+        //
+        // 2) Mots-clés sur la colonne Style uniquement
+        //    - mots_cles_inclus : tous doivent apparaître dans Style
+        //    - mots_cles_exclus : aucun ne doit apparaître dans Style
+        //
+        const inc = constraints.mots_cles_inclus || [];
+        const exc = constraints.mots_cles_exclus || [];
+
+        if (inc.length || exc.length) {
+          rows = rows.filter((r) => {
+            if (!r) return false;
+            const styleText = String(r.Style || "").toLowerCase();
+
+            if (inc.length) {
+              for (const kw of inc) {
+                const needle = String(kw || "").toLowerCase();
+                if (!needle) continue;
+                if (!styleText.includes(needle)) return false;
+              }
+            }
+
+            if (exc.length) {
+              for (const kw of exc) {
+                const needle = String(kw || "").toLowerCase();
+                if (!needle) continue;
+                if (styleText.includes(needle)) return false;
+              }
+            }
+
+            return true;
+          });
         }
+
+        //
+        // 3) Fenêtre horaire Debut / Fin (en minutes)
+        //    -> exactement ce que tu décrivais :
+        //       df.Debut >= debut_min ET df.Fin <= fin_max
+        //
+        const minMinutes = constraints.debut_min
+          ? hmStrToMinutes(constraints.debut_min)
+          : null;
+
+        const maxMinutes = constraints.fin_max
+          ? hmStrToMinutes(constraints.fin_max)
+          : null;
+
+        if (minMinutes != null || maxMinutes != null) {
+          rows = rows.filter((r) => {
+            const sMin = hmStrToMinutes(r.Debut);
+            const eMin = hmStrToMinutes(r.Fin);
+            if (sMin == null || eMin == null) return false;
+
+            if (minMinutes != null && sMin < minMinutes) return false;
+            if (maxMinutes != null && eMin > maxMinutes) return false;
+
+            return true;
+          });
+        }
+
+        //
+        // 4) C'est tout pour getCandidateRows :
+        //    - Activites non programmées
+        //    - éventuellement filtrées par la grille `grid-non-programmees`
+        //    - filtrées par Style via les mots-clés
+        //    - filtrées par fenêtre horaire
+        //
+        // La compatibilité Session / Relâche / période (date_min / date_max)
+        // est gérée ensuite dans buildProgram via activitesAPI.estActiviteProgrammableADate.
+        //
+        return rows;
       }
-
-      return true;
-    });
-  }
-
-  //
-  // 3) Fenêtre horaire Debut / Fin (en minutes)
-  //    -> exactement ce que tu décrivais :
-  //       df.Debut >= debut_min ET df.Fin <= fin_max
-  //
-  const minMinutes = constraints.debut_min
-    ? hmStrToMinutes(constraints.debut_min)
-    : null;
-
-  const maxMinutes = constraints.fin_max
-    ? hmStrToMinutes(constraints.fin_max)
-    : null;
-
-  if (minMinutes != null || maxMinutes != null) {
-    rows = rows.filter((r) => {
-      const sMin = hmStrToMinutes(r.Debut);
-      const eMin = hmStrToMinutes(r.Fin);
-      if (sMin == null || eMin == null) return false;
-
-      if (minMinutes != null && sMin < minMinutes) return false;
-      if (maxMinutes != null && eMin > maxMinutes) return false;
-
-      return true;
-    });
-  }
-
-  //
-  // 4) C'est tout pour getCandidateRows :
-  //    - Activites non programmées
-  //    - éventuellement filtrées par la grille `grid-non-programmees`
-  //    - filtrées par Style via les mots-clés
-  //    - filtrées par fenêtre horaire
-  //
-  // La compatibilité Session / Relâche / période (date_min / date_max)
-  // est gérée ensuite dans buildProgram via ActivitesAPI.estActiviteProgrammableADate.
-  //
-  return rows;
-}
 
       function buildProgram(constraints) {
         const allRows = ctx?.df || [];
@@ -7164,7 +7279,7 @@ function getCandidateRows(constraints) {
         return selectedByDay;
       }
 
-      function applyProgramToDf(selectedByDay) {
+      function applyProgramToDf(selectedByDay, simulate=false) {
         // Aplatir selectedByDay en uuid -> dateInt
         const dateByUUID = new Map();
 
@@ -7183,30 +7298,48 @@ function getCandidateRows(constraints) {
 
         let addedCount = 0;
 
-        ctx.mutateDf?.((rows) => {
-          const src = rows || [];
+        if (!simulate) {
+          ctx.mutateDf?.((rows) => {
+            const src = rows || [];
 
-          const next = src.map((r) => {
-            if (!r || !r.__uuid) return r;
+            const next = src.map((r) => {
+              if (!r || !r.__uuid) return r;
+
+              const newDate = dateByUUID.get(r.__uuid);
+              if (!newDate) return r; // cette row n'a pas été sélectionnée
+
+              // Si la date est déjà la même, on ne compte rien
+              if (Number(r.Date || 0) === Number(newDate)) {
+                return r;
+              }
+
+              addedCount++;
+
+              return {
+                ...r,
+                Date: newDate
+              };
+            });
+
+            return sortDf(next);
+          });          
+        } 
+        
+        else {
+          const src = ctx.df || [];
+          for (const r of src) {
+            if (!r || !r.__uuid) continue;
 
             const newDate = dateByUUID.get(r.__uuid);
-            if (!newDate) return r; // cette row n'a pas été sélectionnée
+            if (!newDate) continue; // cette row n'a pas été sélectionnée
 
             // Si la date est déjà la même, on ne compte rien
             if (Number(r.Date || 0) === Number(newDate)) {
-              return r;
+              continue;
             }
-
             addedCount++;
-
-            return {
-              ...r,
-              Date: newDate
-            };
-          });
-
-          return next;
-        });
+          }
+        }
 
         return addedCount;
       }
@@ -7217,7 +7350,7 @@ function getCandidateRows(constraints) {
         }
 
         const lines = [];
-        lines.push(`✅ ${addedCount} spectacle(s) ajouté(s) au programme.`);
+        lines.push(`✅ ${addedCount} spectacle(s) sélectionné(s).`);
 
         // selectedByDay : Map<dateInt, [{ row, dateInt, startMin, endMin }]>
         const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
@@ -7245,7 +7378,7 @@ function getCandidateRows(constraints) {
         return lines.join("\n");
       }
 
-      function applyProgram() {
+      function genProgram() {
         clearError();
         elRespBox.hidden = false;
         elResp.textContent = "⏳ Génération du programme…";
@@ -7253,17 +7386,35 @@ function getCandidateRows(constraints) {
         try {
           const constraints   = buildConstraints();
           savePrefs(constraints);
-          const selectedByDay = buildProgram(constraints);
-          const addedCount    = applyProgramToDf(selectedByDay);
+          selectedByDay       = buildProgram(constraints);
+          const addedCount    = applyProgramToDf(selectedByDay, true);
           const summary       = summarizeProgram(selectedByDay, addedCount);
           elResp.textContent  = summary;
+          elResp.scrollIntoView({behavior: 'smooth', block:'center'});
+          btnApply.disabled = (addedCount <= 0);
+          progError = false;
         } catch (e) {
           console.error("generateProgram error:", e);
           showError("Erreur lors de la génération du programme.");
           elResp.textContent = "";
+          btnApply.disabled = true;
+          progError = true;
         }
       }
 
+      function applyProgram() {
+        if (progError) return;
+
+        try {
+          const addedCount    = applyProgramToDf(selectedByDay);
+          close();
+        } catch (e) {
+          console.error("applyProgram error:", e);
+          showError("Erreur lors de l'application du programme.");
+        }
+      }
+
+      btnGen.addEventListener("click", genProgram);
       btnApply.addEventListener("click", applyProgram);
       btnCancel.addEventListener("click", () => close());
 
