@@ -6926,7 +6926,7 @@ function openSheetAssistantProgrammation() {
 
       btnApply.disabled = true;
       let progError = true;
-      let selectedByDay = new map();
+      let selectedByDay = null;
 
       const showError = (msg) => {
         elErr.textContent = msg || "";
