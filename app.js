@@ -7170,10 +7170,9 @@ function openSheetAssistantProgrammation() {
       }
 
 function buildProgram(constraints) {
-  const allRows  = ctx?.df || [];
-  const GAP_MIN  = constraints.gap_minutes || defaultGap || 30;  // marge dure
-  const GAP      = GAP_MIN;                                      // pour compat
-
+  const df        = ctx?.df || [];
+  const GAP_MIN   = constraints.gap_minutes || defaultGap || 30;
+  const GAP       = GAP_MIN; // minutes
   const dateMinInt = constraints.date_min || null;
   const dateMaxInt = constraints.date_max || null;
 
@@ -7182,57 +7181,32 @@ function buildProgram(constraints) {
 
   const maxPerDay  = constraints.max_par_jour || Infinity;
 
-  // ---------------------------------------------------------------------------
-  // 0) Paramètres pour l’étalement sur la journée
-  // ---------------------------------------------------------------------------
-  // Fenêtre “théorique” de la journée si pas de bornes explicites
-  const DAY_START = (minMinutes != null) ? minMinutes : hmStrToMinutes('09h00');
-  const DAY_END   = (maxMinutes != null) ? maxMinutes : hmStrToMinutes('23h00');
-  const span      = Math.max(0, (DAY_END ?? 1380) - (DAY_START ?? 540));
+  // 1) Candidats déjà filtrés (filtres std, mots-clés, non programmées, session/relâche, horaires…)
+  const rawCandidates = (getCandidateRows(constraints) || []).slice();
 
-  // Idée : si je veux N spectacles / jour, l’intervalle moyen entre blocs
-  // est d’en gros span / (N + 1). On prend ça comme “gap doux”,
-  // mais jamais plus petit que GAP_MIN.
-  let softGap = GAP_MIN;
-  if (span > 0 && Number.isFinite(maxPerDay) && maxPerDay > 0 && maxPerDay < 50) {
-    const idealGap = Math.floor(span / (maxPerDay + 1));
-    softGap = Math.max(GAP_MIN, idealGap);
-  }
-
-  // Ce gap doux ne s’applique QUE entre spectacles que l’on ajoute
-  // dans CE run (selectedByDay); les spectacles déjà programmés
-  // restent contrôlés avec GAP_MIN (contrainte dure).
-  const GAP_EXISTING  = GAP_MIN;
-  const GAP_SELECTED  = softGap;
-
-  // Petit helper pour randomiser
-  function shuffleInPlace(arr) {
+  // petite fonction utilitaire pour la variabilité
+  const shuffleInPlace = (arr) => {
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-    return arr;
-  }
+  };
 
-  // ---------------------------------------------------------------------------
-  // 1) Candidats déjà filtrés (filtres std, mots-clés, non programmées,
-  //    session/relâche, horaires…)
-  // ---------------------------------------------------------------------------
-  const rawCandidates = getCandidateRows(constraints) || [];
+  // On mélange l’ordre des candidats pour ne pas toujours retomber sur le même programme
+  shuffleInPlace(rawCandidates);
 
-  // 🔁 CHANGEMENT 1 : on randomise l’ordre des candidats pour introduire
-  //     de la variabilité dans les solutions (même contraintes → programmes
-  //     différents d’un run à l’autre).
-  const candidates = shuffleInPlace(rawCandidates.slice());
+  // 2) Slots déjà programmés existants : on utilise le DF “réel”
+  //    → compatibilité avec les activités déjà programmées
+  const existingByDay = new Map(); // dateInt -> [{ startMin, endMin }]
 
-  // ---------------------------------------------------------------------------
-  // 2) Slots déjà programmés existants (Prog === true)
-  // ---------------------------------------------------------------------------
-  const existingByDay = new Map(); // dateint -> [{startMin, endMin}]
-  for (const r of allRows) {
-    if (!r || !r.Prog) continue;
+  const progExistantes = activitesAPI.getActivitesProgrammees
+    ? (activitesAPI.getActivitesProgrammees() || [])
+    : (df.filter(r => r && r.Prog) || []);
+
+  for (const r of progExistantes) {
+    if (!r) continue;
     const dInt = r.Date != null ? Number(r.Date) : NaN;
-    if (!dInt || Number.isNaN(dInt)) continue;
+    if (!dInt || isNaN(dInt)) continue;
 
     const sMin = hmStrToMinutes(r.Debut);
     const eMin = hmStrToMinutes(r.Fin);
@@ -7242,35 +7216,32 @@ function buildProgram(constraints) {
     existingByDay.get(dInt).push({ startMin: sMin, endMin: eMin });
   }
 
-  // ---------------------------------------------------------------------------
-  // 3) Résultat : dateint -> [ { row, dateInt, startMin, endMin } ]
-  // ---------------------------------------------------------------------------
+  // 3) Résultat : dateInt -> [ { row, dateInt, startMin, endMin } ]
   const selectedByDay = new Map();
 
-  // Sécurité : si pas de période définie, on ne peut rien placer
-  if (!dateMinInt || !dateMaxInt) {
-    return selectedByDay;
-  }
-
-  // ---------------------------------------------------------------------------
-  // 4) Boucle de placement
-  // ---------------------------------------------------------------------------
-  for (const r of candidates) {
+  // 🔴 Important : on ne regarde PAS r.Date pour les candidats.
+  // On parcourt les dates de la période et on demande à activitesAPI
+  // si l'activité est jouable ce jour-là, puis on tente de la placer
+  // en respectant :
+  //   - les spectacles déjà programmés (existingByDay)
+  //   - les nouveaux choisis (selectedByDay)
+  for (const r of rawCandidates) {
     if (!r) continue;
 
     const sMin = hmStrToMinutes(r.Debut);
     const eMin = hmStrToMinutes(r.Fin);
     if (sMin == null || eMin == null) continue;
 
-    // garde-fou sur fenêtre horaire (déjà fait dans getCandidateRows mais on double)
+    // Fenêtre horaire globale
     if (minMinutes != null && sMin < minMinutes) continue;
     if (maxMinutes != null && eMin > maxMinutes) continue;
 
-    let placed = false;
+    // si pas de période définie, on ne peut pas chercher de date -> on ignore
+    if (!dateMinInt || !dateMaxInt) continue;
 
-    // ⚠️ CHOIX : on garde l’ordre chronologique des dates pour rester “simple”.
-    // Si tu veux encore plus de variabilité, on pourrait randomiser aussi
-    // la liste des dates par spectacle.
+    // Liste des dates possibles où cette activité peut être placée
+    const possibleDays = [];
+
     for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
       // 1) est-ce que l'activité est programmable ce jour-là ?
       if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
@@ -7287,39 +7258,46 @@ function buildProgram(constraints) {
         continue;
       }
 
-      // 3a) Conflit avec déjà programmé ce jour-là ? (gap "dur")
+      // 3) Conflit avec déjà programmé ce jour-là ?
       let conflict = false;
       for (const ex of existingForDay) {
-        if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP_EXISTING)) {
+        if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
           conflict = true;
           break;
         }
       }
       if (conflict) continue;
 
-      // 3b) Conflit avec ce qu'on a déjà sélectionné pour ce jour dans ce run ?
-      //     → on utilise le gap “doux” plus large pour éviter de coller les spectacles
+      // 4) Conflit avec ce qu'on a déjà sélectionné pour ce jour dans ce run ?
       for (const ex of selectedForDay) {
-        if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP_SELECTED)) {
+        if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
           conflict = true;
           break;
         }
       }
       if (conflict) continue;
 
-      // ✅ OK : on place l'activité ce jour-là
-      selectedForDay.push({
-        row: r,
-        dateInt: d,
-        startMin: sMin,
-        endMin: eMin
-      });
-      selectedByDay.set(d, selectedForDay);
-      placed = true;
-      break; // on sort de la boucle de dates, on passe à l'activité suivante
+      // ✅ ce jour-là est possible
+      possibleDays.push(d);
     }
 
-    // si placed === false → impossible de placer l'activité dans la période
+    if (!possibleDays.length) {
+      // impossible de placer l'activité dans la période sans conflit
+      continue;
+    }
+
+    // Variabilité : on choisit aléatoirement un jour parmi les jours possibles
+    shuffleInPlace(possibleDays);
+    const chosenDay = possibleDays[0];
+
+    const selectedForDay = selectedByDay.get(chosenDay) || [];
+    selectedForDay.push({
+      row: r,
+      dateInt: chosenDay,
+      startMin: sMin,
+      endMin: eMin,
+    });
+    selectedByDay.set(chosenDay, selectedForDay);
   }
 
   return selectedByDay;
