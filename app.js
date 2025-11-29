@@ -3943,7 +3943,7 @@ const fileMenuSheetInnerHtml = () => {
       <li class="file-sheet__item" data-action="initProg">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         <div class="file-sheet__text">
-          <span class="file-sheet__titleText">Nouveau programme</span>
+          <span class="file-sheet__titleText">Réinitialiser programme</span>
           <span class="file-sheet__subtitle">Réinitialise le programme d'activités</span>
         </div>
       </li>
@@ -4022,7 +4022,7 @@ function openFileMenu(anchorBtn) {
   // items
   const items = [
     { id:'new',  label:'Nouveau contexte'     },
-    { id:'initProg',  label:'Nouveau programme'     },
+    { id:'initProg',  label:'Réinitialiser programme'     },
     { id:'open', label:'Importer depuis Excel'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
     { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
@@ -6840,13 +6840,21 @@ function openSheetAssistantProgrammation() {
                      step="5"
                      value="${aiProg.gap_minutes != null ? aiProg.gap_minutes : defaultGap}">
             </div>
+            <div class="form-row">
+              <label class="ai-checkbox">
+                <span>Tenir compte des pauses repas</span>
+                <input id="prog-traiter-pauses"
+                       type="checkbox"
+                       ${aiProg.traiterPauses == true ? "checked" : ""}>
+              </label>
+            </div>
           </div>
 
           <!-- SECTION : Filtrage -->
           <div class="ai-section">
             <div class="form-row">
               <label class="ai-checkbox">
-                <span>Utiliser uniquement les spectacles filtrés dans la grille</span>
+                <span>Utiliser uniquement les spectacles filtrés</span>
                 <input id="prog-use-filters"
                        type="checkbox"
                        ${aiProg.utiliser_filtres_grille !== false ? "checked" : ""}>
@@ -6854,7 +6862,7 @@ function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-include-keywords">Mots-clés à inclure (optionnel)</label>
+              <label for="prog-include-keywords">Mots-clés de style à inclure</label>
               <input id="prog-include-keywords"
                      type="text"
                      class="bb-input"
@@ -6863,7 +6871,7 @@ function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-exclude-keywords">Mots-clés à exclure (optionnel)</label>
+              <label for="prog-exclude-keywords">Mots-clés de style à exclure</label>
               <input id="prog-exclude-keywords"
                      type="text"
                      class="bb-input"
@@ -6920,13 +6928,23 @@ function openSheetAssistantProgrammation() {
       const elFinMax   = body.querySelector("#prog-fin-max");
       const elMaxJour  = body.querySelector("#prog-max-par-jour");
       const elGapMin   = body.querySelector("#prog-gap-minutes");
+      const eltraitPaus = body.querySelector("#prog-traiter-pauses");
       const elUseFilt  = body.querySelector("#prog-use-filters");
       const elIncKW    = body.querySelector("#prog-include-keywords");
       const elExcKW    = body.querySelector("#prog-exclude-keywords");
 
       btnApply.disabled = true;
       let progError = true;
-      let selectedByDay = null;
+      let selectedByDay = new Map();
+
+// Map<slotKey, boolean> implicite : un Set des slots EXCLUS
+let excludedKeys = new Set();
+
+function slotKey(dayInt, slot) {
+  const r = slot.row || {};
+  return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
+}
+
 
       const showError = (msg) => {
         elErr.textContent = msg || "";
@@ -6949,6 +6967,7 @@ function openSheetAssistantProgrammation() {
           fin_max: elFinMax.value || null,
           max_par_jour: elMaxJour.value ? Number(elMaxJour.value) : null,
           gap_minutes: elGapMin.value ? Number(elGapMin.value) : defaultGap,
+          traiter_pauses: !!eltraitPaus.checked, 
           utiliser_filtres_grille: !!elUseFilt.checked,
           mots_cles_inclus: parseKeywords(elIncKW),
           mots_cles_exclus: parseKeywords(elExcKW),
@@ -7169,238 +7188,674 @@ function openSheetAssistantProgrammation() {
         return rows;
       }
 
-function buildProgram(constraints) {
-  const df        = ctx?.df || [];
-  const GAP_MIN   = constraints.gap_minutes || defaultGap || 30;
-  const GAP       = GAP_MIN; // minutes
-  const dateMinInt = constraints.date_min || null;
-  const dateMaxInt = constraints.date_max || null;
+      function buildProgram(constraints) {
+        const allRows = ctx?.df || [];
 
-  const minMinutes = constraints.debut_min ? hmStrToMinutes(constraints.debut_min) : null;
-  const maxMinutes = constraints.fin_max   ? hmStrToMinutes(constraints.fin_max)   : null;
+        const GAP_MIN = constraints.gap_minutes || defaultGap || 30;
+        const GAP     = GAP_MIN; // minutes
 
-  const maxPerDay  = constraints.max_par_jour || Infinity;
+        const dateMinInt = constraints.date_min || null;
+        const dateMaxInt = constraints.date_max || null;
 
-  // 1) Candidats déjà filtrés (filtres std, mots-clés, non programmées, session/relâche, horaires…)
-  const rawCandidates = (getCandidateRows(constraints) || []).slice();
+        const minMinutes = constraints.debut_min ? hmStrToMinutes(constraints.debut_min) : null;
+        const maxMinutes = constraints.fin_max   ? hmStrToMinutes(constraints.fin_max)   : null;
 
-  // petite fonction utilitaire pour la variabilité
-  const shuffleInPlace = (arr) => {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  };
+        const maxPerDay = constraints.max_par_jour || Infinity;
 
-  // On mélange l’ordre des candidats pour ne pas toujours retomber sur le même programme
-  shuffleInPlace(rawCandidates);
-
-  // 2) Slots déjà programmés existants : on utilise le DF “réel”
-  //    → compatibilité avec les activités déjà programmées
-  const existingByDay = new Map(); // dateInt -> [{ startMin, endMin }]
-
-  const progExistantes = activitesAPI.getActivitesProgrammees
-    ? (activitesAPI.getActivitesProgrammees() || [])
-    : (df.filter(r => r && r.Prog) || []);
-
-  for (const r of progExistantes) {
-    if (!r) continue;
-    const dInt = r.Date != null ? Number(r.Date) : NaN;
-    if (!dInt || isNaN(dInt)) continue;
-
-    const sMin = hmStrToMinutes(r.Debut);
-    const eMin = hmStrToMinutes(r.Fin);
-    if (sMin == null || eMin == null) continue;
-
-    if (!existingByDay.has(dInt)) existingByDay.set(dInt, []);
-    existingByDay.get(dInt).push({ startMin: sMin, endMin: eMin });
-  }
-
-  // 3) Résultat : dateInt -> [ { row, dateInt, startMin, endMin } ]
-  const selectedByDay = new Map();
-
-  // 🔴 Important : on ne regarde PAS r.Date pour les candidats.
-  // On parcourt les dates de la période et on demande à activitesAPI
-  // si l'activité est jouable ce jour-là, puis on tente de la placer
-  // en respectant :
-  //   - les spectacles déjà programmés (existingByDay)
-  //   - les nouveaux choisis (selectedByDay)
-  for (const r of rawCandidates) {
-    if (!r) continue;
-
-    const sMin = hmStrToMinutes(r.Debut);
-    const eMin = hmStrToMinutes(r.Fin);
-    if (sMin == null || eMin == null) continue;
-
-    // Fenêtre horaire globale
-    if (minMinutes != null && sMin < minMinutes) continue;
-    if (maxMinutes != null && eMin > maxMinutes) continue;
-
-    // si pas de période définie, on ne peut pas chercher de date -> on ignore
-    if (!dateMinInt || !dateMaxInt) continue;
-
-    // Liste des dates possibles où cette activité peut être placée
-    const possibleDays = [];
-
-    for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
-      // 1) est-ce que l'activité est programmable ce jour-là ?
-      if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
-        if (!activitesAPI.estActiviteProgrammableADate(r, d)) {
-          continue;
-        }
-      }
-
-      const existingForDay = existingByDay.get(d) || [];
-      const selectedForDay = selectedByDay.get(d) || [];
-
-      // 2) max / jour
-      if (selectedForDay.length >= maxPerDay) {
-        continue;
-      }
-
-      // 3) Conflit avec déjà programmé ce jour-là ?
-      let conflict = false;
-      for (const ex of existingForDay) {
-        if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
-          conflict = true;
-          break;
-        }
-      }
-      if (conflict) continue;
-
-      // 4) Conflit avec ce qu'on a déjà sélectionné pour ce jour dans ce run ?
-      for (const ex of selectedForDay) {
-        if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
-          conflict = true;
-          break;
-        }
-      }
-      if (conflict) continue;
-
-      // ✅ ce jour-là est possible
-      possibleDays.push(d);
-    }
-
-    if (!possibleDays.length) {
-      // impossible de placer l'activité dans la période sans conflit
-      continue;
-    }
-
-    // Variabilité : on choisit aléatoirement un jour parmi les jours possibles
-    shuffleInPlace(possibleDays);
-    const chosenDay = possibleDays[0];
-
-    const selectedForDay = selectedByDay.get(chosenDay) || [];
-    selectedForDay.push({
-      row: r,
-      dateInt: chosenDay,
-      startMin: sMin,
-      endMin: eMin,
-    });
-    selectedByDay.set(chosenDay, selectedForDay);
-  }
-
-  return selectedByDay;
-}
-
-      function applyProgramToDf(selectedByDay, simulate=false) {
-        // Aplatir selectedByDay en uuid -> dateInt
-        const dateByUUID = new Map();
-
-        for (const [dayInt, slots] of selectedByDay.entries()) {
-          for (const slot of slots) {
-            const r = slot.row;
-            if (!r || !r.__uuid) continue;
-            // On force la date choisie par le moteur pour cette activité
-            dateByUUID.set(r.__uuid, dayInt);
-          }
+        if (!dateMinInt || !dateMaxInt) {
+          // sans période on ne peut rien programmer proprement
+          return new Map();
         }
 
-        if (!dateByUUID.size) {
-          return 0;
+        excludedKeys.clear();
+
+        // 1) Candidats déjà filtrés (filtres std, mots-clés, non programmées, session/relâche, horaires…)
+        let rawCandidates = getCandidateRows(constraints) || [];
+
+        // On s'assure de ne pas reprendre des lignes déjà marquées Prog
+        rawCandidates = rawCandidates.filter(r => r && !r.Prog);
+
+        // Variabilité : on mélange l'ordre des candidats
+        rawCandidates = shuffleArray(rawCandidates);
+
+        // 2) Slots déjà programmés EXISTANTS (Prog === true) :
+        //    eux, ils ONT une date et des horaires (Date / Debut / Fin)
+        //    → on utilise activitesAPI.getActivitesProgrammees pour être sûr
+        const existingByDay = new Map(); // dateInt -> [{ startMin, endMin }]
+
+        const progRows = activitesAPI.getActivitesProgrammees(ctx.df) || [];
+
+        for (const r of progRows) {
+          if (!r) continue;
+
+          const dInt = r.Date != null ? Number(r.Date) : NaN;
+          if (!dInt || isNaN(dInt)) continue;
+
+          // bornes horaires
+          const sMin = hmStrToMinutes(r.Debut);
+          const eMin = hmStrToMinutes(r.Fin);
+          if (sMin == null || eMin == null) continue;
+
+          if (!existingByDay.has(dInt)) existingByDay.set(dInt, []);
+          existingByDay.get(dInt).push({ startMin: sMin, endMin: eMin });
         }
 
-        let addedCount = 0;
+        // 3) Map résultat : dateInt -> [ { row, dateInt, startMin, endMin } ]
+        const selectedByDay = new Map();
 
-        if (!simulate) {
-          ctx.mutateDf?.((rows) => {
-            const src = rows || [];
+        // Helper local : renvoie le code jour de la semaine pour un dateInt (YYYYMMDD)
+        const dayOfWeekCode = (dateInt) => {
+          const y = Math.floor(dateInt / 10000);
+          const m = Math.floor((dateInt / 100) % 100);
+          const d = dateInt % 100;
+          const dt = new Date(y, m - 1, d);
+          // 0=dimanche,...6=samedi → on peut convertir si besoin ailleurs
+          return dt.getDay();
+        };
 
-            const next = src.map((r) => {
-              if (!r || !r.__uuid) return r;
+        // 4) Parcours des candidats
+        for (const r of rawCandidates) {
+          if (!r) continue;
 
-              const newDate = dateByUUID.get(r.__uuid);
-              if (!newDate) return r; // cette row n'a pas été sélectionnée
+          const sMin = hmStrToMinutes(r.Debut);
+          const eMin = hmStrToMinutes(r.Fin);
+          if (sMin == null || eMin == null) continue;
 
-              // Si la date est déjà la même, on ne compte rien
-              if (Number(r.Date || 0) === Number(newDate)) {
-                return r;
+          // garde-fous sur la fenêtre horaire
+          if (minMinutes != null && sMin < minMinutes) continue;
+          if (maxMinutes != null && eMin > maxMinutes) continue;
+
+          // Liste des dates possibles dans la période, selon estActiviteProgrammableADate
+          const possibleDates = [];
+          for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
+            if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
+              if (!activitesAPI.estActiviteProgrammableADate(r, d)) {
+                continue;
               }
+            }
+            possibleDates.push(d);
+          }
 
-              addedCount++;
+          if (!possibleDates.length) {
+            // cette activité n'est jouable à aucune date de la période
+            continue;
+          }
 
-              return {
-                ...r,
-                Date: newDate
-              };
-            });
+          // Variabilité supplémentaire : on mélange l'ordre des jours
+          shuffleArrayInPlace(possibleDates);
 
-            return sortDf(next);
-          });          
-        } 
-        
-        else {
-          const src = ctx.df || [];
-          for (const r of src) {
-            if (!r || !r.__uuid) continue;
+          let placed = false;
 
-            const newDate = dateByUUID.get(r.__uuid);
-            if (!newDate) continue; // cette row n'a pas été sélectionnée
+          // On essaie chaque date candidate, dans un ordre aléatoire
+          for (const d of possibleDates) {
+            const existingForDay = existingByDay.get(d) || [];
+            const selectedForDay = selectedByDay.get(d) || [];
 
-            // Si la date est déjà la même, on ne compte rien
-            if (Number(r.Date || 0) === Number(newDate)) {
+            // 1) max / jour
+            if (selectedForDay.length >= maxPerDay) {
               continue;
             }
-            addedCount++;
+
+            // 2) Conflit avec déjà programmé ce jour-là ?
+            let conflict = false;
+            for (const ex of existingForDay) {
+              if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
+                conflict = true;
+                break;
+              }
+            }
+            if (conflict) continue;
+
+            // 3) Conflit avec ce qu'on a déjà sélectionné pour ce jour dans ce run ?
+            for (const ex of selectedForDay) {
+              if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
+                conflict = true;
+                break;
+              }
+            }
+            if (conflict) continue;
+
+            // ✅ OK : on place l'activité ce jour-là
+            selectedForDay.push({
+              row: r,
+              dateInt: d,
+              startMin: sMin,
+              endMin: eMin,
+            });
+            selectedByDay.set(d, selectedForDay);
+
+            // On ajoute aussi la plage dans existingByDay pour que
+            // les activités suivantes la respectent comme "déjà programmée"
+            if (!existingByDay.has(d)) existingByDay.set(d, []);
+            existingByDay.get(d).push({ startMin: sMin, endMin: eMin });
+
+            placed = true;
+            break; // on passe à l'activité suivante
           }
+
+          // si placed === false → impossible de placer l'activité dans la période
         }
 
-        return addedCount;
+        return selectedByDay;
       }
 
-      function summarizeProgram(selectedByDay, addedCount) {
-        if (!addedCount) {
-          return "Aucun spectacle supplémentaire n'a pu être ajouté au programme avec ces contraintes.";
-        }
+// function buildProgram(constraints) {
+//   const df   = ctx?.df || [];
+//   const GAP_MIN = constraints.gap_minutes || defaultGap || 30;   // laissé au cas où, mais la compat est gérée par getCreneaux
+//   const traiterPauses = !!constraints.traiter_pauses;
 
-        const lines = [];
-        lines.push(`✅ ${addedCount} spectacle(s) sélectionné(s).`);
+//   const dateMinInt = constraints.date_min || null;
+//   const dateMaxInt = constraints.date_max || null;
 
-        // selectedByDay : Map<dateInt, [{ row, dateInt, startMin, endMin }]>
-        const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
+//   const minMinutes = constraints.debut_min ? hmStrToMinutes(constraints.debut_min) : null;
+//   const maxMinutes = constraints.fin_max   ? hmStrToMinutes(constraints.fin_max)   : null;
 
-        for (const dayInt of days) {
-          const slots = selectedByDay.get(dayInt) || [];
-          if (!slots.length) continue;
+//   const maxPerDay = constraints.max_par_jour || Infinity;
 
-          const dayLabel = dateintToLabel(dayInt);
-          lines.push(`\n📅 ${dayLabel} :`);
+//   // 1) Candidats "logiques" (filtres, mots-clés, sessions/relâches, etc.)
+//   const rawCandidates = getCandidateRows(constraints) || [];
 
-          // on trie par heure de début pour l’affichage
-          const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
+//   // index par __uuid pour croiser avec getActivitesProgrammables()
+//   const candidatesByUUID = new Map();
+//   for (const r of rawCandidates) {
+//     if (r && r.__uuid) candidatesByUUID.set(r.__uuid, r);
+//   }
 
-          for (const slot of sortedSlots) {
-            const r = slot.row || {};
-            const h = minutesToHHMM(slot.startMin);
-            const titre   = r.Activite || "(sans titre)";
-            const theatre = r.Theatre   || "";
-            const theatrePart = theatre ? ` @ ${theatre}` : "";
-            lines.push(`- ${h} – ${titre}${theatrePart}`);
+//   // 2) Activités déjà programmées (basées sur le df courant)
+//   const progRows = activitesAPI.getActivitesProgrammees?.(df) || [];
+
+//   // 3) Tous les créneaux disponibles sur la période
+//   const creneaux = activitesAPI.getCreneaux?.(
+//     df,
+//     progRows,
+//     traiterPauses,
+//     { periodeDebut: dateMinInt || undefined, periodeFin: dateMaxInt || undefined }
+//   ) || [];
+
+//   // Petit helper pour parse "HHhMM"
+//   function hhmmToMin(hhmm) {
+//     if (!hhmm) return null;
+//     return hmStrToMinutes(hhmm); // tu l'as déjà quelque part dans ce module
+//   }
+
+//   // On trie les créneaux dans l'ordre chronologique
+//   creneaux.sort((a, b) => {
+//     const da = Number(a.Date || a.dateInt || 0);
+//     const db = Number(b.Date || b.dateInt || 0);
+//     if (da !== db) return da - db;
+
+//     const ma = hhmmToMin(a.Début);
+//     const mb = hhmmToMin(b.Début);
+//     return (ma ?? 0) - (mb ?? 0);
+//   });
+
+//   // 4) Résultat : dateInt -> [ { row, dateInt, startMin, endMin } ]
+//   const selectedByDay = new Map();
+
+//   // Pour éviter de placer deux fois la même activité
+//   const alreadyPlaced = new Set();
+
+//   // Pour limiter à 1 pause dej + 1 pause din par jour
+//   const pausesPerDay = new Map(); // dateInt -> { dej: boolean, din: boolean }
+
+//   // petit helper random
+//   const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+//   for (const c of creneaux) {
+//     const dayInt = Number(c.Date || c.dateInt);
+//     if (!dayInt) continue;
+
+//     // borne période
+//     if (dateMinInt && dayInt < dateMinInt) continue;
+//     if (dateMaxInt && dayInt > dateMaxInt) continue;
+
+//     const cStart = hhmmToMin(c.Début);
+//     const cEnd   = hhmmToMin(c.Fin);
+//     if (cStart == null || cEnd == null) continue;
+
+//     // fenêtre horaire globale (facultative)
+//     if (minMinutes != null && cEnd < minMinutes) continue;
+//     if (maxMinutes != null && cStart > maxMinutes) continue;
+
+//     let selectedForDay = selectedByDay.get(dayInt) || [];
+//     if (selectedForDay.length >= maxPerDay) {
+//       continue;
+//     }
+
+//     // 5) Activités programmables sur CE créneau (déjà compatibles avec le prog existant)
+//     const proposables = activitesAPI.getActivitesProgrammables?.(
+//       df,
+//       c,
+//       traiterPauses
+//     ) || [];
+
+//     if (!proposables.length) continue;
+
+//     const pauseFlags = pausesPerDay.get(dayInt) || { dej: false, din: false };
+
+//     const slotPauses = [];
+//     const slotShows  = [];
+
+//     for (const r of proposables) {
+//       if (!r || !r.__uuid) continue;
+
+//       const isPause =
+//         activitesAPI.estPause?.(r) ||
+//         r.__type_activite === 'déjeuner' ||
+//         r.__type_activite === 'dîner' ||
+//         (typeof r.Activite === 'string' && r.Activite.startsWith('Pause '));
+
+//       if (isPause) {
+//         if (!traiterPauses) continue;
+
+//         const type = r.__type_activite || '';
+//         if (type === 'déjeuner' && !pauseFlags.dej) {
+//           slotPauses.push(r);
+//         } else if (type === 'dîner' && !pauseFlags.din) {
+//           slotPauses.push(r);
+//         }
+//         continue;
+//       }
+
+//       // pas pause → spectacle normal
+//       if (alreadyPlaced.has(r.__uuid)) continue;
+
+//       const canon = candidatesByUUID.get(r.__uuid);
+//       if (canon) {
+//         slotShows.push(canon);
+//       }
+//     }
+
+//     // 6) Optionnel : placer une pause déjeuner/dîner dans ce créneau
+//     if (traiterPauses && slotPauses.length && selectedForDay.length < maxPerDay) {
+//       const p = pickRandom(slotPauses);
+//       const sMin = hhmmToMin(p.Debut);
+//       const eMin = hhmmToMin(p.Fin);
+//       if (sMin != null && eMin != null) {
+//         selectedForDay.push({
+//           row: p,
+//           dateInt: dayInt,
+//           startMin: sMin,
+//           endMin: eMin,
+//         });
+
+//         if (p.__type_activite === 'déjeuner') pauseFlags.dej = true;
+//         if (p.__type_activite === 'dîner')    pauseFlags.din = true;
+
+//         pausesPerDay.set(dayInt, pauseFlags);
+//         alreadyPlaced.add(p.__uuid);
+//       }
+//     }
+
+//     if (selectedForDay.length >= maxPerDay) {
+//       selectedByDay.set(dayInt, selectedForDay);
+//       continue;
+//     }
+
+//     // 7) Placer un spectacle "normal" dans ce créneau (au plus un par créneau)
+//     if (slotShows.length) {
+//       const r = pickRandom(slotShows);
+//       const sMin = hhmmToMin(r.Debut);
+//       const eMin = hhmmToMin(r.Fin);
+//       if (sMin != null && eMin != null) {
+//         selectedForDay.push({
+//           row: r,
+//           dateInt: dayInt,
+//           startMin: sMin,
+//           endMin: eMin,
+//         });
+//         selectedByDay.set(dayInt, selectedForDay);
+//         alreadyPlaced.add(r.__uuid);
+//       }
+//     }
+//   }
+
+//   return selectedByDay;
+// }
+
+      /**
+       * Mélange et retourne une *nouvelle* copie du tableau.
+       */
+      function shuffleArray(arr) {
+        const a = arr.slice();
+        shuffleArrayInPlace(a);
+        return a;
+      }
+
+      /**
+       * Mélange *en place* (Fisher–Yates).
+       */
+      function shuffleArrayInPlace(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          if (i !== j) {
+            const tmp = a[i];
+            a[i] = a[j];
+            a[j] = tmp;
           }
         }
-
-        return lines.join("\n");
+        return a;
       }
+
+
+      // function applyProgramToDf(selectedByDay, simulate=false) {
+      //   // Aplatir selectedByDay en uuid -> dateInt
+      //   const dateByUUID = new Map();
+
+      //   for (const [dayInt, slots] of selectedByDay.entries()) {
+      //     for (const slot of slots) {
+      //       const r = slot.row;
+      //       if (!r || !r.__uuid) continue;
+      //       // On force la date choisie par le moteur pour cette activité
+      //       dateByUUID.set(r.__uuid, dayInt);
+      //     }
+      //   }
+
+      //   if (!dateByUUID.size) {
+      //     return 0;
+      //   }
+
+      //   let addedCount = 0;
+
+      //   if (!simulate) {
+      //     ctx.mutateDf?.((rows) => {
+      //       const src = rows || [];
+
+      //       const next = src.map((r) => {
+      //         if (!r || !r.__uuid) return r;
+
+      //         const newDate = dateByUUID.get(r.__uuid);
+      //         if (!newDate) return r; // cette row n'a pas été sélectionnée
+
+      //         // Si la date est déjà la même, on ne compte rien
+      //         if (Number(r.Date || 0) === Number(newDate)) {
+      //           return r;
+      //         }
+
+      //         addedCount++;
+
+      //         return {
+      //           ...r,
+      //           Date: newDate
+      //         };
+      //       });
+
+      //       return sortDf(next);
+      //     });          
+      //   } 
+        
+      //   else {
+      //     const src = ctx.df || [];
+      //     for (const r of src) {
+      //       if (!r || !r.__uuid) continue;
+
+      //       const newDate = dateByUUID.get(r.__uuid);
+      //       if (!newDate) continue; // cette row n'a pas été sélectionnée
+
+      //       // Si la date est déjà la même, on ne compte rien
+      //       if (Number(r.Date || 0) === Number(newDate)) {
+      //         continue;
+      //       }
+      //       addedCount++;
+      //     }
+      //   }
+
+      //   return addedCount;
+      // }
+
+      // function summarizeProgram(selectedByDay, addedCount) {
+      //   if (!addedCount) {
+      //     return "Aucun spectacle supplémentaire n'a pu être ajouté au programme avec ces contraintes.";
+      //   }
+
+      //   const lines = [];
+      //   lines.push(`✅ ${addedCount} spectacle(s) sélectionné(s).`);
+
+      //   // selectedByDay : Map<dateInt, [{ row, dateInt, startMin, endMin }]>
+      //   const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
+
+      //   for (const dayInt of days) {
+      //     const slots = selectedByDay.get(dayInt) || [];
+      //     if (!slots.length) continue;
+
+      //     const dayLabel = dateintToLabel(dayInt);
+      //     lines.push(`\n📅 ${dayLabel} :`);
+
+      //     // on trie par heure de début pour l’affichage
+      //     const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
+
+      //     for (const slot of sortedSlots) {
+      //       const r = slot.row || {};
+      //       const h = minutesToHHMM(slot.startMin);
+      //       const titre   = r.Activite || "(sans titre)";
+      //       const theatre = r.Theatre   || "";
+      //       const theatrePart = theatre ? ` @ ${theatre}` : "";
+      //       lines.push(`- ${h} – ${titre}${theatrePart}`);
+      //     }
+      //   }
+
+      //   return lines.join("\n");
+      // }
+function applyProgramToDf(selectedByDay, simulate = false) {
+  const dateByUUID = new Map();
+
+  for (const [dayInt, slots] of selectedByDay.entries()) {
+    for (const slot of slots) {
+      const r = slot.row;
+      if (!r || !r.__uuid) continue;
+
+      // 🔴 On saute les slots décochés
+      const key = slotKey(dayInt, slot);
+      if (excludedKeys.has(key)) continue;
+
+      dateByUUID.set(r.__uuid, dayInt);
+    }
+  }
+
+  if (!dateByUUID.size) {
+    return 0;
+  }
+
+  let addedCount = 0;
+
+  if (!simulate) {
+    ctx.mutateDf?.((rows) => {
+      const src = rows || [];
+
+      const next = src.map((r) => {
+        if (!r || !r.__uuid) return r;
+
+        const newDate = dateByUUID.get(r.__uuid);
+        if (!newDate) return r; // ligne non retenue
+
+        if (Number(r.Date || 0) === Number(newDate)) {
+          return r;
+        }
+
+        addedCount++;
+
+        return {
+          ...r,
+          Date: newDate,
+        };
+      });
+
+      return sortDf(next);
+    });
+  } else {
+    const src = ctx.df || [];
+    for (const r of src) {
+      if (!r || !r.__uuid) continue;
+      const newDate = dateByUUID.get(r.__uuid);
+      if (!newDate) continue;
+      if (Number(r.Date || 0) === Number(newDate)) continue;
+      addedCount++;
+    }
+  }
+
+  return addedCount;
+}
+
+function summarizeProgram(selectedByDay, addedCount) {
+  if (!addedCount) {
+    return `<p>Aucun spectacle supplémentaire n'a pu être ajouté au programme avec ces contraintes.</p>`;
+  }
+
+  const parts = [];
+  parts.push(`<p>✅ ${addedCount} spectacle(s) sélectionné(s).</p>`);
+
+  const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
+
+  for (const dayInt of days) {
+    const slots = selectedByDay.get(dayInt) || [];
+    if (!slots.length) continue;
+
+    const dayLabel = dateintToLabel(dayInt);
+    parts.push(`<h4 class="prog-day">📅 ${dayLabel}</h4>`);
+    parts.push(`<ul class="prog-day-list">`);
+
+    // tri par heure
+    const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
+
+    for (const slot of sortedSlots) {
+      const r = slot.row || {};
+      const h = minutesToHHMM(slot.startMin);
+      const titre   = r.Activite || "(sans titre)";
+      const theatre = r.Theatre   || "";
+      const theatrePart = theatre ? ` <span class="prog-theatre">@ ${escapeHtml(theatre)}</span>` : "";
+      const href    = r.Hyperlien || null;
+
+      const key     = slotKey(dayInt, slot);
+      const isExcluded = excludedKeys.has(key);
+      const checkedAttr = isExcluded ? "" : " checked";
+
+      const titleHtml = href
+        ? `<a href="${href}" target="_blank" rel="noopener" class="prog-link">${escapeHtml(titre)}</a>`
+        : `<span class="prog-title">${escapeHtml(titre)}</span>`;
+
+      parts.push(`
+        <li class="prog-row" data-slot-key="${key}">
+          <label class="prog-toggle-wrap">
+            <input type="checkbox" class="prog-toggle-input"${checkedAttr}>
+            <span class="prog-toggle-ui"></span>
+          </label>
+          <div class="prog-main">
+            <span class="prog-time">${h}</span>
+            ${titleHtml}${theatrePart}
+          </div>
+        </li>
+      `);
+    }
+
+    parts.push(`</ul>`);
+  }
+
+  return parts.join("\n");
+}
+
+// petit helper pour éviter les surprises dans innerHTML
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderProgramPreview(selectedByDay, containerEl) {
+  if (!containerEl) return;
+
+  // On compte le nombre total de slots
+  let total = 0;
+  for (const slots of selectedByDay.values()) {
+    total += (slots?.length || 0);
+  }
+
+  if (!total) {
+    containerEl.innerHTML = `
+      <p>Aucun spectacle supplémentaire n'a pu être ajouté au programme avec ces contraintes.</p>
+    `;
+    return;
+  }
+
+  const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
+
+  let html = '';
+  html += `<p>✅ ${total} spectacle(s) sélectionné(s).</p>`;
+
+  html += `<div class="prog-preview">`;
+
+  for (const dayInt of days) {
+    const slots = selectedByDay.get(dayInt) || [];
+    if (!slots.length) continue;
+
+    const dayLabel = dateintToLabel(dayInt);
+    html += `<div class="prog-day-block">`;
+    html += `<h4 class="prog-day-title">📅 ${dayLabel}</h4>`;
+
+    // Tri par heure de début
+    const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
+
+    html += `<ul class="prog-day-list">`;
+    for (const slot of sortedSlots) {
+      const r = slot.row || {};
+      const h = minutesToHHMM(slot.startMin);
+      const titre   = r.Activite || "(sans titre)";
+      const theatre = r.Theatre   || "";
+      const theatrePart = theatre ? ` @ ${theatre}` : "";
+      const url = r.Hyperlien || null;
+      const uuid = r.__uuid || '';
+
+      html += `
+        <li class="prog-slot-row" data-dateint="${dayInt}" data-uuid="${uuid}">
+          <span class="prog-slot-time">${h}</span>
+          <span class="prog-slot-main">
+            ${url
+              ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="prog-slot-link">${titre}</a>`
+              : `<span class="prog-slot-title">${titre}</span>`
+            }
+            ${theatrePart ? `<span class="prog-slot-theatre">${theatrePart}</span>` : ''}
+          </span>
+          <button type="button" class="prog-slot-remove" title="Retirer ce spectacle">×</button>
+        </li>
+      `;
+    }
+
+    html += `</ul>`;
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+
+  containerEl.innerHTML = html;
+
+  // Wiring du bouton "×" pour retirer une ligne
+  containerEl.querySelectorAll('.prog-slot-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const li = btn.closest('.prog-slot-row');
+      if (!li) return;
+      const dateInt = Number(li.dataset.dateint);
+      const uuid    = li.dataset.uuid;
+
+      if (!dateInt || !uuid) return;
+
+      const slots = selectedByDay.get(dateInt);
+      if (!slots || !slots.length) return;
+
+      // on filtre le slot correspondant à ce uuid
+      const remaining = slots.filter(s => s?.row?.__uuid !== uuid);
+      if (remaining.length) {
+        selectedByDay.set(dateInt, remaining);
+      } else {
+        selectedByDay.delete(dateInt);
+      }
+
+      // re-render
+      renderProgramPreview(selectedByDay, containerEl);
+    });
+  });
+}
 
       function genProgram() {
         clearError();
@@ -7413,7 +7868,8 @@ function buildProgram(constraints) {
           selectedByDay       = buildProgram(constraints);
           const addedCount    = applyProgramToDf(selectedByDay, true);
           const summary       = summarizeProgram(selectedByDay, addedCount);
-          elResp.textContent  = summary;
+          elResp.innerHTML    = summary;
+          // renderProgramPreview(selectedByDay, elResp);
           elResp.scrollIntoView({behavior: 'smooth', block:'center'});
           btnApply.disabled = (addedCount <= 0);
           progError = false;
@@ -7441,6 +7897,23 @@ function buildProgram(constraints) {
       btnGen.addEventListener("click", genProgram);
       btnApply.addEventListener("click", applyProgram);
       btnCancel.addEventListener("click", () => close());
+
+elResp.addEventListener('change', (e) => {
+  const input = e.target.closest('.prog-toggle-input');
+  if (!input) return;
+
+  const li = input.closest('.prog-row');
+  if (!li) return;
+
+  const key = li.dataset.slotKey;
+  if (!key) return;
+
+  if (input.checked) {
+    excludedKeys.delete(key);
+  } else {
+    excludedKeys.add(key);
+  }
+});
 
       elReq.addEventListener("keydown", (ev) => {
         if (ev.key === "Escape") {
