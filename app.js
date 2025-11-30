@@ -10,6 +10,8 @@ import {
   toDateint,
   dateToDateint,
   hmStrToMinutes,
+  mmToHHhMM,
+  mmToHhmm,
   isoDateToLocalDate,
   localDateToIsoDate,
   recalcFinForAll,
@@ -6844,9 +6846,9 @@ function openSheetAssistantProgrammation() {
               <label class="ai-checkbox">
                 <span>Tenir compte des pauses repas</span>
                 <input id="prog-traiter-pauses"
-                       type="checkbox"
-                       ${aiProg.traiterPauses == true ? "checked" : ""}>
-              </label>
+                      type="checkbox"
+                      ${aiProg.traiter_pauses ? "checked" : ""}>
+                </label>
             </div>
           </div>
 
@@ -6857,7 +6859,7 @@ function openSheetAssistantProgrammation() {
                 <span>Utiliser uniquement les spectacles filtrés</span>
                 <input id="prog-use-filters"
                        type="checkbox"
-                       ${aiProg.utiliser_filtres_grille !== false ? "checked" : ""}>
+                       ${aiProg.utiliser_filtres_grille ? "checked" : ""}>
               </label>
             </div>
 
@@ -6937,13 +6939,13 @@ function openSheetAssistantProgrammation() {
       let progError = true;
       let selectedByDay = new Map();
 
-// Map<slotKey, boolean> implicite : un Set des slots EXCLUS
-let excludedKeys = new Set();
+      // Map<slotKey, boolean> implicite : un Set des slots EXCLUS
+      let excludedKeys = new Set();
 
-function slotKey(dayInt, slot) {
-  const r = slot.row || {};
-  return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
-}
+      function slotKey(dayInt, slot) {
+        const r = slot.row || {};
+        return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
+      }
 
 
       const showError = (msg) => {
@@ -6995,20 +6997,17 @@ function slotKey(dayInt, slot) {
         }
       }
 
-      function timeLabelToMinutes(val) {
-        if (!val) return null;
-        const s = String(val).trim().toLowerCase();
+      // Conversion de constraints.debut_min en minutes
+      function debutMinToMinutes(debut_min) {
+        return debut_min ? hmStrToMinutes(debut_min) : null;
+      }
 
-        // formats possibles : "10h00", "10:00"
-        let m = /^(\d{1,2})h(\d{2})$/.exec(s);
-        if (!m) m = /^(\d{1,2}):(\d{2})$/.exec(s);
-        if (!m) return null;
-
-        const h = Number(m[1]);
-        const min = Number(m[2]);
-        if (isNaN(h) || isNaN(min)) return null;
-
-        return h * 60 + min;  // minutes depuis minuit
+      // Conversion de constraints.fin_max en minutes
+      // Par convention constraints.fin_max à "00:00" signifie pas de contrainte de fin donc null converti en minutes
+      function finMaxToMinutes(fin_max) {
+        return fin_max ? 
+        (hmStrToMinutes(fin_max) !== 0) ? hmStrToMinutes(fin_max) : null 
+        : null; 
       }
 
       function addOneDayDateint(dateInt) {
@@ -7028,20 +7027,22 @@ function slotKey(dayInt, slot) {
       }
 
       // Gère le conflit avec marge
-      function slotsConflict(aStart, aEnd, bStart, bEnd, gap) {
-        return !(
-          aEnd + gap <= bStart ||
-          aStart >= bEnd + gap
-        );
+      function slotsConflict(s1, e1, s2, e2, gap = 0) {
+        if (s1 == null || e1 == null || s2 == null || e2 == null) return false;
+
+        // Normalisation minuit
+        if (e1 < s1) e1 += 1440;
+        if (e2 < s2) e2 += 1440;
+
+        // Application marge
+        const A1 = s1 - gap;
+        const A2 = e1 + gap;
+        const B1 = s2 - gap;
+        const B2 = e2 + gap;
+
+        return !(A2 <= B1 || B2 <= A1); // overlap avec marge
       }
 
-      function minutesToHHMM(min) {
-        if (min == null || isNaN(min)) return "";
-        const h = Math.floor(min / 60);
-        const m = min % 60;
-        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      }
-      
       function dateintToLabel(di) {
         if (!di) return "";
         const s = String(di);
@@ -7052,24 +7053,13 @@ function slotKey(dayInt, slot) {
         return `${y}-${m}-${d}`; // ou tu peux mettre un format FR "dd/mm/yyyy" si tu préfères
       }
 
-      function isActiviteProgrammableDansPeriode(activite, dateMinInt, dateMaxInt) {
-        if (!dateMinInt && !dateMaxInt) return true;
-
-        let start = dateMinInt || dateMaxInt;
-        let end   = dateMaxInt || dateMinInt;
-
-        if (start > end) {
-          const tmp = start;
-          start = end;
-          end = tmp;
+      function normalizeStartEnd(sMin, eMin) {
+        if (sMin == null || eMin == null) return [sMin, eMin];
+        // si la fin est “avant” le début → spectacle qui finit le lendemain
+        if (eMin < sMin) {
+          return [sMin, eMin + 1440]; // +24h
         }
-
-        for (let d = start; d <= end; d = addOneDayDateint(d)) {
-          if (activitesAPI.estActiviteProgrammableADate(activite, d)) {
-            return true;
-          }
-        }
-        return false;
+        return [sMin, eMin];
       }
 
       /**
@@ -7154,18 +7144,14 @@ function slotKey(dayInt, slot) {
         //    -> exactement ce que tu décrivais :
         //       df.Debut >= debut_min ET df.Fin <= fin_max
         //
-        const minMinutes = constraints.debut_min
-          ? hmStrToMinutes(constraints.debut_min)
-          : null;
-
-        const maxMinutes = constraints.fin_max
-          ? hmStrToMinutes(constraints.fin_max)
-          : null;
+        const minMinutes = debutMinToMinutes(constraints.debut_min); 
+        const maxMinutes = finMaxToMinutes(constraints.fin_max);
 
         if (minMinutes != null || maxMinutes != null) {
           rows = rows.filter((r) => {
-            const sMin = hmStrToMinutes(r.Debut);
-            const eMin = hmStrToMinutes(r.Fin);
+            let sMin = hmStrToMinutes(r.Debut);
+            let eMin = hmStrToMinutes(r.Fin);
+            [sMin, eMin] = normalizeStartEnd(sMin, eMin);
             if (sMin == null || eMin == null) return false;
 
             if (minMinutes != null && sMin < minMinutes) return false;
@@ -7188,6 +7174,7 @@ function slotKey(dayInt, slot) {
         return rows;
       }
 
+      // Construction d'une proposition
       function buildProgram(constraints) {
         const allRows = ctx?.df || [];
 
@@ -7197,8 +7184,8 @@ function slotKey(dayInt, slot) {
         const dateMinInt = constraints.date_min || null;
         const dateMaxInt = constraints.date_max || null;
 
-        const minMinutes = constraints.debut_min ? hmStrToMinutes(constraints.debut_min) : null;
-        const maxMinutes = constraints.fin_max   ? hmStrToMinutes(constraints.fin_max)   : null;
+        const minMinutes = debutMinToMinutes(constraints.debut_min); 
+        const maxMinutes = finMaxToMinutes(constraints.fin_max);
 
         const maxPerDay = constraints.max_par_jour || Infinity;
 
@@ -7209,322 +7196,344 @@ function slotKey(dayInt, slot) {
 
         excludedKeys.clear();
 
-        // 1) Candidats déjà filtrés (filtres std, mots-clés, non programmées, session/relâche, horaires…)
+        // 1) Candidats issus des filtres "classiques"
         let rawCandidates = getCandidateRows(constraints) || [];
+        rawCandidates = rawCandidates.filter(r => r && !r.Prog);   // on ne reprogramme pas ceux déjà Prog
+        rawCandidates = shuffleArray(rawCandidates);               // variabilité
 
-        // On s'assure de ne pas reprendre des lignes déjà marquées Prog
-        rawCandidates = rawCandidates.filter(r => r && !r.Prog);
-
-        // Variabilité : on mélange l'ordre des candidats
-        rawCandidates = shuffleArray(rawCandidates);
-
-        // 2) Slots déjà programmés EXISTANTS (Prog === true) :
-        //    eux, ils ONT une date et des horaires (Date / Debut / Fin)
-        //    → on utilise activitesAPI.getActivitesProgrammees pour être sûr
+        // 2) Slots déjà programmés (prog existant)
         const existingByDay = new Map(); // dateInt -> [{ startMin, endMin }]
-
         const progRows = activitesAPI.getActivitesProgrammees(ctx.df) || [];
 
         for (const r of progRows) {
           if (!r) continue;
-
           const dInt = r.Date != null ? Number(r.Date) : NaN;
           if (!dInt || isNaN(dInt)) continue;
 
-          // bornes horaires
-          const sMin = hmStrToMinutes(r.Debut);
-          const eMin = hmStrToMinutes(r.Fin);
+          let sMin = hmStrToMinutes(r.Debut);
+          let eMin = hmStrToMinutes(r.Fin);
+          [sMin, eMin] = normalizeStartEnd(sMin, eMin);
           if (sMin == null || eMin == null) continue;
 
           if (!existingByDay.has(dInt)) existingByDay.set(dInt, []);
           existingByDay.get(dInt).push({ startMin: sMin, endMin: eMin });
         }
 
-        // 3) Map résultat : dateInt -> [ { row, dateInt, startMin, endMin } ]
-        const selectedByDay = new Map();
+        // ============================================================
+        // CAS 1 : pas de traitement des pauses -> ALGO CLASSIQUE
+        // ============================================================
+        if (!constraints.traiter_pauses) {
+          const selectedByDay = new Map();
 
-        // Helper local : renvoie le code jour de la semaine pour un dateInt (YYYYMMDD)
-        const dayOfWeekCode = (dateInt) => {
-          const y = Math.floor(dateInt / 10000);
-          const m = Math.floor((dateInt / 100) % 100);
-          const d = dateInt % 100;
-          const dt = new Date(y, m - 1, d);
-          // 0=dimanche,...6=samedi → on peut convertir si besoin ailleurs
-          return dt.getDay();
-        };
+          for (const r of rawCandidates) {
+            if (!r) continue;
 
-        // 4) Parcours des candidats
-        for (const r of rawCandidates) {
-          if (!r) continue;
+            let sMin = hmStrToMinutes(r.Debut);
+            let eMin = hmStrToMinutes(r.Fin);
+            [sMin, eMin] = normalizeStartEnd(sMin, eMin);
+            if (sMin == null || eMin == null) continue;
 
-          const sMin = hmStrToMinutes(r.Debut);
-          const eMin = hmStrToMinutes(r.Fin);
-          if (sMin == null || eMin == null) continue;
+            if (minMinutes != null && sMin < minMinutes) continue;
+            if (maxMinutes != null && eMin > maxMinutes) continue;
 
-          // garde-fous sur la fenêtre horaire
-          if (minMinutes != null && sMin < minMinutes) continue;
-          if (maxMinutes != null && eMin > maxMinutes) continue;
+            // liste des dates possibles
+            const possibleDates = [];
+            for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
+              if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
+                if (!activitesAPI.estActiviteProgrammableADate(r, d)) continue;
+              }
+              possibleDates.push(d);
+            }
+            if (!possibleDates.length) continue;
+            shuffleArrayInPlace(possibleDates);
 
-          // Liste des dates possibles dans la période, selon estActiviteProgrammableADate
-          const possibleDates = [];
-          for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
-            if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
-              if (!activitesAPI.estActiviteProgrammableADate(r, d)) {
+            let placed = false;
+            for (const d of possibleDates) {
+              const existingForDay = existingByDay.get(d) || [];
+              const selectedForDay = selectedByDay.get(d) || [];
+
+              // if (selectedForDay.length >= maxPerDay) continue;
+              const nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
+              if (nbSpectacles >= maxPerDay) {
                 continue;
               }
+
+              let conflict = false;
+              for (const ex of existingForDay) {
+                if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
+                  conflict = true; break;
+                }
+              }
+              if (conflict) continue;
+
+              for (const ex of selectedForDay) {
+                if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
+                  conflict = true; break;
+                }
+              }
+              if (conflict) continue;
+
+              // OK on place
+              selectedForDay.push({ row: r, dateInt: d, startMin: sMin, endMin: eMin });
+              selectedByDay.set(d, selectedForDay);
+
+              if (!existingByDay.has(d)) existingByDay.set(d, []);
+              existingByDay.get(d).push({ startMin: sMin, endMin: eMin });
+
+              placed = true;
+              break;
             }
-            possibleDates.push(d);
+            // si non placé : impossible dans la période
           }
 
-          if (!possibleDates.length) {
-            // cette activité n'est jouable à aucune date de la période
+          return selectedByDay;
+        }
+
+        // ============================================================
+        // CAS 2 : traiter_pauses === true -> 3 PLAGES + REPAS
+        // ============================================================
+
+        const selectedByDay = new Map();
+        const usedUUID = new Set();   // pour ne pas utiliser la même activité plusieurs fois
+
+        const meta = ctx.getMeta?.() || window.ctx?.meta || {};
+        const MARGE       = Math.max(0, Number(meta.MARGE       ?? GAP)  | 0);
+        const DUREE_REPAS = Math.max(0, Number(meta.DUREE_REPAS ?? 60)   | 0);
+
+        // Fenêtres de début de repas (en minutes)
+        const DEJ_START_MIN = 12 * 60;  // 12:00
+        const DEJ_START_MAX = 14 * 60;  // 14:00
+        const DIN_START_MIN = 19 * 60;  // 19:00
+        const DIN_START_MAX = 21 * 60;  // 21:00
+
+        const FULL_START = minMinutes != null ? minMinutes : 0;
+        const FULL_END   = maxMinutes; // => maxMinutes == null signifie : les activités du soir peuvent déborder 24h00 (remplace maxMinutes != null ? maxMinutes : (24 * 60);)
+
+        // helper pour ajouter une "Pause déjeuner" / "Pause dîner" dans selected + busySlots
+        function addMealPauseForDay(selectedForDay, busySlots, dateInt, type) {
+          const isDej = (type === 'déjeuner');
+          const winStart = isDej ? DEJ_START_MIN : DIN_START_MIN;
+          const winEnd   = isDej ? DEJ_START_MAX : DIN_START_MAX;
+
+          // 🛑 (1) Vérifier dans le df s'il existe déjà une pause de ce type pour ce jour
+          const df = ctx.df || [];
+          const alreadyHasPause = df.some(r =>
+            r &&
+            activitesAPI?.estPause?.(r) &&        // <<< correction ici
+            r.__type_activite === type &&
+            Number(r.Date || 0) === Number(dateInt)
+          );
+          if (alreadyHasPause) {
+            return null;   
+          }
+
+          let lastEnd = 0;
+          if (busySlots.length) {
+            for (const s of busySlots) {
+              if (s.endMin > lastEnd) lastEnd = s.endMin;
+            }
+          }
+          const slotStart = Math.max(lastEnd + MARGE, winStart);
+
+          const slotEnd = slotStart + DUREE_REPAS;
+
+          const row = {
+            ...PARSED_DEFAULT,
+            Activite: `Pause ${type}`,
+            __type_activite: type,
+            Debut: mmToHHhMM(slotStart),
+            Fin:   mmToHHhMM(slotEnd),
+            Duree: (() => {
+              const h = Math.floor(DUREE_REPAS / 60);
+              const m = DUREE_REPAS % 60;
+              return `${h}h${String(m).padStart(2, '0')}`;
+            })(),
+            Date: dateInt,
+            Reserve: 'Non',
+            Relache: null,
+            __uuid: crypto.randomUUID(),
+          };
+
+          selectedForDay.push({
+            row,
+            dateInt,
+            startMin: slotStart,
+            endMin: slotEnd,
+          });
+          busySlots.push({ startMin: slotStart, endMin: slotEnd });
+          busySlots.sort((a, b) => a.startMin - b.startMin);
+
+          return { startMin: slotStart, endMin: slotEnd };
+        }
+
+        // helper pour remplir une plage horaire (matin/aprem/soir)
+        // function fillSegmentForDay(dateInt, segmentStart, segmentEnd, dayCandidates, busySlots, selectedForDay) {
+        //   if (segmentEnd <= segmentStart) return;
+
+        //   for (const r of dayCandidates) {
+        //     if (!r || !r.__uuid) continue;
+        //     if (usedUUID.has(r.__uuid)) continue;
+
+        //     let sMin = hmStrToMinutes(r.Debut);
+        //     let eMin = hmStrToMinutes(r.Fin);
+        //     [sMin, eMin] = normalizeStartEnd(sMin, eMin);
+        //     if (sMin == null || eMin == null) continue;
+
+        //     // doit être dans la plage
+        //     if (sMin < segmentStart || eMin > segmentEnd) continue;
+
+        //     if (selectedForDay.length >= maxPerDay) break;
+
+        //     let conflict = false;
+        //     for (const bs of busySlots) {
+        //       if (slotsConflict(sMin, eMin, bs.startMin, bs.endMin, GAP)) {
+        //         conflict = true; break;
+        //       }
+        //     }
+        //     if (conflict) continue;
+
+        //     for (const sl of selectedForDay) {
+        //       if (slotsConflict(sMin, eMin, sl.startMin, sl.endMin, GAP)) {
+        //         conflict = true; break;
+        //       }
+        //     }
+        //     if (conflict) continue;
+
+        //     // OK on place
+        //     selectedForDay.push({ row: r, dateInt, startMin: sMin, endMin: eMin });
+        //     busySlots.push({ startMin: sMin, endMin: eMin });
+        //     busySlots.sort((a, b) => a.startMin - b.startMin);
+        //     usedUUID.add(r.__uuid);
+
+        //     if (selectedForDay.length >= maxPerDay) break;
+        //   }
+        // }
+      function fillSegmentForDay(dateInt, segmentStart, segmentEnd, dayCandidates, busySlots, selectedForDay) {
+        const hasUpperBound = Number.isFinite(segmentEnd);  // <- nouveau
+
+        if (hasUpperBound && segmentEnd <= segmentStart) return;
+
+        for (const r of dayCandidates) {
+          if (!r || !r.__uuid) continue;
+          if (usedUUID.has(r.__uuid)) continue;
+
+          let sMin = hmStrToMinutes(r.Debut);
+          let eMin = hmStrToMinutes(r.Fin);
+          [sMin, eMin] = normalizeStartEnd(sMin, eMin);
+          if (sMin == null || eMin == null) continue;
+
+          // doit être dans la plage
+          if (sMin < segmentStart) continue;
+          if (hasUpperBound && eMin > segmentEnd) continue;  // <- borne haute uniquement si définie
+
+          // if (selectedForDay.length >= maxPerDay) break;
+          let nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
+          if (nbSpectacles >= maxPerDay) {
+            break;
+          }
+
+          let conflict = false;
+          for (const bs of busySlots) {
+            if (slotsConflict(sMin, eMin, bs.startMin, bs.endMin, GAP)) {
+              conflict = true; break;
+            }
+          }
+          if (conflict) continue;
+
+          for (const sl of selectedForDay) {
+            if (slotsConflict(sMin, eMin, sl.startMin, sl.endMin, GAP)) {
+              conflict = true; break;
+            }
+          }
+          if (conflict) continue;
+
+          // OK on place
+          selectedForDay.push({ row: r, dateInt, startMin: sMin, endMin: eMin });
+          busySlots.push({ startMin: sMin, endMin: eMin });
+          busySlots.sort((a, b) => a.startMin - b.startMin);
+          usedUUID.add(r.__uuid);
+
+          // if (selectedForDay.length >= maxPerDay) break;
+          nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
+          if (nbSpectacles >= maxPerDay) {
+            break;
+          }
+        }
+      }
+
+
+        // Parcours jour par jour
+        for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
+          // Candidats jouables ce jour-là et pas encore utilisés
+          const dayCandidates = rawCandidates.filter(r => {
+            if (!r || !r.__uuid) return false;
+            if (usedUUID.has(r.__uuid)) return false;
+            if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
+              if (!activitesAPI.estActiviteProgrammableADate(r, d)) return false;
+            }
+
+            let sMin = hmStrToMinutes(r.Debut);
+            let eMin = hmStrToMinutes(r.Fin);
+            [sMin, eMin] = normalizeStartEnd(sMin, eMin);
+            if (sMin == null || eMin == null) return false;
+
+            if (FULL_START && sMin < FULL_START) return false;
+            if (FULL_END && eMin > FULL_END)   return false;
+
+            return true;
+          });
+
+          if (!dayCandidates.length && !(existingByDay.get(d)?.length)) {
+            // rien à programmer, rien d'existant → on peut skipper ce jour-là
             continue;
           }
 
-          // Variabilité supplémentaire : on mélange l'ordre des jours
-          shuffleArrayInPlace(possibleDates);
+          // variabilité intra-jour
+          shuffleArrayInPlace(dayCandidates);
 
-          let placed = false;
+          const selectedForDay = [];
+          const busySlots = [...(existingByDay.get(d) || [])].map(s => ({ ...s }))
+            .sort((a, b) => a.startMin - b.startMin);
 
-          // On essaie chaque date candidate, dans un ordre aléatoire
-          for (const d of possibleDates) {
-            const existingForDay = existingByDay.get(d) || [];
-            const selectedForDay = selectedByDay.get(d) || [];
+          // === 1) Plage matin : de FULL_START jusqu'à (14h - MARGE)
+          const morningEnd = (FULL_END) ? Math.min(FULL_END, DEJ_START_MAX - MARGE) : DEJ_START_MAX - MARGE;
+          fillSegmentForDay(d, FULL_START, morningEnd, dayCandidates, busySlots, selectedForDay);
 
-            // 1) max / jour
-            if (selectedForDay.length >= maxPerDay) {
-              continue;
-            }
+          // === 2) Pause déjeuner
+          const dejSlot = addMealPauseForDay(selectedForDay, busySlots, d, 'déjeuner');
 
-            // 2) Conflit avec déjà programmé ce jour-là ?
-            let conflict = false;
-            for (const ex of existingForDay) {
-              if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
-                conflict = true;
-                break;
-              }
-            }
-            if (conflict) continue;
+          // début de l'aprem = fin du dej + MARGE (si dej placé)
+          const afternoonStart = dejSlot ? (dejSlot.endMin + MARGE) : morningEnd;
 
-            // 3) Conflit avec ce qu'on a déjà sélectionné pour ce jour dans ce run ?
-            for (const ex of selectedForDay) {
-              if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
-                conflict = true;
-                break;
-              }
-            }
-            if (conflict) continue;
+          // === 3) Plage après-midi : jusqu'à (21h - MARGE)
+          const afternoonEnd = (FULL_END) ? Math.min(FULL_END, DIN_START_MAX - MARGE) : DIN_START_MAX - MARGE;
+          fillSegmentForDay(d, afternoonStart, afternoonEnd, dayCandidates, busySlots, selectedForDay);
 
-            // ✅ OK : on place l'activité ce jour-là
-            selectedForDay.push({
-              row: r,
-              dateInt: d,
-              startMin: sMin,
-              endMin: eMin,
-            });
+          // === 4) Pause dîner
+          const dinSlot = addMealPauseForDay(selectedForDay, busySlots, d, 'dîner');
+
+          // début de la soirée = fin du dîner + MARGE (si dîner placé)
+          const eveningStart = dinSlot ? (dinSlot.endMin + MARGE) : afternoonEnd;
+
+          // === 5) Plage soir : [eveningStart, FULL_END]
+          fillSegmentForDay(d, eveningStart, FULL_END, dayCandidates, busySlots, selectedForDay);
+
+          if (selectedForDay.length) {
             selectedByDay.set(d, selectedForDay);
-
-            // On ajoute aussi la plage dans existingByDay pour que
-            // les activités suivantes la respectent comme "déjà programmée"
-            if (!existingByDay.has(d)) existingByDay.set(d, []);
-            existingByDay.get(d).push({ startMin: sMin, endMin: eMin });
-
-            placed = true;
-            break; // on passe à l'activité suivante
           }
-
-          // si placed === false → impossible de placer l'activité dans la période
         }
 
         return selectedByDay;
       }
 
-// function buildProgram(constraints) {
-//   const df   = ctx?.df || [];
-//   const GAP_MIN = constraints.gap_minutes || defaultGap || 30;   // laissé au cas où, mais la compat est gérée par getCreneaux
-//   const traiterPauses = !!constraints.traiter_pauses;
-
-//   const dateMinInt = constraints.date_min || null;
-//   const dateMaxInt = constraints.date_max || null;
-
-//   const minMinutes = constraints.debut_min ? hmStrToMinutes(constraints.debut_min) : null;
-//   const maxMinutes = constraints.fin_max   ? hmStrToMinutes(constraints.fin_max)   : null;
-
-//   const maxPerDay = constraints.max_par_jour || Infinity;
-
-//   // 1) Candidats "logiques" (filtres, mots-clés, sessions/relâches, etc.)
-//   const rawCandidates = getCandidateRows(constraints) || [];
-
-//   // index par __uuid pour croiser avec getActivitesProgrammables()
-//   const candidatesByUUID = new Map();
-//   for (const r of rawCandidates) {
-//     if (r && r.__uuid) candidatesByUUID.set(r.__uuid, r);
-//   }
-
-//   // 2) Activités déjà programmées (basées sur le df courant)
-//   const progRows = activitesAPI.getActivitesProgrammees?.(df) || [];
-
-//   // 3) Tous les créneaux disponibles sur la période
-//   const creneaux = activitesAPI.getCreneaux?.(
-//     df,
-//     progRows,
-//     traiterPauses,
-//     { periodeDebut: dateMinInt || undefined, periodeFin: dateMaxInt || undefined }
-//   ) || [];
-
-//   // Petit helper pour parse "HHhMM"
-//   function hhmmToMin(hhmm) {
-//     if (!hhmm) return null;
-//     return hmStrToMinutes(hhmm); // tu l'as déjà quelque part dans ce module
-//   }
-
-//   // On trie les créneaux dans l'ordre chronologique
-//   creneaux.sort((a, b) => {
-//     const da = Number(a.Date || a.dateInt || 0);
-//     const db = Number(b.Date || b.dateInt || 0);
-//     if (da !== db) return da - db;
-
-//     const ma = hhmmToMin(a.Début);
-//     const mb = hhmmToMin(b.Début);
-//     return (ma ?? 0) - (mb ?? 0);
-//   });
-
-//   // 4) Résultat : dateInt -> [ { row, dateInt, startMin, endMin } ]
-//   const selectedByDay = new Map();
-
-//   // Pour éviter de placer deux fois la même activité
-//   const alreadyPlaced = new Set();
-
-//   // Pour limiter à 1 pause dej + 1 pause din par jour
-//   const pausesPerDay = new Map(); // dateInt -> { dej: boolean, din: boolean }
-
-//   // petit helper random
-//   const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
-//   for (const c of creneaux) {
-//     const dayInt = Number(c.Date || c.dateInt);
-//     if (!dayInt) continue;
-
-//     // borne période
-//     if (dateMinInt && dayInt < dateMinInt) continue;
-//     if (dateMaxInt && dayInt > dateMaxInt) continue;
-
-//     const cStart = hhmmToMin(c.Début);
-//     const cEnd   = hhmmToMin(c.Fin);
-//     if (cStart == null || cEnd == null) continue;
-
-//     // fenêtre horaire globale (facultative)
-//     if (minMinutes != null && cEnd < minMinutes) continue;
-//     if (maxMinutes != null && cStart > maxMinutes) continue;
-
-//     let selectedForDay = selectedByDay.get(dayInt) || [];
-//     if (selectedForDay.length >= maxPerDay) {
-//       continue;
-//     }
-
-//     // 5) Activités programmables sur CE créneau (déjà compatibles avec le prog existant)
-//     const proposables = activitesAPI.getActivitesProgrammables?.(
-//       df,
-//       c,
-//       traiterPauses
-//     ) || [];
-
-//     if (!proposables.length) continue;
-
-//     const pauseFlags = pausesPerDay.get(dayInt) || { dej: false, din: false };
-
-//     const slotPauses = [];
-//     const slotShows  = [];
-
-//     for (const r of proposables) {
-//       if (!r || !r.__uuid) continue;
-
-//       const isPause =
-//         activitesAPI.estPause?.(r) ||
-//         r.__type_activite === 'déjeuner' ||
-//         r.__type_activite === 'dîner' ||
-//         (typeof r.Activite === 'string' && r.Activite.startsWith('Pause '));
-
-//       if (isPause) {
-//         if (!traiterPauses) continue;
-
-//         const type = r.__type_activite || '';
-//         if (type === 'déjeuner' && !pauseFlags.dej) {
-//           slotPauses.push(r);
-//         } else if (type === 'dîner' && !pauseFlags.din) {
-//           slotPauses.push(r);
-//         }
-//         continue;
-//       }
-
-//       // pas pause → spectacle normal
-//       if (alreadyPlaced.has(r.__uuid)) continue;
-
-//       const canon = candidatesByUUID.get(r.__uuid);
-//       if (canon) {
-//         slotShows.push(canon);
-//       }
-//     }
-
-//     // 6) Optionnel : placer une pause déjeuner/dîner dans ce créneau
-//     if (traiterPauses && slotPauses.length && selectedForDay.length < maxPerDay) {
-//       const p = pickRandom(slotPauses);
-//       const sMin = hhmmToMin(p.Debut);
-//       const eMin = hhmmToMin(p.Fin);
-//       if (sMin != null && eMin != null) {
-//         selectedForDay.push({
-//           row: p,
-//           dateInt: dayInt,
-//           startMin: sMin,
-//           endMin: eMin,
-//         });
-
-//         if (p.__type_activite === 'déjeuner') pauseFlags.dej = true;
-//         if (p.__type_activite === 'dîner')    pauseFlags.din = true;
-
-//         pausesPerDay.set(dayInt, pauseFlags);
-//         alreadyPlaced.add(p.__uuid);
-//       }
-//     }
-
-//     if (selectedForDay.length >= maxPerDay) {
-//       selectedByDay.set(dayInt, selectedForDay);
-//       continue;
-//     }
-
-//     // 7) Placer un spectacle "normal" dans ce créneau (au plus un par créneau)
-//     if (slotShows.length) {
-//       const r = pickRandom(slotShows);
-//       const sMin = hhmmToMin(r.Debut);
-//       const eMin = hhmmToMin(r.Fin);
-//       if (sMin != null && eMin != null) {
-//         selectedForDay.push({
-//           row: r,
-//           dateInt: dayInt,
-//           startMin: sMin,
-//           endMin: eMin,
-//         });
-//         selectedByDay.set(dayInt, selectedForDay);
-//         alreadyPlaced.add(r.__uuid);
-//       }
-//     }
-//   }
-
-//   return selectedByDay;
-// }
-
-      /**
-       * Mélange et retourne une *nouvelle* copie du tableau.
-       */
+      // Mélange et retourne une *nouvelle* copie du tableau.
       function shuffleArray(arr) {
         const a = arr.slice();
         shuffleArrayInPlace(a);
         return a;
       }
 
-      /**
-       * Mélange *en place* (Fisher–Yates).
-       */
+      // Mélange *en place* (Fisher–Yates).
       function shuffleArrayInPlace(a) {
         for (let i = a.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -7537,326 +7546,159 @@ function slotKey(dayInt, slot) {
         return a;
       }
 
+      // Application du programme proposé sur df
+      function applyProgramToDf(selectedByDay, simulate = false) {
+        const dateByUUID = new Map();
+        const pauseRows = []; // <- lignes de pauses à ajouter telles quelles
 
-      // function applyProgramToDf(selectedByDay, simulate=false) {
-      //   // Aplatir selectedByDay en uuid -> dateInt
-      //   const dateByUUID = new Map();
+        for (const [dayInt, slots] of selectedByDay.entries()) {
+          for (const slot of slots) {
+            const r = slot.row;
+            if (!r) continue;
 
-      //   for (const [dayInt, slots] of selectedByDay.entries()) {
-      //     for (const slot of slots) {
-      //       const r = slot.row;
-      //       if (!r || !r.__uuid) continue;
-      //       // On force la date choisie par le moteur pour cette activité
-      //       dateByUUID.set(r.__uuid, dayInt);
-      //     }
-      //   }
+            // Slot décoché -> on ignore tout (spectacle ou pause)
+            const key = slotKey(dayInt, slot);
+            if (excludedKeys.has(key)) continue;
 
-      //   if (!dateByUUID.size) {
-      //     return 0;
-      //   }
+            // PAUSE : on l'ajoutera telle quelle au df
+            if (activitesAPI?.estPause?.(r)) {
+              pauseRows.push(r);
+              continue;
+            }
 
-      //   let addedCount = 0;
+            // SPECTACLE : comme avant, on prépare juste le changement de Date
+            if (!r.__uuid) continue;
 
-      //   if (!simulate) {
-      //     ctx.mutateDf?.((rows) => {
-      //       const src = rows || [];
-
-      //       const next = src.map((r) => {
-      //         if (!r || !r.__uuid) return r;
-
-      //         const newDate = dateByUUID.get(r.__uuid);
-      //         if (!newDate) return r; // cette row n'a pas été sélectionnée
-
-      //         // Si la date est déjà la même, on ne compte rien
-      //         if (Number(r.Date || 0) === Number(newDate)) {
-      //           return r;
-      //         }
-
-      //         addedCount++;
-
-      //         return {
-      //           ...r,
-      //           Date: newDate
-      //         };
-      //       });
-
-      //       return sortDf(next);
-      //     });          
-      //   } 
-        
-      //   else {
-      //     const src = ctx.df || [];
-      //     for (const r of src) {
-      //       if (!r || !r.__uuid) continue;
-
-      //       const newDate = dateByUUID.get(r.__uuid);
-      //       if (!newDate) continue; // cette row n'a pas été sélectionnée
-
-      //       // Si la date est déjà la même, on ne compte rien
-      //       if (Number(r.Date || 0) === Number(newDate)) {
-      //         continue;
-      //       }
-      //       addedCount++;
-      //     }
-      //   }
-
-      //   return addedCount;
-      // }
-
-      // function summarizeProgram(selectedByDay, addedCount) {
-      //   if (!addedCount) {
-      //     return "Aucun spectacle supplémentaire n'a pu être ajouté au programme avec ces contraintes.";
-      //   }
-
-      //   const lines = [];
-      //   lines.push(`✅ ${addedCount} spectacle(s) sélectionné(s).`);
-
-      //   // selectedByDay : Map<dateInt, [{ row, dateInt, startMin, endMin }]>
-      //   const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
-
-      //   for (const dayInt of days) {
-      //     const slots = selectedByDay.get(dayInt) || [];
-      //     if (!slots.length) continue;
-
-      //     const dayLabel = dateintToLabel(dayInt);
-      //     lines.push(`\n📅 ${dayLabel} :`);
-
-      //     // on trie par heure de début pour l’affichage
-      //     const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
-
-      //     for (const slot of sortedSlots) {
-      //       const r = slot.row || {};
-      //       const h = minutesToHHMM(slot.startMin);
-      //       const titre   = r.Activite || "(sans titre)";
-      //       const theatre = r.Theatre   || "";
-      //       const theatrePart = theatre ? ` @ ${theatre}` : "";
-      //       lines.push(`- ${h} – ${titre}${theatrePart}`);
-      //     }
-      //   }
-
-      //   return lines.join("\n");
-      // }
-function applyProgramToDf(selectedByDay, simulate = false) {
-  const dateByUUID = new Map();
-
-  for (const [dayInt, slots] of selectedByDay.entries()) {
-    for (const slot of slots) {
-      const r = slot.row;
-      if (!r || !r.__uuid) continue;
-
-      // 🔴 On saute les slots décochés
-      const key = slotKey(dayInt, slot);
-      if (excludedKeys.has(key)) continue;
-
-      dateByUUID.set(r.__uuid, dayInt);
-    }
-  }
-
-  if (!dateByUUID.size) {
-    return 0;
-  }
-
-  let addedCount = 0;
-
-  if (!simulate) {
-    ctx.mutateDf?.((rows) => {
-      const src = rows || [];
-
-      const next = src.map((r) => {
-        if (!r || !r.__uuid) return r;
-
-        const newDate = dateByUUID.get(r.__uuid);
-        if (!newDate) return r; // ligne non retenue
-
-        if (Number(r.Date || 0) === Number(newDate)) {
-          return r;
+            dateByUUID.set(r.__uuid, dayInt);
+          }
         }
 
-        addedCount++;
+        // Rien à faire
+        if (!dateByUUID.size && !pauseRows.length) {
+          return 0;
+        }
 
-        return {
-          ...r,
-          Date: newDate,
-        };
-      });
+        let addedCount = 0;
 
-      return sortDf(next);
-    });
-  } else {
-    const src = ctx.df || [];
-    for (const r of src) {
-      if (!r || !r.__uuid) continue;
-      const newDate = dateByUUID.get(r.__uuid);
-      if (!newDate) continue;
-      if (Number(r.Date || 0) === Number(newDate)) continue;
-      addedCount++;
-    }
-  }
+        if (!simulate) {
+          ctx.mutateDf?.((rows) => {
+            const src = rows || [];
 
-  return addedCount;
-}
+            // 1) Comportement d'origine : recaler Date des lignes existantes
+            const next = src.map((r) => {
+              if (!r || !r.__uuid) return r;
 
-function summarizeProgram(selectedByDay, addedCount) {
-  if (!addedCount) {
-    return `<p>Aucun spectacle supplémentaire n'a pu être ajouté au programme avec ces contraintes.</p>`;
-  }
+              const newDate = dateByUUID.get(r.__uuid);
+              if (!newDate) return r; // ligne non retenue
 
-  const parts = [];
-  parts.push(`<p>✅ ${addedCount} spectacle(s) sélectionné(s).</p>`);
+              if (Number(r.Date || 0) === Number(newDate)) {
+                return r; // déjà à la bonne date
+              }
 
-  const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
+              addedCount++;
 
-  for (const dayInt of days) {
-    const slots = selectedByDay.get(dayInt) || [];
-    if (!slots.length) continue;
+              return {
+                ...r,
+                Date: newDate,
+              };
+            });
 
-    const dayLabel = dateintToLabel(dayInt);
-    parts.push(`<h4 class="prog-day">📅 ${dayLabel}</h4>`);
-    parts.push(`<ul class="prog-day-list">`);
-
-    // tri par heure
-    const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
-
-    for (const slot of sortedSlots) {
-      const r = slot.row || {};
-      const h = minutesToHHMM(slot.startMin);
-      const titre   = r.Activite || "(sans titre)";
-      const theatre = r.Theatre   || "";
-      const theatrePart = theatre ? ` <span class="prog-theatre">@ ${escapeHtml(theatre)}</span>` : "";
-      const href    = r.Hyperlien || null;
-
-      const key     = slotKey(dayInt, slot);
-      const isExcluded = excludedKeys.has(key);
-      const checkedAttr = isExcluded ? "" : " checked";
-
-      const titleHtml = href
-        ? `<a href="${href}" target="_blank" rel="noopener" class="prog-link">${escapeHtml(titre)}</a>`
-        : `<span class="prog-title">${escapeHtml(titre)}</span>`;
-
-      parts.push(`
-        <li class="prog-row" data-slot-key="${key}">
-          <label class="prog-toggle-wrap">
-            <input type="checkbox" class="prog-toggle-input"${checkedAttr}>
-            <span class="prog-toggle-ui"></span>
-          </label>
-          <div class="prog-main">
-            <span class="prog-time">${h}</span>
-            ${titleHtml}${theatrePart}
-          </div>
-        </li>
-      `);
-    }
-
-    parts.push(`</ul>`);
-  }
-
-  return parts.join("\n");
-}
-
-// petit helper pour éviter les surprises dans innerHTML
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function renderProgramPreview(selectedByDay, containerEl) {
-  if (!containerEl) return;
-
-  // On compte le nombre total de slots
-  let total = 0;
-  for (const slots of selectedByDay.values()) {
-    total += (slots?.length || 0);
-  }
-
-  if (!total) {
-    containerEl.innerHTML = `
-      <p>Aucun spectacle supplémentaire n'a pu être ajouté au programme avec ces contraintes.</p>
-    `;
-    return;
-  }
-
-  const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
-
-  let html = '';
-  html += `<p>✅ ${total} spectacle(s) sélectionné(s).</p>`;
-
-  html += `<div class="prog-preview">`;
-
-  for (const dayInt of days) {
-    const slots = selectedByDay.get(dayInt) || [];
-    if (!slots.length) continue;
-
-    const dayLabel = dateintToLabel(dayInt);
-    html += `<div class="prog-day-block">`;
-    html += `<h4 class="prog-day-title">📅 ${dayLabel}</h4>`;
-
-    // Tri par heure de début
-    const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
-
-    html += `<ul class="prog-day-list">`;
-    for (const slot of sortedSlots) {
-      const r = slot.row || {};
-      const h = minutesToHHMM(slot.startMin);
-      const titre   = r.Activite || "(sans titre)";
-      const theatre = r.Theatre   || "";
-      const theatrePart = theatre ? ` @ ${theatre}` : "";
-      const url = r.Hyperlien || null;
-      const uuid = r.__uuid || '';
-
-      html += `
-        <li class="prog-slot-row" data-dateint="${dayInt}" data-uuid="${uuid}">
-          <span class="prog-slot-time">${h}</span>
-          <span class="prog-slot-main">
-            ${url
-              ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="prog-slot-link">${titre}</a>`
-              : `<span class="prog-slot-title">${titre}</span>`
+            // 2) Ajouter les PAUSES comme nouvelles lignes, telles quelles
+            for (const pauseRow of pauseRows) {
+              next.push(pauseRow);
+              addedCount++;
             }
-            ${theatrePart ? `<span class="prog-slot-theatre">${theatrePart}</span>` : ''}
-          </span>
-          <button type="button" class="prog-slot-remove" title="Retirer ce spectacle">×</button>
-        </li>
-      `;
-    }
 
-    html += `</ul>`;
-    html += `</div>`;
-  }
+            return sortDf(next);
+          });
+        } else {
+          // MODE SIMULATION : on compte sans modifier
 
-  html += `</div>`;
+          const src = ctx.df || [];
+          for (const r of src) {
+            if (!r || !r.__uuid) continue;
+            const newDate = dateByUUID.get(r.__uuid);
+            if (!newDate) continue;
+            if (Number(r.Date || 0) === Number(newDate)) continue;
+            addedCount++;
+          }
 
-  containerEl.innerHTML = html;
+          // + une entrée par pause ajoutée
+          addedCount += pauseRows.length;
+        }
 
-  // Wiring du bouton "×" pour retirer une ligne
-  containerEl.querySelectorAll('.prog-slot-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const li = btn.closest('.prog-slot-row');
-      if (!li) return;
-      const dateInt = Number(li.dataset.dateint);
-      const uuid    = li.dataset.uuid;
-
-      if (!dateInt || !uuid) return;
-
-      const slots = selectedByDay.get(dateInt);
-      if (!slots || !slots.length) return;
-
-      // on filtre le slot correspondant à ce uuid
-      const remaining = slots.filter(s => s?.row?.__uuid !== uuid);
-      if (remaining.length) {
-        selectedByDay.set(dateInt, remaining);
-      } else {
-        selectedByDay.delete(dateInt);
+        return addedCount;
       }
 
-      // re-render
-      renderProgramPreview(selectedByDay, containerEl);
-    });
-  });
-}
+      // Présentation du programme proposé
+      function summarizeProgram(selectedByDay, addedCount) {
+        if (!addedCount) {
+          return `<p>Aucune activité supplémentaire ne peut être proposée avec ces hypothèses.</p>`;
+        }
 
+        const parts = [];
+        parts.push((addedCount == 1) ? `<p>✅ ${addedCount} nouvelle activité sélectionnée:</p>` : `<p>✅ ${addedCount} nouvelles activités sélectionnées:</p>` );
+
+        const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
+
+        for (const dayInt of days) {
+          const slots = selectedByDay.get(dayInt) || [];
+          if (!slots.length) continue;
+
+          const dayLabel = dateintToLabel(dayInt);
+          parts.push(`<h4 class="prog-day">📅 ${dayLabel}</h4>`);
+          parts.push(`<ul class="prog-day-list">`);
+
+          // tri par heure
+          const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
+
+          for (const slot of sortedSlots) {
+            const r = slot.row || {};
+            const h = mmToHHhMM(slot.startMin);
+            const titre   = r.Activite || "(sans titre)";
+            const theatre = r.Theatre   || "";
+            const theatrePart = theatre ? ` <span class="prog-theatre">@ ${escapeHtml(theatre)}</span>` : "";
+            const href    = r.Hyperlien || null;
+
+            const key     = slotKey(dayInt, slot);
+            const isExcluded = excludedKeys.has(key);
+            const checkedAttr = isExcluded ? "" : " checked";
+
+            const titleHtml = href
+              ? `<a href="${href}" target="_blank" rel="noopener" class="prog-link">${escapeHtml(titre)}</a>`
+              : `<span class="prog-title">${escapeHtml(titre)}</span>`;
+
+            parts.push(`
+              <li class="prog-row" data-slot-key="${key}">
+                <label class="prog-toggle-wrap">
+                  <input type="checkbox" class="prog-toggle-input"${checkedAttr}>
+                  <span class="prog-toggle-ui"></span>
+                </label>
+                <div class="prog-main">
+                  <span class="prog-time">${h}</span>
+                  ${titleHtml}${theatrePart}
+                </div>
+              </li>
+            `);
+          }
+
+          parts.push(`</ul>`);
+        }
+
+        return parts.join("\n");
+      }
+
+      // helper pour éviter les surprises dans innerHTML
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      // Génération d'un proposition de programme
       function genProgram() {
         clearError();
         elRespBox.hidden = false;
@@ -7882,6 +7724,7 @@ function renderProgramPreview(selectedByDay, containerEl) {
         }
       }
 
+      // Application du programme proposé
       function applyProgram() {
         if (progError) return;
 

@@ -82,22 +82,19 @@ export function pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
 
 // minutes -> "HHhMM"
 export function mmToHHhMM(mins) {
-//   const mm = Math.max(0, Math.min(MAX_DAY, Math.floor(m ?? 0)));
-//   const hh = Math.floor(mm / 60);
-//   const mi = mm % 60;
-//   return `${String(hh).padStart(2, '0')}h${String(mi).padStart(2, '0')}`;
-// }
   const m = Math.max(0, Number(mins) || 0);
   const h = Math.floor(m / 60);
   const mm = m % 60;
   return `${h}h${pad2(mm)}`;
 }
 
+// "HHhMM" -> minutes
 export function mmFromHHhMM(s) {
   const m = /(\d{1,2})h(\d{2})/i.exec(String(s||''));
   return m ? (+m[1])*60 + (+m[2]) : null;
 }
 
+// minutes -> "HhMM"
 export function mmToHhmm(total) {
   const t = Math.max(0, Number(total) || 0);
   const h = Math.floor(t / 60), mm = t % 60;
