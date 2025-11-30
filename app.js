@@ -7169,7 +7169,7 @@ function openSheetAssistantProgrammation() {
         //    - filtrées par fenêtre horaire
         //
         // La compatibilité Session / Relâche / période (date_min / date_max)
-        // est gérée ensuite dans buildProgram via activitesAPI.estActiviteProgrammableADate.
+        // est gérée ensuite dans buildProgram via activitesAPI.estActiviteValideADate.
         //
         return rows;
       }
@@ -7239,8 +7239,8 @@ function openSheetAssistantProgrammation() {
             // liste des dates possibles
             const possibleDates = [];
             for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
-              if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
-                if (!activitesAPI.estActiviteProgrammableADate(r, d)) continue;
+              if (typeof activitesAPI?.estActiviteValideADate === "function") {
+                if (!activitesAPI.estActiviteValideADate(r, d)) continue;
               }
               possibleDates.push(d);
             }
@@ -7333,7 +7333,7 @@ function openSheetAssistantProgrammation() {
               if (s.endMin > lastEnd) lastEnd = s.endMin;
             }
           }
-          const slotStart = Math.max(lastEnd + MARGE, winStart);
+          const slotStart = Math.min(Math.max(lastEnd + MARGE, winStart), winEnd);
 
           const slotEnd = slotStart + DUREE_REPAS;
 
@@ -7366,48 +7366,6 @@ function openSheetAssistantProgrammation() {
           return { startMin: slotStart, endMin: slotEnd };
         }
 
-        // helper pour remplir une plage horaire (matin/aprem/soir)
-        // function fillSegmentForDay(dateInt, segmentStart, segmentEnd, dayCandidates, busySlots, selectedForDay) {
-        //   if (segmentEnd <= segmentStart) return;
-
-        //   for (const r of dayCandidates) {
-        //     if (!r || !r.__uuid) continue;
-        //     if (usedUUID.has(r.__uuid)) continue;
-
-        //     let sMin = hmStrToMinutes(r.Debut);
-        //     let eMin = hmStrToMinutes(r.Fin);
-        //     [sMin, eMin] = normalizeStartEnd(sMin, eMin);
-        //     if (sMin == null || eMin == null) continue;
-
-        //     // doit être dans la plage
-        //     if (sMin < segmentStart || eMin > segmentEnd) continue;
-
-        //     if (selectedForDay.length >= maxPerDay) break;
-
-        //     let conflict = false;
-        //     for (const bs of busySlots) {
-        //       if (slotsConflict(sMin, eMin, bs.startMin, bs.endMin, GAP)) {
-        //         conflict = true; break;
-        //       }
-        //     }
-        //     if (conflict) continue;
-
-        //     for (const sl of selectedForDay) {
-        //       if (slotsConflict(sMin, eMin, sl.startMin, sl.endMin, GAP)) {
-        //         conflict = true; break;
-        //       }
-        //     }
-        //     if (conflict) continue;
-
-        //     // OK on place
-        //     selectedForDay.push({ row: r, dateInt, startMin: sMin, endMin: eMin });
-        //     busySlots.push({ startMin: sMin, endMin: eMin });
-        //     busySlots.sort((a, b) => a.startMin - b.startMin);
-        //     usedUUID.add(r.__uuid);
-
-        //     if (selectedForDay.length >= maxPerDay) break;
-        //   }
-        // }
       function fillSegmentForDay(dateInt, segmentStart, segmentEnd, dayCandidates, busySlots, selectedForDay) {
         const hasUpperBound = Number.isFinite(segmentEnd);  // <- nouveau
 
@@ -7468,8 +7426,8 @@ function openSheetAssistantProgrammation() {
           const dayCandidates = rawCandidates.filter(r => {
             if (!r || !r.__uuid) return false;
             if (usedUUID.has(r.__uuid)) return false;
-            if (typeof activitesAPI?.estActiviteProgrammableADate === "function") {
-              if (!activitesAPI.estActiviteProgrammableADate(r, d)) return false;
+            if (typeof activitesAPI?.estActiviteValideADate === "function") {
+              if (!activitesAPI.estActiviteValideADate(r, d)) return false;
             }
 
             let sMin = hmStrToMinutes(r.Debut);
@@ -7741,22 +7699,22 @@ function openSheetAssistantProgrammation() {
       btnApply.addEventListener("click", applyProgram);
       btnCancel.addEventListener("click", () => close());
 
-elResp.addEventListener('change', (e) => {
-  const input = e.target.closest('.prog-toggle-input');
-  if (!input) return;
+      elResp.addEventListener('change', (e) => {
+        const input = e.target.closest('.prog-toggle-input');
+        if (!input) return;
 
-  const li = input.closest('.prog-row');
-  if (!li) return;
+        const li = input.closest('.prog-row');
+        if (!li) return;
 
-  const key = li.dataset.slotKey;
-  if (!key) return;
+        const key = li.dataset.slotKey;
+        if (!key) return;
 
-  if (input.checked) {
-    excludedKeys.delete(key);
-  } else {
-    excludedKeys.add(key);
-  }
-});
+        if (input.checked) {
+          excludedKeys.delete(key);
+        } else {
+          excludedKeys.add(key);
+        }
+      });
 
       elReq.addEventListener("keydown", (ev) => {
         if (ev.key === "Escape") {

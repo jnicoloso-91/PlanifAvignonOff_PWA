@@ -289,15 +289,16 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
-     * Renvoie true si une activité est programmable 
+     * Renvoie true si une activité est "potentiellement" programmable 
      * (i.e. non en relâche et dans la période de validité) pour la journée `dateRef` (AAAAMMJJ).
+     * Cela ne verifie pas la compatibilité avec les activités déjà programmées
      *
      * @param {object} activite - activité
      * @param {number} dateRef - entier AAAAMMJJ
      * @returns {boolean}
      */
-    estActiviteProgrammableADate(activite, dateRef) {
-      return _estActiviteProgrammableADate(activite, dateRef);
+    estActiviteValideADate(activite, dateRef) {
+      return _estActiviteValideADate(activite, dateRef);
     },
 
     /**
@@ -820,20 +821,21 @@ function _estActiviteReservee(row) {
 };
 
 /**
- * Renvoie true si une activité est programmable 
+ * Renvoie true si une activité est "potentiellement" programmable 
  * (i.e. non en relâche et dans la période de validité) pour la journée `dateRef` (AAAAMMJJ).
+ * Cela ne verifie pas la compatibilité avec les activités déjà programmées
  *
  * @param {object} activite - activité
  * @param {number} dateRef - entier AAAAMMJJ
  * @returns {boolean}
  */
-function _estActiviteProgrammableADate(activite, dateRef) {
+function _estActiviteValideADate(activite, dateRef) {
   return _estDateProgrammable(dateRef, activite.Session, activite.Relache) && _estHeureValide(activite.Debut) && _estDureeValide(richValueGetValue(activite.Duree));
 }
 
 
 /**
- * Renvoie true s'il existe AU MOINS une activité programmable
+ * Renvoie true s'il existe AU MOINS une activité programmable à une donnée (dateRef)
  * (i.e. non en relâche et dans la période de validité) pour la journée `dateRef` (AAAAMMJJ).
  *
  * @param {Array<object>} activitesNonProgrammees - liste des activités non programmées
@@ -1487,7 +1489,7 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
   const nonProgrammees = _getActivitesNonProgrammees(_ctx?.df); 
 
   for (const row of nonProgrammees) {
-    if (_estActiviteProgrammableADate(row, dateRef)) {
+    if (_estActiviteValideADate(row, dateRef)) {
       const nouvelleLigne = { ...row };
       delete nouvelleLigne.Debut_dt;
       delete nouvelleLigne.Duree_dt;
