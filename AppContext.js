@@ -317,42 +317,6 @@ export class AppContext {
     return this.#meta[key] ?? defaultValue;
   }
 
-  // setMetaParam(key, value) {
-  //   this.#withHistory('meta','setMeta', () => {
-  //     if (!this.#meta || typeof this.#meta !== 'object') {
-  //       this.#meta = {};
-  //     }
-
-  //     // Évite les writes inutiles
-  //     if (this.#meta[key] === value) return;
-
-  //     this.#meta[key] = value;
-  //     this.#dirty.meta = true;
-  //     this.#em.emit('meta:changed', { reason: 'patch' });
-  //   });
-  // }
-
-  // updMetaParams(patch = {}) {
-  //   this.#withHistory('meta','setMeta', () => {
-  //     if (!this.#meta || typeof this.#meta !== 'object') {
-  //       this.#meta = {};
-  //     }
-
-  //     let changed = false;
-  //     for (const [k, v] of Object.entries(patch)) {
-  //       if (this.#meta[k] !== v) {
-  //         this.#meta[k] = v;
-  //         changed = true;
-  //       }
-  //     }
-
-  //     if (changed) {
-  //       this.#dirty.meta = true;
-  //       // this.saveDebounced?.();
-  //     }
-  //     this.#em.emit('meta:changed', { reason: 'patch' });
-  //   });
-  // }
   setMetaParam(key, value) {
     this.setMeta({ [key]: value });
   }
@@ -372,9 +336,6 @@ export class AppContext {
 
   // Historique
   #em = new Emitter();
-  // #undo = [];
-  // #redo = [];
-  // #inAction = null;     // { label, baseSnapshot } pour coalescing
   #undo = {};
   #redo = {};
   #inAction = {}; // domain -> { label, baseSnapshot }
@@ -397,8 +358,6 @@ export class AppContext {
   #makeDomainSnapshot(domain){
     if (domain === 'df') return { df: this.#df.slice(), ui: captureUiStateFromGrids(), };
     if (domain === 'carnet') return { carnet: this.#carnet.slice(), ui: captureUiStateFromGrids(), };
-    // if (domain === 'df') return { df: this.#df.slice() };
-    // if (domain === 'carnet') return { carnet: this.#carnet.slice() };
     if (domain === 'meta')   return { meta: { ...(this.#meta||{}) } };
     if (domain === 'ui')   return {  };
 
@@ -408,8 +367,6 @@ export class AppContext {
   #restoreDomainSnapshot(domain, snap){
     if (domain === 'df'     && snap.df)     { this.#df = snap.df.slice(); this.#restoreUIStateToGrids(snap); }
     if (domain === 'carnet' && snap.carnet) { this.#carnet = snap.carnet.slice(); this.#restoreUIStateToGrids(snap); }
-    // if (domain === 'df'     && snap.df)     { this.#df = snap.df.slice(); }
-    // if (domain === 'carnet' && snap.carnet) { this.#carnet = snap.carnet.slice(); }
     if (domain === 'meta'   && snap.meta)   { this.#meta = { ...(snap.meta||{}) }; }
 
     // émettre les events

@@ -9,9 +9,8 @@ import {
   safeDateint, 
   toDateint,
   dateToDateint,
-  hmStrToMinutes,
+  mmFromHHhMM,
   mmToHHhMM,
-  mmToHhmm,
   isoDateToLocalDate,
   localDateToIsoDate,
   recalcFinForAll,
@@ -6999,14 +6998,14 @@ function openSheetAssistantProgrammation() {
 
       // Conversion de constraints.debut_min en minutes
       function debutMinToMinutes(debut_min) {
-        return debut_min ? hmStrToMinutes(debut_min) : null;
+        return debut_min ? mmFromHHhMM(debut_min) : null;
       }
 
       // Conversion de constraints.fin_max en minutes
       // Par convention constraints.fin_max à "00:00" signifie pas de contrainte de fin donc null converti en minutes
       function finMaxToMinutes(fin_max) {
         return fin_max ? 
-        (hmStrToMinutes(fin_max) !== 0) ? hmStrToMinutes(fin_max) : null 
+        (mmFromHHhMM(fin_max) !== 0) ? mmFromHHhMM(fin_max) : null 
         : null; 
       }
 
@@ -7037,8 +7036,8 @@ function openSheetAssistantProgrammation() {
         // Application marge
         const A1 = s1 - gap;
         const A2 = e1 + gap;
-        const B1 = s2 - gap;
-        const B2 = e2 + gap;
+        const B1 = s2;
+        const B2 = e2;
 
         return !(A2 <= B1 || B2 <= A1); // overlap avec marge
       }
@@ -7091,19 +7090,12 @@ function openSheetAssistantProgrammation() {
               if (node?.data) tmp.push(node.data);
             });
             rows = tmp;
-          } else if (typeof activitesAPI?.getActivitesNonProgrammees === "function") {
-            rows = activitesAPI.getActivitesNonProgrammees(df);
           } else {
-            // fallback minimal : Date null => non programmées
-            rows = df.filter((r) => r && (r.Date == null || r.Date === 0));
+            rows = activitesAPI.getActivitesNonProgrammees(df);
           }
         } else {
           // Pas de "filtre grille" => juste la liste des non programmées
-          if (typeof activitesAPI?.getActivitesNonProgrammees === "function") {
-            rows = activitesAPI.getActivitesNonProgrammees(df);
-          } else {
-            rows = df.filter((r) => r && (r.Date == null || r.Date === 0));
-          }
+          rows = activitesAPI.getActivitesNonProgrammees(df);
         }
 
         //
@@ -7149,8 +7141,8 @@ function openSheetAssistantProgrammation() {
 
         if (minMinutes != null || maxMinutes != null) {
           rows = rows.filter((r) => {
-            let sMin = hmStrToMinutes(r.Debut);
-            let eMin = hmStrToMinutes(r.Fin);
+            let sMin = mmFromHHhMM(r.Debut);
+            let eMin = mmFromHHhMM(r.Fin);
             [sMin, eMin] = normalizeStartEnd(sMin, eMin);
             if (sMin == null || eMin == null) return false;
 
@@ -7162,14 +7154,11 @@ function openSheetAssistantProgrammation() {
         }
 
         //
-        // 4) C'est tout pour getCandidateRows :
+        // 4) on ne garde que les programmables :
         //    - Activites non programmées
         //    - éventuellement filtrées par la grille `grid-non-programmees`
         //    - filtrées par Style via les mots-clés
         //    - filtrées par fenêtre horaire
-        //
-        // La compatibilité Session / Relâche / période (date_min / date_max)
-        // est gérée ensuite dans buildProgram via activitesAPI.estActiviteValideADate.
         //
         return rows;
       }
@@ -7198,7 +7187,6 @@ function openSheetAssistantProgrammation() {
 
         // 1) Candidats issus des filtres "classiques"
         let rawCandidates = getCandidateRows(constraints) || [];
-        rawCandidates = rawCandidates.filter(r => r && !r.Prog);   // on ne reprogramme pas ceux déjà Prog
         rawCandidates = shuffleArray(rawCandidates);               // variabilité
 
         // 2) Slots déjà programmés (prog existant)
@@ -7210,8 +7198,8 @@ function openSheetAssistantProgrammation() {
           const dInt = r.Date != null ? Number(r.Date) : NaN;
           if (!dInt || isNaN(dInt)) continue;
 
-          let sMin = hmStrToMinutes(r.Debut);
-          let eMin = hmStrToMinutes(r.Fin);
+          let sMin = mmFromHHhMM(r.Debut);
+          let eMin = mmFromHHhMM(r.Fin);
           [sMin, eMin] = normalizeStartEnd(sMin, eMin);
           if (sMin == null || eMin == null) continue;
 
@@ -7228,8 +7216,8 @@ function openSheetAssistantProgrammation() {
           for (const r of rawCandidates) {
             if (!r) continue;
 
-            let sMin = hmStrToMinutes(r.Debut);
-            let eMin = hmStrToMinutes(r.Fin);
+            let sMin = mmFromHHhMM(r.Debut);
+            let eMin = mmFromHHhMM(r.Fin);
             [sMin, eMin] = normalizeStartEnd(sMin, eMin);
             if (sMin == null || eMin == null) continue;
 
@@ -7239,9 +7227,7 @@ function openSheetAssistantProgrammation() {
             // liste des dates possibles
             const possibleDates = [];
             for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
-              if (typeof activitesAPI?.estActiviteValideADate === "function") {
-                if (!activitesAPI.estActiviteValideADate(r, d)) continue;
-              }
+              if (!activitesAPI.estActiviteProgrammableADate(r, d, {activitesProgrammees:progRows, marge:GAP})) continue;
               possibleDates.push(d);
             }
             if (!possibleDates.length) continue;
@@ -7297,14 +7283,13 @@ function openSheetAssistantProgrammation() {
         const usedUUID = new Set();   // pour ne pas utiliser la même activité plusieurs fois
 
         const meta = ctx.getMeta?.() || window.ctx?.meta || {};
-        const MARGE       = Math.max(0, Number(meta.MARGE       ?? GAP)  | 0);
         const DUREE_REPAS = Math.max(0, Number(meta.DUREE_REPAS ?? 60)   | 0);
 
         // Fenêtres de début de repas (en minutes)
-        const DEJ_START_MIN = 12 * 60;  // 12:00
-        const DEJ_START_MAX = 14 * 60;  // 14:00
-        const DIN_START_MIN = 19 * 60;  // 19:00
-        const DIN_START_MAX = 21 * 60;  // 21:00
+        const DEJ_DEBUT_MIN = 12 * 60;  // 12:00
+        const DEJ_DEBUT_MAX = 14 * 60;  // 14:00
+        const DIN_DEBUT_MIN = 19 * 60;  // 19:00
+        const DIN_DEBUT_MAX = 21 * 60;  // 21:00
 
         const FULL_START = minMinutes != null ? minMinutes : 0;
         const FULL_END   = maxMinutes; // => maxMinutes == null signifie : les activités du soir peuvent déborder 24h00 (remplace maxMinutes != null ? maxMinutes : (24 * 60);)
@@ -7312,8 +7297,8 @@ function openSheetAssistantProgrammation() {
         // helper pour ajouter une "Pause déjeuner" / "Pause dîner" dans selected + busySlots
         function addMealPauseForDay(selectedForDay, busySlots, dateInt, type) {
           const isDej = (type === 'déjeuner');
-          const winStart = isDej ? DEJ_START_MIN : DIN_START_MIN;
-          const winEnd   = isDej ? DEJ_START_MAX : DIN_START_MAX;
+          const winStart = isDej ? DEJ_DEBUT_MIN : DIN_DEBUT_MIN;
+          const winEnd   = isDej ? DEJ_DEBUT_MAX : DIN_DEBUT_MAX;
 
           // 🛑 (1) Vérifier dans le df s'il existe déjà une pause de ce type pour ce jour
           const df = ctx.df || [];
@@ -7328,12 +7313,22 @@ function openSheetAssistantProgrammation() {
           }
 
           let lastEnd = 0;
-          if (busySlots.length) {
-            for (const s of busySlots) {
+          // if (busySlots.length) {
+          //   for (const s of busySlots) {
+          //     if (s.endMin > lastEnd) lastEnd = s.endMin;
+          //   }
+          // }
+          if (selectedForDay.length) {
+            for (const s of selectedForDay) {
               if (s.endMin > lastEnd) lastEnd = s.endMin;
             }
           }
-          const slotStart = Math.min(Math.max(lastEnd + MARGE, winStart), winEnd);
+
+          const pausePlageDebut = activitesAPI.getPausePlageDebut(dateInt, type, {activitesProgrammees:progRows, marge:GAP})
+          if (!pausePlageDebut) return null;
+
+          const slotStart = Math.max(lastEnd + GAP, pausePlageDebut[0]);
+          if (slotStart > pausePlageDebut[1]) return null;
 
           const slotEnd = slotStart + DUREE_REPAS;
 
@@ -7366,59 +7361,58 @@ function openSheetAssistantProgrammation() {
           return { startMin: slotStart, endMin: slotEnd };
         }
 
-      function fillSegmentForDay(dateInt, segmentStart, segmentEnd, dayCandidates, busySlots, selectedForDay) {
-        const hasUpperBound = Number.isFinite(segmentEnd);  // <- nouveau
+        function fillSegmentForDay(dateInt, segmentStart, segmentEnd, dayCandidates, busySlots, selectedForDay) {
+          const hasUpperBound = Number.isFinite(segmentEnd);  // <- nouveau
 
-        if (hasUpperBound && segmentEnd <= segmentStart) return;
+          if (hasUpperBound && segmentEnd <= segmentStart) return;
 
-        for (const r of dayCandidates) {
-          if (!r || !r.__uuid) continue;
-          if (usedUUID.has(r.__uuid)) continue;
+          for (const r of dayCandidates) {
+            if (!r || !r.__uuid) continue;
+            if (usedUUID.has(r.__uuid)) continue;
 
-          let sMin = hmStrToMinutes(r.Debut);
-          let eMin = hmStrToMinutes(r.Fin);
-          [sMin, eMin] = normalizeStartEnd(sMin, eMin);
-          if (sMin == null || eMin == null) continue;
+            let sMin = mmFromHHhMM(r.Debut);
+            let eMin = mmFromHHhMM(r.Fin);
+            [sMin, eMin] = normalizeStartEnd(sMin, eMin);
+            if (sMin == null || eMin == null) continue;
 
-          // doit être dans la plage
-          if (sMin < segmentStart) continue;
-          if (hasUpperBound && eMin > segmentEnd) continue;  // <- borne haute uniquement si définie
+            // doit être dans la plage
+            if (sMin < segmentStart) continue;
+            if (hasUpperBound && eMin > segmentEnd) continue;  // <- borne haute uniquement si définie
 
-          // if (selectedForDay.length >= maxPerDay) break;
-          let nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
-          if (nbSpectacles >= maxPerDay) {
-            break;
-          }
-
-          let conflict = false;
-          for (const bs of busySlots) {
-            if (slotsConflict(sMin, eMin, bs.startMin, bs.endMin, GAP)) {
-              conflict = true; break;
+            // if (selectedForDay.length >= maxPerDay) break;
+            let nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
+            if (nbSpectacles >= maxPerDay) {
+              break;
             }
-          }
-          if (conflict) continue;
 
-          for (const sl of selectedForDay) {
-            if (slotsConflict(sMin, eMin, sl.startMin, sl.endMin, GAP)) {
-              conflict = true; break;
+            let conflict = false;
+            for (const bs of busySlots) {
+              if (slotsConflict(sMin, eMin, bs.startMin, bs.endMin, GAP)) {
+                conflict = true; break;
+              }
             }
-          }
-          if (conflict) continue;
+            if (conflict) continue;
 
-          // OK on place
-          selectedForDay.push({ row: r, dateInt, startMin: sMin, endMin: eMin });
-          busySlots.push({ startMin: sMin, endMin: eMin });
-          busySlots.sort((a, b) => a.startMin - b.startMin);
-          usedUUID.add(r.__uuid);
+            for (const sl of selectedForDay) {
+              if (slotsConflict(sMin, eMin, sl.startMin, sl.endMin, GAP)) {
+                conflict = true; break;
+              }
+            }
+            if (conflict) continue;
 
-          // if (selectedForDay.length >= maxPerDay) break;
-          nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
-          if (nbSpectacles >= maxPerDay) {
-            break;
+            // OK on place
+            selectedForDay.push({ row: r, dateInt, startMin: sMin, endMin: eMin });
+            busySlots.push({ startMin: sMin, endMin: eMin });
+            busySlots.sort((a, b) => a.startMin - b.startMin);
+            usedUUID.add(r.__uuid);
+
+            // if (selectedForDay.length >= maxPerDay) break;
+            nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
+            if (nbSpectacles >= maxPerDay) {
+              break;
+            }
           }
         }
-      }
-
 
         // Parcours jour par jour
         for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
@@ -7426,12 +7420,10 @@ function openSheetAssistantProgrammation() {
           const dayCandidates = rawCandidates.filter(r => {
             if (!r || !r.__uuid) return false;
             if (usedUUID.has(r.__uuid)) return false;
-            if (typeof activitesAPI?.estActiviteValideADate === "function") {
-              if (!activitesAPI.estActiviteValideADate(r, d)) return false;
-            }
+            if (!activitesAPI.estActiviteProgrammableADate(r, d, {activitesProgrammees:progRows, marge:GAP})) return false;
 
-            let sMin = hmStrToMinutes(r.Debut);
-            let eMin = hmStrToMinutes(r.Fin);
+            let sMin = mmFromHHhMM(r.Debut);
+            let eMin = mmFromHHhMM(r.Fin);
             [sMin, eMin] = normalizeStartEnd(sMin, eMin);
             if (sMin == null || eMin == null) return false;
 
@@ -7453,25 +7445,29 @@ function openSheetAssistantProgrammation() {
           const busySlots = [...(existingByDay.get(d) || [])].map(s => ({ ...s }))
             .sort((a, b) => a.startMin - b.startMin);
 
-          // === 1) Plage matin : de FULL_START jusqu'à (14h - MARGE)
-          const morningEnd = (FULL_END) ? Math.min(FULL_END, DEJ_START_MAX - MARGE) : DEJ_START_MAX - MARGE;
+          // === 1) Plage matin : de FULL_START jusqu'à (14h - GAP)
+          let morningEnd = (FULL_END) ? Math.min(FULL_END, DEJ_DEBUT_MAX - GAP) : DEJ_DEBUT_MAX - GAP;
+          const dejPlageDebut = activitesAPI.getPausePlageDebut(d, 'déjeuner', {activitesProgrammees:progRows, marge:GAP})
+          if (dejPlageDebut) morningEnd = Math.min(morningEnd, dejPlageDebut[1] - GAP);
           fillSegmentForDay(d, FULL_START, morningEnd, dayCandidates, busySlots, selectedForDay);
 
           // === 2) Pause déjeuner
           const dejSlot = addMealPauseForDay(selectedForDay, busySlots, d, 'déjeuner');
 
-          // début de l'aprem = fin du dej + MARGE (si dej placé)
-          const afternoonStart = dejSlot ? (dejSlot.endMin + MARGE) : morningEnd;
+          // début de l'aprem = fin du dej + GAP (si dej placé)
+          const afternoonStart = dejSlot ? (dejSlot.endMin + GAP) : morningEnd;
 
-          // === 3) Plage après-midi : jusqu'à (21h - MARGE)
-          const afternoonEnd = (FULL_END) ? Math.min(FULL_END, DIN_START_MAX - MARGE) : DIN_START_MAX - MARGE;
+          // === 3) Plage après-midi : jusqu'à (21h - GAP)
+          let afternoonEnd = (FULL_END) ? Math.min(FULL_END, DIN_DEBUT_MAX - GAP) : DIN_DEBUT_MAX - GAP;
+          const dinPlageDebut = activitesAPI.getPausePlageDebut(d, 'dîner', {activitesProgrammees:progRows, marge:GAP})
+          if (dinPlageDebut) afternoonEnd = Math.min(afternoonEnd, dinPlageDebut[1] - GAP);
           fillSegmentForDay(d, afternoonStart, afternoonEnd, dayCandidates, busySlots, selectedForDay);
 
           // === 4) Pause dîner
           const dinSlot = addMealPauseForDay(selectedForDay, busySlots, d, 'dîner');
 
-          // début de la soirée = fin du dîner + MARGE (si dîner placé)
-          const eveningStart = dinSlot ? (dinSlot.endMin + MARGE) : afternoonEnd;
+          // début de la soirée = fin du dîner + GAP (si dîner placé)
+          const eveningStart = dinSlot ? (dinSlot.endMin + GAP) : afternoonEnd;
 
           // === 5) Plage soir : [eveningStart, FULL_END]
           fillSegmentForDay(d, eveningStart, FULL_END, dayCandidates, busySlots, selectedForDay);

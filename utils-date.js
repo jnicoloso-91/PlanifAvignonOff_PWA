@@ -41,17 +41,18 @@ export function dateintToYmd(di) {
   return { y, m, d };
 }
 
-// "HHhMM" -> minutes (ex: "09h30" => 570)
-// export function hmStrToMinutes(hm) {
-//   if (!hm) return null;
-//   const m = String(hm).match(/^\s*(\d{1,2})h(\d{2})\s*$/i);
-//   if (!m) return null;
-//   const H = +m[1], M = +m[2];
-//   if (H < 0 || H > 23 || M < 0 || M > 59) return null;
-//   return H * 60 + M;
-// }
-// "10h00" ou "10:00" -> minutes
-export function hmStrToMinutes(hm) {
+export function pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
+
+// minutes -> "HHhMM"
+export function mmToHHhMM(mins) {
+  const m = Math.max(0, Number(mins) || 0);
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${h}h${pad2(mm)}`;
+}
+
+// "HHhMM" -> minutes (accepte aussi HH:MM)
+export function mmFromHHhMM(hm) {
   if (!hm) return null;
   const s = String(hm).trim().toLowerCase();
 
@@ -69,30 +70,6 @@ export function hmStrToMinutes(hm) {
 
   return h * 60 + min;
 }
-// "XhYY" -> minutes (ex: "1h20" => 80)
-export function durationStrToMinutes(s) {
-  if (!s) return null;
-  const m = String(s).match(/^\s*(\d{1,2})h(\d{2})\s*$/i);
-  if (!m) return null;
-  const H = +m[1], M = +m[2];
-  return H * 60 + M;
-}
-
-export function pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
-
-// minutes -> "HHhMM"
-export function mmToHHhMM(mins) {
-  const m = Math.max(0, Number(mins) || 0);
-  const h = Math.floor(m / 60);
-  const mm = m % 60;
-  return `${h}h${pad2(mm)}`;
-}
-
-// "HHhMM" -> minutes
-export function mmFromHHhMM(s) {
-  const m = /(\d{1,2})h(\d{2})/i.exec(String(s||''));
-  return m ? (+m[1])*60 + (+m[2]) : null;
-}
 
 // minutes -> "HhMM"
 export function mmToHhmm(total) {
@@ -101,18 +78,26 @@ export function mmToHhmm(total) {
   return `${h}h${pad2(mm)}`;
 }
 
-// Récupère à la volée les minutes depuis minuit pour une ligne
-// Priorité aux champs numériques *_dt si présents, sinon parse les chaînes "Début"/"Durée"
-export function debutMinute(row) {
-  if (Number.isFinite(row?.Debut_dt)) return row.Debut_dt;
-  if (row?.['Début']) return hmStrToMinutes(row['Début']);
-  if (row?.['Debut']) return hmStrToMinutes(row['Debut']);
+// "XhYY" -> minutes (ex: "1h20" => 80)
+export function mmFromHhMM(s) {
+  if (!s) return null;
+  const m = String(s).match(/^\s*(\d{1,2})h(\d{2})\s*$/i);
+  if (!m) return null;
+  const H = +m[1], M = +m[2];
+  return H * 60 + M;
+}
+
+// Récupère à la volée les minutes depuis minuit pour une activité
+export function heureMinute(row) {
+  // if (Number.isFinite(row?.Debut_dt)) return row.Debut_dt;
+  if (row?.['Début']) return mmFromHHhMM(row['Début']);
+  if (row?.['Debut']) return mmFromHHhMM(row['Debut']);
   return null;
 }
 export function dureeMinute(row) {
-  if (Number.isFinite(row?.Duree_dt)) return row.Duree_dt;
-  if (row?.['Durée']) return durationStrToMinutes(row['Durée']);
-  if (row?.['Duree']) return durationStrToMinutes(row['Duree']);
+  // if (Number.isFinite(row?.Duree_dt)) return row.Duree_dt;
+  if (row?.['Durée']) return mmFromHhMM(row['Durée']);
+  if (row?.['Duree']) return mmFromHhMM(row['Duree']);
   return null;
 }
 
