@@ -7227,7 +7227,8 @@ function openSheetAssistantProgrammation() {
             // liste des dates possibles
             const possibleDates = [];
             for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
-              if (!activitesAPI.estActiviteProgrammableADate(r, d, {activitesProgrammees:progRows, marge:GAP})) continue;
+              // if (!activitesAPI.estActiviteProgrammableADate(r, d, {activitesProgrammees:progRows, marge:GAP})) continue;
+              if (!activitesAPI.estActiviteValideADate(r, d)) continue;
               possibleDates.push(d);
             }
             if (!possibleDates.length) continue;
@@ -7238,7 +7239,6 @@ function openSheetAssistantProgrammation() {
               const existingForDay = existingByDay.get(d) || [];
               const selectedForDay = selectedByDay.get(d) || [];
 
-              // if (selectedForDay.length >= maxPerDay) continue;
               const nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
               if (nbSpectacles >= maxPerDay) {
                 continue;
@@ -7313,11 +7313,6 @@ function openSheetAssistantProgrammation() {
           }
 
           let lastEnd = 0;
-          // if (busySlots.length) {
-          //   for (const s of busySlots) {
-          //     if (s.endMin > lastEnd) lastEnd = s.endMin;
-          //   }
-          // }
           if (selectedForDay.length) {
             for (const s of selectedForDay) {
               if (s.endMin > lastEnd) lastEnd = s.endMin;
@@ -7420,7 +7415,8 @@ function openSheetAssistantProgrammation() {
           const dayCandidates = rawCandidates.filter(r => {
             if (!r || !r.__uuid) return false;
             if (usedUUID.has(r.__uuid)) return false;
-            if (!activitesAPI.estActiviteProgrammableADate(r, d, {activitesProgrammees:progRows, marge:GAP})) return false;
+            // if (!activitesAPI.estActiviteProgrammableADate(r, d, {activitesProgrammees:progRows, marge:GAP})) return false;
+            if (!activitesAPI.estActiviteValideADate(r, d)) return false;
 
             let sMin = mmFromHHhMM(r.Debut);
             let eMin = mmFromHHhMM(r.Fin);
