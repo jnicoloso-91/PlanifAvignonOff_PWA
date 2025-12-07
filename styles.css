@@ -1942,7 +1942,7 @@ body.lock-page-scroll {
 }
 
 /* Bouton flèche : rond, gris, intégré visuellement dans le champ */
-.ai-send-icon-btn {
+.ai-icon-btn {
   position: absolute;
   right: 0.45rem;
   bottom: 0.45rem;
@@ -1964,12 +1964,12 @@ body.lock-page-scroll {
   transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.ai-send-icon-btn:hover {
+.ai-icon-btn:hover {
   background: #d3d3d3;
   transform: translateY(-1px);
 }
 
-.ai-send-icon-btn:active {
+.ai-icon-btn:active {
   background: #c8c8c8;
   transform: translateY(0);
 }
@@ -1999,6 +1999,43 @@ body.lock-page-scroll {
 .ai-error {
   color: #b00020;
   font-size: 0.85rem;
+}
+
+.ai-chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  margin-bottom: 8px;
+}
+
+.ai-chat-message {
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+}
+
+.ai-chat-message.user {
+  background: #dce7ff;
+  align-self: flex-end;
+}
+
+.ai-chat-message.assistant {
+  background: #f3f3f3;
+}
+
+.ai-chat-message.ai-chat-semantic {
+  border-left: 3px solid #7b9cff;
+}
+
+.ai-reset-wrapper {
+  display: flex;
+  justify-content: center;     
+  gap: 1rem;
+  padding: 0.8rem;
 }
 
 /* =================================*/

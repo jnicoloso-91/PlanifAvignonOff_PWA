@@ -19,7 +19,9 @@ export const PARSED_DEFAULT = {
     Relache: null,
     Style: null,
     Orga: null,
-    Hyperlien: null
+    Hyperlien: null,
+    HyperlienBR: null,
+    Avis: null,
 };
 
 /**
@@ -322,7 +324,7 @@ export async function parseAvignonInSpecPageUrl(url, { fetcher = _fetchViaCloudF
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
   const parsed = parseAvignonInSpecPageDom(doc, url);
-  if (parsed) parsed.Hyperlien = url;
+  if (parsed) parsed[0].Hyperlien = url;
   return parsed;
 }
 
@@ -360,7 +362,29 @@ export function parseAvignonInSpecPageDom(doc, pageUrl = null) {
   // --- Hyperlien (optionnel)
   const Hyperlien = pageUrl || null;
 
-  const out = [{ ...PARSED_DEFAULT, Activite, Style, Duree, Lieu, Orga: 'In', Hyperlien }];
+  // --- 🔹 Description (bloc itemprop="description")
+  // <div itemprop="description" class="text"><div> ... </div></div>
+  const descRoot = doc.querySelector('div[itemprop="description"].text');
+  const Description = descRoot ? text(descRoot.textContent || '') : null;
+  // (si tu préfères garder le HTML riche pour plus tard : descRoot.innerHTML.trim())
+
+  // --- 🔹 Distribution (bloc .artists)
+  // <div class="artists"><p>de Lotte Reiniger et Carl Koch</p></div>
+  const artistsEl = doc.querySelector('div.artists');
+  const Distribution = artistsEl ? text(artistsEl.textContent || '') : null;
+
+  const out = [{ 
+    ...PARSED_DEFAULT, 
+    Activite, 
+    Style, 
+    Duree, 
+    Lieu, 
+    Orga: 'In', 
+    Hyperlien,
+    Description,
+    Distribution
+   }];
+
   // Si vraiment rien, renvoie null pour signaler l'échec
   if (Object.values(out).every(v => v == null)) return null;
   return out;
@@ -736,7 +760,7 @@ export async function parseAvignonOffSpecPageUrl(url, { fetcher = _fetchViaCloud
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
   const parsed = parseAvignonOffSpecPageDom(doc, url);
-  if (parsed) parsed.Hyperlien = url;
+  if (parsed) parsed[0].Hyperlien = url;
   return parsed;
 }
 
@@ -813,6 +837,80 @@ export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
 
   res.Orga = "Off";
 
+  // 🔹 Hyperlien (URL de la fiche)
+  if (url) res.Hyperlien = url;
+
+  // 🔹 Description : meta[name="description"]
+  {
+    const metaDesc = doc.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      const desc = _clean(metaDesc.getAttribute("content") || "");
+      if (desc) res.Description = desc;
+    }
+  }
+
+  // 🔹 Distribution : concatène Auteur + Equipe artistique
+  {
+    const AUTHOR_KEYWORDS = [
+      "auteur", "autrice", "auteurice", "auteur⸱ice",
+      "texte", "d'après", "d apres"
+    ];
+
+    const TEAM_KEYWORDS = [
+      "équipe artistique",
+      "équipe",
+      "distribution",
+      "interpr",          // interprètes / interprétation
+      "mise en scène",
+      "avec"
+    ];
+
+    const sections = Array.from(doc.querySelectorAll("section"));
+
+    const auteursParts = [];
+    const equipeParts  = [];
+
+    for (const section of sections) {
+      const h3 = section.querySelector(".h3");
+      if (!h3) continue;
+
+      const title = _text(h3.textContent || "").toLowerCase();
+
+      const isAuthorSection = AUTHOR_KEYWORDS.some(kw => title.includes(kw));
+      const isTeamSection   = TEAM_KEYWORDS.some(kw => title.includes(kw));
+
+      if (!isAuthorSection && !isTeamSection) continue;
+
+      const fb = section.querySelector(".fond-blanc");
+      if (!fb) continue;
+
+      const blockTxt = _text(fb.textContent || "");
+      if (!blockTxt) continue;
+
+      if (isAuthorSection) {
+        auteursParts.push(blockTxt);
+      }
+      if (isTeamSection) {
+        equipeParts.push(blockTxt);
+      }
+    }
+
+    // Construction finale du champ Distribution
+    let distrib = [];
+
+    if (auteursParts.length) {
+      distrib.push(auteursParts.join(" | "));
+    }
+
+    if (equipeParts.length) {
+      // On préfixe avec "Avec : ..." pour homogénéiser HORS In
+      distrib.push("Avec : " + equipeParts.join(" ; "));
+    }
+
+    if (distrib.length) {
+      res.Distribution = distrib.join(" | ");
+    }
+  }
   return [res];
 }
 
@@ -1232,7 +1330,7 @@ export async function parseBilletReducSpecPageUrl(url, { fetcher = _fetchViaClou
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
   const parsed = parseBilletReducSpecPageDom(doc, url);
-  if (parsed) parsed.Hyperlien = url;
+  if (parsed) parsed[0].Hyperlien = url;
   return parsed;
 }
 
@@ -1278,12 +1376,48 @@ function parseBilletReducSpecPageDom(doc) {
   });
   const Style = styleParts.length ? styleParts.join(' ') : null;
 
-  // --- Hyperlien (facultatif : on peut prendre location.href ou baseURI)
-  const Hyperlien = doc.baseURI || null;
-
   if (!Activite) return null;
 
-  return [{
+    // -----------------------------
+    // 🔹 Avis BilletRéduc
+    // -----------------------------
+    let avisNote = null;
+    const avisComments = [];
+
+    // Note globale + nb d'avis
+    const reviewsHeader = doc.querySelector('.reviews_container_header_left');
+    if (reviewsHeader) {
+      const noteSpan = reviewsHeader.querySelector('.review_note');
+      const countSpan = reviewsHeader.querySelector('.review_count');
+
+      const noteTxt = noteSpan ? _text(noteSpan.textContent || '') : '';
+      const countTxt = countSpan ? _text(countSpan.textContent || '') : '';
+
+      const combined = _text([noteTxt, countTxt].filter(Boolean).join(' '));
+      if (combined) {
+        avisNote = combined; // ex: "9/10 (35 avis)"
+      }
+    }
+
+    // Avis textuels (jusqu'à 4)
+    const reviewNodes = doc.querySelectorAll(
+      '.review_card.customer_review_card .review_card_content_desc'
+    );
+    for (const node of reviewNodes) {
+      const txt = _text(node.textContent || '');
+      if (!txt) continue;
+      avisComments.push(txt);
+      if (avisComments.length >= 4) break; // on limite à 4 avis
+    }
+
+    let Avis = null;
+    if (avisNote || avisComments.length) {
+      Avis = {
+        Note: avisNote,
+        Comments: avisComments
+      };
+    }
+    return [{
     ...PARSED_DEFAULT,
     Activite,
     Lieu,
@@ -1291,7 +1425,7 @@ function parseBilletReducSpecPageDom(doc) {
     Duree,
     Style,
     Orga: 'BilletReduc',
-    Hyperlien,
+    Avis
   }];
 }
 
@@ -1343,6 +1477,64 @@ export function parseBilletReducCollecPageDom(docOrRoot) {
   });
 
   return items;
+}
+
+// Recupère les avis Billet Reduc d'un spectacle 
+export async function getAvisBilletReduc(
+  activite,
+  { fetcher = _fetchViaCloudFlareWorker } = {}
+) {
+  if (!activite) {
+    return { avis: null, detailUrl: null };
+  }
+
+  // Construire l’URL de recherche (on encode proprement)
+  const q = encodeURIComponent(activite.trim());
+  const urlBR = `https://www.billetreduc.com/search.htm?se=${q}`;
+
+  try {
+    // 1) Page de recherche BilletRéduc
+    const resSearch = await fetcher(urlBR);
+    if (!resSearch.ok) {
+      console.warn(`HTTP ${resSearch.status} on search ${urlBR}`);
+      return { avis: null, detailUrl: null };
+    }
+
+    const htmlSearch = await resSearch.text();
+    // Debug éventuel :
+    // console.log("BilletReduc search HTML length =", htmlSearch.length);
+
+    // 👉 On PARSE TOUJOURS, même si le head contient noBot & co
+    const docSearch = new DOMParser().parseFromString(htmlSearch, "text/html");
+
+    // 2) Essayer de trouver les liens de résultats
+    const detailUrl = _findBilletReducDetailUrlFromSearchDoc(
+      docSearch,
+      urlBR,
+      activite
+    );
+
+    if (!detailUrl) {
+      console.warn(
+        "Aucun lien de fiche BilletReduc trouvé dans la page de recherche pour",
+        activite,
+        "via",
+        urlBR
+      );
+      return { avis: null, detailUrl: null };
+    }
+
+    // 3) Page de détail BilletRéduc + parse
+    const parsed = await parseBilletReducSpecPageUrl(detailUrl, { fetcher });
+    const row    = Array.isArray(parsed) ? parsed[0] : parsed;
+
+    const avis = row && row.Avis ? row.Avis : null;
+
+    return { avis, detailUrl };
+  } catch (e) {
+    console.warn("getAvisBilletReduc error for", activite, "via", urlBR, e);
+    return { avis: null, detailUrl: null };
+  }
 }
 
 /**
@@ -1561,6 +1753,12 @@ function _norm(s) {
 function _normSpaces(s) {
   // remplace NBSP, fines insécables, etc. par des spaces
   return String(s || '').replace(/[\u00A0\u2000-\u200B]/g, ' ');
+}
+
+function _text(s) {
+  return (s || "")
+    .replace(/\s+/g, " ")  // remplace tous les espaces multiples par un simple
+    .trim();               // supprime espaces en début/fin
 }
 
 const _strip = s => String(s || '').trim();
@@ -1799,6 +1997,14 @@ function _parseMonthYear(info) {
   return { mm, yyyy };
 }
 
+function _normalizeTitle(str) {
+  return String(str || "")
+    .normalize("NFD")                    // sépare les accents
+    .replace(/[\u0300-\u036f]/g, "")    // enlève les accents
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")        // tout le reste → espaces
+    .trim();
+}
 
 
 // ==== Fetchers ====
@@ -1816,6 +2022,23 @@ async function _fetchViaAllOriginsRaw(urlToFetch) {
 // Fetcher perso via worker CloudFlare 
 const PROXY = 'https://off-proxy.joel-nicoloso.workers.dev';
 
+// export async function _fetchViaCloudFlareWorker(url, options = {}) {
+//   const hasLocation = (typeof location !== "undefined");
+
+//   // En Node: hasLocation = false → on ne teste pas location.host
+//   const isExternal =
+//     /^https?:\/\//i.test(url) &&
+//     (!hasLocation || !url.includes(location.host));
+
+//   const finalUrl = isExternal
+//     ? `${PROXY}/?url=${encodeURIComponent(url)}`
+//     : url;
+
+//   const res = await fetch(finalUrl, options);
+//   if (!res.ok) throw new Error(`_fetchViaCloudFlareWorker failed ${res.status}`);
+//   return res;
+// }
+
 export async function _fetchViaCloudFlareWorker(url, options = {}) {
   const isExternal = /^https?:\/\//i.test(url) && !url.includes(location.host);
   const finalUrl = isExternal ? `${PROXY}/?url=${encodeURIComponent(url)}` : url;
@@ -1823,8 +2046,6 @@ export async function _fetchViaCloudFlareWorker(url, options = {}) {
   if (!res.ok) throw new Error(`_fetchViaCloudFlareWorker failed ${res.status}`);
   return res;
 }
-
-
 
 // ==== Helpers ProgPageOff (soumet #js-form-filtres comme le site) ====
 
@@ -2275,3 +2496,85 @@ function _parseBilletReducDetailDuree(dureeTxt) {
   return `${h}h${String(mn).padStart(2, '0')}`;
 }
 
+// ==== Helpers getAvisBilletReduc ====
+
+// Trouve une URL de page de détail à partir d'une page de recherche BilletReduc
+// function _findBilletReducDetailUrlFromSearchDoc(searchDoc, searchUrl, activite) {
+//   const base = new URL(searchUrl);
+
+//   const targetNorm = _normalizeTitle(activite);
+//   if (!targetNorm) return null;
+
+//   // Tous les liens de résultats de recherche
+//   const anchors = Array.from(
+//     searchDoc.querySelectorAll('a.gtm-select-event, a.head.gtm-select-event')
+//   );
+
+//   let bestHref = null;
+//   let bestScore = 0;
+
+//   for (const a of anchors) {
+//     const href = a.getAttribute("href");
+//     const txt = a.textContent || "";
+//     if (!href || !txt) continue;
+
+//     const tNorm = _normalizeTitle(txt);
+//     if (!tNorm) continue;
+
+//     // Score très simple : 1.0 si égalité stricte, sinon 0
+//     if (tNorm === targetNorm) {
+//       bestHref = href;
+//       bestScore = 1.0;
+//       break; // on veut le premier exact
+//     }
+//   }
+
+//   // Pas d'exact match → on peut éventuellement prendre le premier résultat
+//   if (!bestHref && anchors.length) {
+//     bestHref = anchors[0].getAttribute("href");
+//   }
+
+//   if (!bestHref) return null;
+
+//   // URL absolue
+//   const detailUrl = new URL(bestHref, base.origin).toString();
+//   return detailUrl;
+// }
+function _findBilletReducDetailUrlFromSearchDoc(searchDoc, searchUrl, activite) {
+  if (!searchDoc || !searchUrl || !activite) return null;
+
+  const base = new URL(searchUrl);
+  const targetNorm = _normalizeTitle(activite);
+  if (!targetNorm) return null;
+
+  // Tous les liens de résultats de recherche
+  const anchors = Array.from(
+    searchDoc.querySelectorAll('a.gtm-select-event, a.head.gtm-select-event')
+  );
+
+  // Aucun lien → typiquement page "désolé, nous n’avons pas..." ou noBot → on sort proprement
+  if (!anchors.length) {
+    // Optionnel, pour debug :
+    // console.warn("BilletReduc: aucun lien de résultat trouvé dans la page de recherche:", searchUrl);
+    return null;
+  }
+
+  // On cherche UNIQUEMENT un match exact sur le titre normalisé
+  for (const a of anchors) {
+    const href = a.getAttribute("href");
+    const txt  = a.textContent || "";
+    if (!href || !txt) continue;
+
+    const tNorm = _normalizeTitle(txt);
+    if (!tNorm) continue;
+
+    if (tNorm === targetNorm) {
+      // Premier match exact trouvé → on construit l'URL absolue et on s'arrête
+      const detailUrl = new URL(href, base.origin).toString();
+      return detailUrl;
+    }
+  }
+
+  // AUCUN match exact → on ne prend rien (on évite de se tromper de spectacle)
+  return null;
+}

@@ -351,6 +351,18 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
+     * Détermine si une date est valide, ie. est dans Session et pas dans Relache.
+     * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
+     * @param {string|null} sessionVal - Description des dates de session (ex: "[5-26], [5-26] lu ma", "(8,25)/07", "jours pairs", etc.)
+     * @param {string|null} relacheVal - Description des dates de relâche (grammaire identique à celle des sessions)
+     * @param {Date} [today] - Date de référence pour l'année/mois par défaut (par défaut mois / année courants)
+     * @returns {boolean} - true = jour jouable / false = relâche
+     */
+    estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
+      return _estDateValide(dateVal, sessionVal, relacheVal, today);
+    },
+
+    /**
      * Indique si une activité est réservée
      * @param {*} activite 
      * @returns 
@@ -688,7 +700,7 @@ export function creerActivitesAPI(ctx) {
         if (bloc.length) erreurs.push(bloc.join('\n'));
       }
 
-      // 4) 🛑 Date incompatible avec Session/Relache (via _estDateProgrammable)
+      // 4) 🛑 Date incompatible avec Session/Relache (via _estDateValide)
       {
         const bloc = [];
         rows.forEach((row, idx) => {
@@ -926,7 +938,7 @@ function _estActiviteReservee(row) {
 };
 
 /**
- * Renvoie true si une activité est "potentiellement" programmable 
+ * Renvoie true si une activité est valide à une date donnée
  * (i.e. non en relâche et dans la période de validité) pour la journée `dateRef` (AAAAMMJJ).
  * Cela ne verifie pas la compatibilité avec les activités déjà programmées
  *
@@ -935,12 +947,12 @@ function _estActiviteReservee(row) {
  * @returns {boolean}
  */
 function _estActiviteValideADate(activite, dateRef) {
-  return _estDateProgrammable(dateRef, activite.Session, activite.Relache) && _estHeureValide(activite.Debut) && _estDureeValide(richValueGetValue(activite.Duree));
+  return _estDateValide(dateRef, activite.Session, activite.Relache) && _estHeureValide(activite.Debut) && _estDureeValide(richValueGetValue(activite.Duree));
 }
 
 
 /**
- * Renvoie true s'il existe AU MOINS une activité programmable à une donnée (dateRef)
+ * Renvoie true s'il existe AU MOINS une activité programmable à une date donnée (dateRef)
  * (i.e. non en relâche et dans la période de validité) pour la journée `dateRef` (AAAAMMJJ).
  *
  * @param {Array<object>} activitesNonProgrammees - liste des activités non programmées
@@ -953,7 +965,7 @@ function _existActivitesProgrammables(activitesNonProgrammees, dateRef, traiter_
   if (!Array.isArray(activitesNonProgrammees) || activitesNonProgrammees.length === 0) return false;
 
   return activitesNonProgrammees.some(r => {
-    return _estDateProgrammable(dateRef, r.Session, r.Relache) && _estHeureValide(r.Debut) && _estDureeValide(richValueGetValue(r.Duree));
+    return _estDateValide(dateRef, r.Session, r.Relache) && _estHeureValide(r.Debut) && _estDureeValide(richValueGetValue(r.Duree));
   });
 }
 
@@ -1104,7 +1116,7 @@ function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, tra
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
     const h_debut = d, h_fin = d + du;
 
-    if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estDateProgrammable(ligneRef.Date, row.Session, row.Relache)) {
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
       const nouvelle = { ...row }; // delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -1142,7 +1154,7 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
     const h_debut = d, h_fin = d + du;
 
     const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - _MARGE);
-    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estDateProgrammable(ligneRef.Date, row.Session, row.Relache)) {
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
       const nouvelle = { ...row }; //delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -1240,14 +1252,14 @@ function _estCreneauValide(creneau) {
 }
 
 /**
- * Détermine si une date est programmable, ie. est dans Session et pas dans Relache.
+ * Détermine si une date est valide, ie. est dans Session et pas dans Relache.
  * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
  * @param {string|null} sessionVal - Description des dates de session (ex: "[5-26], [5-26] lu ma", "(8,25)/07", "jours pairs", etc.)
  * @param {string|null} relacheVal - Description des dates de relâche (grammaire identique à celle des sessions)
  * @param {Date} [today] - Date de référence pour l'année/mois par défaut (par défaut mois / année courants)
  * @returns {boolean} - true = jour jouable / false = relâche
  */
-function _estDateProgrammable(dateVal, sessionVal, relacheVal, today = new Date()) {
+function _estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
   if (dateVal == null) return true;
 
   const dv = Number(dateVal);
@@ -1548,7 +1560,7 @@ function _getJoursPossibles(rowActivite) {
   const finAct   = heureMinute + duree;
 
   for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
-    if (!_estDateProgrammable(jour, rowActivite.Session, rowActivite.Relache)) continue;
+    if (!_estDateValide(jour, rowActivite.Session, rowActivite.Relache)) continue;
 
     const jList = _getActivitesProgrammeesDuJourTriees(jour);
     if (jList.length === 0) { // journée libre
