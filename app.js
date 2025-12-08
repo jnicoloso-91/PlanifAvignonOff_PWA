@@ -35,6 +35,9 @@ import { sortCarnet } from './carnet.js';
 import { AppContext } from './AppContext.js';
 import { ActiviteRenderer } from './ActiviteRenderer.js';
 import { LieuRenderer } from './LieuRenderer.js';
+import { HyperlienRenderer } from './HyperlienRenderer.js';
+import { HyperlienBRRenderer } from './HyperlienBRRenderer.js';
+import { AvisRenderer } from './AvisRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 
@@ -57,6 +60,8 @@ import {
   isAvignonInSpecPageText,
   isAvignonOffProgPageText,
   isAvignonOffSpecPageText,
+
+  getAvisBilletReduc,
 } from './parsers.js';
 
 import {
@@ -78,6 +83,8 @@ const MANDATORY_COLS = new Set([
   'Reserve',
   'Priorite',
   'Hyperlien',
+  'HyperlienBR',
+  'HyperlienAvis',
   '__uuid'
 ]);
 
@@ -251,7 +258,9 @@ const CANON = {
   'duree': 'Duree',
   'activite': 'Activite',
   'lieu': 'Lieu',
-  'hyperlien': 'Hyperlien',
+  'site web': 'Hyperlien',
+  'billet reduc': 'HyperlienBR',
+  'avis': 'HyperlienAvis',
   'validite': 'Session',
   'session': 'Session',
   'sessions': 'Session',
@@ -266,7 +275,7 @@ const CANON = {
   'duree (HhMM)': 'Duree',
   'tel': 'Tel',
   'telephone': 'Tel',
-  'site web': 'Web',
+  'web': 'Web',
 };
 
 // Normalise un nom de colonne en canon JS (ASCII, sans espace)
@@ -1815,10 +1824,14 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
   // 5) Reconstruire la liste finale des colDefs
   const newColDefs = [];
   let hyperlinkCol = null;
+  let hyperlinkBRCol = null;
+  let avisCol = null;
 
-  // a) Construire toutes les colonnes sauf "Hyperlien"
+  // a) Construire toutes les colonnes sauf "Hyperlien" "HyperlienBR" "HyperlienAvis"
   for (const field of knownFields) {
     if (field === 'Hyperlien') continue;  // on la traitera ensuite
+    if (field === 'HyperlienBR') continue;  // on la traitera ensuite
+    if (field === 'HyperlienAvis') continue;  // on la traitera ensuite
 
     const base = baseMap.get(field);
     if (base) {
@@ -1835,18 +1848,40 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
     }
   }
 
-  // b) Ajouter "Hyperlien" en dernier si présente
-  if (knownFields.has('Hyperlien')) {
+  // b) Ajouter les colonnes "Hyperlien" "HyperlienBR" et "HyperlienAvis" en dernier 
+  if (knownFields.has('Hyperlien') || knownFields.has('HyperlienBR') || knownFields.has('HyperlienAvis')) {
     const base = baseMap.get('Hyperlien');
     hyperlinkCol = base || {
       field: 'Hyperlien',
-      headerName: 'Hyperlien',
+      headerName: 'Page Web',
       minWidth: 100,
       flex: 1,
       sortable: true,
       filter: true,
     };
     newColDefs.push(hyperlinkCol);
+
+    const baseBR = baseMap.get('HyperlienBR');
+    hyperlinkBRCol = baseBR || {
+      field: 'HyperlienBR',
+      headerName: 'Billet Réduc',
+      minWidth: 100,
+      flex: 1,
+      sortable: true,
+      filter: true,
+    };
+    newColDefs.push(hyperlinkBRCol);
+
+    const baseAvis = baseMap.get('HyperlienAvis');
+    avisCol = baseAvis || {
+      field: 'HyperlienAvis',
+      headerName: 'Avis',
+      minWidth: 100,
+      flex: 1,
+      sortable: true,
+      filter: true,
+    };
+    newColDefs.push(avisCol);
   }
 
   // 6) Appliquer proprement aux options du grid
@@ -1890,7 +1925,9 @@ function buildColumnsActivitesCommon(){
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique },
-    { field:'Hyperlien', headerName: 'Hyperlien', minWidth:120, flex:1 }
+    { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
+    { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
+    { field:'HyperlienAvis', headerName: 'Avis', minWidth:120, flex:1, cellRenderer: AvisRenderer },
   ];
 }
 
@@ -3162,38 +3199,6 @@ async function doNouveauContexte() {
 }
 
 // Reset du programme
-// async function doInitProg() {
-//   ctx.mutateDf(rows => {
-//     let next = rows.slice();
-
-//     // indexation de df par id
-//     const indexById = new Map(
-//       next.map((row, i) => [row.__uuid, i])
-//     );
-
-//     const prog = activitesAPI.getActivitesProgrammees();
-//     if (!prog) return next;
-
-//     for (const row of prog) {
-//       if (activitesAPI.estPause(row)) {
-//         const idx = indexById.get(row.__uuid);
-//         if (idx !== undefined) {
-//           next.splice(idx, 1);
-//           indexById.delete(row.__uuid);     
-//         }
-//         continue;
-//       }
-//       else {
-//         row = { ...row, Date: null };                 // modif propagée dans df
-//       }
-//     }
-//     next = sortDf(next);
-//     return next;
-//   });
-
-//   activitesAPI.initPeriodeProgrammation(ctx.getDf());
-//   rebuildColumnsForActiviteGrids([]);
-// }
 async function doInitProg() {
   ctx.mutateDf(rows => {
     if (!Array.isArray(rows) || !rows.length) return rows;
@@ -3352,8 +3357,8 @@ async function doExportExcel() {
     
     cleanData = cleanRows(cleanData, 
       ["__uuid", "Hyperlien", "__order", "__type_activite", "__index"],
-      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité" },
-      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Style", "Orga", "Réservé", "Priorité" ],
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienAvis: "Avis" },
+      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Style", "Orga", "Réservé", "Priorité", "Billet Réduc", "Avis" ],
       false
     );
 
@@ -3417,6 +3422,293 @@ async function doExportIcs() {
     filteredRows.push(node.data);
   });  
   rowsToICS(activitesAPI.getActivitesProgrammees(filteredRows));
+}
+
+function downloadJson(data, filename = 'export.json') {
+  const blob = new Blob(
+    [JSON.stringify(data, null, 2)],
+    { type: 'application/json' }
+  );
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(url);
+}
+
+function detectSessionYear(sessionVal, relacheVal, editionYearFallback = null) {
+  const txt = (String(sessionVal || '') + ' ' + String(relacheVal || '')).toLowerCase();
+
+  // Années explicites 4 chiffres
+  const reYear4 = /\b(20\d{2})\b/g;
+  let m;
+  while ((m = reYear4.exec(txt)) !== null) {
+    const y = Number(m[1]);
+    if (y >= 2000 && y <= 2099) return y;
+  }
+
+  // Années à 2 chiffres après un "/"
+  const y2k = (y) => (Number.isFinite(y) && y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
+  const reYear2 = /\/(\d{2})\b/g;
+  while ((m = reYear2.exec(txt)) !== null) {
+    const yy = Number(m[1]);
+    const y = y2k(yy);
+    if (y >= 2000 && y <= 2099) return y;
+  }
+
+  if (editionYearFallback && Number.isFinite(editionYearFallback)) return editionYearFallback;
+  return (new Date()).getFullYear();
+}
+
+function dateToInt(d) {
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return y * 10000 + m * 100 + day;
+}
+
+function rangeDateInts(startInt, endInt) {
+  const out = [];
+  if (!Number.isFinite(startInt) || !Number.isFinite(endInt)) return out;
+
+  const y1 = Math.floor(startInt / 10000);
+  const m1 = Math.floor((startInt / 100) % 100) - 1;
+  const d1 = startInt % 100;
+
+  const y2 = Math.floor(endInt / 10000);
+  const m2 = Math.floor((endInt / 100) % 100) - 1;
+  const d2 = endInt % 100;
+
+  const cur = new Date(y1, m1, d1);
+  const end = new Date(y2, m2, d2);
+
+  while (cur <= end) {
+    out.push(dateToInt(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
+/**
+ * Construit une clef de spectacle à partir des colonnes Activite, Lieu, Debut et Session/Relache transformé en seances
+ * Cette définition de clef est partagée avec le worker CloudFlare et permet de lui demander de filtrer des entrées de 
+ * l'index global utilisé pour les fonctions de scoring par similarité (embeddings).
+ * @param {*} row 
+ * @param {*} editionYearFallback 
+ * @returns 
+ */
+function makeShowKeyFromRow(row, editionYearFallback=null) {
+  const norm = (v) => (v == null ? "" : String(v).trim().toLowerCase());
+
+  const activite = norm(row.Activite);
+  const lieu     = norm(row.Lieu || row.Theatre);
+  const debut    = norm(row.Debut);
+  const seances  = buildSeancesFromSessionRelache(row.Session, row.Relache, editionYearFallback);
+
+  return `${activite}||${lieu}||${debut}||${seances}`;
+}      
+
+/**
+ * Construit les séances pour un spectacle à partir de Session / Relache EN UTILISANT estDateValide.
+ * - détecte l'année (Session/Relache ou editionYearFallback)
+ * - balaie tout juillet de cette année
+ * - garde les jours où estDateValide(...) === true
+ */
+function buildSeancesFromSessionRelache(sessionVal, relacheVal, editionYearFallback = null) {
+  const year = detectSessionYear(sessionVal, relacheVal, editionYearFallback);
+
+  const festivalStartInt = year * 10000 + 701; // 1er juillet
+  const festivalEndInt   = year * 10000 + 731; // 31 juillet
+
+  const dates = rangeDateInts(festivalStartInt, festivalEndInt);
+
+  // todayRef pour les défauts de mois/année dans estDateValide
+  const todayRef = new Date(year, 6, 1); // 1er juillet
+
+  const seances = [];
+  for (const di of dates) {
+    // 👉 toute la logique compliquée est dans estDateValide
+    if (activitesAPI.estDateValide(di, sessionVal, relacheVal, todayRef)) {
+      const y = Math.floor(di / 10000);
+      const m = Math.floor((di / 100) % 100);
+      const d = di % 100;
+      const mm = String(m).padStart(2, "0");
+      const dd = String(d).padStart(2, "0");
+      seances.push(`${y}-${mm}-${dd}`);
+    }
+  }
+
+  return seances;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Enrichit un tableau de rows activité avec : Description / Distribution / Avis
+ * @param {*} rows     tableau de rows activité
+ * @param {*} polite   tempo entre chaque interrogation web
+ */
+async function enrichWithDetailsAndAvis(
+  rows,
+  { polite = true } = {}
+) {
+  for (let i = 900; i < rows.length; i++) {
+    const r = rows[i];
+
+    const orga      = (r.Orga || r.orga || r.Section || r.section || "").toLowerCase();
+    const hyperlien = r.Hyperlien || r.hyperlien || null;
+    const activite  = r.Activite || r.activite || null;
+
+    // --- 1) Détail In / Off → Description + Distribution
+    try {
+      if (hyperlien && activite) {
+        if (orga === "off") {
+          const parsed = await parseAvignonOffSpecPageUrl(hyperlien);
+          const row    = Array.isArray(parsed) ? parsed[0] : parsed;
+
+          if (row) {
+            if (row.Description)  r.Description  = row.Description;
+            if (row.Distribution) r.Distribution = row.Distribution;
+          }
+
+          console.log(`Description & distribution ajoutés à ${activite}`);
+
+        } else if (orga === "in") {
+          const parsed = await parseAvignonInSpecPageUrl(hyperlien);
+          const row    = Array.isArray(parsed) ? parsed[0] : parsed;
+
+          if (row) {
+            if (row.Description)  r.Description  = row.Description;
+            if (row.Distribution) r.Distribution = row.Distribution;
+          }
+
+          console.log(`Description & distribution ajoutés à ${activite}`);
+
+        }
+      }
+    } catch (e) {
+      console.warn("Enrichissement In/Off détaillé impossible pour", activite, hyperlien, e);
+    }
+
+    // --- 2) Avis BilletRéduc (via URL de recherche)
+    try {
+      if (activite) {
+        const { avis } = await getAvisBilletReduc(activite);
+        if (avis) {
+          // Tu peux soit stocker l’objet complet, soit une version texte compactée
+          // Ici je fais un texte compact qui passera bien dans les embeddings existants
+          const notePart = avis.Note ? `Note ${avis.Note}` : "";
+          const commentsPart =
+            avis.Comments && avis.Comments.length
+              ? `Commentaires: ${avis.Comments.join(" || ")}`
+              : "";
+
+          const avisText = [notePart, commentsPart].filter(Boolean).join(" — ");
+          if (avisText) {
+            r.Avis = avisText;
+          }
+
+          console.log(`Avis ajoutés à ${activite}`);
+
+        }
+      }
+    } catch (e) {
+      console.warn("Enrichissement Avis BilletReduc impossible pour", activite, e);
+    }
+
+    // --- Throttling "gentil"
+    if (polite) {
+      // On ne fait pas d'appel pour tous les items => ne dormir que si un fetch a vraiment eu lieu
+      await sleep(1500 + Math.random() * 1000); // 1.5–2.5s
+    }
+  }
+}
+
+/**
+ * Construit les données source pour le build_index IA.
+ *
+ * @param {Array<object>} df
+ * @param {function(object):boolean} isKeptRow  - ex: Orga === off/in
+ * @param {string} sectionLabel                 - "off" ou "in"
+ * @param {number|null} editionYear            - ex: 2025 (facultatif, sert de fallback pour l'année)
+ */
+function buildAiExportFromDf(df, isKeptRow, sectionLabel, editionYear = null) {
+  function cleanField(v) {
+    if (v == null) return null;
+    const s = String(v).trim();
+    return s.length ? s : null;
+  }
+
+  if (!Array.isArray(df)) return [];
+
+  const out = [];
+  const section = sectionLabel || null;
+
+  for (const r of df) {
+    if (!r) continue;
+    if (isKeptRow && !isKeptRow(r)) continue;
+
+    const sessionVal = cleanField(r.Session);
+    const relacheVal = cleanField(r.Relache);
+
+    const seances = buildSeancesFromSessionRelache(
+      sessionVal,
+      relacheVal,
+      editionYear
+    );
+
+    const row = {
+      Activite: cleanField(r.Activite),
+      Debut: cleanField(r.Debut),
+      Duree: cleanField(r.Duree),
+      Fin: cleanField(r.Fin),
+      Style: cleanField(r.Style),
+      Lieu: cleanField(r.Lieu),
+      Hyperlien: cleanField(r.Hyperlien),
+      HyperlienBR: cleanField(r.HyperlienBR),
+      HyperlienAvis: cleanField(r.HyperlienAvis),
+      Section: section,      // 🔹 nouveau champ : "off" ou "in"
+      Seances: seances,      // 🔹 nouveau champ : tableau ISO
+      __uuid: r.__uuid || null
+    };
+
+    out.push(row);
+  }
+
+  return out;
+}
+
+async function exportOffForAi(editionYear = 2025) {
+  function isOffRow(r) {
+    return String(r.Orga || '').toLowerCase() === 'off';
+  }
+  const df = ctx.df;
+  const offData = buildAiExportFromDf(df, isOffRow, "off", editionYear);
+  await enrichWithDetailsAndAvis(offData, { polite: true });
+
+  const filename = `off_${editionYear}.json`;
+  downloadJson(offData, filename);
+  alert( `Infos téléchargées dans ${filename}`)
+}
+
+async function exportInForAi(editionYear = 2025) {
+  function isInRow(r) {
+    return String(r.Orga || '').toLowerCase() === 'in';
+  }
+  const df = ctx.df;
+  const inData = buildAiExportFromDf(df, isInRow, "in", editionYear);
+  await enrichWithDetailsAndAvis(inData, { polite: true });
+
+  const filename = `in_${editionYear}.json`;
+  downloadJson(inData, filename);
+  alert( `Infos téléchargées dans ${filename}`)
 }
 
 // Vérification de cohérence du tableau d'activités
@@ -3593,7 +3885,7 @@ async function importFromUrlOrTxt(raw, parser=null) {
       else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, raw, 'Echec collage');
       } 
-      else if (raw.includes("https:www.festivaloffavignon.com/spectacles")) {
+      else if (raw.includes("https://www.festivaloffavignon.com/spectacles")) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonOffSpecPageUrl, raw, 'Echec collage');
       } 
       else if (raw.includes("https://www.billetreduc.com/search")) {
@@ -3678,6 +3970,14 @@ async function importFromUrlOrTxt(raw, parser=null) {
       `https://www.billetreduc.com/search.htm?se=${nom.trim().replace(/\s+/g, '+')}` :
       null;
 
+    const hyperlienBRDefault = (nom) ? 
+      `https://www.billetreduc.com/search.htm?se=${nom.trim().replace(/\s+/g, '+')}` :
+      null;
+
+    const avisDefault = (nom) ? 
+      `https://www.google.com/search?q=spectacle+${nom.trim().replace(/\s+/g, '+')}` :
+      null;
+
     const nouvelleActivite = {
         __uuid: crypto.randomUUID?.() || String(Date.now()),
         Date: null, 
@@ -3692,6 +3992,8 @@ async function importFromUrlOrTxt(raw, parser=null) {
         Reserve: null, 
         Priorite: null, 
         Hyperlien: row.Hyperlien || hyperlienDefault,
+        HyperlienBR: row.HyperlienBR || hyperlienBRDefault,
+        HyperlienAvis: row.HyperlienAvis || avisDefault,
       }
       nouvellesActivites.push(nouvelleActivite);
   }
@@ -3958,22 +4260,22 @@ const fileMenuSheetInnerHtml = () => {
       <li class="file-sheet__item" data-action="importCatIn">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
-          <span class="file-sheet__titleText">Importer depuis le catalogue du In</span>
+          <span class="file-sheet__titleText">Importer le catalogue du In</span>
           <span class="file-sheet__subtitle">Importe le programme du catalogue du In</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importCatOff">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
-          <span class="file-sheet__titleText">Importer depuis le catalogue du Off</span>
+          <span class="file-sheet__titleText">Importer le catalogue du Off</span>
           <span class="file-sheet__subtitle">Importe le programme du catalogue du Off</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importBilletReduc">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
-          <span class="file-sheet__titleText">Importer depuis Billet réduc</span>
-          <span class="file-sheet__subtitle">Importe depuis le site de billet réduc</span>
+          <span class="file-sheet__titleText">Importer depuis Billet Réduc</span>
+          <span class="file-sheet__subtitle">Importe depuis le site de Billet Réduc</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="exportExcel">
@@ -4027,7 +4329,7 @@ function openFileMenu(anchorBtn) {
     { id:'open', label:'Importer depuis Excel'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
     { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
-    { id:'importBilletReduc', label:'Importer depuis Billet réduc'      },
+    { id:'importBilletReduc', label:'Importer depuis Billet Réduc'      },
     { id:'exportExcel', label:'Exporter vers Excel' },
     { id:'exportIcs', label:'Exporter vers le calendrier' },
     { id:'rapportCoherence', label:'Rapport de vérification de cohérence' },
@@ -4299,6 +4601,18 @@ async function importFromXlsxFile(f, {add=false} = {}) {
         // sinon on remplit depuis le lien de la cellule Activité.
         if (!dfRows[i].Hyperlien && link) {
           dfRows[i].Hyperlien = link;
+        }
+
+        // S’il y a déjà une colonne "HyperlienBR" dans Excel, on la garde prioritaire,
+        // sinon on remplit depuis le lien de la cellule Activité.
+        if (!dfRows[i].HyperlienBR) {
+          dfRows[i].HyperlienBR = `https://www.billetreduc.com/search.htm?se=${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
+        }
+
+        // S’il y a déjà une colonne "HyperlienAvis" dans Excel, on la garde prioritaire,
+        // sinon on remplit depuis le lien de la cellule Activité.
+        if (!dfRows[i].HyperlienAvis) {
+          dfRows[i].HyperlienAvis = `https://www.google.com/search?q=spectacle+${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
         }
       }
     }
@@ -4577,23 +4891,6 @@ function initSafeAreaWatch(){
 }
 
 // ------- Menu kebab -------
-function positionMenuOverAnchor(anchor, menu) {
-  const r = anchor.getBoundingClientRect();
-  const vv = window.visualViewport || { width: window.innerWidth, height: window.innerHeight, offsetTop: 0, offsetLeft: 0 };
-  // Tentative : au-dessus du bouton
-  const menuRect = menu.getBoundingClientRect();
-  let left = r.right - menuRect.width;  // aligné à droite
-  let top  = r.top - 8 - menuRect.height;
-  // Fallback si pas de place au-dessus → dessous
-  if (top < (vv.offsetTop || 0) + 8) top = r.bottom + 8;
-
-  // garde dans l’écran
-  left = Math.max(8, Math.min(left, (vv.width + (vv.offsetLeft||0)) - menuRect.width - 8));
-
-  menu.style.left = `${Math.round(left)}px`;
-  menu.style.top  = `${Math.round(top)}px`;
-}
-
 function createKebabItem(label, key) {
   const b = document.createElement('button');
   b.className = 'kebab-menu__item';
@@ -4719,9 +5016,11 @@ function wireAppKebab() {
       items: [
         { id:'carnet',    label:"Carnet d'adresses",        onClick: ()=>openSheetCarnet() },
         { id:'AI',        label:"Assistant programmation",  onClick: ()=>openSheetAssistantProgrammation() },
-        { id:'AI',        label:"Assistant IA",           onClick: ()=>openSheetAssistantChat() },
+        { id:'AI',        label:"Assistant IA",             onClick: ()=>openSheetAssistantChat() },
         { id:'settings',  label:'Paramètres',               onClick: ()=>openSheetParams() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
+        // { id:'exportInForAi',  label:'export In ForAi',       onClick: ()=>exportInForAi() },
+        // { id:'exportOffForAi', label:'export Off ForAi',      onClick: ()=>exportOffForAi() },
       ]
     });
   }, { passive: true });
@@ -5683,7 +5982,7 @@ function openSheetAide() {
           <div class="help-block">
             <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click sur les icônes gauche et centrale de l'entête.</p>
 
-            <p>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon et le site Billet réduc, la deuxième 
+            <p>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon et le site Billet Réduc, la deuxième 
             <u><i>Mon programme</u></i> permet de construire un programme personnalisé de spectacles ou autres activités.</p>
                          
             <p style="margin-bottom: 0.2em">La page <u><i>Mon programme</u></i>, comprend quatre tableaux:</p>
@@ -5723,7 +6022,8 @@ function openSheetAide() {
             directement dans les entêtes de colonnes si la dimension de l'écran le permet). Vous pouvez également modifier l'ordre des colonnes en sélectionnant une entête 
             et en la déplaçant.</p>
 
-            <p>L'icône de la colonne <u><i>Activité</u></i> permet d'afficher la page Web donnée par la colonne <u><i>Hyperlien</u></i> et 
+            <p>L'icône des colonnes <u><i>Activité</u></i> et <u><i>Page Web</u></i> permet d'afficher la page Web donnée par la colonne <u><i>Page Web</u></i>, 
+            l'icône de la colonne <u><i>Billet Réduc</u></i> permet de lancer une recherche de l'activité concernée sur le site Billet Réduc et 
             l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité, via l'application choisie 
             dans les paramètres et l'adresse du lieu d'activité renseignée dans le carnet d'adresse, ou à défaut le nom du lieu et un nom de ville défini dans les paramètres.</p>
                         
@@ -5732,7 +6032,7 @@ function openSheetAide() {
               <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
                 <ul style="margin-top: 0em">
                     <li><u><i>Fichier</u></i>: permet de créer un nouveau programme / stock d'activités, charger un programme d'activités depuis un fichier 
-                    Excel, importer des activités depuis les catalogues en ligne du In et du Off ou le site Billet réduc, exporter le programme d'activités 
+                    Excel, importer des activités depuis les catalogues en ligne du In et du Off ou le site Billet Réduc, exporter le programme d'activités 
                     vers Excel ou vers le calendrier, obtenir un rapport de cohérence des données.</li>
                     <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i>: permettent de défaire, refaire une opération.</li>
                     <li><u><i>Coller</u></i>: collage d'activités depuis le presse-papier. Pour utiliser cette fonctionnalité, copier préalablement 
@@ -6257,47 +6557,7 @@ function openSheetFiltres(gridId) {
         btn.parentElement.classList.remove('has-val');
         input.focus();
       });
-      // body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
-      //   const wrap = inp.closest('.input-wrap');
-      //   const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
-      //   inp.addEventListener('input', sync);
-      //   inp.addEventListener('change', sync);
-      //   inp.addEventListener('keydown', (ev) => {
-      //     if (ev.key === 'Escape') { inp.value=''; inp.dispatchEvent(new Event('input',{bubbles:true})); sync(); }
-      //   });
-      //   sync();
-      // });
-      // body.querySelectorAll('.filter-row .input-wrap input').forEach(inp => {
-      //   const wrap = inp.closest('.input-wrap');
-      //   const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
 
-      //   const markModified = () => { inp.dataset.modified = 'true'; };
-
-      //   inp.addEventListener('input',  () => { 
-      //     sync(); markModified(); 
-      //     // if (inp.getAttribute('list')) {
-      //     //   requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
-      //     // }
-      //   });
-
-      //   inp.addEventListener('change', () => { 
-      //     sync(); markModified(); 
-      //     requestAnimationFrame(() => ensureFooterVisible({ target: inp, smooth: true }));
-      //   });
-
-      //   // Esc = RAZ rapide
-      //   inp.addEventListener('keydown', (ev) => {
-      //     if (ev.key === 'Escape') {
-      //       inp.value = '';
-      //       inp.dispatchEvent(new Event('input', { bubbles: true }));
-      //       markModified();
-      //       sync();
-      //     }
-      //   });
-
-      //   // init
-      //   sync();
-      // });
       body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
         const wrap = inp.closest('.input-wrap');
         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
@@ -6592,29 +6852,353 @@ function openSheetImportBilletReduc() {
   });
 }
 
-/**
- * Appelle le backend IA Cloudflare.
- * @param {string} message - Requête utilisateur.
- * @param {string} context - Contexte optionnel (planning, sélection, etc.).
- * @returns {Promise<string>} - Réponse texte de l'IA.
- */
-async function callAI(message, context = "") {
-  // URL du worker Cloudflare
-  const AI_ENDPOINT = "https://off-proxy.joel-nicoloso.workers.dev/ai";
+// /**
+//  * Appelle le backend IA Cloudflare.
+//  * @param {string} message - Requête utilisateur.
+//  * @param {string} context - Contexte optionnel (planning, sélection, etc.).
+//  * @returns {Promise<string>} - Réponse texte de l'IA.
+//  */
+// async function callAI(message, context = "") {
+//   // URL du worker Cloudflare
+//   const AI_ENDPOINT = "https://off-proxy.joel-nicoloso.workers.dev/ai";
 
-  const res = await fetch(AI_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, context })
-  });
+//   const res = await fetch(AI_ENDPOINT, {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({ message, context })
+//   });
 
-  if (!res.ok) {
-    throw new Error("Erreur backend IA: " + res.status);
-  }
+//   if (!res.ok) {
+//     throw new Error("Erreur backend IA: " + res.status);
+//   }
 
-  const data = await res.json();
-  return data.reply || "";
-}
+//   const data = await res.json();
+//   return data.reply || "";
+// }
+
+// /**
+//  * Appelle le backend IA Cloudflare sur la route ai/semantic orientée recherche de spectacle.
+//  * @param {*} query 
+//  * @returns 
+//  */
+// async function scoreWithAISemantic(query, topK = 10, filters = null) {
+//   const body = { query, topK };
+//   if (filters) {
+//     body.filters = filters;
+//   }
+
+//   const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic", {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify(body)
+//   });
+
+//   if (!res.ok) {
+//     const txt = await res.text().catch(() => "");
+//     console.warn("scoreWithAISemantic HTTP error:", res.status, txt);
+//     throw new Error("Erreur HTTP " + res.status);
+//   }
+
+//   const js = await res.json();
+//   return js.results || [];
+// }
+
+// async function callAIQueryUnderstand(message) {
+//   const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/query-understand", {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({
+//       utterance: message,
+//       festival: "off",
+//       edition_year: 2025
+//     })
+//   });
+
+//   if (!res.ok) {
+//     const txt = await res.text().catch(() => "");
+//     console.warn("callAIQueryUnderstand HTTP error:", res.status, txt);
+//     throw new Error("Erreur HTTP " + res.status);
+//   }
+
+//   const js = await res.json();
+//   // js est le QueryIntent
+//   return js;
+// }
+
+// // Feuille Interface AI
+// function openSheetAssistantChat() {
+//   const contextSnapshot = buildAIContext(); // contexte "global" (planning, etc.)
+
+//   openSheetExclusive({
+//     title: "Assistant IA",
+//     panelHeight: "auto",
+//     panelMaxHeight: "80vh",
+//     mount: (body, { close }) => {
+//       body.innerHTML = `
+//         <div class="ai-chat-container">
+
+//           <div id="ai-chat-log" class="ai-chat-log"></div>
+
+//           <p id="ai-error" class="ai-error" hidden></p>
+
+//           <div class="ai-input-wrapper">
+//             <textarea id="ai-request"
+//                       class="ai-input"
+//                       rows="3"
+//                       placeholder="Posez vos questions… (ex : Résume ce planning, propose 3 spectacles, explique les conflits, etc.)"></textarea>
+//             <button id="btn-ai-send"
+//                     type="button"
+//                     class="ai-send-icon-btn"
+//                     aria-label="Envoyer">
+//               ↑
+//             </button>
+//           </div>
+
+//         </div>
+//       `;
+
+//       const inputReq  = body.querySelector("#ai-request");
+//       const btnSend   = body.querySelector("#btn-ai-send");
+//       const errEl     = body.querySelector("#ai-error");
+//       const chatLogEl = body.querySelector("#ai-chat-log");
+
+//       const chatHistory = []; // { role, content, mode }
+
+//       const showError = (msg) => {
+//         if (!errEl) return;
+//         errEl.textContent = msg || "";
+//         errEl.hidden = !msg;
+//       };
+
+//       const clearError = () => showError("");
+
+//       function renderChat() {
+//         if (!chatLogEl) return;
+//         chatLogEl.innerHTML = "";
+
+//         for (const msg of chatHistory) {
+//           const div = document.createElement("div");
+//           div.classList.add("ai-chat-message", msg.role);
+//           if (msg.mode === "semantic") {
+//             div.classList.add("ai-chat-semantic");
+//           }
+//           div.textContent = msg.content;
+//           chatLogEl.appendChild(div);
+//         }
+
+//         chatLogEl.scrollTop = chatLogEl.scrollHeight;
+//       }
+
+//       function addMessageToUI(msg) {
+//         chatHistory.push(msg);
+//         renderChat();
+//       }
+
+//       function buildContextFromHistory(maxPairs = 5) {
+//         const pairs = [];
+//         let current = [];
+
+//         for (const msg of chatHistory) {
+//           if (msg.role === "user") {
+//             if (current.length) pairs.push(current);
+//             current = [`Utilisateur: ${msg.content}`];
+//           } else if (msg.role === "assistant") {
+//             current.push(`Assistant: ${msg.content}`);
+//             pairs.push(current);
+//             current = [];
+//           }
+//         }
+//         if (current.length) pairs.push(current);
+
+//         const lastPairs = pairs.slice(-maxPairs);
+//         return lastPairs.map(p => p.join("\n")).join("\n\n");
+//       }
+
+//       // Fallback local si /ai/intention plante
+//       function localHeuristicIntent(rawMessage) {
+//         const msg = rawMessage.toLowerCase();
+
+//         const semanticPatterns = [
+//           "trouve-moi",
+//           "trouve moi",
+//           "je cherche",
+//           "je voudrais voir",
+//           "idées de spectacles",
+//           "idée de spectacle",
+//           "quel spectacle",
+//           "quels spectacles",
+//           "me recommander",
+//           "me conseiller",
+//           "à voir",
+//           "suggestion de spectacle",
+//           "suggestions de spectacles",
+//           "propose-moi",
+//           "propose moi",
+//           "propose "
+//         ];
+
+//         const isSemanticIntent = semanticPatterns.some(p => msg.includes(p));
+//         return isSemanticIntent ? "semantic" : "chat";
+//       }
+
+//       // 🔵 Nouvelle détection de mode par IA (/ai/intention)
+//       async function detectIntent(rawMessage) {
+//         const msg = rawMessage.toLowerCase();
+
+//         // Préfixes explicites : l'utilisateur force le mode
+//         if (msg.startsWith("/semantic ")) return "semantic";
+//         if (msg.startsWith("/chat "))     return "chat";
+
+//         try {
+//           const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/intention", {
+//             method: "POST",
+//             headers: { "Content-Type": "application/json" },
+//             body: JSON.stringify({ message: rawMessage })
+//           });
+//           if (!res.ok) throw new Error("HTTP " + res.status);
+//           const js = await res.json();
+//           const intent = (js.intent || "").trim().toLowerCase();
+//           if (intent === "semantic" || intent === "chat") {
+//             return intent;
+//           }
+//           return localHeuristicIntent(rawMessage);
+//         } catch (e) {
+//           console.warn("detectIntent fallback heuristic:", e);
+//           return localHeuristicIntent(rawMessage);
+//         }
+//       }
+
+//       async function send() {
+//         clearError();
+//         const raw = (inputReq?.value || "").trim();
+//         if (!raw) {
+//           showError("Merci de saisir une requête.");
+//           inputReq?.focus();
+//           return;
+//         }
+
+//         // Ajoute la question dans l'historique
+//         addMessageToUI({ role: "user", content: raw, mode: "chat" });
+
+//         // Reset du champ de saisie
+//         if (inputReq) inputReq.value = "";
+
+//         // Détection du mode par IA (avec fallback)
+//         const intent = await detectIntent(raw);
+
+//         // Nettoyage du message envoyé à l'IA (on retire les éventuels préfixes)
+//         let userMsgForIA = raw.replace(/^\/(semantic|chat)\s+/i, "").trim();
+//         if (!userMsgForIA) userMsgForIA = raw; // au cas où
+
+//         // Contexte enrichi : snapshot planning + historique
+//         const histContext = buildContextFromHistory(5);
+//         const fullContext = [contextSnapshot, histContext].filter(Boolean).join("\n\n");
+
+//         // Message "L’IA réfléchit…"
+//         const thinkingMsg = { role: "assistant", content: "⏳ L’IA réfléchit…", mode: "chat" };
+//         addMessageToUI(thinkingMsg);
+
+//         btnSend.disabled = true;
+
+//         try {
+//           if (intent === "chat") {
+//             // Mode chat classique → /ai
+//             const reply = await callAI(userMsgForIA, fullContext);
+//             chatHistory.pop(); // retire "L’IA réfléchit…"
+//             addMessageToUI({
+//               role: "assistant",
+//               content: reply || "",
+//               mode: "chat"
+//             });
+//           } else {
+//             // Mode sémantique → /ai/query-understand puis /ai/semantic
+
+//             const intentJson = await callAIQueryUnderstand(userMsgForIA);
+//             console.debug("QueryIntent:", intentJson);
+
+//             // Récupération de la requête optimisée
+//             let semanticQuery =
+//               intentJson?.semantic?.embedding_query?.trim() ||
+//               userMsgForIA;
+
+//             const utteranceLower = (intentJson?.utterance || "").trim().toLowerCase();
+//             const semanticLower = semanticQuery.toLowerCase();
+
+//             // petit fallback si l'IA recopie exactement la phrase
+//             if (semanticLower === utteranceLower) {
+//               semanticQuery = userMsgForIA
+//                 .replace(/propose( moi)?/i, "")
+//                 .replace(/trouve( moi)?/i, "")
+//                 .replace(/donne( moi)?/i, "")
+//                 .replace(/\b\d+\s+spectacles?\b/i, "spectacles")
+//                 .trim();
+//             }
+
+//             // Limite demandée par l'utilisateur (ex: "3 spectacles")
+//             const limit =
+//               (intentJson?.results && Number.isFinite(intentJson.results.limit))
+//                 ? intentJson.results.limit
+//                 : 10;
+
+//             // Filtres issus de intentJson
+//             const filters = intentJson?.filters || null;
+
+//             // Appel à la recherche sémantique avec filtres
+//             const results = await scoreWithAISemantic(semanticQuery, limit, filters);
+
+//             chatHistory.pop(); // retire "⏳ L’IA réfléchit…"
+
+//             if (!results.length) {
+//               addMessageToUI({
+//                 role: "assistant",
+//                 content: "Je n'ai pas trouvé de spectacle correspondant dans l'index.",
+//                 mode: "semantic"
+//               });
+//             } else {
+//               const lines = results.map((r, i) =>
+//                 `${i + 1}. ${r.activite} — ${r.style || "Style inconnu"} — ${r.lieu || ""} (score: ${r.score.toFixed(3)})`
+//               );
+
+//               addMessageToUI({
+//                 role: "assistant",
+//                 content:
+//                   "Voici des suggestions de spectacles :\n\n" +
+//                   lines.join("\n"),
+//                 mode: "semantic"
+//               });
+//             }
+//           }
+//         } catch (e) {
+//           console.error("AI error:", e);
+//           chatHistory.pop(); // on enlève "L’IA réfléchit…"
+//           addMessageToUI({
+//             role: "assistant",
+//             content: "Erreur lors de l'appel à l’IA.",
+//             mode: "chat"
+//           });
+//           showError("Erreur lors de l'appel à l’IA.");
+//         } finally {
+//           btnSend.disabled = false;
+//         }
+//       }
+
+//       btnSend?.addEventListener("click", send);
+
+//       inputReq?.addEventListener("keydown", (ev) => {
+//         if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) {
+//           ev.preventDefault();
+//           send();
+//         }
+//         if (ev.key === "Escape") {
+//           ev.preventDefault();
+//           close();
+//         }
+//       });
+
+//       setTimeout(() => inputReq?.focus(), 20);
+//     }
+//   });
+// }
 
 /**
  * Construit un petit contexte texte à partir de la grille / du df.
@@ -6645,9 +7229,211 @@ function buildAIContext() {
   return lines.join("\n");
 }
 
-// Feuille Interface AI
+// =======================
+// Persistance historique
+// =======================
+
+const AI_CHAT_HISTORY_KEY = "in_off_ai_chat_history_v1";
+const AI_LAST_SEMANTIC_INTENT_KEY = "in_off_ai_last_semantic_intent_v1";
+
+function loadChatHistoryFromStorage() {
+  try {
+    if (typeof localStorage === "undefined") return [];
+    const raw = localStorage.getItem(AI_CHAT_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn("loadChatHistoryFromStorage error:", e);
+    return [];
+  }
+}
+
+function saveChatHistoryToStorage(history) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(history));
+  } catch (e) {
+    console.warn("saveChatHistoryToStorage error:", e);
+  }
+}
+
+function loadLastSemanticIntent() {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(AI_LAST_SEMANTIC_INTENT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn("loadLastSemanticIntent error:", e);
+    return null;
+  }
+}
+
+function saveLastSemanticIntent(intentJson) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(AI_LAST_SEMANTIC_INTENT_KEY, JSON.stringify(intentJson));
+  } catch (e) {
+    console.warn("saveLastSemanticIntent error:", e);
+  }
+}
+
+// =======================
+// Appels backend IA
+// =======================
+
+// Chat "classique"
+// Appelle la route /ai du worker CloudFlare.
+async function callAI(message, context) {
+  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, context })
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.warn("callAI HTTP error:", res.status, txt);
+    throw new Error("Erreur HTTP " + res.status);
+  }
+  const js = await res.json();
+  return js.reply || "";
+}
+
+// Analyse d'intention IA
+// Appelle la route /ai/query-understand du worker CloudFlare.
+// previousIntent: dernier QueryIntent semantic (ou null)
+async function callAIQueryUnderstand(message, previousIntent) {
+  const body = {
+    utterance: message,
+    edition_year: 2025
+  };
+  if (previousIntent) {
+    body.previous_intent = previousIntent;
+  }
+
+  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/query-understand", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.warn("callAIQueryUnderstand HTTP error:", res.status, txt);
+    throw new Error("Erreur HTTP " + res.status);
+  }
+  return await res.json(); // QueryIntent complet
+}
+
+// Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies par des filtres et un scope.
+// Appelle la route /ai/semantic du worker CloudFlare.
+// Cette fonction est utilisée pour filtrer via le paramètre filters, puis scorer l'index global, comme suite à une analyse d'intention IA.
+// Typiquement le paramètre filters provient de l'analyse d'intention IA qui renvoie un objet QueryIntent.filters à partir d'une query textuelle libre.
+// query: string, topK: number, filters: QueryIntent.filters, scope: QueryIntent.scope
+async function scoreWithAISemantic(query, topK = 10, filters = null, scope = null) {
+  const body = { query, topK };
+  if (filters) body.filters = filters;
+  if (scope)   body.scope   = scope;
+
+  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.warn("scoreWithAISemantic HTTP error:", res.status, txt);
+    throw new Error("Erreur HTTP " + res.status);
+  }
+  const js = await res.json();
+  return js.results || [];
+}
+
+// Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies des keys.
+// Appelle la route /ai/semantic-bykey du worker CloudFlare.
+// Cette fonction est utilisée pour scorer des rows du df local après un filtrage local effectué comme suite à une analyse d'intention IA sur une query
+// query: string, keys: string (Activite+Debut+Session+Relache), topK: number
+async function scoreWithAISemanticByKey(query, keys, topK=null) {
+  if (!query || !keys || !keys.length) return [];
+
+  if (!topK) topK = keys.length;
+
+  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-bykey", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, keys, topK })
+  });
+
+  if (!res.ok) {
+    console.warn("scoreWithAISemanticByKey HTTP error:", res.status);
+    return [];
+  }
+
+  const js = await res.json();
+  return Array.isArray(js.results) ? js.results : [];
+}
+
+/**
+ * Autre mouture de scoreWithAISemanticByKey prenant en paramètre la query et une liste de candidats.
+ * Elle établit la liste de clefs à partir de la liste de candidats et passe ensuite par la même route 
+ * que scoreWithAISemanticByKey -> route /ai/semantic-bykey du worker CloudFlare.
+ * @param {*} query 
+ * @param {*} candidats 
+ * @returns 
+ */
+async function scoreCandidatesWithIA(query, candidats) {
+  if (!query || !query.trim() || !candidats.length) {
+    return candidats.map(c => ({ ...c, aiScore: 0 }));
+  }
+
+  const keys = [];
+  const keyToRows = new Map();
+
+  for (const c of candidats) {
+    const k = makeShowKeyFromRow(c);
+    if (!k) continue;
+    keys.push(k);
+    if (!keyToRows.has(k)) keyToRows.set(k, []);
+    keyToRows.get(k).push(c);
+  }
+
+  if (!keys.length) {
+    return candidats.map(c => ({ ...c, aiScore: 0 }));
+  }
+
+  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-bykey", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      keys,
+      topK: keys.length
+    })
+  });
+
+  if (!res.ok) {
+    console.warn("scoreCandidatesWithIA HTTP error:", res.status);
+    return candidats.map(c => ({ ...c, aiScore: 0 }));
+  }
+
+  const js = await res.json();
+  const results = Array.isArray(js.results) ? js.results : [];
+
+  const scoreMap = new Map();
+  for (const r of results) {
+    if (!r || !r.key) continue;
+    scoreMap.set(r.key, Number(r.score) || 0);
+  }
+
+  return candidats.map(c => {
+    const k = makeShowKeyFromRow(c);
+    const sc = scoreMap.has(k) ? scoreMap.get(k) : 0;
+    return { ...c, aiScore: sc };
+  });
+}
+
 function openSheetAssistantChat() {
-  const contextSnapshot = buildAIContext(); // ou "" si tu veux temporairement sans contexte
+  const contextSnapshot = buildAIContext(); // ton contexte global (planning, etc.)
 
   openSheetExclusive({
     title: "Assistant IA",
@@ -6657,33 +7443,39 @@ function openSheetAssistantChat() {
       body.innerHTML = `
         <div class="ai-chat-container">
 
+          <div id="ai-chat-log" class="ai-chat-log"></div>
+
+          <p id="ai-error" class="ai-error" hidden></p>
+
           <div class="ai-input-wrapper">
             <textarea id="ai-request"
                       class="ai-input"
                       rows="3"
-                      placeholder="Demandez quelque chose… (ex : Résume ce planning, propose 3 spectacles, explique les conflits, etc.)"></textarea>
+                      placeholder="Posez vos questions… (ex : Résume ce planning, propose 3 spectacles, explique les conflits, etc.)"></textarea>
+          </div>
+          <div class="ai-reset-wrapper">
             <button id="btn-ai-send"
                     type="button"
-                    class="ai-send-icon-btn"
-                    aria-label="Envoyer">
-              ↑
+                    class="bb-btn is-primary">
+              Envoyer
+            </button>
+            <button id="btn-ai-reset"
+                    type="button"
+                    class="bb-btn is-primary">
+              Réinitialiser
             </button>
           </div>
-
-          <div id="ai-response-container" class="ai-response-box" hidden>
-            <div class="ai-response-label">Réponse</div>
-            <div id="ai-response" class="ai-response-bubble"></div>
-          </div>
-
-          <p id="ai-error" class="ai-error" hidden></p>
         </div>
       `;
 
       const inputReq  = body.querySelector("#ai-request");
-      const respBox   = body.querySelector("#ai-response-container");
-      const respEl    = body.querySelector("#ai-response");
       const btnSend   = body.querySelector("#btn-ai-send");
       const errEl     = body.querySelector("#ai-error");
+      const chatLogEl = body.querySelector("#ai-chat-log");
+
+      // Historique persistant : { role: "user"|"assistant", content: string, mode: "chat"|"semantic" }
+      const chatHistory = loadChatHistoryFromStorage();
+      let lastSemanticIntent = loadLastSemanticIntent();
 
       const showError = (msg) => {
         if (!errEl) return;
@@ -6693,53 +7485,652 @@ function openSheetAssistantChat() {
 
       const clearError = () => showError("");
 
+      function resetAIHistory() {
+        try {
+          if (typeof localStorage !== "undefined") {
+            localStorage.removeItem(AI_CHAT_HISTORY_KEY);
+            localStorage.removeItem(AI_LAST_SEMANTIC_INTENT_KEY);
+          }
+        } catch (e) {
+          console.warn("resetAIHistory error:", e);
+        }
+      }
+
+      function renderChat() {
+        if (!chatLogEl) return;
+        chatLogEl.innerHTML = "";
+
+        for (const msg of chatHistory) {
+          const div = document.createElement("div");
+          div.classList.add("ai-chat-message", msg.role);
+          if (msg.mode === "semantic") {
+            div.classList.add("ai-chat-semantic");
+          }
+          div.textContent = msg.content;
+          chatLogEl.appendChild(div);
+        }
+
+        chatLogEl.scrollTop = chatLogEl.scrollHeight;
+      }
+
+      function addMessageToUI(msg) {
+        chatHistory.push(msg);
+        saveChatHistoryToStorage(chatHistory);
+        renderChat();
+      }
+
+      // Construit un contexte "conversationnel" compact à partir de l'historique
+      function buildContextFromHistory(maxPairs = 5) {
+        const pairs = [];
+        let current = [];
+
+        for (const msg of chatHistory) {
+          if (msg.role === "user") {
+            if (current.length) pairs.push(current);
+            current = [`Utilisateur: ${msg.content}`];
+          } else if (msg.role === "assistant") {
+            current.push(`Assistant: ${msg.content}`);
+            pairs.push(current);
+            current = [];
+          }
+        }
+        if (current.length) pairs.push(current);
+
+        const lastPairs = pairs.slice(-maxPairs);
+        return lastPairs.map(p => p.join("\n")).join("\n\n");
+      }
+
+      function buildInterpretationMessage(qi) {
+        const intent = (qi?.intent || "unknown").toLowerCase();
+        const space  = (qi?.scope?.search_space || "none").toLowerCase();
+        const sections = Array.isArray(qi?.scope?.festival) ? qi.scope.festival : [];
+
+        const secLabel = sections.length
+          ? sections.map(s => s.toUpperCase()).join(" / ")
+          : "festival";
+
+        if (intent === "search_shows") {
+          if (space === "current_schedule") {
+            return `Je comprends que vous souhaitez une recherche complémentaire dans votre planning actuel (${secLabel}).`;
+          }
+          if (space === "full_festival") {
+            return `Je comprends que vous souhaitez une recherche dans le programme complet (${secLabel}).`;
+          }
+          return `Je comprends que vous souhaitez une recherche de spectacles.`;
+        }
+
+        if (intent === "analyze_shows") {
+          return "Je comprends que vous souhaitez une analyse des spectacles récemment proposés.";
+        }
+
+        if (intent === "plan_day") {
+          return "Je comprends que vous souhaitez organiser ou optimiser une journée de festival.";
+        }
+
+        if (intent === "faq") {
+          return "Je comprends que vous posez une question générale sur le festival ou son fonctionnement.";
+        }
+
+        return null; // ou une phrase générique si tu veux
+      }
+
+      function dateISOToInt(iso) {
+        if (!iso || typeof iso !== "string") return null;
+        const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        const y = Number(m[1]);
+        const mo = Number(m[2]);
+        const d = Number(m[3]);
+        if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+        return y * 10000 + mo * 100 + d;
+      }
+
+      function getRowTimeHHMM(row) {
+        if (row.Debut && /^\d{1,2}:\d{2}$/.test(row.Debut)) {
+          return row.Debut;
+        }
+        return null;
+      }
+
+      function iterDateRangeInt(fromInt, toInt, cb) {
+        if (!Number.isFinite(fromInt) || !Number.isFinite(toInt)) return;
+        let cur = fromInt;
+        while (cur <= toInt) {
+          cb(cur);
+          // incrément d'un jour
+          let y = Math.floor(cur / 10000);
+          let m = Math.floor((cur / 100) % 100);
+          let d = cur % 100;
+          const js = new Date(y, m - 1, d);
+          js.setDate(js.getDate() + 1);
+          y = js.getFullYear();
+          m = js.getMonth() + 1;
+          d = js.getDate();
+          cur = y * 10000 + m * 100 + d;
+        }
+      }
+
+      /**
+       * Filtre le planning / stock courant selon QueryIntent.
+       *
+       * @param {Array<object>} df - tableau de lignes (planning ou stock)
+       * @param {object} intentJson - QueryIntent retourné par /ai/query-understand
+       * @param {object} activitesAPI - objet fournissant estActiviteValideADate / estActiviteProgrammableADate
+       * @returns {Array<object>}
+       */
+      function filterCurrentScheduleWithIntent(intentJson) {
+        const df = ctx.df;
+        if (!Array.isArray(df) || !intentJson) return [];
+
+        const filters = intentJson.filters || {};
+        const scope   = intentJson.scope   || {};
+
+        let rows = df.slice();
+
+        // --------------------------------
+        // 1) Sections / festival (In / Off)
+        // --------------------------------
+        let wantedSections = null;
+
+        if (Array.isArray(filters.sections) && filters.sections.length > 0) {
+          wantedSections = new Set(
+            filters.sections
+              .map(s => s && s.value ? String(s.value).toLowerCase() : "")
+              .filter(Boolean)
+          );
+        } else if (Array.isArray(scope.festival) && scope.festival.length > 0) {
+          wantedSections = new Set(
+            scope.festival.map(s => String(s).toLowerCase())
+          );
+        }
+
+        if (wantedSections && wantedSections.size > 0) {
+          rows = rows.filter(r => {
+            const orga = String(r.Orga || r.Section || "").toLowerCase();
+            if (!orga) return false;
+            return wantedSections.has(orga);
+          });
+        }
+
+        // --------------------------------
+        // 2) Catégories (Style)
+        // --------------------------------
+        if (Array.isArray(filters.categories) && filters.categories.length > 0) {
+          const catValues = filters.categories
+            .map(c => (c && c.value ? String(c.value).toLowerCase() : ""))
+            .filter(Boolean);
+
+          if (catValues.length > 0) {
+            rows = rows.filter(r => {
+              const style = String(r.Style || "").toLowerCase();
+              if (!style) return false;
+              return catValues.some(cat => style.includes(cat));
+            });
+          }
+        }
+
+        // --------------------------------
+        // 3) Lieux (venues)
+        // --------------------------------
+        if (Array.isArray(filters.venues) && filters.venues.length > 0) {
+          const venueNames = filters.venues
+            .map(v => (v && v.name ? String(v.name).toLowerCase() : ""))
+            .filter(Boolean);
+
+          if (venueNames.length > 0) {
+            rows = rows.filter(r => {
+              const lieu = String(r.Lieu || r.Theatre || "").toLowerCase();
+              if (!lieu) return false;
+              return venueNames.some(name => lieu.includes(name));
+            });
+          }
+        }
+
+        // --------------------------------
+        // 4) Dates + fenêtre horaire
+        // --------------------------------
+        const hasDateFilter =
+          filters.dates && (filters.dates.from || filters.dates.to);
+        const hasTimeFilter =
+          filters.time_window && (filters.time_window.start || filters.time_window.end);
+
+        let fromInt = null;
+        let toInt   = null;
+
+        if (hasDateFilter) {
+          const fromDate = filters?.dates?.from || null; // "YYYY-MM-DD"
+          const toDate   = filters?.dates?.to   || null;
+          fromInt = fromDate ? dateISOToInt(fromDate) : null;
+          toInt   = toDate   ? dateISOToInt(toDate)   : null;
+        }
+
+        const fromTime = filters?.time_window?.start || null; // "HH:MM"
+        const toTime   = filters?.time_window?.end   || null;
+
+        // pour les dates futures uniquement
+        const onlyFuture = filters?.availability?.only_future_performances === true;
+
+        if (hasDateFilter || hasTimeFilter || onlyFuture) {
+          const today = new Date();
+          const todayInt =
+            today.getFullYear() * 10000 +
+            (today.getMonth() + 1) * 100 +
+            today.getDate();
+
+          rows = rows.filter(r => {
+            const rowHasDate = Number.isFinite(r.Date);
+            const dateInt = rowHasDate ? Number(r.Date) : null;
+            const timeStr = getRowTimeHHMM(r); // "HH:MM" ou null
+
+            // --- CAS A : la ligne a déjà une date programmée ---
+            if (rowHasDate) {
+              // Filtre date (from/to)
+              if (hasDateFilter) {
+                if (fromInt && dateInt < fromInt) return false;
+                if (toInt   && dateInt > toInt)   return false;
+              }
+
+              // Filtre future uniquement
+              if (onlyFuture && dateInt < todayInt) return false;
+
+              // Filtre heure (si demandé)
+              if (hasTimeFilter) {
+                if (!timeStr) return false;
+                if (fromTime && timeStr < fromTime) return false;
+                if (toTime   && timeStr > toTime)   return false;
+              }
+
+              // Ici, on ne consulte pas activitesAPI :
+              // Date est déjà une session effectivement programmée.
+              return true;
+            }
+
+            // --- CAS B : pas de Date : on se base sur activitesAPI + intervalle de dates ---
+            // Si on n'a pas activitesAPI ou pas de filtre de date, on ne sait pas faire mieux
+            if (!activitesAPI || !hasDateFilter) {
+              // on applique éventuellement uniquement le filtre horaire (sans date)
+              if (hasTimeFilter) {
+                if (!timeStr) return false;
+                if (fromTime && timeStr < fromTime) return false;
+                if (toTime   && timeStr > toTime)   return false;
+              }
+              // pas de contrainte de date explicite gérable
+              return true;
+            }
+
+            // Ici : pas de Date, mais hasDateFilter + activitesAPI → on teste si l'activité
+            // est valide / programmable sur au moins UNE date du range.
+            const act = r; // on suppose que "activite" est la ligne elle-même
+
+            let anyMatch = false;
+            const effFromInt = fromInt || todayInt; // si pas de from, on prend aujourd'hui pour onlyFuture
+            const effToInt   = toInt   || (fromInt || todayInt); // borne sup minimale
+
+            iterDateRangeInt(effFromInt, effToInt, (di) => {
+              if (anyMatch) return;
+
+              // validité session/relâche
+              if (!activitesAPI.estActiviteValideADate(act, di)) return;
+
+              // future uniquement ?
+              if (onlyFuture && di < todayInt) return;
+
+              // Si on veut être ultra strict sur des heures, on ne peut pas savoir ici (pas d'horaire par date)
+              // donc on ignore la time_window dans ce cas B.
+
+              anyMatch = true;
+            });
+
+            return anyMatch;
+          });
+        }
+
+        // --------------------------------
+        // 5) Limit + tri
+        // --------------------------------
+        const limit =
+          Number.isFinite(intentJson?.results?.limit) && intentJson.results.limit > 0
+            ? intentJson.results.limit
+            : rows.length;
+
+        rows.sort((a, b) => {
+          const da = Number.isFinite(a.Date) ? Number(a.Date) : 0;
+          const db = Number.isFinite(b.Date) ? Number(b.Date) : 0;
+          if (da !== db) return da - db;
+
+          const ta = getRowTimeHHMM(a) || "";
+          const tb = getRowTimeHHMM(b) || "";
+          return ta.localeCompare(tb);
+        });
+
+        return rows.slice(0, limit);
+      }
+
+      function formatLocalSearchResults(rows, scoreMap = null, selectionMode = 'random') {
+        if (!rows || !rows.length) {
+          return "Je n'ai trouvé aucun spectacle correspondant dans votre planning actuel.";
+        }
+
+        const lines = rows.map((r, i) => {
+          const act   = r.Activite || r.Spectacle || "(Sans titre)";
+          const style = r.Style || "Style inconnu";
+          const lieu  = r.Lieu || r.Theatre || "(Lieu inconnu)";
+
+          const timeStr = getRowTimeHHMM(r);
+
+          // const dateISO = getRowDateISO(r);
+          // let niceDate = "non programmé";
+          // if (dateISO && /^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
+          //   const [y, m, d] = dateISO.split("-");
+          //   niceDate = `${d}/${m}`;
+          // }
+          const horaire = r.Debut ? `(${r.Debut})` : "";
+
+          let scorePart = "";
+          if (scoreMap) {
+            const k = makeShowKeyFromRow(r);
+            if (k && scoreMap.has(k)) {
+              const sc = scoreMap.get(k);
+              scorePart = ` (score: ${sc.toFixed(3)})`;
+            }
+          }
+
+          return `${i + 1}. ${act} — ${style} — ${lieu} ${horaire}${scorePart}`;
+        });
+
+        const presentation = selectionMode === 'random' ? 
+          "Voici des suggestions issues de votre stock correspondant à votre demande :\n\n" :
+          "Voici les meilleures suggestions issues de votre stock correspondant à votre demande (classés par pertinence) :\n\n";
+        return presentation +
+              lines.join("\n");
+      }
+
+      function getSelectionMode(intentJson) {
+        const mode = intentJson?.results?.selection_mode;
+        if (mode === "random") return "random";
+        return "scored"; // défaut
+      }
+
+      function getLimitFromIntent(intentJson, fallback = 10) {
+        const n = intentJson?.results?.limit;
+        if (Number.isFinite(n) && n > 0) return n;
+        return fallback;
+      }
+
+      async function handleGlobalSemanticSearch(raw, intentJson) {
+        const selectionMode = getSelectionMode(intentJson);
+        const limit = getLimitFromIntent(intentJson, 10);
+
+        // On demande plus large si le user veut du random
+        let semanticTopK;
+        if (selectionMode === "random") {
+          semanticTopK = Math.min(limit * 3, 50); // par ex. max 50
+        } else {
+          semanticTopK = limit;
+        }
+
+        // On part sur l'embedding_query si dispo
+        const semanticQuery =
+          intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
+            ? intentJson.semantic.embedding_query.trim()
+            : raw;
+
+        // Filtres issus de intentJson
+        const filters = intentJson?.filters || null;
+
+        // Appel classique au worker
+        const results = await scoreWithAISemantic(semanticQuery, semanticTopK, filters);
+        // results = [{ activite, style, lieu, orga, score, ... }, ...]
+
+        if (!results || !results.length) {
+          return "Je n'ai pas trouvé de spectacle correspondant dans les catalogues In&Off.";
+        }
+
+        let finalList = results;
+        let presentation = '';
+
+        if (selectionMode === "random") {
+          // mélange
+          const copy = results.slice();
+          for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+          }
+          finalList = copy.slice(0, limit);
+          presentation = 'Voici des suggestions choisies dans les catalogues In & Off correspondant à votre demande:\n\n'; 
+        } else {
+          // scored (déjà trié par score côté worker)
+          finalList = results.slice(0, limit);
+          presentation = 'Voici les meilleures suggestions choisies dans les catalogues In & Off correspondant à votre demande (triées par pertinence):\n\n'; 
+        }
+
+        // Mise en forme pour le chat
+        const lines = finalList.map((r, i) =>
+          `${i + 1}. ${r.activite} — ${r.style || "Style inconnu"} — ${r.lieu || ""} ` +
+          `[${(r.section || "") || "?"}] (score: ${r.score?.toFixed(3) ?? "?"})`
+        );
+
+        return presentation + lines.join("\n");
+      }
+
+      async function handleLocalSemanticSearch(raw, intentJson) {
+        const selectionMode = getSelectionMode(intentJson);
+        const limit = getLimitFromIntent(intentJson, 10);
+
+        // 1) Filtrage logique sur df courant
+        const localRows = filterCurrentScheduleWithIntent(intentJson);
+
+        if (!localRows.length) {
+          return "Je n'ai trouvé aucun spectacle correspondant dans votre planning actuel.";
+        }
+
+        // 2) embedding_query
+        const semanticQuery =
+          intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
+            ? intentJson.semantic.embedding_query.trim()
+            : raw;
+
+        // 3) Construction des clés locales + map key -> rows[]
+        const keyToRows = new Map();
+        const keys = [];
+
+        for (const r of localRows) {
+          const k = makeShowKeyFromRow(r); // clé partagée avec worker Cloudflare 
+          if (!k) continue;
+          keys.push(k);
+          if (!keyToRows.has(k)) {
+            keyToRows.set(k, []);
+          }
+          keyToRows.get(k).push(r);
+        }
+
+        if (!keys.length) {
+          return "Je n'ai pas de clé exploitable pour faire un tri sémantique sur le planning actuel.";
+        }
+
+        // 4) topK demandé au worker
+        let localTopK;
+        if (selectionMode === "random") {
+          localTopK = Math.min(limit * 3, 50);
+        } else {
+          localTopK = limit;
+        }
+
+        const scored = await scoreWithAISemanticByKey(semanticQuery, keys, localTopK);
+        if (!scored.length) {
+          return "Je n'ai pas réussi à classer les spectacles par pertinence dans votre planning.";
+        }
+
+        // 5) Construire rowsWithScore = [{ row, score }, ...]
+        const rowsWithScore = [];
+        for (const s of scored) {
+          const key = s.key;
+          const sc  = Number(s.score) || 0;
+          const rowsForKey = keyToRows.get(key) || [];
+          for (const r of rowsForKey) {
+            rowsWithScore.push({ row: r, score: sc });
+          }
+        }
+
+        // 6) Sélection selon selection_mode
+        let pickedRowsWithScore;
+
+        if (selectionMode === "random") {
+          // on mélange d'abord rowsWithScore (sans perdre les scores)
+          const copy = rowsWithScore.slice();
+          for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+          }
+          pickedRowsWithScore = copy.slice(0, limit);
+        } else {
+          // scored : tri desc sur score, puis limit
+          rowsWithScore.sort((a, b) => b.score - a.score);
+          pickedRowsWithScore = rowsWithScore.slice(0, limit);
+        }
+
+        const topRows = pickedRowsWithScore.map(rs => rs.row);
+
+        // 7) Map key -> score pour affichage
+        const scoreMap = new Map();
+        for (const rs of pickedRowsWithScore) {
+          const k = makeShowKeyFromRow(rs.row);
+          if (!k) continue;
+          if (!scoreMap.has(k) || scoreMap.get(k) < rs.score) {
+            scoreMap.set(k, rs.score);
+          }
+        }
+
+        // 8) Mise en forme textuelle
+        return formatLocalSearchResults(topRows, scoreMap, selectionMode);
+      }
+
+      // Premier rendu : on affiche l'historique déjà en storage
+      renderChat();
+
+      // ===========================
+      // Nouveau SEND unifié
+      // ===========================
       async function send() {
         clearError();
-        const msg = (inputReq?.value || "").trim();
-        if (!msg) {
+        const raw = (inputReq?.value || "").trim();
+        if (!raw) {
           showError("Merci de saisir une requête.");
           inputReq?.focus();
           return;
         }
 
-        respBox.hidden = false;
-        if (respEl) respEl.textContent = "⏳ L’IA réfléchit…";
+        // 1) Toujours logguer la question de l'utilisateur
+        addMessageToUI({ role: "user", content: raw, mode: "chat" });
+
+        // 2) Reset du champ de saisie
+        if (inputReq) inputReq.value = "";
+
+        // 3) Message "L’IA réfléchit…"
+        const thinkingMsg = { role: "assistant", content: "⏳ L’IA réfléchit…", mode: "chat" };
+        addMessageToUI(thinkingMsg);
+
         btnSend.disabled = true;
 
         try {
-          const reply = await callAI(msg, contextSnapshot);
-          if (respEl) {
-            respEl.textContent = reply || "";
+          // 4) Analyse d'intention enrichie (/ai/query-understand)
+          const previousIntent = lastSemanticIntent || null;
+          const intentJson = await callAIQueryUnderstand(raw, previousIntent);
+
+          console.log(intentJson);
+
+          lastSemanticIntent = intentJson || null;
+
+          const topIntent = intentJson?.intent || "unknown";
+          const searchSpace = intentJson?.scope?.search_space || "auto";
+          const selectionMode = intentJson?.results?.selection_mode || "scored";
+
+          // 4bis) Contexte historique pour le mode chat classique
+          const histContext = buildContextFromHistory(5);
+          const fullContext = [contextSnapshot, histContext].filter(Boolean).join("\n\n");
+
+          let replyText = "";
+
+          if (topIntent !== "search_shows") {
+            // 🔵 CAS 1 : Chat général / FAQ / analyse → route /ai
+            replyText = await callAI(raw, fullContext, intentJson);
+          } else {
+            // 🔵 CAS 2 : Intent de recherche de spectacles
+            if (searchSpace === "current_schedule") {
+              // 🟢 Recherche sur le stock local (df courant)
+              replyText = await handleLocalSemanticSearch(raw, intentJson);
+            } else {
+              // 🟠 Recherche globale In/Off (index embeddings)
+              replyText = await handleGlobalSemanticSearch(raw, intentJson);
+            }
           }
+
+          // 5) On enlève "L’IA réfléchit…"
+          chatHistory.pop();
+
+          // 6) On ajoute la réponse dans le log
+          addMessageToUI({
+            role: "assistant",
+            content: replyText || "Je n'ai pas réussi à générer de réponse utile.",
+            mode: topIntent === "search_shows" ? "semantic" : "chat"
+          });
+
         } catch (e) {
-          console.error("AI error:", e);
+          console.error("AI error in send():", e);
+          // On enlève "L’IA réfléchit…"
+          chatHistory.pop();
+          addMessageToUI({
+            role: "assistant",
+            content: "Erreur lors de l'appel à l’IA.",
+            mode: "chat"
+          });
           showError("Erreur lors de l'appel à l’IA.");
-          if (respEl) respEl.textContent = "";
         } finally {
           btnSend.disabled = false;
         }
       }
 
+      // ===========================
+      // Event handlers
+      // ===========================
+
       btnSend?.addEventListener("click", send);
 
       inputReq?.addEventListener("keydown", (ev) => {
-        // Ctrl+Enter ou Cmd+Enter -> envoyer
         if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) {
           ev.preventDefault();
           send();
         }
-        // Escape -> fermer la sheet
         if (ev.key === "Escape") {
           ev.preventDefault();
           close();
         }
       });
 
-      // focus initial
+      const btnReset = body.querySelector("#btn-ai-reset");
+
+      btnReset?.addEventListener("click", () => {
+        // 1. Effacer localStorage
+        resetAIHistory();
+
+        // 2. Effacer mémoire locale
+        chatHistory.length = 0;
+        lastSemanticIntent = null;
+
+        // 3. Sauvegarder l'état vide & rafraîchir l'affichage
+        saveChatHistoryToStorage(chatHistory);
+        renderChat();
+
+        // 4. Eventuel feedback
+        // showError("Historique réinitialisé.");
+        // setTimeout(() => clearError(), 2000);
+      });
+
       setTimeout(() => inputReq?.focus(), 20);
     }
   });
 }
+
 
 function normalizeDateForInput(val) {
   if (!val) return "";
@@ -6815,14 +8206,14 @@ function openSheetAssistantProgrammation() {
               <label for="prog-debut-min">Heure de début au plus tôt</label>
               <input id="prog-debut-min"
                      type="time"
-                     value="${aiProg.debut_min || "10:00"}">
+                     value="${aiProg.debut_min || "09:00"}">
             </div>
 
             <div class="form-row">
               <label for="prog-fin-max">Heure de fin au plus tard</label>
               <input id="prog-fin-max"
                      type="time"
-                     value="${aiProg.fin_max || "23:00"}">
+                     value="${aiProg.fin_max || "00:00"}">
             </div>
 
             <div class="form-row">
@@ -6945,7 +8336,6 @@ function openSheetAssistantProgrammation() {
         const r = slot.row || {};
         return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
       }
-
 
       const showError = (msg) => {
         elErr.textContent = msg || "";
@@ -7163,8 +8553,49 @@ function openSheetAssistantProgrammation() {
         return rows;
       }
 
+      async function applyIAScoringToCandidates(candidates, query) {
+        if (!candidates.length) return candidates;
+
+        // 1) scorer via worker (ajoute aiScore)
+        const scored = await scoreCandidatesWithIA(query, candidates);
+
+        // 2) shuffle pondéré par le score
+        const shuffled = weightedShuffleByScore(scored);
+
+        return shuffled;
+      }
+
+      function weightedShuffleByScore(scoredCandidates, temperature = 0.3) {
+        const pool = scoredCandidates.slice();
+        const result = [];
+
+        while (pool.length) {
+          // 1) poids = exp(score / T)
+          const weights = pool.map(c => {
+            const s = Number(c.aiScore) || 0;
+            return Math.exp(s / temperature);
+          });
+
+          const total = weights.reduce((a, b) => a + b, 0);
+          let r = Math.random() * total;
+
+          let idx = 0;
+          while (idx < pool.length && r > weights[idx]) {
+            r -= weights[idx];
+            idx++;
+          }
+          if (idx >= pool.length) idx = pool.length - 1;
+
+          // 2) on "tire" ce candidat et on le retire du pool
+          result.push(pool[idx]);
+          pool.splice(idx, 1);
+        }
+
+        return result;
+      }
+
       // Construction d'une proposition
-      function buildProgram(constraints) {
+      async function buildProgram(constraints) {
         const allRows = ctx?.df || [];
 
         const GAP_MIN = constraints.gap_minutes || defaultGap || 30;
@@ -7187,7 +8618,14 @@ function openSheetAssistantProgrammation() {
 
         // 1) Candidats issus des filtres "classiques"
         let rawCandidates = getCandidateRows(constraints) || [];
-        rawCandidates = shuffleArray(rawCandidates);               // variabilité
+
+        if (constraints.request) {
+          // 🔹 nouveau : scoring IA + shuffle pondéré
+          rawCandidates = await applyIAScoringToCandidates(rawCandidates, constraints.request);
+        } else {
+          // 🔹 ancien comportement : aléatoire uniforme
+          rawCandidates = shuffleArray(rawCandidates);
+        }
 
         // 2) Slots déjà programmés (prog existant)
         const existingByDay = new Map(); // dateInt -> [{ startMin, endMin }]
@@ -7498,6 +8936,7 @@ function openSheetAssistantProgrammation() {
 
       // Application du programme proposé sur df
       function applyProgramToDf(selectedByDay, simulate = false) {
+        if (!selectedByDay) return 0;
         const dateByUUID = new Map();
         const pauseRows = []; // <- lignes de pauses à ajouter telles quelles
 
@@ -7649,7 +9088,7 @@ function openSheetAssistantProgrammation() {
       }
 
       // Génération d'un proposition de programme
-      function genProgram() {
+      async function genProgram() {
         clearError();
         elRespBox.hidden = false;
         elResp.textContent = "⏳ Génération du programme…";
@@ -7657,7 +9096,7 @@ function openSheetAssistantProgrammation() {
         try {
           const constraints   = buildConstraints();
           savePrefs(constraints);
-          selectedByDay       = buildProgram(constraints);
+          selectedByDay       = await buildProgram(constraints);
           const addedCount    = applyProgramToDf(selectedByDay, true);
           const summary       = summarizeProgram(selectedByDay, addedCount);
           elResp.innerHTML    = summary;
