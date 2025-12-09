@@ -5460,7 +5460,7 @@ function wireAppKebab() {
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
         // { id:'exportInForAi',  label:'export In ForAi',       onClick: ()=>exportJsonForAi('in') },
         // { id:'exportOffForAi', label:'export Off ForAi',      onClick: ()=>exportJsonForAi('off') },
-        { id:'importNotes', label:'Import des notes',      onClick: ()=>importNotesFromAiJson() },
+        // { id:'importNotes', label:'Import des notes',      onClick: ()=>importNotesFromAiJson() },
       ]
     });
   }, { passive: true });
