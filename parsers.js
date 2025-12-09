@@ -19,6 +19,7 @@ export const PARSED_DEFAULT = {
     Relache: null,
     Style: null,
     Orga: null,
+    Note: null,
     Hyperlien: null,
     HyperlienBR: null,
     Avis: null,

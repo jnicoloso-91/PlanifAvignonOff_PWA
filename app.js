@@ -1919,8 +1919,8 @@ function buildColumnsActivitesCommon(){
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
-    { field:'Session', headerName: 'Séances', width:widthSR, minWidth:widthSR, valueParser: valueParserSession },
-    { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache },
+    { field:'Session', headerName: 'Séances', width:widthSR, minWidth:widthSR, valueParser: valueParserSession, onCellValueChanged: updSeances },
+    { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
     { field:'Style', headerName: 'Style', minWidth:160, flex:0.6 },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
@@ -1928,6 +1928,7 @@ function buildColumnsActivitesCommon(){
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
     { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
     { field:'HyperlienAvis', headerName: 'Avis', minWidth:120, flex:1, cellRenderer: AvisRenderer },
+    { field:'Note', headerName: 'Note', width, minWidth:width },
   ];
 }
 
@@ -1954,13 +1955,13 @@ function buildColumnsActivitesProgrammees() {
   cols[iDebut] = {
     ...cols[iDebut] ,
     editable: (p) => !activitesAPI.estActiviteReservee(p.data),
-    onCellValueChanged: (p) => p.data.Fin = recalcFin(p.data),
+    onCellValueChanged: updFin,
   };
 
   cols[iDuree] = {
     ...cols[iDuree] ,
     editable: (p) => !activitesAPI.estActiviteReservee(p.data),
-    onCellValueChanged: (p) => p.data.Fin = recalcFin(p.data),
+    onCellValueChanged: updFin,
   };
 
   cols[iReserve] = {
@@ -1996,12 +1997,12 @@ function buildColumnsActivitesNonProgrammees() {
 
   cols[iDebut] = {
     ...cols[iDebut] ,
-    onCellValueChanged: (p) => p.data.Fin = recalcFin(p.data),
+    onCellValueChanged: updFin,
   };
 
   cols[iDuree] = {
     ...cols[iDuree] ,
-    onCellValueChanged: (p) => p.data.Fin = recalcFin(p.data),
+    onCellValueChanged: updFin,
   };
 
   return cols
@@ -2072,8 +2073,8 @@ function valueParserSession (params) {
      - "9/7", "09/07" (année courante implicite) , 
      - "09/07/25" ou "09/07/2025"
      - "(9, 16, 23)/7" pour énumérer des dates du même mois
-     - "[9-12]/07", [30/07-01/08] pour une période
-     - "[9-12]/07 lu ma", [30/07-01/08] lu ma pour des jours de la semaine sur une période 
+     - "[9-12]/07", "[30/07-01/08]" pour une période
+     - "[9-12]/07 lu ma", "[30/07-01/08] lu ma" pour des jours de la semaine sur une période 
      - "jours pairs" | "jours impairs"
      - chaîne vide => tous les jours de la période de programmation
     `);
@@ -2088,8 +2089,8 @@ function valueParserRelache (params) {
      - "9/7", "09/07" (année courante implicite) , 
      - "09/07/25" ou "09/07/2025"
      - "(9, 16, 23)/7" pour énumérer des dates du même mois
-     - "[9-12]/07", [30/07-01/08] pour une période
-     - "[9-12]/07 lu ma", [30/07-01/08] lu ma pour des jours de la semaine sur une période 
+     - "[9-12]/07", "[30/07-01/08]" pour une période
+     - "[9-12]/07 lu ma", "[30/07-01/08] lu ma" pour des jours de la semaine sur une période 
      - "jours pairs" | "jours impairs"
      - chaîne vide => pas de jours de relâche
     `);
@@ -2377,6 +2378,46 @@ async function dropRowFromSrcGridToDstGrid(srcGrid, dstGrid, dstExp, srcUuid, ds
 
   // 5) lance le phantom flight vers l’élément centré
   doPhantomFlight(srcGrid, dstGrid, dstExp); 
+}
+
+// Quand on édite une colonne qui nécessite de recalculer Fin
+function updFin(params) {
+  const uuid = params.node.id;
+  let df = ctx.getDf().slice();
+  const idx = df.findIndex(r => r.__uuid === uuid);
+  if (idx < 0) return;
+
+  // 1) on construit la ligne mise à jour
+  let row = { ...df[idx], ...params.data };
+
+  // 2) on recalcule Fin à partir de cette ligne
+  row.Fin = recalcFin(row);
+
+  // 3) on remet la ligne dans le df
+  df[idx] = row;
+
+  df = sortDf(df);
+  ctx.setDf(df);    
+}
+
+// Quand on édite une Session ou Relache
+function updSeances(params) {
+  const uuid = params.node.id;
+  let df = ctx.getDf().slice();
+  const idx = df.findIndex(r => r.__uuid === uuid);
+  if (idx < 0) return;
+
+  // 1) on construit la ligne mise à jour
+  let row = { ...df[idx], ...params.data };
+
+  // 2) on recalcule Fin à partir de cette ligne
+  row.__seances = buildSeancesFromSessionRelache(row.Session, row.Relache);
+
+  // 3) on remet la ligne dans le df
+  df[idx] = row;
+
+  df = sortDf(df);
+  ctx.setDf(df);    
 }
 
 // Quand on édite la date d'une activité programmée
@@ -3267,14 +3308,14 @@ async function doImportExcel() {
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
   // importFromUrlOrTxt('https://festival-avignon.com/fr/edition-2025/programmation/par-categorie', 'parseAvignonInProgPage');
-  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=1659244658');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=1144990528');
   importFromXlsxFile(f, {add:true});
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
   // importFromUrlOrTxt('https://www.festivaloffavignon.com/programme', 'parseAvignonOffProgPage');
-  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=527650237');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=886169448');
   importFromXlsxFile(f, {add:true});
 }
 
@@ -3356,7 +3397,7 @@ async function doExportExcel() {
     })
     
     cleanData = cleanRows(cleanData, 
-      ["__uuid", "Hyperlien", "__order", "__type_activite", "__index"],
+      ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances"],
       { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienAvis: "Avis" },
       [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Style", "Orga", "Réservé", "Priorité", "Billet Réduc", "Avis" ],
       false
@@ -3502,49 +3543,298 @@ function rangeDateInts(startInt, endInt) {
  * @param {*} editionYearFallback 
  * @returns 
  */
-function makeShowKeyFromRow(row, editionYearFallback=null) {
+function makeFullKeyFromRow(row) {
   const norm = (v) => (v == null ? "" : String(v).trim().toLowerCase());
 
   const activite = norm(row.Activite);
   const lieu     = norm(row.Lieu || row.Theatre);
   const debut    = norm(row.Debut);
-  const seances  = buildSeancesFromSessionRelache(row.Session, row.Relache, editionYearFallback);
+  if (!row.__seances) row.__seances = buildSeancesFromSessionRelache(row.Session, row.Relache);
+  const seances  = row.__seances;
 
-  return `${activite}||${lieu}||${debut}||${seances}`;
+  // return `${activite}||${lieu}||${debut}||${seances}`;
+  return `${activite}||${lieu}||${debut}`;
 }      
 
 /**
- * Construit les séances pour un spectacle à partir de Session / Relache EN UTILISANT estDateValide.
- * - détecte l'année (Session/Relache ou editionYearFallback)
- * - balaie tout juillet de cette année
- * - garde les jours où estDateValide(...) === true
+ * Construit la liste des séances (dates "YYYY-MM-DD") à partir de Session / Relache.
+ *
+ * Grammaire gérée (côté Session) :
+ *  - Intervalles :
+ *      [d1-d2]
+ *      [d1-d2]/mm
+ *      [d1-d2]/mm/yyyy
+ *      [d1/mm1-d2/mm2]/yyyy
+ *
+ *  - Listes :
+ *      (d1, d2, ...)
+ *      (d1, d2, ...)/mm
+ *      (d1, d2, ...)/mm/yyyy
+ *      (d1/mm, d2/mm2, ...)
+ *
+ *  - Dates isolées :
+ *      d
+ *      d/mm
+ *      d/mm/yyyy
+ *
+ * Règles de complétion :
+ *  - année par défaut : editionYearFallback si fourni, sinon année courante
+ *  - mois par défaut : mois courant
+ *
+ * On construit un ensemble de dates candidates (AAAAMMJJ), puis on les filtre
+ * avec activitesAPI.estDateValide(dateInt, sessionVal, relacheVal).
+ *
+ * @param {string|null} sessionVal
+ * @param {string|null} relacheVal
+ * @param {number|null} editionYearFallback - année par défaut si souhaité
+ * @returns {string[]} tableau de dates "YYYY-MM-DD"
  */
 function buildSeancesFromSessionRelache(sessionVal, relacheVal, editionYearFallback = null) {
-  const year = detectSessionYear(sessionVal, relacheVal, editionYearFallback);
+  const sessionTxt = String(sessionVal || "").trim();
+  if (!sessionTxt) return [];
 
-  const festivalStartInt = year * 10000 + 701; // 1er juillet
-  const festivalEndInt   = year * 10000 + 731; // 31 juillet
+  const now = new Date();
+  const baseYear  = Number.isFinite(editionYearFallback) ? editionYearFallback : now.getFullYear();
+  const baseMonth = now.getMonth() + 1; // 1..12
 
-  const dates = rangeDateInts(festivalStartInt, festivalEndInt);
+  // 🔴 IMPORTANT : une seule Set pour TOUTE la chaîne
+  const candidateDates = new Set();
 
-  // todayRef pour les défauts de mois/année dans estDateValide
-  const todayRef = new Date(year, 6, 1); // 1er juillet
+  // ---------- Helpers ----------
 
+  function dateIntToIso(di) {
+    const y  = Math.floor(di / 10000);
+    const m  = Math.floor((di / 100) % 100);
+    const d  = di % 100;
+    const mm = String(m).padStart(2, "0");
+    const dd = String(d).padStart(2, "0");
+    return `${y}-${mm}-${dd}`;
+  }
+
+  function parseDateFragment(raw) {
+    if (!raw) return { d: null, m: null, y: null };
+    const parts = String(raw).trim().split("/").map(s => s.trim()).filter(Boolean);
+    let d = null, m = null, y = null;
+
+    if (parts.length === 3) {
+      d = Number(parts[0]);
+      m = Number(parts[1]);
+      y = Number(parts[2]);
+    } else if (parts.length === 2) {
+      d = Number(parts[0]);
+      m = Number(parts[1]);
+    } else if (parts.length === 1) {
+      d = Number(parts[0]);
+    }
+
+    if (!Number.isFinite(d)) d = null;
+    if (!Number.isFinite(m)) m = null;
+    if (!Number.isFinite(y)) y = null;
+
+    return { d, m, y };
+  }
+
+  function normalizeYear(y, defaultYear) {
+    if (!Number.isFinite(y)) y = defaultYear;
+    if (y < 100) {
+      y = (y < 50) ? (2000 + y) : (1900 + y);
+    }
+    return y;
+  }
+
+  function fragmentToDateInt(frag, mmSuffix, yySuffix) {
+    const d = frag.d;
+    if (!Number.isFinite(d)) return null;
+
+    let m = frag.m;
+    let y = frag.y;
+
+    // mois
+    if (mmSuffix != null && !Number.isFinite(m)) {
+      m = Number(mmSuffix);
+    }
+    if (!Number.isFinite(m)) {
+      m = baseMonth;
+    }
+
+    // année
+    if (yySuffix != null && !Number.isFinite(y)) {
+      y = Number(yySuffix);
+    }
+    y = normalizeYear(y, baseYear);
+
+    if (!Number.isFinite(m) || m < 1 || m > 12) return null;
+
+    const js = new Date(y, m - 1, d);
+    if (
+      js.getFullYear() !== y ||
+      js.getMonth() + 1 !== m ||
+      js.getDate() !== d
+    ) {
+      return null;
+    }
+
+    return y * 10000 + m * 100 + d;
+  }
+
+  function splitTopLevelByComma(text) {
+    const parts = [];
+    let buf = "";
+    let depthSquare = 0;
+    let depthParen = 0;
+
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+
+      if (c === "[") depthSquare++;
+      else if (c === "]" && depthSquare > 0) depthSquare--;
+      else if (c === "(") depthParen++;
+      else if (c === ")" && depthParen > 0) depthParen--;
+
+      if (c === "," && depthSquare === 0 && depthParen === 0) {
+        const segment = buf.trim();
+        if (segment) parts.push(segment);
+        buf = "";
+        continue;
+      }
+
+      buf += c;
+    }
+
+    const last = buf.trim();
+    if (last) parts.push(last);
+    return parts;
+  }
+
+  function parseSuffix(rawSuffix) {
+    const s = String(rawSuffix || "").trim();
+    if (!s.startsWith("/")) {
+      return { mmSuffix: null, yySuffix: null };
+    }
+
+    const body = s.slice(1).trim();
+    if (!body) {
+      return { mmSuffix: null, yySuffix: null };
+    }
+
+    const parts = body.split("/").map(x => x.trim()).filter(Boolean);
+
+    if (parts.length === 1) {
+      const token = parts[0];
+      if (token.length === 2) {
+        return { mmSuffix: token, yySuffix: null };    // /mm
+      }
+      if (token.length === 4) {
+        return { mmSuffix: null, yySuffix: token };    // /yyyy
+      }
+      return { mmSuffix: null, yySuffix: null };
+    }
+
+    if (parts.length === 2) {
+      const mm = parts[0] || null;
+      const yy = parts[1] || null;
+      return { mmSuffix: mm, yySuffix: yy };           // /mm/yyyy
+    }
+
+    return { mmSuffix: null, yySuffix: null };
+  }
+
+  // ---------- 1) Découpage en segments ----------
+
+  const segments = splitTopLevelByComma(sessionTxt);
+  // DEBUG : à commenter ensuite
+  // console.log("Segments:", segments);
+
+  for (const segRaw of segments) {
+    const seg = segRaw.trim();
+    if (!seg) continue;
+
+    // DEBUG : à commenter ensuite
+    // console.log("Segment:", seg);
+
+    // CAS 1 : Intervalle [a-b](/mm[/yyyy]?)
+    if (/^\s*\[/.test(seg)) {
+      const m = seg.match(/\[\s*([^\]]+)\s*\]\s*(.*)$/);
+      if (!m) continue;
+
+      const inside     = m[1];          // "04-25" ou "28/07-04/08"
+      const suffixPart = m[2] || "";    // "/07", "/2025", "/07/2025" ou ""
+
+      const { mmSuffix, yySuffix } = parseSuffix(suffixPart);
+
+      const dashIdx = inside.indexOf("-");
+      if (dashIdx < 0) continue;
+
+      const left  = inside.slice(0, dashIdx).trim();
+      const right = inside.slice(dashIdx + 1).trim();
+
+      const fragA = parseDateFragment(left);
+      const fragB = parseDateFragment(right);
+
+      const diA = fragmentToDateInt(fragA, mmSuffix, yySuffix);
+      const diB = fragmentToDateInt(fragB, mmSuffix, yySuffix);
+      if (!diA || !diB) continue;
+
+      let di = Math.min(diA, diB);
+      const hi = Math.max(diA, diB);
+
+      while (di <= hi) {
+        candidateDates.add(di);
+        const y  = Math.floor(di / 10000);
+        const m2 = Math.floor((di / 100) % 100);
+        const d2 = di % 100;
+        const next = new Date(y, m2 - 1, d2 + 1);
+        di = next.getFullYear() * 10000 + (next.getMonth() + 1) * 100 + next.getDate();
+      }
+
+      continue;
+    }
+
+    // CAS 2 : Liste (d1, d2, ...) (/mm[/yyyy]?)
+    if (/^\s*\(/.test(seg)) {
+      const m = seg.match(/\(\s*([^)]+)\s*\)\s*(.*)$/);
+      if (!m) continue;
+
+      const inside     = m[1];          // "10, 11" ou "10/08, 11/08"
+      const suffixPart = m[2] || "";    // "/08", "/08/2025", ...
+
+      const { mmSuffix, yySuffix } = parseSuffix(suffixPart);
+
+      const tokens = inside.split(",").map(s => s.trim()).filter(Boolean);
+      for (const tok of tokens) {
+        const frag = parseDateFragment(tok);
+        const di   = fragmentToDateInt(frag, mmSuffix, yySuffix);
+        if (di) candidateDates.add(di);
+      }
+
+      continue;
+    }
+
+    // CAS 3 : dates isolées dans le segment
+    const reSingle = /\b(\d{1,2}(?:\/\d{1,2}(?:\/\d{2,4})?)?)\b/g;
+    let mSingle;
+    while ((mSingle = reSingle.exec(seg)) !== null) {
+      const tok  = mSingle[1];
+      const frag = parseDateFragment(tok);
+      const di   = fragmentToDateInt(frag, null, null);
+      if (di) candidateDates.add(di);
+    }
+  }
+
+  // ---------- 2) Filtrage via estDateValide ----------
+
+  const sorted = Array.from(candidateDates).sort((a, b) => a - b);
   const seances = [];
-  for (const di of dates) {
-    // 👉 toute la logique compliquée est dans estDateValide
-    if (activitesAPI.estDateValide(di, sessionVal, relacheVal, todayRef)) {
-      const y = Math.floor(di / 10000);
-      const m = Math.floor((di / 100) % 100);
-      const d = di % 100;
-      const mm = String(m).padStart(2, "0");
-      const dd = String(d).padStart(2, "0");
-      seances.push(`${y}-${mm}-${dd}`);
+
+  for (const di of sorted) {
+    if (activitesAPI.estDateValide(di, sessionVal, relacheVal)) {
+      seances.push(dateIntToIso(di));
     }
   }
 
   return seances;
 }
+
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -3635,11 +3925,10 @@ async function enrichWithDetailsAndAvis(
  * Construit les données source pour le build_index IA.
  *
  * @param {Array<object>} df
- * @param {function(object):boolean} isKeptRow  - ex: Orga === off/in
  * @param {string} sectionLabel                 - "off" ou "in"
  * @param {number|null} editionYear            - ex: 2025 (facultatif, sert de fallback pour l'année)
  */
-function buildAiExportFromDf(df, isKeptRow, sectionLabel, editionYear = null) {
+function buildAiExportFromDf(df, sectionLabel, editionYear = null) {
   function cleanField(v) {
     if (v == null) return null;
     const s = String(v).trim();
@@ -3653,7 +3942,7 @@ function buildAiExportFromDf(df, isKeptRow, sectionLabel, editionYear = null) {
 
   for (const r of df) {
     if (!r) continue;
-    if (isKeptRow && !isKeptRow(r)) continue;
+    if (String(r.Orga || '').toLowerCase() !== sectionLabel.toLowerCase()) continue;
 
     const sessionVal = cleanField(r.Session);
     const relacheVal = cleanField(r.Relache);
@@ -3685,30 +3974,146 @@ function buildAiExportFromDf(df, isKeptRow, sectionLabel, editionYear = null) {
   return out;
 }
 
-async function exportOffForAi(editionYear = 2025) {
-  function isOffRow(r) {
-    return String(r.Orga || '').toLowerCase() === 'off';
-  }
+/**
+ * Exporte le json servant à faire l'index pour le In et le Off
+ * @param {*} orga          doit valoir 'in' ou 'off' 
+ * @param {*} editionYear   année de l'édition (2025 par défaut)
+ */
+async function exportJsonForAi(orga, editionYear = 2025) {
   const df = ctx.df;
-  const offData = buildAiExportFromDf(df, isOffRow, "off", editionYear);
-  await enrichWithDetailsAndAvis(offData, { polite: true });
+  const jsonData = buildAiExportFromDf(df, orga, editionYear);
+  await enrichWithDetailsAndAvis(jsonData, { polite: true });
 
-  const filename = `off_${editionYear}.json`;
-  downloadJson(offData, filename);
+  const filename = `${orga}_${editionYear}.json`;
+  downloadJson(jsonData, filename);
   alert( `Infos téléchargées dans ${filename}`)
 }
 
-async function exportInForAi(editionYear = 2025) {
-  function isInRow(r) {
-    return String(r.Orga || '').toLowerCase() === 'in';
-  }
-  const df = ctx.df;
-  const inData = buildAiExportFromDf(df, isInRow, "in", editionYear);
-  await enrichWithDetailsAndAvis(inData, { polite: true });
+/**
+ * Ouvre un sélecteur de fichier JSON (in_2025.json / off_2025.json)
+ * et met à jour df.Note à partir du champ Avis du JSON,
+ * en faisant le matching via makeFullKeyFromRow(row).
+ *
+ * @param {object} ctx - ton contexte (avec getDf / setDf)
+ */
+function importNotesFromAiJson() {
 
-  const filename = `in_${editionYear}.json`;
-  downloadJson(inData, filename);
-  alert( `Infos téléchargées dans ${filename}`)
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json";
+
+  input.addEventListener("change", (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result;
+        const data = JSON.parse(text);
+
+        if (!Array.isArray(data)) {
+          alert("Le fichier JSON doit contenir un tableau d'objets.");
+          return;
+        }
+
+        // --- Map index_key -> Note "10 (xx avis)"
+        const noteMap = new Map();
+
+        for (const r of data) {
+          if (!r) continue;
+
+          // On reconstruit une "row" minimale compatible avec makeFullKeyFromRow
+          const fakeRow = {
+            Activite: r.Activite ?? r.activite ?? null,
+            Debut:    r.Debut    ?? r.debut    ?? null,
+            Lieu:     r.Lieu     ?? r.lieu     ?? null,
+            __seances: r.__seances || r.Seances || r.seances || null
+          };
+
+          const key = makeFullKeyFromRow(fakeRow);
+          if (!key) continue;
+
+          const avisRaw = r.Avis ?? r.avis ?? null;
+          if (!avisRaw) continue;
+
+          const noteStr = extractNoteFromAvis(avisRaw);
+          if (!noteStr) continue;
+
+          noteMap.set(key, noteStr);
+        }
+
+        console.log("NoteMap construit, entrées:", noteMap.size);
+
+        // --- Parcours du df courant
+        let df = ctx.getDf().slice();
+        let updated = 0;
+        let matched = 0;
+
+        for (let i = 0; i < df.length; i++) {
+          const row = df[i];
+          if (!row) continue;
+
+          const key = makeFullKeyFromRow(row);
+          if (!key) continue;
+
+          if (noteMap.has(key)) {
+            matched++;
+            const noteStr = noteMap.get(key);
+
+            // on écrase / crée le champ Note
+            df[i] = {
+              ...row,
+              Note: noteStr
+            };
+            updated++;
+          }
+        }
+
+        ctx.setDf(df);
+
+        alert(
+          `Import terminé.\n` +
+          `Matches trouvés: ${matched}\n` +
+          `Lignes mises à jour (Note): ${updated}`
+        );
+      } catch (err) {
+        console.error("Erreur importNotesFromAiJson:", err);
+        alert("Erreur lors de la lecture ou du parsing du JSON.");
+      }
+    };
+
+    reader.readAsText(file, "utf-8");
+  });
+
+  input.click();
+}
+
+/**
+ * Extrait une note au format "10 (xx avis)" à partir d'une chaîne Avis.
+ * Exemple Avis: "Note 9/10 (35 avis) — Commentaires: ..."
+ * -> "9 (35 avis)"
+ */
+function extractNoteFromAvis(avisRaw) {
+  if (!avisRaw) return null;
+  const s = String(avisRaw);
+
+  // Cas complet : "Note 9/10 (35 avis)"
+  let m = s.match(/(\d{1,2})\s*\/\s*10\s*\((\d+)\s*avis\)/i);
+  if (m) {
+    const note  = m[1];
+    const count = m[2];
+    return `${note} (${count} avis)`;
+  }
+
+  // Cas plus simple (sécurité) : "9/10" sans le nombre d'avis
+  m = s.match(/(\d{1,2})\s*\/\s*10\b/i);
+  if (m) {
+    const note = m[1];
+    return `${note} (avis)`;
+  }
+
+  return null;
 }
 
 // Vérification de cohérence du tableau d'activités
@@ -3869,6 +4274,32 @@ async function getClipBoardText(parser=null) {
   if (isIOS) openPastePopup();
 };
 
+// essaye d’extraire une note et un count d’un champ avis texte
+function parseAvisObject(avisStr) {
+  if (!avisStr || typeof avisStr !== "string") {
+    return { note: null, count: null };
+  }
+
+  // Exemples supportés :
+  // "Note 10/10 (74 avis) — ..."
+  // "9/10 (35 avis)"
+  const noteMatch = avisStr.match(/(\d+(?:[.,]\d+)?)\s*\/\s*10/);
+  const countMatch = avisStr.match(/\((\d+)\s*avis\)/i);
+
+  const note = noteMatch
+    ? Number(noteMatch[1].replace(",", "."))
+    : null;
+
+  const count = countMatch
+    ? Number(countMatch[1])
+    : null;
+
+  return {
+    note: Number.isFinite(note) ? note : null,
+    count: Number.isFinite(count) ? count : null
+  };
+}
+
 async function importFromUrlOrTxt(raw, parser=null) {
 
   let parsed = null;
@@ -3978,6 +4409,13 @@ async function importFromUrlOrTxt(raw, parser=null) {
       `https://www.google.com/search?q=spectacle+${nom.trim().replace(/\s+/g, '+')}` :
       null;
 
+    let note = null;
+    if (row.Avis) {
+      const avisObj = parseAvisObject(row.Avis.Note);
+      const notePart = (avisObj.note) ? `${String(avisObj.note)}` : null;
+      const countPart = (avisObj.count) ? `(${String(avisObj.count)} avis)` : null;
+      if (notePart || countPart) note = `${notePart} ${countPart}`;
+    }
     const nouvelleActivite = {
         __uuid: crypto.randomUUID?.() || String(Date.now()),
         Date: null, 
@@ -3991,6 +4429,7 @@ async function importFromUrlOrTxt(raw, parser=null) {
         Orga: row.Orga || null,
         Reserve: null, 
         Priorite: null, 
+        Note: note,
         Hyperlien: row.Hyperlien || hyperlienDefault,
         HyperlienBR: row.HyperlienBR || hyperlienBRDefault,
         HyperlienAvis: row.HyperlienAvis || avisDefault,
@@ -5019,8 +5458,9 @@ function wireAppKebab() {
         { id:'AI',        label:"Assistant IA",             onClick: ()=>openSheetAssistantChat() },
         { id:'settings',  label:'Paramètres',               onClick: ()=>openSheetParams() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
-        // { id:'exportInForAi',  label:'export In ForAi',       onClick: ()=>exportInForAi() },
-        // { id:'exportOffForAi', label:'export Off ForAi',      onClick: ()=>exportOffForAi() },
+        // { id:'exportInForAi',  label:'export In ForAi',       onClick: ()=>exportJsonForAi('in') },
+        // { id:'exportOffForAi', label:'export Off ForAi',      onClick: ()=>exportJsonForAi('off') },
+        { id:'importNotes', label:'Import des notes',      onClick: ()=>importNotesFromAiJson() },
       ]
     });
   }, { passive: true });
@@ -6852,385 +7292,8 @@ function openSheetImportBilletReduc() {
   });
 }
 
-// /**
-//  * Appelle le backend IA Cloudflare.
-//  * @param {string} message - Requête utilisateur.
-//  * @param {string} context - Contexte optionnel (planning, sélection, etc.).
-//  * @returns {Promise<string>} - Réponse texte de l'IA.
-//  */
-// async function callAI(message, context = "") {
-//   // URL du worker Cloudflare
-//   const AI_ENDPOINT = "https://off-proxy.joel-nicoloso.workers.dev/ai";
-
-//   const res = await fetch(AI_ENDPOINT, {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({ message, context })
-//   });
-
-//   if (!res.ok) {
-//     throw new Error("Erreur backend IA: " + res.status);
-//   }
-
-//   const data = await res.json();
-//   return data.reply || "";
-// }
-
-// /**
-//  * Appelle le backend IA Cloudflare sur la route ai/semantic orientée recherche de spectacle.
-//  * @param {*} query 
-//  * @returns 
-//  */
-// async function scoreWithAISemantic(query, topK = 10, filters = null) {
-//   const body = { query, topK };
-//   if (filters) {
-//     body.filters = filters;
-//   }
-
-//   const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic", {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify(body)
-//   });
-
-//   if (!res.ok) {
-//     const txt = await res.text().catch(() => "");
-//     console.warn("scoreWithAISemantic HTTP error:", res.status, txt);
-//     throw new Error("Erreur HTTP " + res.status);
-//   }
-
-//   const js = await res.json();
-//   return js.results || [];
-// }
-
-// async function callAIQueryUnderstand(message) {
-//   const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/query-understand", {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({
-//       utterance: message,
-//       festival: "off",
-//       edition_year: 2025
-//     })
-//   });
-
-//   if (!res.ok) {
-//     const txt = await res.text().catch(() => "");
-//     console.warn("callAIQueryUnderstand HTTP error:", res.status, txt);
-//     throw new Error("Erreur HTTP " + res.status);
-//   }
-
-//   const js = await res.json();
-//   // js est le QueryIntent
-//   return js;
-// }
-
-// // Feuille Interface AI
-// function openSheetAssistantChat() {
-//   const contextSnapshot = buildAIContext(); // contexte "global" (planning, etc.)
-
-//   openSheetExclusive({
-//     title: "Assistant IA",
-//     panelHeight: "auto",
-//     panelMaxHeight: "80vh",
-//     mount: (body, { close }) => {
-//       body.innerHTML = `
-//         <div class="ai-chat-container">
-
-//           <div id="ai-chat-log" class="ai-chat-log"></div>
-
-//           <p id="ai-error" class="ai-error" hidden></p>
-
-//           <div class="ai-input-wrapper">
-//             <textarea id="ai-request"
-//                       class="ai-input"
-//                       rows="3"
-//                       placeholder="Posez vos questions… (ex : Résume ce planning, propose 3 spectacles, explique les conflits, etc.)"></textarea>
-//             <button id="btn-ai-send"
-//                     type="button"
-//                     class="ai-send-icon-btn"
-//                     aria-label="Envoyer">
-//               ↑
-//             </button>
-//           </div>
-
-//         </div>
-//       `;
-
-//       const inputReq  = body.querySelector("#ai-request");
-//       const btnSend   = body.querySelector("#btn-ai-send");
-//       const errEl     = body.querySelector("#ai-error");
-//       const chatLogEl = body.querySelector("#ai-chat-log");
-
-//       const chatHistory = []; // { role, content, mode }
-
-//       const showError = (msg) => {
-//         if (!errEl) return;
-//         errEl.textContent = msg || "";
-//         errEl.hidden = !msg;
-//       };
-
-//       const clearError = () => showError("");
-
-//       function renderChat() {
-//         if (!chatLogEl) return;
-//         chatLogEl.innerHTML = "";
-
-//         for (const msg of chatHistory) {
-//           const div = document.createElement("div");
-//           div.classList.add("ai-chat-message", msg.role);
-//           if (msg.mode === "semantic") {
-//             div.classList.add("ai-chat-semantic");
-//           }
-//           div.textContent = msg.content;
-//           chatLogEl.appendChild(div);
-//         }
-
-//         chatLogEl.scrollTop = chatLogEl.scrollHeight;
-//       }
-
-//       function addMessageToUI(msg) {
-//         chatHistory.push(msg);
-//         renderChat();
-//       }
-
-//       function buildContextFromHistory(maxPairs = 5) {
-//         const pairs = [];
-//         let current = [];
-
-//         for (const msg of chatHistory) {
-//           if (msg.role === "user") {
-//             if (current.length) pairs.push(current);
-//             current = [`Utilisateur: ${msg.content}`];
-//           } else if (msg.role === "assistant") {
-//             current.push(`Assistant: ${msg.content}`);
-//             pairs.push(current);
-//             current = [];
-//           }
-//         }
-//         if (current.length) pairs.push(current);
-
-//         const lastPairs = pairs.slice(-maxPairs);
-//         return lastPairs.map(p => p.join("\n")).join("\n\n");
-//       }
-
-//       // Fallback local si /ai/intention plante
-//       function localHeuristicIntent(rawMessage) {
-//         const msg = rawMessage.toLowerCase();
-
-//         const semanticPatterns = [
-//           "trouve-moi",
-//           "trouve moi",
-//           "je cherche",
-//           "je voudrais voir",
-//           "idées de spectacles",
-//           "idée de spectacle",
-//           "quel spectacle",
-//           "quels spectacles",
-//           "me recommander",
-//           "me conseiller",
-//           "à voir",
-//           "suggestion de spectacle",
-//           "suggestions de spectacles",
-//           "propose-moi",
-//           "propose moi",
-//           "propose "
-//         ];
-
-//         const isSemanticIntent = semanticPatterns.some(p => msg.includes(p));
-//         return isSemanticIntent ? "semantic" : "chat";
-//       }
-
-//       // 🔵 Nouvelle détection de mode par IA (/ai/intention)
-//       async function detectIntent(rawMessage) {
-//         const msg = rawMessage.toLowerCase();
-
-//         // Préfixes explicites : l'utilisateur force le mode
-//         if (msg.startsWith("/semantic ")) return "semantic";
-//         if (msg.startsWith("/chat "))     return "chat";
-
-//         try {
-//           const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/intention", {
-//             method: "POST",
-//             headers: { "Content-Type": "application/json" },
-//             body: JSON.stringify({ message: rawMessage })
-//           });
-//           if (!res.ok) throw new Error("HTTP " + res.status);
-//           const js = await res.json();
-//           const intent = (js.intent || "").trim().toLowerCase();
-//           if (intent === "semantic" || intent === "chat") {
-//             return intent;
-//           }
-//           return localHeuristicIntent(rawMessage);
-//         } catch (e) {
-//           console.warn("detectIntent fallback heuristic:", e);
-//           return localHeuristicIntent(rawMessage);
-//         }
-//       }
-
-//       async function send() {
-//         clearError();
-//         const raw = (inputReq?.value || "").trim();
-//         if (!raw) {
-//           showError("Merci de saisir une requête.");
-//           inputReq?.focus();
-//           return;
-//         }
-
-//         // Ajoute la question dans l'historique
-//         addMessageToUI({ role: "user", content: raw, mode: "chat" });
-
-//         // Reset du champ de saisie
-//         if (inputReq) inputReq.value = "";
-
-//         // Détection du mode par IA (avec fallback)
-//         const intent = await detectIntent(raw);
-
-//         // Nettoyage du message envoyé à l'IA (on retire les éventuels préfixes)
-//         let userMsgForIA = raw.replace(/^\/(semantic|chat)\s+/i, "").trim();
-//         if (!userMsgForIA) userMsgForIA = raw; // au cas où
-
-//         // Contexte enrichi : snapshot planning + historique
-//         const histContext = buildContextFromHistory(5);
-//         const fullContext = [contextSnapshot, histContext].filter(Boolean).join("\n\n");
-
-//         // Message "L’IA réfléchit…"
-//         const thinkingMsg = { role: "assistant", content: "⏳ L’IA réfléchit…", mode: "chat" };
-//         addMessageToUI(thinkingMsg);
-
-//         btnSend.disabled = true;
-
-//         try {
-//           if (intent === "chat") {
-//             // Mode chat classique → /ai
-//             const reply = await callAI(userMsgForIA, fullContext);
-//             chatHistory.pop(); // retire "L’IA réfléchit…"
-//             addMessageToUI({
-//               role: "assistant",
-//               content: reply || "",
-//               mode: "chat"
-//             });
-//           } else {
-//             // Mode sémantique → /ai/query-understand puis /ai/semantic
-
-//             const intentJson = await callAIQueryUnderstand(userMsgForIA);
-//             console.debug("QueryIntent:", intentJson);
-
-//             // Récupération de la requête optimisée
-//             let semanticQuery =
-//               intentJson?.semantic?.embedding_query?.trim() ||
-//               userMsgForIA;
-
-//             const utteranceLower = (intentJson?.utterance || "").trim().toLowerCase();
-//             const semanticLower = semanticQuery.toLowerCase();
-
-//             // petit fallback si l'IA recopie exactement la phrase
-//             if (semanticLower === utteranceLower) {
-//               semanticQuery = userMsgForIA
-//                 .replace(/propose( moi)?/i, "")
-//                 .replace(/trouve( moi)?/i, "")
-//                 .replace(/donne( moi)?/i, "")
-//                 .replace(/\b\d+\s+spectacles?\b/i, "spectacles")
-//                 .trim();
-//             }
-
-//             // Limite demandée par l'utilisateur (ex: "3 spectacles")
-//             const limit =
-//               (intentJson?.results && Number.isFinite(intentJson.results.limit))
-//                 ? intentJson.results.limit
-//                 : 10;
-
-//             // Filtres issus de intentJson
-//             const filters = intentJson?.filters || null;
-
-//             // Appel à la recherche sémantique avec filtres
-//             const results = await scoreWithAISemantic(semanticQuery, limit, filters);
-
-//             chatHistory.pop(); // retire "⏳ L’IA réfléchit…"
-
-//             if (!results.length) {
-//               addMessageToUI({
-//                 role: "assistant",
-//                 content: "Je n'ai pas trouvé de spectacle correspondant dans l'index.",
-//                 mode: "semantic"
-//               });
-//             } else {
-//               const lines = results.map((r, i) =>
-//                 `${i + 1}. ${r.activite} — ${r.style || "Style inconnu"} — ${r.lieu || ""} (score: ${r.score.toFixed(3)})`
-//               );
-
-//               addMessageToUI({
-//                 role: "assistant",
-//                 content:
-//                   "Voici des suggestions de spectacles :\n\n" +
-//                   lines.join("\n"),
-//                 mode: "semantic"
-//               });
-//             }
-//           }
-//         } catch (e) {
-//           console.error("AI error:", e);
-//           chatHistory.pop(); // on enlève "L’IA réfléchit…"
-//           addMessageToUI({
-//             role: "assistant",
-//             content: "Erreur lors de l'appel à l’IA.",
-//             mode: "chat"
-//           });
-//           showError("Erreur lors de l'appel à l’IA.");
-//         } finally {
-//           btnSend.disabled = false;
-//         }
-//       }
-
-//       btnSend?.addEventListener("click", send);
-
-//       inputReq?.addEventListener("keydown", (ev) => {
-//         if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) {
-//           ev.preventDefault();
-//           send();
-//         }
-//         if (ev.key === "Escape") {
-//           ev.preventDefault();
-//           close();
-//         }
-//       });
-
-//       setTimeout(() => inputReq?.focus(), 20);
-//     }
-//   });
-// }
-
-/**
- * Construit un petit contexte texte à partir de la grille / du df.
- */
-function buildAIContext() {
-  const rows = ctx?.df || [];
-  if (!rows.length) return "";
-
-  // On limite pour ne pas envoyer un roman complet
-  const max = 50;
-  const lines = [];
-
-  for (let i = 0; i < rows.length && i < max; i++) {
-    const r = rows[i];
-    if (!r) continue;
-
-    const date = r.Date || r.date || "";
-    const debut = r.Debut || r.debut || "";
-    const duree = r.Duree || r.duree || "";
-    const titre = r.Spectacle || r.spectacle || r.Titre || r.titre || "";
-    const theatre = r.Theatre || r.theatre || "";
-
-    lines.push(
-      `${date} ${debut} (${duree}) - ${titre} @ ${theatre}`
-    );
-  }
-
-  return lines.join("\n");
-}
-
 // =======================
-// Persistance historique
+// Appels backend IA
 // =======================
 
 const AI_CHAT_HISTORY_KEY = "in_off_ai_chat_history_v1";
@@ -7279,9 +7342,34 @@ function saveLastSemanticIntent(intentJson) {
   }
 }
 
-// =======================
-// Appels backend IA
-// =======================
+/**
+ * Construit un contexte texte à partir de la grille ou du df.
+ */
+function buildAIContext() {
+  const rows = ctx?.df || [];
+  if (!rows.length) return "";
+
+  // On limite pour ne pas envoyer un roman complet
+  const max = 50;
+  const lines = [];
+
+  for (let i = 0; i < rows.length && i < max; i++) {
+    const r = rows[i];
+    if (!r) continue;
+
+    const date = r.Date || r.date || "";
+    const debut = r.Debut || r.debut || "";
+    const duree = r.Duree || r.duree || "";
+    const titre = r.Spectacle || r.spectacle || r.Titre || r.titre || "";
+    const theatre = r.Theatre || r.theatre || "";
+
+    lines.push(
+      `${date} ${debut} (${duree}) - ${titre} @ ${theatre}`
+    );
+  }
+
+  return lines.join("\n");
+}
 
 // Chat "classique"
 // Appelle la route /ai du worker CloudFlare.
@@ -7326,23 +7414,23 @@ async function callAIQueryUnderstand(message, previousIntent) {
 }
 
 // Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies par des filtres et un scope.
-// Appelle la route /ai/semantic du worker CloudFlare.
+// Appelle la route /ai/semantic-wf du worker CloudFlare.
 // Cette fonction est utilisée pour filtrer via le paramètre filters, puis scorer l'index global, comme suite à une analyse d'intention IA.
 // Typiquement le paramètre filters provient de l'analyse d'intention IA qui renvoie un objet QueryIntent.filters à partir d'une query textuelle libre.
 // query: string, topK: number, filters: QueryIntent.filters, scope: QueryIntent.scope
-async function scoreWithAISemantic(query, topK = 10, filters = null, scope = null) {
+async function scoreAISemanticWithFilters(query, topK = 10, filters = null, scope = null) {
   const body = { query, topK };
   if (filters) body.filters = filters;
   if (scope)   body.scope   = scope;
 
-  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic", {
+  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wf", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    console.warn("scoreWithAISemantic HTTP error:", res.status, txt);
+    console.warn("scoreAISemanticWithFilters HTTP error:", res.status, txt);
     throw new Error("Erreur HTTP " + res.status);
   }
   const js = await res.json();
@@ -7350,86 +7438,27 @@ async function scoreWithAISemantic(query, topK = 10, filters = null, scope = nul
 }
 
 // Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies des keys.
-// Appelle la route /ai/semantic-bykey du worker CloudFlare.
+// Appelle la route /ai/semantic-wk du worker CloudFlare.
 // Cette fonction est utilisée pour scorer des rows du df local après un filtrage local effectué comme suite à une analyse d'intention IA sur une query
 // query: string, keys: string (Activite+Debut+Session+Relache), topK: number
-async function scoreWithAISemanticByKey(query, keys, topK=null) {
+async function scoreAISemanticWithKeys(query, keys, topK=null) {
   if (!query || !keys || !keys.length) return [];
 
   if (!topK) topK = keys.length;
 
-  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-bykey", {
+  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wk", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, keys, topK })
   });
 
   if (!res.ok) {
-    console.warn("scoreWithAISemanticByKey HTTP error:", res.status);
+    console.warn("scoreAISemanticWithKeys HTTP error:", res.status);
     return [];
   }
 
   const js = await res.json();
   return Array.isArray(js.results) ? js.results : [];
-}
-
-/**
- * Autre mouture de scoreWithAISemanticByKey prenant en paramètre la query et une liste de candidats.
- * Elle établit la liste de clefs à partir de la liste de candidats et passe ensuite par la même route 
- * que scoreWithAISemanticByKey -> route /ai/semantic-bykey du worker CloudFlare.
- * @param {*} query 
- * @param {*} candidats 
- * @returns 
- */
-async function scoreCandidatesWithIA(query, candidats) {
-  if (!query || !query.trim() || !candidats.length) {
-    return candidats.map(c => ({ ...c, aiScore: 0 }));
-  }
-
-  const keys = [];
-  const keyToRows = new Map();
-
-  for (const c of candidats) {
-    const k = makeShowKeyFromRow(c);
-    if (!k) continue;
-    keys.push(k);
-    if (!keyToRows.has(k)) keyToRows.set(k, []);
-    keyToRows.get(k).push(c);
-  }
-
-  if (!keys.length) {
-    return candidats.map(c => ({ ...c, aiScore: 0 }));
-  }
-
-  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-bykey", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query,
-      keys,
-      topK: keys.length
-    })
-  });
-
-  if (!res.ok) {
-    console.warn("scoreCandidatesWithIA HTTP error:", res.status);
-    return candidats.map(c => ({ ...c, aiScore: 0 }));
-  }
-
-  const js = await res.json();
-  const results = Array.isArray(js.results) ? js.results : [];
-
-  const scoreMap = new Map();
-  for (const r of results) {
-    if (!r || !r.key) continue;
-    scoreMap.set(r.key, Number(r.score) || 0);
-  }
-
-  return candidats.map(c => {
-    const k = makeShowKeyFromRow(c);
-    const sc = scoreMap.has(k) ? scoreMap.get(k) : 0;
-    return { ...c, aiScore: sc };
-  });
 }
 
 function openSheetAssistantChat() {
@@ -7828,7 +7857,7 @@ function openSheetAssistantChat() {
 
           let scorePart = "";
           if (scoreMap) {
-            const k = makeShowKeyFromRow(r);
+            const k = makeFullKeyFromRow(r);
             if (k && scoreMap.has(k)) {
               const sc = scoreMap.get(k);
               scorePart = ` (score: ${sc.toFixed(3)})`;
@@ -7879,7 +7908,7 @@ function openSheetAssistantChat() {
         const filters = intentJson?.filters || null;
 
         // Appel classique au worker
-        const results = await scoreWithAISemantic(semanticQuery, semanticTopK, filters);
+        const results = await scoreAISemanticWithFilters(semanticQuery, semanticTopK, filters);
         // results = [{ activite, style, lieu, orga, score, ... }, ...]
 
         if (!results || !results.length) {
@@ -7935,7 +7964,7 @@ function openSheetAssistantChat() {
         const keys = [];
 
         for (const r of localRows) {
-          const k = makeShowKeyFromRow(r); // clé partagée avec worker Cloudflare 
+          const k = makeFullKeyFromRow(r); // clé partagée avec worker Cloudflare 
           if (!k) continue;
           keys.push(k);
           if (!keyToRows.has(k)) {
@@ -7956,7 +7985,7 @@ function openSheetAssistantChat() {
           localTopK = limit;
         }
 
-        const scored = await scoreWithAISemanticByKey(semanticQuery, keys, localTopK);
+        const scored = await scoreAISemanticWithKeys(semanticQuery, keys, localTopK);
         if (!scored.length) {
           return "Je n'ai pas réussi à classer les spectacles par pertinence dans votre planning.";
         }
@@ -7994,7 +8023,7 @@ function openSheetAssistantChat() {
         // 7) Map key -> score pour affichage
         const scoreMap = new Map();
         for (const rs of pickedRowsWithScore) {
-          const k = makeShowKeyFromRow(rs.row);
+          const k = makeFullKeyFromRow(rs.row);
           if (!k) continue;
           if (!scoreMap.has(k) || scoreMap.get(k) < rs.score) {
             scoreMap.set(k, rs.score);
@@ -8131,28 +8160,6 @@ function openSheetAssistantChat() {
   });
 }
 
-
-function normalizeDateForInput(val) {
-  if (!val) return "";
-  const s = String(val).trim();
-
-  // Déjà au bon format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  // Format "20250721" -> "2025-07-21"
-  if (/^\d{8}$/.test(s)) {
-    return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
-  }
-
-  // Dernier recours : tenter un Date()
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) {
-    return d.toISOString().slice(0, 10);
-  }
-
-  return "";
-}
-
 function openSheetAssistantProgrammation() {
   const df    = ctx?.df || [];
   const meta  = ctx?.meta || {};
@@ -8161,6 +8168,32 @@ function openSheetAssistantProgrammation() {
 
   const globalDebRaw = params.periode_a_programmer_debut || "";
   const globalFinRaw = params.periode_a_programmer_fin   || "";
+
+  // Cache IA pour le programmateur
+  let lastIAConstraintsKey = null;
+  let lastIACandidateSetKey = null;
+  let lastIAScoreMap = null; // Map(indexKey -> score)
+
+  function normalizeDateForInput(val) {
+    if (!val) return "";
+    const s = String(val).trim();
+
+    // Déjà au bon format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+    // Format "20250721" -> "2025-07-21"
+    if (/^\d{8}$/.test(s)) {
+      return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+    }
+
+    // Dernier recours : tenter un Date()
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().slice(0, 10);
+    }
+
+    return "";
+  }
 
   const globalDeb = normalizeDateForInput(aiProg?.date_min || globalDebRaw);
   const globalFin = normalizeDateForInput(aiProg?.date_max || globalFinRaw);
@@ -8254,36 +8287,46 @@ function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-include-keywords">Mots-clés de style à inclure</label>
-              <input id="prog-include-keywords"
+              <label for="prog-style-keywords">Mots-clés sur style</label>
+              <input id="prog-style-keywords"
                      type="text"
                      class="bb-input"
-                     value="${(aiProg.mots_cles_inclus || []).join(", ")}"
+                     value="${(aiProg.mots_cles_style || []).join(", ")}"
                      placeholder="Ex. : comédie, musique, jeune public">
             </div>
 
             <div class="form-row">
-              <label for="prog-exclude-keywords">Mots-clés de style à exclure</label>
-              <input id="prog-exclude-keywords"
+              <label for="prog-distribution-keywords">Mots-clés sur distribution</label>
+              <input id="prog-distribution-keywords"
                      type="text"
                      class="bb-input"
-                     value="${(aiProg.mots_cles_exclus || []).join(", ")}"
-                     placeholder="Ex. : tragédie, danse, sombre">
+                     value="${(aiProg.mots_cles_distribution || []).join(", ")}"
+                     placeholder="Ex. : donner des noms de metteurs en scène, artistes">
             </div>
+              <div class="form-row">
+                <label for="prog-note-weight">
+                  Influence de la note : 
+                  <strong><span id="prog-note-weight-val">
+                    ${aiProg.note_weight != null ? aiProg.note_weight : 1}
+                  </span></strong>
+                </label>
+
+                <input id="prog-note-weight"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value="${aiProg.note_weight != null ? aiProg.note_weight : 1}">
+              </div>
           </div>
 
           <!-- SECTION : Résultat -->
-          <div class="ai-section">
-            <div class="form-row">
-              <label>Résultat</label>
-              <div id="prog-response-box"
-                   class="ai-response-box"
-                   style="width:100%;"
-                   hidden>
-                <div class="ai-response-label">Programme généré</div>
-                <div id="prog-response" class="ai-response-bubble"></div>
-              </div>
-            </div>
+          <div id="prog-response-box"
+                class="ai-response-box"
+                style="width:100%;"
+                hidden>
+            <div class="ai-response-label">Programme généré</div>
+            <div id="prog-response" class="ai-response-bubble"></div>
           </div>
 
           <p id="prog-error" class="ai-error" style="display:none;"></p>
@@ -8322,8 +8365,19 @@ function openSheetAssistantProgrammation() {
       const elGapMin   = body.querySelector("#prog-gap-minutes");
       const eltraitPaus = body.querySelector("#prog-traiter-pauses");
       const elUseFilt  = body.querySelector("#prog-use-filters");
-      const elIncKW    = body.querySelector("#prog-include-keywords");
-      const elExcKW    = body.querySelector("#prog-exclude-keywords");
+      const eStylKW    = body.querySelector("#prog-style-keywords");
+      const elDistKW   = body.querySelector("#prog-distribution-keywords");
+
+      const elNoteW    = body.querySelector("#prog-note-weight");
+      const elNoteWV    = body.querySelector("#prog-note-weight-val");
+
+      if (elNoteW && elNoteWV) {
+        elNoteWV.textContent = elNoteW.value;
+
+        elNoteW.addEventListener("input", () => {
+          elNoteWV.textContent = elNoteW.value;
+        });
+      }
 
       btnApply.disabled = true;
       let progError = true;
@@ -8350,6 +8404,9 @@ function openSheetAssistantProgrammation() {
       };
 
       function buildConstraints() {
+        const noteWeight = elNoteW
+          ? Math.min(1, Math.max(0, Number(elNoteW.value) || 0))
+          : 0;
         const constraints = {
           request: elReq.value || "",
           date_min: dateToDateint(elDateMin.value),
@@ -8360,8 +8417,9 @@ function openSheetAssistantProgrammation() {
           gap_minutes: elGapMin.value ? Number(elGapMin.value) : defaultGap,
           traiter_pauses: !!eltraitPaus.checked, 
           utiliser_filtres_grille: !!elUseFilt.checked,
-          mots_cles_inclus: parseKeywords(elIncKW),
-          mots_cles_exclus: parseKeywords(elExcKW),
+          mots_cles_style: parseKeywords(eStylKW),
+          mots_cles_distribution: parseKeywords(elDistKW),
+          note_weight: noteWeight,
           exclure_deja_programmes: true
         };
         return constraints;
@@ -8451,6 +8509,14 @@ function openSheetAssistantProgrammation() {
         return [sMin, eMin];
       }
 
+      function normText(s) {
+        return (s || "")
+          .toString()
+          .normalize("NFD")
+          .replace(/\p{Diacritic}/gu, "")
+          .toLowerCase();
+      }
+
       /**
        * Retourne la liste des activités candidates à la programmation,
        * après:
@@ -8490,30 +8556,20 @@ function openSheetAssistantProgrammation() {
 
         //
         // 2) Mots-clés sur la colonne Style uniquement
-        //    - mots_cles_inclus : tous doivent apparaître dans Style
-        //    - mots_cles_exclus : aucun ne doit apparaître dans Style
+        //    - mots_cles_style : tous doivent apparaître dans Style
         //
-        const inc = constraints.mots_cles_inclus || [];
-        const exc = constraints.mots_cles_exclus || [];
+        const sty = constraints.mots_cles_style || [];
 
-        if (inc.length || exc.length) {
+        if (sty.length) {
           rows = rows.filter((r) => {
             if (!r) return false;
-            const styleText = String(r.Style || "").toLowerCase();
+            const styleText = normText(r.Style);
 
-            if (inc.length) {
-              for (const kw of inc) {
-                const needle = String(kw || "").toLowerCase();
+            if (sty.length) {
+              for (const kw of sty) {
+                const needle = normText(kw);
                 if (!needle) continue;
                 if (!styleText.includes(needle)) return false;
-              }
-            }
-
-            if (exc.length) {
-              for (const kw of exc) {
-                const needle = String(kw || "").toLowerCase();
-                if (!needle) continue;
-                if (styleText.includes(needle)) return false;
               }
             }
 
@@ -8553,48 +8609,281 @@ function openSheetAssistantProgrammation() {
         return rows;
       }
 
-      async function applyIAScoringToCandidates(candidates, query) {
-        if (!candidates.length) return candidates;
+      function normalizeKeywordsArray(v) {
+        if (Array.isArray(v)) {
+          return v
+            .map(s => String(s).trim())
+            .filter(s => s.length > 0);
+        }
+        if (!v) return [];
+        // fallback si un jour ça arrive sous forme de string "a, b"
+        return String(v)
+          .split(",")
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+      }
 
-        // 1) scorer via worker (ajoute aiScore)
-        const scored = await scoreCandidatesWithIA(query, candidates);
+      // Signature des contraintes IA
+      function makeIAConstraintsKey(constraints) {
+        const distriKW = normalizeKeywordsArray(constraints.mots_cles_distribution);
+        const note     = Number(constraints.note_weight ?? 0);
 
-        // 2) shuffle pondéré par le score
-        const shuffled = weightedShuffleByScore(scored);
+        return JSON.stringify({
+          request: (constraints.request || "").trim(),
+          distribution: distriKW.sort(),  // tri pour que l’ordre n'importe pas
+          note
+        });
+      }
+
+      function buildSemanticQueryFromConstraints(constraints) {
+        const parts = [];
+
+        const req = (constraints.request || "").trim();
+        if (req) {
+          // texte libre de l'utilisateur
+          parts.push(req);
+        }
+
+        const styleKws = constraints.mots_cles_style || [];
+        if (styleKws.length) {
+          parts.push(
+            `Je privilégie les spectacles dont le style ou la catégorie correspond à : ${styleKws.join(", ")}.`
+          );
+        }
+
+        const distriKws = constraints.mots_cles_distribution || [];
+        if (distriKws.length) {
+          parts.push(
+            `Je privilégie les spectacles dont la distribution (auteur·ice, équipe artistique, interprètes) contient : ${distriKws.join(", ")}.`
+          );
+        }
+
+        const noteWeight = Number(constraints.note_weight ?? 0) || 0;
+        if (noteWeight > 0) {
+          parts.push(
+            `Je souhaite que les spectacles bien notés par le public soient mis davantage en avant.`
+          );
+        }
+
+        // Si rien du tout, on renvoie une chaîne vide (le worker gère query="" → semScore=0)
+        return parts.join(" ");
+      }
+
+      // Application de l'IA Scoring aux candidats
+      async function applyIAScoringToCandidates(candidates, constraints) {
+        const rows = candidates || [];
+        if (!rows.length) return rows;
+
+        // const query = (constraints.request || "").trim();
+        const query = buildSemanticQueryFromConstraints(constraints);
+
+        const distriKW = normalizeKeywordsArray(constraints.mots_cles_distribution);
+
+        // slider 0–100 → 0–1
+        // const noteWeight = Math.max(0, Math.min(1, Number(constraints.note_weight ?? 0) / 100));
+        const noteWeight = Math.max(0, Math.min(1, Number(constraints.note_weight ?? 0)));
+
+        const hasAnyIA =
+          query ||
+          distriKW.length ||
+          noteWeight > 0;
+
+        if (!hasAnyIA) {
+          // Pas de contraintes IA → on ne touche pas aux candidats
+          return rows;
+        }
+
+        const candidateKeys = rows.map(makeFullKeyFromRow);
+        const constraintsKey = makeIAConstraintsKey(constraints);
+        const candidateSetKey = candidateKeys.slice().sort().join("||");
+
+        // 🔁 1) Tentative de réutilisation du cache
+        if (
+          constraintsKey === lastIAConstraintsKey &&
+          candidateSetKey === lastIACandidateSetKey &&
+          lastIAScoreMap
+        ) {
+          // On ne refait PAS d'appel IA, on réapplique simplement les scores
+          const scoredRows = rows
+            .map(r => {
+              const key = makeFullKeyFromRow(r);
+              if (!lastIAScoreMap.has(key)) return null;
+              const meta  = lastIAScoreMap.get(key);
+              const score = meta?.score ?? 0;
+              const avis  = meta?.avis  ?? null;
+              return {
+                ...r,
+                _aiScore: score,
+                _aiAvis: avis
+              };
+            })
+            .filter(Boolean);
+
+          return scoredRows;
+        }
+
+        // 🔁 2) Sinon : appel au worker pour recalculer les scores
+        const body = {
+          query: query,
+          candidate_keys: candidateKeys,
+          distribution_keywords: distriKW,
+          note_weight: noteWeight,
+          topK: candidateKeys.length
+        };
+
+        try {
+          overlayAttente.hidden = false; // Affiche l'overlay d'attente
+          const res = await fetch(`https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wkk`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+
+          if (!res.ok) {
+            console.warn("program-score HTTP", res.status);
+            return rows;
+          }
+
+          const js = await res.json();
+          const results = Array.isArray(js.results) ? js.results : [];
+
+          const scoreMap = new Map(
+            results.map(r => [r._index_key, {
+              score: Number(r.score) || 0,
+              avis: r.avis || null
+            }])
+          );
+
+          // on remplit le cache
+          lastIAConstraintsKey = constraintsKey;
+          lastIACandidateSetKey = candidateSetKey;
+          lastIAScoreMap = scoreMap;
+
+          const scoredRows = rows
+            .map(r => {
+              const key = makeFullKeyFromRow(r);
+              if (!scoreMap.has(key)) return null;
+              const meta  = scoreMap.get(key);
+              const score = meta?.score ?? 0;
+              const avis  = meta?.avis  ?? null;
+              return {
+                ...r,
+                _aiScore: score,
+                _aiAvis: avis
+              };
+            })
+            .filter(Boolean);
+
+          return scoredRows;
+        } catch (e) {
+          console.warn("applyIAScoringToCandidates error:", e);
+          return rows;
+        } finally {
+          overlayAttente.hidden = true; // Masque l'overlay d'attente
+        }
+      }
+
+      // Mélange et retourne une *nouvelle* copie du tableau
+      function shuffleArray(arr) {
+        const a = arr.slice();
+        shuffleArrayInPlace(a);
+        return a;
+      }
+
+      // Mélange *en place* (Fisher–Yates)
+      function shuffleArrayInPlace(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          if (i !== j) {
+            const tmp = a[i];
+            a[i] = a[j];
+            a[j] = tmp;
+          }
+        }
+        return a;
+      }
+
+      // Version "intelligente" du shuffleArrayInPlace à appeler quand il y scoring IA
+      // function shuffleArrayWithScore(arr) {
+      //   const a = arr.slice();
+      //   if (!a.length) return a;
+
+      //   const hasScore = a.some(r => typeof r._aiScore === "number");
+
+      //   if (!hasScore) {
+      //     // comportement historique
+      //     shuffleArrayInPlace(a);
+      //     return a;
+      //   }
+
+      //   // tri par score décroissant
+      //   a.sort((r1, r2) => (r2._aiScore || 0) - (r1._aiScore || 0));
+
+      //   const n = a.length;
+      //   const band1End = Math.max(1, Math.floor(n * 0.3)); // top 30%
+      //   const band2End = Math.max(band1End + 1, Math.floor(n * 0.7)); // 30–70%
+
+      //   const band1 = a.slice(0, band1End);
+      //   const band2 = a.slice(band1End, band2End);
+      //   const band3 = a.slice(band2End);
+
+      //   shuffleArrayInPlace(band1);
+      //   shuffleArrayInPlace(band2);
+      //   shuffleArrayInPlace(band3);
+
+      //   return band1.concat(band2, band3);
+      // }
+      function shuffleArrayWithScore(arr, {
+        temperature = 0.35,   // 0.15 = très autoritaire | 0.6 = très exploratoire
+        scoreProp   = "_aiScore",
+        epsilon     = 1e-6
+      } = {}) {
+        if (!arr.length) return [];
+
+        // 1) Extraction des scores
+        const scores = arr.map(r => Number(r[scoreProp] ?? 0));
+
+        // 2) Normalisation Z-score
+        const mean = scores.reduce((s,x) => s + x, 0) / scores.length;
+        const varPop = scores.reduce((s,x) => s + (x - mean) ** 2, 0) / scores.length;
+        const sigma = Math.sqrt(varPop) || 1;
+
+        const zscores = scores.map(s => (s - mean) / sigma);
+
+        // 3) Softmax avec température
+        const weights = zscores.map(z => Math.exp(z / temperature));
+        const sumW = weights.reduce((s,w) => s + w, 0) + epsilon;
+        const probs = weights.map(w => w / sumW);
+
+        // 4) Tirage pondéré sans remise
+        const shuffled = [];
+        const pool = arr.map((row, i) => ({
+          row,
+          p: probs[i]
+        }));
+
+        while (pool.length) {
+          const r = Math.random();
+          let acc = 0;
+          let idx = 0;
+
+          for (; idx < pool.length; idx++) {
+            acc += pool[idx].p;
+            if (r <= acc) break;
+          }
+
+          shuffled.push(pool[idx].row);
+          pool.splice(idx, 1);
+
+          // renormalisation
+          const sum = pool.reduce((s,o) => s + o.p, 0);
+          for (const o of pool) o.p /= sum;
+        }
 
         return shuffled;
       }
 
-      function weightedShuffleByScore(scoredCandidates, temperature = 0.3) {
-        const pool = scoredCandidates.slice();
-        const result = [];
-
-        while (pool.length) {
-          // 1) poids = exp(score / T)
-          const weights = pool.map(c => {
-            const s = Number(c.aiScore) || 0;
-            return Math.exp(s / temperature);
-          });
-
-          const total = weights.reduce((a, b) => a + b, 0);
-          let r = Math.random() * total;
-
-          let idx = 0;
-          while (idx < pool.length && r > weights[idx]) {
-            r -= weights[idx];
-            idx++;
-          }
-          if (idx >= pool.length) idx = pool.length - 1;
-
-          // 2) on "tire" ce candidat et on le retire du pool
-          result.push(pool[idx]);
-          pool.splice(idx, 1);
-        }
-
-        return result;
-      }
-
-      // Construction d'une proposition
+      // Construction d'une nouvelle proposition de programme
       async function buildProgram(constraints) {
         const allRows = ctx?.df || [];
 
@@ -8619,9 +8908,14 @@ function openSheetAssistantProgrammation() {
         // 1) Candidats issus des filtres "classiques"
         let rawCandidates = getCandidateRows(constraints) || [];
 
-        if (constraints.request) {
-          // 🔹 nouveau : scoring IA + shuffle pondéré
-          rawCandidates = await applyIAScoringToCandidates(rawCandidates, constraints.request);
+        if (rawCandidates.length && (
+              (constraints.request && constraints.request.trim()) ||
+              (constraints.mots_cles_distribution && constraints.mots_cles_distribution.length) ||
+              (constraints.note_weight != null && Number(constraints.note_weight) !== 0)
+        )) {
+          // 🔹 scoring IA + filtre sur enrichissements
+          rawCandidates = await applyIAScoringToCandidates(rawCandidates, constraints);
+          rawCandidates = shuffleArrayWithScore(rawCandidates);
         } else {
           // 🔹 ancien comportement : aléatoire uniforme
           rawCandidates = shuffleArray(rawCandidates);
@@ -8914,26 +9208,6 @@ function openSheetAssistantProgrammation() {
         return selectedByDay;
       }
 
-      // Mélange et retourne une *nouvelle* copie du tableau.
-      function shuffleArray(arr) {
-        const a = arr.slice();
-        shuffleArrayInPlace(a);
-        return a;
-      }
-
-      // Mélange *en place* (Fisher–Yates).
-      function shuffleArrayInPlace(a) {
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          if (i !== j) {
-            const tmp = a[i];
-            a[i] = a[j];
-            a[j] = tmp;
-          }
-        }
-        return a;
-      }
-
       // Application du programme proposé sur df
       function applyProgramToDf(selectedByDay, simulate = false) {
         if (!selectedByDay) return 0;
@@ -9053,9 +9327,40 @@ function openSheetAssistantProgrammation() {
             const isExcluded = excludedKeys.has(key);
             const checkedAttr = isExcluded ? "" : " checked";
 
+            const avisObj = r._aiAvis || null;
+
+            let avisTxt = null;
+            if (avisObj && (avisObj.note || avisObj.count != null)) {
+              // exemples : "9/10 (35 avis)" ou juste "9/10" ou juste "(35 avis)"
+              const partsAvis = [];
+              if (avisObj.note) {
+                partsAvis.push(String(avisObj.note));
+              }
+              else {
+                partsAvis.push('?');
+              }
+              if (avisObj.count != null) {
+                partsAvis.push(`(${avisObj.count} avis)`);
+              }
+              if (partsAvis.length) {
+                avisTxt = `note : ${escapeHtml(`${partsAvis[0]} ${partsAvis[1]}`)}`;
+              }
+            }
+
+            const scoreTxt = null;
+              // (typeof r._aiScore === "number")
+              //   ? `score : ${r._aiScore.toFixed(2)}`
+              //   : null;
+
+            const metaTxt = [avisTxt, scoreTxt, r.Style].filter(Boolean).join(" , ");
+
+            const metaHtml = metaTxt
+              ? ` <span class="prog-meta">(${metaTxt})</span>`
+              : "";
+
             const titleHtml = href
-              ? `<a href="${href}" target="_blank" rel="noopener" class="prog-link">${escapeHtml(titre)}</a>`
-              : `<span class="prog-title">${escapeHtml(titre)}</span>`;
+              ? `<a href="${href}" target="_blank" rel="noopener" class="prog-link">${escapeHtml(titre)}</a>${metaHtml}`
+              : `<span class="prog-title">${escapeHtml(titre)}</span>${metaHtml}`;
 
             parts.push(`
               <li class="prog-row" data-slot-key="${key}">
@@ -9100,8 +9405,7 @@ function openSheetAssistantProgrammation() {
           const addedCount    = applyProgramToDf(selectedByDay, true);
           const summary       = summarizeProgram(selectedByDay, addedCount);
           elResp.innerHTML    = summary;
-          // renderProgramPreview(selectedByDay, elResp);
-          elResp.scrollIntoView({behavior: 'smooth', block:'center'});
+          body.scrollTop = body.scrollHeight;
           btnApply.disabled = (addedCount <= 0);
           progError = false;
         } catch (e) {
@@ -9159,6 +9463,9 @@ function openSheetAssistantProgrammation() {
   });
 }
 
+// =======================
+// Init / Wiring
+// =======================
 
 function wireContext() {
 

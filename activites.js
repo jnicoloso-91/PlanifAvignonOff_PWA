@@ -497,7 +497,7 @@ export function creerActivitesAPI(ctx) {
      *  - "9/7", "09/07" (année courante implicite) , 
      *  - "09/07/25" ou "09/07/2025"
      *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
-     *  - "[9-12]/07", [30/07-01/08] pour une période
+     *  - "[9-12]/07", "[30/07-01/08]" pour une période
      *  - "jours pairs" | "jours impairs"
      *  - chaîne vide => tous les jours de la période programmation
      * On valide que *tous* les tokens sont valides.
@@ -528,7 +528,7 @@ export function creerActivitesAPI(ctx) {
      *  - "9/7", "09/07" (année courante implicite) , 
      *  - "09/07/25" ou "09/07/2025"
      *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
-     *  - "[9-12]/07", [30/07-01/08] pour une période
+     *  - "[9-12]/07", "[30/07-01/08]" pour une période
      *  - "jours pairs" | "jours impairs"
      *  - chaîne vide => pas de jours de relâche
      * On valide que *tous* les tokens sont valides.
@@ -1353,7 +1353,7 @@ function _estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
   //   [01/07/25-30/07/25] lu ma me
   //
   const reIntervalSess =
-    /\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\](?:\/(\d{1,2})(?:\/(\d{2,4}))?)?([^;]*)/g;
+    /\[\s*([0-9/]+)\s*[-–]\s*([0-9/]+)\s*\](?:\/(\d{1,2})(?:\/(\d{2,4}))?)?([^;\[]*)/g;
 
   for (const m of sessionTxt.matchAll(reIntervalSess)) {
     const [, aTxt, bTxt, mmTxt, yyTxt, suffix] = m;
@@ -1386,7 +1386,7 @@ function _estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
     }
   }
 
-  // --- Jours isolés de représentation (hors [], <> et ())
+  // --- Jours isolés de représentation (hors [] et ())
   {
     const sessionStripped = sessionTxt
       .replace(/\[[^\]]*\]/g, ' ')    // retire [ ... ] (intervalles déjà traités)
@@ -1455,7 +1455,7 @@ function _estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
     }
   }
 
-  // --- Jours isolés de relâche (hors [], <> et ())
+  // --- Jours isolés de relâche (hors [] et ())
   {
     const relacheStripped = relacheTxt
       .replace(/\[[^\]]*\]/g, ' ')
