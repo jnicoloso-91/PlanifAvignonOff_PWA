@@ -2021,6 +2021,13 @@ body.lock-page-scroll {
   margin-bottom: 8px;
 }
 
+.ai-reset-wrapper {
+  display: flex;
+  justify-content: center;     
+  gap: 1rem;
+  padding: 0.8rem;
+}
+
 .ai-chat-message {
   margin-bottom: 6px;
   padding: 6px 8px;
@@ -2042,11 +2049,35 @@ body.lock-page-scroll {
   border-left: 3px solid #7b9cff;
 }
 
-.ai-reset-wrapper {
-  display: flex;
-  justify-content: center;     
-  gap: 1rem;
-  padding: 0.8rem;
+.ai-chat-message ul.ai-list {
+  margin: 0.5em 0 0.5em 1.2em;
+  padding-left: 1em;
+}
+
+.ai-chat-message ul.ai-list li {
+  margin: 0.35em 0;
+  line-height: 1.35;
+}
+
+/* Paragraphes du chat */
+.ai-chat-message p {
+  margin: 0.35em 0;
+}
+
+/* Ligne vide (= <br> isolé) */
+.ai-chat-message br {
+  line-height: 0.5em;
+}
+
+/* Listes */
+.ai-chat-message ul.ai-list {
+  margin: 0.4em 0 0.4em 1.2em;
+  padding-left: 0.8em;
+}
+
+.ai-chat-message ul.ai-list li {
+  margin: 0.25em 0;
+  line-height: 1.35;
 }
 
 /* =================================*/

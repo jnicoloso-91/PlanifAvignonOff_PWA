@@ -3543,14 +3543,31 @@ function rangeDateInts(startInt, endInt) {
  * @param {*} editionYearFallback 
  * @returns 
  */
-function makeFullKeyFromRow(row) {
-  const norm = (v) => (v == null ? "" : String(v).trim().toLowerCase());
+function makeFullKey(row) {
+  function norm(v) {
+    return v == null ? "" : String(v).trim().toLowerCase();
+  }
 
-  const activite = norm(row.Activite);
-  const lieu     = norm(row.Lieu || row.Theatre);
-  const debut    = norm(row.Debut);
-  if (!row.__seances) row.__seances = buildSeancesFromSessionRelache(row.Session, row.Relache);
-  const seances  = row.__seances;
+  function normHour(v) {
+    if (v == null) return "";
+
+    const s = String(v).trim().toLowerCase();
+
+    // gère : 09h00, 9h00, 9:00, 09:00
+    const m = s.match(/^(\d{1,2})[:h](\d{2})$/);
+    if (!m) return s; // fallback brut si format exotique
+
+    const h = String(Number(m[1])); // supprime les zéros
+    const min = m[2];
+
+    return `${h}h${min}`; // ✅ format canonique : "9h00", "14h30"
+  }
+
+  const activite = norm(row.Activite || row.activite);
+  const lieu     = norm(row.Lieu || row.lieu);
+  const debut    = normHour(row.Debut || row.debut);
+  // if (!row.__seances) row.__seances = buildSeancesFromSessionRelache(row.Session, row.Relache);
+  // const seances  = row.__seances;
 
   // return `${activite}||${lieu}||${debut}||${seances}`;
   return `${activite}||${lieu}||${debut}`;
@@ -3992,7 +4009,7 @@ async function exportJsonForAi(orga, editionYear = 2025) {
 /**
  * Ouvre un sélecteur de fichier JSON (in_2025.json / off_2025.json)
  * et met à jour df.Note à partir du champ Avis du JSON,
- * en faisant le matching via makeFullKeyFromRow(row).
+ * en faisant le matching via makeFullKey(row).
  *
  * @param {object} ctx - ton contexte (avec getDf / setDf)
  */
@@ -4023,7 +4040,7 @@ function importNotesFromAiJson() {
         for (const r of data) {
           if (!r) continue;
 
-          // On reconstruit une "row" minimale compatible avec makeFullKeyFromRow
+          // On reconstruit une "row" minimale compatible avec makeFullKey
           const fakeRow = {
             Activite: r.Activite ?? r.activite ?? null,
             Debut:    r.Debut    ?? r.debut    ?? null,
@@ -4031,7 +4048,7 @@ function importNotesFromAiJson() {
             __seances: r.__seances || r.Seances || r.seances || null
           };
 
-          const key = makeFullKeyFromRow(fakeRow);
+          const key = makeFullKey(fakeRow);
           if (!key) continue;
 
           const avisRaw = r.Avis ?? r.avis ?? null;
@@ -4054,7 +4071,7 @@ function importNotesFromAiJson() {
           const row = df[i];
           if (!row) continue;
 
-          const key = makeFullKeyFromRow(row);
+          const key = makeFullKey(row);
           if (!key) continue;
 
           if (noteMap.has(key)) {
@@ -7371,96 +7388,6 @@ function buildAIContext() {
   return lines.join("\n");
 }
 
-// Chat "classique"
-// Appelle la route /ai du worker CloudFlare.
-async function callAI(message, context) {
-  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, context })
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.warn("callAI HTTP error:", res.status, txt);
-    throw new Error("Erreur HTTP " + res.status);
-  }
-  const js = await res.json();
-  return js.reply || "";
-}
-
-// Analyse d'intention IA
-// Appelle la route /ai/query-understand du worker CloudFlare.
-// previousIntent: dernier QueryIntent semantic (ou null)
-async function callAIQueryUnderstand(message, previousIntent) {
-  const body = {
-    utterance: message,
-    edition_year: 2025
-  };
-  if (previousIntent) {
-    body.previous_intent = previousIntent;
-  }
-
-  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/query-understand", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.warn("callAIQueryUnderstand HTTP error:", res.status, txt);
-    throw new Error("Erreur HTTP " + res.status);
-  }
-  return await res.json(); // QueryIntent complet
-}
-
-// Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies par des filtres et un scope.
-// Appelle la route /ai/semantic-wf du worker CloudFlare.
-// Cette fonction est utilisée pour filtrer via le paramètre filters, puis scorer l'index global, comme suite à une analyse d'intention IA.
-// Typiquement le paramètre filters provient de l'analyse d'intention IA qui renvoie un objet QueryIntent.filters à partir d'une query textuelle libre.
-// query: string, topK: number, filters: QueryIntent.filters, scope: QueryIntent.scope
-async function scoreAISemanticWithFilters(query, topK = 10, filters = null, scope = null) {
-  const body = { query, topK };
-  if (filters) body.filters = filters;
-  if (scope)   body.scope   = scope;
-
-  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wf", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.warn("scoreAISemanticWithFilters HTTP error:", res.status, txt);
-    throw new Error("Erreur HTTP " + res.status);
-  }
-  const js = await res.json();
-  return js.results || [];
-}
-
-// Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies des keys.
-// Appelle la route /ai/semantic-wk du worker CloudFlare.
-// Cette fonction est utilisée pour scorer des rows du df local après un filtrage local effectué comme suite à une analyse d'intention IA sur une query
-// query: string, keys: string (Activite+Debut+Session+Relache), topK: number
-async function scoreAISemanticWithKeys(query, keys, topK=null) {
-  if (!query || !keys || !keys.length) return [];
-
-  if (!topK) topK = keys.length;
-
-  const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wk", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, keys, topK })
-  });
-
-  if (!res.ok) {
-    console.warn("scoreAISemanticWithKeys HTTP error:", res.status);
-    return [];
-  }
-
-  const js = await res.json();
-  return Array.isArray(js.results) ? js.results : [];
-}
-
 function openSheetAssistantChat() {
   const contextSnapshot = buildAIContext(); // ton contexte global (planning, etc.)
 
@@ -7483,15 +7410,15 @@ function openSheetAssistantChat() {
                       placeholder="Posez vos questions… (ex : Résume ce planning, propose 3 spectacles, explique les conflits, etc.)"></textarea>
           </div>
           <div class="ai-reset-wrapper">
-            <button id="btn-ai-send"
-                    type="button"
-                    class="bb-btn is-primary">
-              Envoyer
-            </button>
             <button id="btn-ai-reset"
                     type="button"
                     class="bb-btn is-primary">
               Réinitialiser
+            </button>
+            <button id="btn-ai-send"
+                    type="button"
+                    class="bb-btn is-primary">
+              Envoyer
             </button>
           </div>
         </div>
@@ -7499,12 +7426,16 @@ function openSheetAssistantChat() {
 
       const inputReq  = body.querySelector("#ai-request");
       const btnSend   = body.querySelector("#btn-ai-send");
+      const btnReset  = body.querySelector("#btn-ai-reset");
       const errEl     = body.querySelector("#ai-error");
       const chatLogEl = body.querySelector("#ai-chat-log");
 
       // Historique persistant : { role: "user"|"assistant", content: string, mode: "chat"|"semantic" }
       const chatHistory = loadChatHistoryFromStorage();
       let lastSemanticIntent = loadLastSemanticIntent();
+      let lastSemanticSelection = null;
+      let seenSemanticKeysGlobal = new Set(); // clés déjà proposées en mode "global"
+      let seenSemanticKeysLocal = new Set(); // clés déjà proposées en mode "local"
 
       const showError = (msg) => {
         if (!errEl) return;
@@ -7525,6 +7456,88 @@ function openSheetAssistantChat() {
         }
       }
 
+      function renderMarkdown(text, { convertNewlines = true } = {}) {
+        if (!text) return "";
+
+        // 1) Décoder quelques entités
+        let s = text
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+
+        // 2) Échapper HTML dangereux
+        s = s
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+        // 3) Liens [texte](https://url)
+        s = s.replace(
+          /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+          '<a href="$2" target="_blank" rel="noopener">$1</a>'
+        );
+
+        // 4) Gras **texte**
+        s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+        // 5) Italique *texte* (optionnel)
+        s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+        // 6) Newlines
+        if (convertNewlines) {
+          s = s.replace(/\n/g, "<br>");
+        }
+
+        return s;
+      }
+
+      function formatChatContent(text) {
+        if (!text) return "";
+
+        const lines = String(text).replace(/\r\n/g, "\n").split("\n");
+
+        const out = [];
+        let inList = false;
+
+        const flushListIfNeeded = () => {
+          if (inList) {
+            out.push("</ul>");
+            inList = false;
+          }
+        };
+
+        for (const rawLine of lines) {
+          const line = rawLine.trimEnd(); // on garde l'indentation à gauche si tu veux, mais pas nécessaire ici
+          const trimmed = line.trim();
+
+          // ligne vide
+          if (!trimmed) {
+            flushListIfNeeded();
+            out.push("<br>");
+            continue;
+          }
+
+          // puce "- " ou "• "
+          const m = trimmed.match(/^([-•])\s+(.*)$/);
+          if (m) {
+            const itemText = m[2] || "";
+            if (!inList) {
+              out.push("<ul class='ai-list'>");
+              inList = true;
+            }
+            out.push(`<li>${renderMarkdown(itemText, { convertNewlines: false })}</li>`);
+            continue;
+          }
+
+          // sinon paragraphe normal
+          flushListIfNeeded();
+          out.push(`<p>${renderMarkdown(trimmed, { convertNewlines: false })}</p>`);
+        }
+
+        flushListIfNeeded();
+
+        return out.join("");
+      }
+
       function renderChat() {
         if (!chatLogEl) return;
         chatLogEl.innerHTML = "";
@@ -7535,7 +7548,9 @@ function openSheetAssistantChat() {
           if (msg.mode === "semantic") {
             div.classList.add("ai-chat-semantic");
           }
-          div.textContent = msg.content;
+
+          div.innerHTML = formatChatContent(msg.content);
+
           chatLogEl.appendChild(div);
         }
 
@@ -7815,231 +7830,543 @@ function openSheetAssistantChat() {
         }
 
         // --------------------------------
-        // 5) Limit + tri
+        // 5) Tri (optionnel) pas de limit ce sera au worker de le faire apres scoring)
         // --------------------------------
-        const limit =
-          Number.isFinite(intentJson?.results?.limit) && intentJson.results.limit > 0
-            ? intentJson.results.limit
-            : rows.length;
 
-        rows.sort((a, b) => {
-          const da = Number.isFinite(a.Date) ? Number(a.Date) : 0;
-          const db = Number.isFinite(b.Date) ? Number(b.Date) : 0;
-          if (da !== db) return da - db;
+        // rows.sort((a, b) => {
+        //   const da = Number.isFinite(a.Date) ? Number(a.Date) : 0;
+        //   const db = Number.isFinite(b.Date) ? Number(b.Date) : 0;
+        //   if (da !== db) return da - db;
 
-          const ta = getRowTimeHHMM(a) || "";
-          const tb = getRowTimeHHMM(b) || "";
-          return ta.localeCompare(tb);
-        });
+        //   const ta = getRowTimeHHMM(a) || "";
+        //   const tb = getRowTimeHHMM(b) || "";
+        //   return ta.localeCompare(tb);
+        // });
 
-        return rows.slice(0, limit);
+        return rows;
       }
 
-      function formatLocalSearchResults(rows, scoreMap = null, selectionMode = 'random') {
-        if (!rows || !rows.length) {
-          return "Je n'ai trouvé aucun spectacle correspondant dans votre planning actuel.";
-        }
-
-        const lines = rows.map((r, i) => {
-          const act   = r.Activite || r.Spectacle || "(Sans titre)";
-          const style = r.Style || "Style inconnu";
-          const lieu  = r.Lieu || r.Theatre || "(Lieu inconnu)";
-
-          const timeStr = getRowTimeHHMM(r);
-
-          // const dateISO = getRowDateISO(r);
-          // let niceDate = "non programmé";
-          // if (dateISO && /^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
-          //   const [y, m, d] = dateISO.split("-");
-          //   niceDate = `${d}/${m}`;
-          // }
-          const horaire = r.Debut ? `(${r.Debut})` : "";
-
-          let scorePart = "";
-          if (scoreMap) {
-            const k = makeFullKeyFromRow(r);
-            if (k && scoreMap.has(k)) {
-              const sc = scoreMap.get(k);
-              scorePart = ` (score: ${sc.toFixed(3)})`;
-            }
-          }
-
-          return `${i + 1}. ${act} — ${style} — ${lieu} ${horaire}${scorePart}`;
-        });
-
-        const presentation = selectionMode === 'random' ? 
-          "Voici des suggestions issues de votre stock correspondant à votre demande :\n\n" :
-          "Voici les meilleures suggestions issues de votre stock correspondant à votre demande (classés par pertinence) :\n\n";
-        return presentation +
-              lines.join("\n");
-      }
-
-      function getSelectionMode(intentJson) {
-        const mode = intentJson?.results?.selection_mode;
-        if (mode === "random") return "random";
-        return "scored"; // défaut
-      }
-
+      // Helper : lit limit dans intentJson
       function getLimitFromIntent(intentJson, fallback = 10) {
         const n = intentJson?.results?.limit;
         if (Number.isFinite(n) && n > 0) return n;
         return fallback;
       }
 
-      async function handleGlobalSemanticSearch(raw, intentJson) {
-        const selectionMode = getSelectionMode(intentJson);
-        const limit = getLimitFromIntent(intentJson, 10);
+      // Helper : lit selection_mode dans intentJson
+      function getSelectionModeFromIntent(intentJson) {
+        const raw = intentJson?.results?.selection_mode || "random";
+        return raw; // "scored" | "random" | "augmented" | "augmented_random"...
+      }
 
-        // On demande plus large si le user veut du random
-        let semanticTopK;
-        if (selectionMode === "random") {
-          semanticTopK = Math.min(limit * 3, 50); // par ex. max 50
-        } else {
-          semanticTopK = limit;
+      // Chat "classique"
+      // Appelle la route /ai du worker CloudFlare.
+      async function callAI(message, context) {
+        const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message, context })
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          console.warn("callAI HTTP error:", res.status, txt);
+          throw new Error("Erreur HTTP " + res.status);
+        }
+        const js = await res.json();
+        return js.reply || "";
+      }
+
+      // Analyse d'intention IA
+      // Appelle la route /ai/query-understand du worker CloudFlare.
+      // previousIntent: dernier QueryIntent semantic (ou null)
+      async function callAIQueryUnderstand(message, previousIntent) {
+        const body = {
+          utterance: message,
+          edition_year: 2025
+        };
+        if (previousIntent) {
+          body.previous_intent = previousIntent;
         }
 
-        // On part sur l'embedding_query si dispo
+        const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/query-understand", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          console.warn("callAIQueryUnderstand HTTP error:", res.status, txt);
+          throw new Error("Erreur HTTP " + res.status);
+        }
+        return await res.json(); // QueryIntent complet
+      }
+
+      // Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies par des filtres et un scope.
+      // Appelle la route /ai/semantic-wf du worker CloudFlare.
+      // Cette fonction est utilisée pour filtrer via le paramètre filters, puis scorer l'index global, comme suite à une analyse d'intention IA.
+      // Typiquement le paramètre filters provient de l'analyse d'intention IA qui renvoie un objet QueryIntent.filters à partir d'une query textuelle libre.
+      async function scoreAISemanticWithFilters(query, topK = 10, filters = null, scope = null, selectionMode="scored") {
+        const body = { query, topK, selection_mode: selectionMode };
+        if (filters) body.filters = filters;
+        if (scope)   body.scope   = scope;
+
+        const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          console.warn("scoreAISemanticWithFilters HTTP error:", res.status, txt);
+          throw new Error("Erreur HTTP " + res.status);
+        }
+
+        const js = await res.json();
+
+        return {
+          results: Array.isArray(js.results) ? js.results : [],
+          total_matches: Number.isFinite(js.total_matches)
+            ? js.total_matches
+            : (Array.isArray(js.results) ? js.results.length : 0),
+          is_truncated:
+            typeof js.is_truncated === "boolean"
+              ? js.is_truncated
+              : (Array.isArray(js.results) && js.results.length < topK)
+        };
+      }
+
+      // Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies des keys.
+      // Appelle la route /ai/semantic-wk du worker CloudFlare.
+      // Cette fonction est utilisée pour scorer des rows du df local après un filtrage local effectué comme suite à une analyse d'intention IA sur une query
+      async function scoreAISemanticWithKeys(query, keys, topK=null, selectionMode="scored", distributionFilter=null) {
+        if (!query || !keys || !keys.length) return [];
+
+        if (!topK) topK = keys.length;
+
+        const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, keys, topK, selection_mode: selectionMode, distribution_filter: distributionFilter })
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          console.warn("scoreAISemanticWithKeys HTTP error:", res.status, txt);
+          throw new Error("Erreur HTTP " + res.status);
+        }
+        const js = await res.json();
+
+        return {
+          scores: Array.isArray(js.results) ? js.results : [],
+          total_matches: Number.isFinite(js.total_matches)
+            ? js.total_matches
+            : (Array.isArray(js.results) ? js.results.length : 0),
+          is_truncated:
+            typeof js.is_truncated === "boolean"
+              ? js.is_truncated
+              : (Array.isArray(js.results) && js.results.length < topK)
+        };
+      }
+
+      // Interprétation via IA des résultats du contexte RAG à partir d'un scoredResults
+      async function callAISemanticExplain(query, scoredResults) {
+        const items = (scoredResults || [])
+          .map(r => {
+            const key =
+              r._index_key ||
+              r.key ||
+              (r.row ? makeFullKey(r.row) : makeFullKey(r)); // fallback
+
+            return {
+              key,
+              score: Number(r.score) || 0
+            };
+          })
+          .filter(it => it.key);
+
+        if (!items.length) {
+          return { answer: "Je n'ai pas de résultats exploitables pour une analyse.", results: [], context_used: "" };
+        }
+
+        const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-explain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, items })
+        });
+
+        if (!resp.ok) {
+          const txt = await resp.text().catch(() => "");
+          console.error("callAISemanticExplain error:", resp.status, txt);
+          throw new Error("Erreur backend semantic-explain");
+        }
+
+        return resp.json(); // { answer, results, context_used }
+      }
+
+      // Interprétation via IA des résultats du contexte RAG à partir d'une sélection
+      async function callAISemanticExplainWithKeys(userQuery, selection) {
+        // selection : { origin: "global" | "local", keys: string[] }
+
+        const body = {
+          query: userQuery,
+          items: selection.items
+        };
+
+        const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-explain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+
+        if (!resp.ok) {
+          const txt = await resp.text().catch(() => "");
+          console.error("semantic-explain error", resp.status);
+          throw new Error("Erreur semantic-explain");
+        }
+
+        const data = await resp.json();
+        // on suppose { answer: "..." }
+        return data?.answer || "";
+      }
+
+      // Mise en forme des résultats sur recherche globale
+      function formatGlobalSearchResults(finalList, selectionMode, is_truncated) {
+
+        let presentation;
+        if (!is_truncated) {
+          presentation = "Voici les résultats choisies dans les catalogues In & Off correspondant à votre demande:\n";
+        } else if (selectionMode === "random") {
+          presentation = "Voici des suggestions choisies dans les catalogues In & Off correspondant à votre demande:\n";
+        } else {
+          presentation = "Voici les meilleures suggestions choisies dans les catalogues In & Off correspondant à votre demande (triées par pertinence):\n";
+        }
+
+        const lines = finalList.map((r, i) => {
+          const titlePart = r.hyperlien
+            ? `[${r.activite}](${r.hyperlien})`
+            : `${r.activite}`;
+
+          const noteBlock =
+            r.avis && (r.avis.note != null || r.avis.count != null)
+              ? ` - ${r.avis.note != null ? r.avis.note + "/10" : "Note ?"}${r.avis.count != null ? ` (${r.avis.count} avis)` : ""}`
+              : "";
+
+          const descBlock = r.desc_summary 
+            ? `\n- ${r.desc_summary}`
+            : "";
+
+          const avisBlock = r.avis_summary 
+            ? `\n- ${r.avis_summary}`
+            : "";
+
+          return (
+            `${i + 1}. ${titlePart} — ${r.style || "Style inconnu"} — ${r.lieu || ""} ${noteBlock}` +
+            `${descBlock}` +
+            `${avisBlock}`
+          );
+        });
+
+        return presentation + lines.join("\n");
+      }
+
+      // Mise en forme des résultats sur recherche locale
+      function formatLocalSearchResults(pickedRowsWithScore, scoreMap = null, selectionMode = 'random', is_truncated) {
+        if (!pickedRowsWithScore || !pickedRowsWithScore.length) {
+          return "Je n'ai trouvé aucun spectacle correspondant dans votre planning actuel.";
+        }
+
+        const lines = pickedRowsWithScore.map((p, i) => {
+          const r = p.row;
+          const style = r.Style || "Style inconnu";
+          const lieu  = r.Lieu || "";
+
+          let scorePart = "";
+          if (scoreMap) {
+            const k = makeFullKey(r);
+            if (k && scoreMap.has(k)) {
+              const sc = scoreMap.get(k);
+              scorePart = ` (score: ${sc.toFixed(3)})`;
+            }
+          }
+
+          const titlePart = r.Hyperlien
+            ? `[${r.Activite}](${r.Hyperlien})`
+            : `${r.Activite}`;
+
+          const noteBlock =
+            p.avis && (p.avis.note != null || p.avis.count != null)
+              ? ` - ${p.avis.note != null ? p.avis.note + "/10" : "Note ?"}${p.avis.count != null ? ` (${p.avis.count} avis)` : ""}`
+              : "";
+
+          const descBlock = p.desc_summary 
+            ? `\n- Description: ${p.desc_summary}`
+            : "";
+
+          const avisBlock = p.avis_summary 
+            ? `\n- Avis: ${p.avis_summary}`
+            : "";
+
+          return (
+            `${i + 1}. ${titlePart} — ${style} — ${lieu} ${noteBlock}` +
+            `${descBlock}` +
+            `${avisBlock}`
+          );
+
+        });
+
+        let presentation;
+        if (!is_truncated) {
+          presentation = "Voici les résultats choisies dans votre stock correspondant à votre demande:\n";
+        } else if (selectionMode === "random") {
+          presentation = "Voici des suggestions issues de votre stock correspondant à votre demande :\n";
+        } else {
+          presentation = "Voici les meilleures suggestions issues de votre stock correspondant à votre demande (classés par pertinence) :\n";
+        }
+        return presentation +
+              lines.join("\n");
+      }
+
+      // Gestion de la recherche sémantique globale (In & Off)
+      async function handleGlobalSemanticSearch(raw, intentJson) {
+        const selectionMode = getSelectionModeFromIntent(intentJson);    // "random" | "scored"
+        const limit         = getLimitFromIntent(intentJson, 10);        // nb demandé (ex: 3)
+        const meta          = intentJson?.meta || {};
+        const searchMode    = meta.search_mode || "simple";              // "simple" | "augmented"
+        const scope         = intentJson?.scope || null;
+
+        // 👉 Follow-up = on réutilise l’intent précédent (ex: "3 autres", "analyse les mêmes")
+        const isFollowUp =
+          meta.uses_previous_intent &&
+          meta.previous_intent_relation === "same_but_modified";
+
+        // 1) requête sémantique effective
         const semanticQuery =
           intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
             ? intentJson.semantic.embedding_query.trim()
             : raw;
 
-        // Filtres issus de intentJson
         const filters = intentJson?.filters || null;
 
-        // Appel classique au worker
-        const results = await scoreAISemanticWithFilters(semanticQuery, semanticTopK, filters);
-        // results = [{ activite, style, lieu, orga, score, ... }, ...]
+        // 2) Nombre de candidats demandés au worker
+        //    On demande un peu plus large sur les follow-up pour avoir de quoi éviter les répétitions.
+        const workerLimit = isFollowUp
+          ? Math.min(limit * 4, 50)
+          : Math.min(limit * 3, 50);
+
+        // 3) scoring global sur index In/Off (diversification + ranking gérés côté worker)
+        const { results, total_matches, is_truncated } = await scoreAISemanticWithFilters(
+          semanticQuery,
+          workerLimit,
+          filters,
+          scope,
+          selectionMode
+        );
 
         if (!results || !results.length) {
           return "Je n'ai pas trouvé de spectacle correspondant dans les catalogues In&Off.";
         }
 
-        let finalList = results;
-        let presentation = '';
+        // 4) Anti-répétition sur les follow-up :
+        //    - on privilégie les spectacles pas encore vus dans ce "thread"
+        //    - si pas assez, on complète avec des déjà vus
+        let candidateList = results;
 
-        if (selectionMode === "random") {
-          // mélange
-          const copy = results.slice();
-          for (let i = copy.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [copy[i], copy[j]] = [copy[j], copy[i]];
+        if (isFollowUp && seenSemanticKeysGlobal && seenSemanticKeysGlobal.size > 0) {
+          const fresh = results.filter(r => r._index_key && !seenSemanticKeysGlobal.has(r._index_key));
+
+          if (fresh.length >= limit) {
+            // Assez de "nouveaux" spectacles → on ne sert que ceux-là
+            candidateList = fresh;
+          } else {
+            // Pas assez de nouveaux → on prend tout ce qui est nouveau
+            const stillNeeded = limit - fresh.length;
+            const alreadySeen = results.filter(r => r._index_key && seenSemanticKeysGlobal.has(r._index_key));
+            const backfill    = alreadySeen.slice(0, Math.max(0, stillNeeded));
+
+            candidateList = fresh.concat(backfill);
           }
-          finalList = copy.slice(0, limit);
-          presentation = 'Voici des suggestions choisies dans les catalogues In & Off correspondant à votre demande:\n\n'; 
-        } else {
-          // scored (déjà trié par score côté worker)
-          finalList = results.slice(0, limit);
-          presentation = 'Voici les meilleures suggestions choisies dans les catalogues In & Off correspondant à votre demande (triées par pertinence):\n\n'; 
         }
 
-        // Mise en forme pour le chat
-        const lines = finalList.map((r, i) =>
-          `${i + 1}. ${r.activite} — ${r.style || "Style inconnu"} — ${r.lieu || ""} ` +
-          `[${(r.section || "") || "?"}] (score: ${r.score?.toFixed(3) ?? "?"})`
-        );
+        if (!candidateList.length) {
+          return "Je n'ai pas trouvé de spectacle correspondant dans les catalogues In&Off.";
+        }
 
-        return presentation + lines.join("\n");
+        // 5) Liste finale renvoyée à l’utilisateur (en respectant l’ordre donné par le worker)
+        const finalList = candidateList.slice(0, limit);
+
+        // 6) Mémoriser la sélection réellement présentée (clé + score) + marquer comme "vus"
+        if (!seenSemanticKeysGlobal) {
+          seenSemanticKeysGlobal = new Set();
+        }
+
+        finalList.forEach(r => {
+          if (r._index_key) {
+            seenSemanticKeysGlobal.add(r._index_key);
+          }
+        });
+
+        lastSemanticSelection = {
+          origin: "global",
+          items: finalList
+            .map(r => ({
+              key:   r._index_key,
+              score: Number(r.score) || 0
+            }))
+            .filter(i => !!i.key),
+          intent: intentJson
+        };
+
+        // 7) MODE AUGMENTED : on laisse le worker construire le contexte riche + réponse
+        if (searchMode === "augmented") {
+          // ⚠️ On n'explique que sur finalList, pas sur tout results
+          const explain = await callAISemanticExplain(raw, finalList);
+          return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
+        }
+
+        // 8) MODE SIMPLE (comme avant) : on renvoie juste une liste textuelle
+        return formatGlobalSearchResults(finalList, selectionMode, is_truncated);
       }
 
+      // Gestion de la recherche sémantique locale (planning / stock courant)
       async function handleLocalSemanticSearch(raw, intentJson) {
-        const selectionMode = getSelectionMode(intentJson);
-        const limit = getLimitFromIntent(intentJson, 10);
+        const selectionMode = getSelectionModeFromIntent(intentJson);         // "random" | "scored"
+        const limit         = getLimitFromIntent(intentJson, 10);             // nb demandé
+        const meta          = intentJson?.meta || {};
+        const searchMode    = meta.search_mode || "simple";                   // "simple" | "augmented"
+
+        // 👉 Follow-up = on réutilise l’intent précédent (ex: "3 autres", "même style mais…")
+        // => on DOIT relancer une recherche + anti-répétition (pas relire un cache)
+        const isFollowUp =
+          meta.uses_previous_intent &&
+          meta.previous_intent_relation === "same_but_modified";
 
         // 1) Filtrage logique sur df courant
         const localRows = filterCurrentScheduleWithIntent(intentJson);
-
         if (!localRows.length) {
-          return "Je n'ai trouvé aucun spectacle correspondant dans votre planning actuel.";
+          return "Je n'ai trouvé aucun spectacle correspondant dans votre stock courant.";
         }
 
-        // 2) embedding_query
+        // 2) Requête sémantique effective
         const semanticQuery =
           intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
             ? intentJson.semantic.embedding_query.trim()
             : raw;
 
-        // 3) Construction des clés locales + map key -> rows[]
+        // 3) Construction clés locales + map key -> rows[]
         const keyToRows = new Map();
         const keys = [];
 
         for (const r of localRows) {
-          const k = makeFullKeyFromRow(r); // clé partagée avec worker Cloudflare 
+          const k = makeFullKey(r);
           if (!k) continue;
           keys.push(k);
-          if (!keyToRows.has(k)) {
-            keyToRows.set(k, []);
-          }
+          if (!keyToRows.has(k)) keyToRows.set(k, []);
           keyToRows.get(k).push(r);
         }
 
         if (!keys.length) {
-          return "Je n'ai pas de clé exploitable pour faire un tri sémantique sur le planning actuel.";
+          return "Je n'ai pas de clé exploitable pour faire un tri sémantique sur le stock courant.";
         }
 
-        // 4) topK demandé au worker
-        let localTopK;
-        if (selectionMode === "random") {
-          localTopK = Math.min(limit * 3, 50);
-        } else {
-          localTopK = limit;
+        // 4) Nombre de candidats demandés au worker (plus large sur follow-up pour éviter répétitions)
+        const workerTopK = isFollowUp
+          ? Math.min(limit * 4, keys.length, 50)
+          : Math.min(limit * 3, keys.length, 50);
+
+        // 5) Scoring côté worker (diversification/ranking gérés côté worker)
+        const { scores, total_matches, is_truncated } = await scoreAISemanticWithKeys(
+          semanticQuery,
+          keys,
+          workerTopK,
+          selectionMode
+        );
+
+        if (!scores || !scores.length) {
+          return "Je n'ai pas réussi à classer les spectacles par pertinence dans votre stock courant.";
         }
 
-        const scored = await scoreAISemanticWithKeys(semanticQuery, keys, localTopK);
-        if (!scored.length) {
-          return "Je n'ai pas réussi à classer les spectacles par pertinence dans votre planning.";
-        }
+        // 6) Anti-répétition sur follow-up (même logique que global)
+        //    - on privilégie les spectacles pas encore vus dans ce "thread"
+        //    - si pas assez, on complète avec des déjà vus
+        let candidateScores = scores;
 
-        // 5) Construire rowsWithScore = [{ row, score }, ...]
-        const rowsWithScore = [];
-        for (const s of scored) {
-          const key = s.key;
-          const sc  = Number(s.score) || 0;
-          const rowsForKey = keyToRows.get(key) || [];
-          for (const r of rowsForKey) {
-            rowsWithScore.push({ row: r, score: sc });
+        if (isFollowUp) {
+          if (!seenSemanticKeysLocal) seenSemanticKeysLocal = new Set();
+
+          const fresh = scores.filter(s => s.key && !seenSemanticKeysLocal.has(s.key));
+
+          if (fresh.length >= limit) {
+            candidateScores = fresh;
+          } else {
+            const stillNeeded = limit - fresh.length;
+            const alreadySeen = scores.filter(s => s.key && seenSemanticKeysLocal.has(s.key));
+            const backfill    = alreadySeen.slice(0, Math.max(0, stillNeeded));
+            candidateScores   = fresh.concat(backfill);
           }
         }
 
-        // 6) Sélection selon selection_mode
-        let pickedRowsWithScore;
-
-        if (selectionMode === "random") {
-          // on mélange d'abord rowsWithScore (sans perdre les scores)
-          const copy = rowsWithScore.slice();
-          for (let i = copy.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [copy[i], copy[j]] = [copy[j], copy[i]];
-          }
-          pickedRowsWithScore = copy.slice(0, limit);
-        } else {
-          // scored : tri desc sur score, puis limit
-          rowsWithScore.sort((a, b) => b.score - a.score);
-          pickedRowsWithScore = rowsWithScore.slice(0, limit);
+        if (!candidateScores.length) {
+          return "Je n'ai pas trouvé de spectacles supplémentaires correspondant dans votre stock courant.";
         }
 
-        const topRows = pickedRowsWithScore.map(rs => rs.row);
+        // 7) Liste finale = les `limit` premiers (ordre déjà prêt à servir par le worker)
+        const finalScores = candidateScores.slice(0, limit);
 
-        // 7) Map key -> score pour affichage
+        // 8) Marquer “vus” + préparer lastSemanticSelection.items
+        if (!seenSemanticKeysLocal) {
+          seenSemanticKeysLocal = new Set();
+        }
+
+        finalScores.forEach(s => {
+          if (s.key) seenSemanticKeysLocal.add(s.key);
+        });
+
+        const items = finalScores
+          .map(s => ({
+            key: s.key,
+            score: Number(s.score) || 0
+          }))
+          .filter(i => !!i.key);
+
+        lastSemanticSelection = {
+          origin: "local",
+          items,          // ✅ [{ key, score }]
+          intent: intentJson
+        };
+
+        // 9) MODE AUGMENTED : on n’analyse que sur la sélection réellement présentée
+        if (searchMode === "augmented") {
+          const explain = await callAISemanticExplain(raw, items);
+          return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
+        }
+
+        // 10) MODE SIMPLE : affichage basé sur df local (avec scoreMap)
         const scoreMap = new Map();
-        for (const rs of pickedRowsWithScore) {
-          const k = makeFullKeyFromRow(rs.row);
-          if (!k) continue;
-          if (!scoreMap.has(k) || scoreMap.get(k) < rs.score) {
-            scoreMap.set(k, rs.score);
+        for (const s of finalScores) {
+          if (!s.key) continue;
+          const sc = Number(s.score) || 0;
+          if (!scoreMap.has(s.key) || scoreMap.get(s.key) < sc) scoreMap.set(s.key, sc);
+        }
+
+        // reconstruire les rows locales correspondant aux keys sélectionnées
+        const pickedRowsWithScore = [];
+        for (const s of finalScores) {
+          const rowsForKey = keyToRows.get(s.key) || [];
+          for (const r of rowsForKey) {
+            pickedRowsWithScore.push({ 
+              row: r, 
+              score: Number(s.score) || 0, 
+              avis: s.avis, 
+              desc_summary: s.desc_summary, 
+              avis_summary: s.avis_summary 
+            });
           }
         }
 
-        // 8) Mise en forme textuelle
-        return formatLocalSearchResults(topRows, scoreMap, selectionMode);
+        return formatLocalSearchResults(pickedRowsWithScore, scoreMap, selectionMode, is_truncated);
       }
 
-      // Premier rendu : on affiche l'historique déjà en storage
-      renderChat();
-
-      // ===========================
-      // Nouveau SEND unifié
-      // ===========================
+      // Envoi de requête
       async function send() {
         clearError();
         const raw = (inputReq?.value || "").trim();
@@ -8063,6 +8390,7 @@ function openSheetAssistantChat() {
 
         try {
           // 4) Analyse d'intention enrichie (/ai/query-understand)
+          overlayAttente.hidden = false; // Affiche l'overlay d'attente
           const previousIntent = lastSemanticIntent || null;
           const intentJson = await callAIQueryUnderstand(raw, previousIntent);
 
@@ -8070,27 +8398,59 @@ function openSheetAssistantChat() {
 
           lastSemanticIntent = intentJson || null;
 
-          const topIntent = intentJson?.intent || "unknown";
-          const searchSpace = intentJson?.scope?.search_space || "auto";
-          const selectionMode = intentJson?.results?.selection_mode || "scored";
+          const topIntent      = intentJson?.intent || "unknown";
+          const searchSpace    = intentJson?.scope?.search_space || "auto";
+          const selectionMode  = intentJson?.results?.selection_mode || "scored";
+          const searchMode     = intentJson?.meta?.search_mode
+                                || (topIntent === "search_shows" ? "simple" : "none");
 
+          const meta = intentJson?.meta || {};
+          const isSearch = (topIntent === "search_shows");
+
+          // 👉 Nouvelle recherche = on ne dépend PAS explicitement de l’intent précédent
+          const isNewTopic =
+            !isSearch ||
+            !meta.uses_previous_intent ||
+            meta.previous_intent_relation === "none";
+
+          // Si c'est un nouveau "topic" de recherche, on réinitialise l'historique global
+          if (isNewTopic) {
+            seenSemanticKeysGlobal = new Set();
+            seenSemanticKeysLocal = new Set();
+            lastSemanticSelection = null;
+          }
+          
           // 4bis) Contexte historique pour le mode chat classique
           const histContext = buildContextFromHistory(5);
           const fullContext = [contextSnapshot, histContext].filter(Boolean).join("\n\n");
-
+          
           let replyText = "";
 
-          if (topIntent !== "search_shows") {
+          if (topIntent !== "search_shows" || searchMode === "none") {
             // 🔵 CAS 1 : Chat général / FAQ / analyse → route /ai
             replyText = await callAI(raw, fullContext, intentJson);
           } else {
             // 🔵 CAS 2 : Intent de recherche de spectacles
-            if (searchSpace === "current_schedule") {
-              // 🟢 Recherche sur le stock local (df courant)
-              replyText = await handleLocalSemanticSearch(raw, intentJson);
+            const canReusePreviousSelection =
+              searchMode === "augmented" &&
+              meta.uses_previous_intent &&
+              meta.reuse_previous_selection && 
+              lastSemanticSelection &&
+              Array.isArray(lastSemanticSelection.items) &&
+              lastSemanticSelection.items.length > 0;
+
+            if (canReusePreviousSelection) {
+              // 🧠 CAS 2a : analyse des spectacles précédemment proposés
+              // 💡 On NE refait PAS de recherche : on explique uniquement
+              //    les spectacles de la sélection précédente.
+              replyText = await callAISemanticExplainWithKeys(raw, lastSemanticSelection);
             } else {
-              // 🟠 Recherche globale In/Off (index embeddings)
-              replyText = await handleGlobalSemanticSearch(raw, intentJson);
+              // 🟦 CAS 2b : recherche "normale" (simple ou premier augmented)
+              if (searchSpace === "current_schedule") {
+                replyText = await handleLocalSemanticSearch(raw, intentJson);
+              } else {
+                replyText = await handleGlobalSemanticSearch(raw, intentJson);
+              }
             }
           }
 
@@ -8115,6 +8475,7 @@ function openSheetAssistantChat() {
           });
           showError("Erreur lors de l'appel à l’IA.");
         } finally {
+          overlayAttente.hidden = true; // Masque l'overlay d'attente
           btnSend.disabled = false;
         }
       }
@@ -8136,8 +8497,6 @@ function openSheetAssistantChat() {
         }
       });
 
-      const btnReset = body.querySelector("#btn-ai-reset");
-
       btnReset?.addEventListener("click", () => {
         // 1. Effacer localStorage
         resetAIHistory();
@@ -8155,6 +8514,8 @@ function openSheetAssistantChat() {
         // setTimeout(() => clearError(), 2000);
       });
 
+      // Premier rendu : on affiche l'historique déjà en storage
+      renderChat();
       setTimeout(() => inputReq?.focus(), 20);
     }
   });
@@ -8173,6 +8534,8 @@ function openSheetAssistantProgrammation() {
   let lastIAConstraintsKey = null;
   let lastIACandidateSetKey = null;
   let lastIAScoreMap = null; // Map(indexKey -> score)
+  let lastProgQueryText = null;
+  let lastProgIntentJson = null;
 
   function normalizeDateForInput(val) {
     if (!val) return "";
@@ -8555,8 +8918,8 @@ function openSheetAssistantProgrammation() {
         }
 
         //
-        // 2) Mots-clés sur la colonne Style uniquement
-        //    - mots_cles_style : tous doivent apparaître dans Style
+        // 2) Mots-clés sur la colonne Style 
+        //    - mots_cles_style : au moins un doit apparaître dans Style
         //
         const sty = constraints.mots_cles_style || [];
 
@@ -8565,15 +8928,13 @@ function openSheetAssistantProgrammation() {
             if (!r) return false;
             const styleText = normText(r.Style);
 
-            if (sty.length) {
-              for (const kw of sty) {
-                const needle = normText(kw);
-                if (!needle) continue;
-                if (!styleText.includes(needle)) return false;
-              }
+            for (const kw of sty) {
+              const needle = normText(kw);
+              if (!needle) continue;
+              if (styleText.includes(needle)) return true;
             }
 
-            return true;
+            return false;
           });
         }
 
@@ -8621,6 +8982,149 @@ function openSheetAssistantProgrammation() {
           .split(",")
           .map(s => s.trim())
           .filter(s => s.length > 0);
+      }
+
+      async function fetchProgQueryIntent(freeQuery, previousIntent = null) {
+        if (!freeQuery || !freeQuery.trim()) return null;
+        try {
+          overlayAttente.hidden = false; // Affiche l'overlay d'attente
+          const body = {
+            utterance: freeQuery,
+            // Pour info au modèle : on est dans un contexte "programmateur"
+            search_space: "local_schedule",
+            edition_year: 2025,
+            // scope festival : tu peux adapter si tu as un contexte In/Off
+            festival: "off",
+          };
+
+          if (previousIntent) {
+            body.previous_intent = previousIntent;
+          }
+
+          const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/query-understand", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+
+          if (!res.ok) {
+            console.warn("fetchProgQueryIntent HTTP", res.status);
+            return null;
+          }
+
+          const js = await res.json();
+          return js || null;
+
+        } catch (e) {
+          console.warn("fetchProgQueryIntent error:", e);
+          return null;
+        } finally {
+          overlayAttente.hidden = true; // Masque l'overlay d'attente
+        }
+      }
+
+      function isoDateToDateint(iso) {
+        if (!iso) return null;
+        const parts = iso.split("-");
+        if (parts.length !== 3) return null;
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
+        if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+        return y * 10000 + m * 100 + d;
+      }
+
+      function normalizeKeywordsArray(arr) {
+        if (!Array.isArray(arr)) return [];
+        return Array.from(
+          new Set(
+            arr
+              .flatMap(s =>
+                String(s)
+                  .split(/[;,/]/)    // on découpe sur virgule / ; / slash
+                  .map(x => x.trim())
+                  .filter(Boolean)
+              )
+          )
+        );
+      }
+
+      /**
+       * Fusionne les contraintes du formulaire avec l'intent IA (QueryIntent).
+       * - ne modifie PAS l'objet original (clone)
+       */
+      function mergeConstraintsWithIntent(formConstraints, intentJson) {
+        if (!intentJson || typeof intentJson !== "object") {
+          return { ...formConstraints };
+        }
+
+        const merged = { ...formConstraints };
+        const filters = intentJson.filters || {};
+
+        // ====== DATES ======
+        const intentDates = filters.dates || {};
+        if (!merged.date_min && intentDates.from) {
+          const di = isoDateToDateint(intentDates.from);
+          if (di) merged.date_min = di;
+        }
+        if (!merged.date_max && intentDates.to) {
+          const di = isoDateToDateint(intentDates.to);
+          if (di) merged.date_max = di;
+        }
+
+        // ====== TIME WINDOW ======
+        const tw = filters.time_window || {};
+        if (!merged.debut_min && tw.start) {
+          // tw.start "HH:MM" -> on garde tel quel
+          merged.debut_min = tw.start.slice(0, 5);
+        }
+        if (!merged.fin_max && tw.end) {
+          merged.fin_max = tw.end.slice(0, 5);
+        }
+
+        // ====== STYLE → mots_cles_style ======
+        const catFilters = Array.isArray(filters.categories) ? filters.categories : [];
+        const catValues = catFilters
+          .map(c => c && c.value)
+          .filter(Boolean);
+
+        const existingStyleKw = Array.isArray(merged.mots_cles_style)
+          ? merged.mots_cles_style
+          : [];
+
+        if (catValues.length) {
+          merged.mots_cles_style = normalizeKeywordsArray([
+            ...existingStyleKw,
+            ...catValues
+          ]);
+        } else {
+          merged.mots_cles_style = existingStyleKw;
+        }
+
+        // ====== PEOPLE → mots_cles_distribution ======
+        const people = filters.people || {};
+        const names = [
+          ...(people.actors || []),
+          ...(people.authors || []),
+          ...(people.companies || [])
+        ].filter(Boolean);
+
+        const existingDistKw = Array.isArray(merged.mots_cles_distribution)
+          ? merged.mots_cles_distribution
+          : [];
+
+        if (names.length) {
+          merged.mots_cles_distribution = normalizeKeywordsArray([
+            ...existingDistKw,
+            ...names
+          ]);
+        } else {
+          merged.mots_cles_distribution = existingDistKw;
+        }
+
+        // NOTE : on laisse note_weight tel que choisi par le slider utilisateur
+
+        return merged;
       }
 
       // Signature des contraintes IA
@@ -8693,7 +9197,7 @@ function openSheetAssistantProgrammation() {
           return rows;
         }
 
-        const candidateKeys = rows.map(makeFullKeyFromRow);
+        const candidateKeys = rows.map(makeFullKey);
         const constraintsKey = makeIAConstraintsKey(constraints);
         const candidateSetKey = candidateKeys.slice().sort().join("||");
 
@@ -8706,7 +9210,7 @@ function openSheetAssistantProgrammation() {
           // On ne refait PAS d'appel IA, on réapplique simplement les scores
           const scoredRows = rows
             .map(r => {
-              const key = makeFullKeyFromRow(r);
+              const key = makeFullKey(r);
               if (!lastIAScoreMap.has(key)) return null;
               const meta  = lastIAScoreMap.get(key);
               const score = meta?.score ?? 0;
@@ -8761,7 +9265,7 @@ function openSheetAssistantProgrammation() {
 
           const scoredRows = rows
             .map(r => {
-              const key = makeFullKeyFromRow(r);
+              const key = makeFullKey(r);
               if (!scoreMap.has(key)) return null;
               const meta  = scoreMap.get(key);
               const score = meta?.score ?? 0;
@@ -8884,16 +9388,81 @@ function openSheetAssistantProgrammation() {
       }
 
       // Construction d'une nouvelle proposition de programme
-      async function buildProgram(constraints) {
+      // async function buildProgram(constraints) {
+        // const allRows = ctx?.df || [];
+
+        // const GAP_MIN = constraints.gap_minutes || defaultGap || 30;
+        // const GAP     = GAP_MIN; // minutes
+
+        // const dateMinInt = constraints.date_min || null;
+        // const dateMaxInt = constraints.date_max || null;
+
+        // const minMinutes = debutMinToMinutes(constraints.debut_min); 
+        // const maxMinutes = finMaxToMinutes(constraints.fin_max);
+
+        // const maxPerDay = constraints.max_par_jour || Infinity;
+
+        // if (!dateMinInt || !dateMaxInt) {
+        //   // sans période on ne peut rien programmer proprement
+        //   return new Map();
+        // }
+
+        // excludedKeys.clear();
+
+        // // 1) Candidats issus des filtres "classiques"
+        // let rawCandidates = getCandidateRows(constraints) || [];
+
+        // if (rawCandidates.length && (
+        //       (constraints.request && constraints.request.trim()) ||
+        //       (constraints.mots_cles_distribution && constraints.mots_cles_distribution.length) ||
+        //       (constraints.note_weight != null && Number(constraints.note_weight) !== 0)
+        // )) {
+        //   // 🔹 scoring IA + filtre sur enrichissements
+        //   rawCandidates = await applyIAScoringToCandidates(rawCandidates, constraints);
+        //   rawCandidates = shuffleArrayWithScore(rawCandidates);
+        // } else {
+        //   // 🔹 ancien comportement : aléatoire uniforme
+        //   rawCandidates = shuffleArray(rawCandidates);
+        // }
+      async function buildProgram(formConstraints) {
         const allRows = ctx?.df || [];
 
-        const GAP_MIN = constraints.gap_minutes || defaultGap || 30;
-        const GAP     = GAP_MIN; // minutes
+        // On clone les contraintes du formulaire
+        let constraints = { ...formConstraints };
 
+        const GAP_MIN = constraints.gap_minutes || defaultGap || 30;
+        const GAP     = GAP_MIN;
+
+        // ====== 1) Passe d'understanding sur la query (si présente) ======
+        let intentJson = null;
+        const freeQuery = constraints.request && constraints.request.trim();
+
+        if (freeQuery) {
+          try {
+            if (freeQuery === lastProgQueryText && lastProgIntentJson) {
+              // ✅ on réutilise le dernier intent si la query n'a pas changé
+              intentJson = lastProgIntentJson;
+            } else {
+              const previousIntent = lastProgIntentJson || null;
+              intentJson = await fetchProgQueryIntent(freeQuery, previousIntent);
+              lastProgQueryText  = freeQuery;
+              lastProgIntentJson = intentJson || null;
+            }
+
+            if (intentJson && intentJson.intent === "search_shows") {
+              constraints = mergeConstraintsWithIntent(constraints, intentJson);
+            }
+          } catch (e) {
+            console.warn("buildProgram: erreur query-understand", e);
+            // on continue avec les seules contraintes du formulaire
+          }
+        }
+
+        // À partir d'ici, on travaille avec `constraints` (fusion formulaire + intent)
         const dateMinInt = constraints.date_min || null;
         const dateMaxInt = constraints.date_max || null;
 
-        const minMinutes = debutMinToMinutes(constraints.debut_min); 
+        const minMinutes = debutMinToMinutes(constraints.debut_min);
         const maxMinutes = finMaxToMinutes(constraints.fin_max);
 
         const maxPerDay = constraints.max_par_jour || Infinity;
@@ -8905,15 +9474,17 @@ function openSheetAssistantProgrammation() {
 
         excludedKeys.clear();
 
-        // 1) Candidats issus des filtres "classiques"
+        // ====== 2) Candidats issus des filtres "classiques" (df local) ======
         let rawCandidates = getCandidateRows(constraints) || [];
 
-        if (rawCandidates.length && (
-              (constraints.request && constraints.request.trim()) ||
-              (constraints.mots_cles_distribution && constraints.mots_cles_distribution.length) ||
-              (constraints.note_weight != null && Number(constraints.note_weight) !== 0)
-        )) {
-          // 🔹 scoring IA + filtre sur enrichissements
+        // ====== 3) Scoring IA + shuffle pondéré (ou aléatoire simple) ======
+        const hasSemanticStuff =
+          !!(constraints.request && constraints.request.trim()) ||
+          (constraints.mots_cles_distribution && constraints.mots_cles_distribution.length) ||
+          (constraints.note_weight != null && Number(constraints.note_weight) !== 0);
+
+        if (rawCandidates.length && hasSemanticStuff) {
+          // 🔹 scoring IA + filtre sur enrichissements (route /ai/semantic+keywords)
           rawCandidates = await applyIAScoringToCandidates(rawCandidates, constraints);
           rawCandidates = shuffleArrayWithScore(rawCandidates);
         } else {
