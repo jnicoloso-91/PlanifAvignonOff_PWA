@@ -2080,6 +2080,15 @@ body.lock-page-scroll {
   line-height: 1.35;
 }
 
+/* Sur IOS... */
+@supports (-webkit-touch-callout: none) {
+  .bb-btn.bb-btn-compact {
+    /* padding: 6px 10px; */
+    font-size: 0.85rem;
+    /* min-width: auto; */
+  }
+}
+
 /* =================================*/
 /*  Sheet Assistant Programmation   */
 /* =================================*/
