@@ -7420,17 +7420,17 @@ function openSheetAssistantChat() {
           <div class="ai-reset-wrapper">
             <button id="btn-ai-reset"
                     type="button"
-                    class="bb-btn is-primary">
+                    class="bb-btn is-primary bb-btn-compact">
               Nouveau chat 
             </button>
             <button id="btn-ai-send"
                     type="button"
-                    class="bb-btn is-primary">
-              Envoyer requête
+                    class="bb-btn is-primary bb-btn-compact">
+              Envoyer
             </button>
             <button id="btn-ai-paste"
                     type="button"
-                    class="bb-btn is-primary">
+                    class="bb-btn is-primary bb-btn-compact">
               Coller résultats 
             </button>
           </div>
@@ -8516,7 +8516,7 @@ function openSheetAssistantChat() {
           Debut:    r.debut ?? "",
           Duree:    r.duree ?? "",
           Fin:      r.fin ?? "",
-          Theatre:  r.lieu ?? "",
+          Lieu:     r.lieu ?? "",
 
           Hyperlien:   r.hyperlien ?? null,
           HyperlienBR: r.hyperlienBR ?? null,
@@ -8525,7 +8525,7 @@ function openSheetAssistantChat() {
           Session:  r.session  ?? null,
           Relache:  r.relache  ?? null,
 
-          Orga:     (r.section || "").toLowerCase() || null, // "off" / "in"
+          Orga:     (r.section || "").capitalizeFirst() || null, // "off" / "in"
           Reserve:  "Non",
           Date:     null,
 

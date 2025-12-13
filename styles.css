@@ -2083,9 +2083,7 @@ body.lock-page-scroll {
 /* Sur IOS... */
 @supports (-webkit-touch-callout: none) {
   .bb-btn.bb-btn-compact {
-    /* padding: 6px 10px; */
     font-size: 0.85rem;
-    /* min-width: auto; */
   }
 }
 
