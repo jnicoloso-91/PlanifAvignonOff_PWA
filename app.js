@@ -8045,11 +8045,11 @@ function openSheetAssistantChat() {
 
         let presentation;
         if (!is_truncated) {
-          presentation = "Voici les résultats choisies dans les catalogues In & Off correspondant à votre demande:\n";
+          presentation = "Voici les résultats des catalogues In & Off correspondant à votre demande:\n";
         } else if (selectionMode === "random") {
-          presentation = "Voici des suggestions choisies dans les catalogues In & Off correspondant à votre demande:\n";
+          presentation = "Voici quelques suggestions choisies dans les catalogues In & Off qui pourraient vous intéresser:\n";
         } else {
-          presentation = "Voici les meilleures suggestions choisies dans les catalogues In & Off correspondant à votre demande (triées par pertinence):\n";
+          presentation = "Voici les meilleures suggestions correspondant à votre demande triées par pertinence:\n";
         }
 
         const lines = finalList.map((r, i) => {
@@ -8139,9 +8139,9 @@ function openSheetAssistantChat() {
         if (!is_truncated) {
           presentation = "Voici les résultats choisies dans votre stock correspondant à votre demande:\n";
         } else if (selectionMode === "random") {
-          presentation = "Voici des suggestions issues de votre stock correspondant à votre demande :\n";
+          presentation = "Voici quelques suggestions issues de votre stock qui pourraient vous intéresser:\n";
         } else {
-          presentation = "Voici les meilleures suggestions issues de votre stock correspondant à votre demande (classés par pertinence) :\n";
+          presentation = "Voici les meilleures suggestions correspondant à votre demande classées par pertinence:\n";
         }
         return presentation +
               lines.join("\n");
