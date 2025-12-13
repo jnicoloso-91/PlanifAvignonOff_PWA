@@ -8389,6 +8389,23 @@ function openSheetAssistantChat() {
         return formatLocalSearchResults(pickedRowsWithScore, scoreMap, selectionMode, is_truncated);
       }
 
+      async function copyInputToClipboard() {
+        const text = inputReq.value || "";
+        if (!text) return;
+
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (err) {
+          fallbackCopyInput();
+        }
+      }
+
+      function fallbackCopyInput() {
+        inputReq.select();
+        inputReq.setSelectionRange(0, inputReq.value.length); // mobile safe
+        document.execCommand("copy");
+      }
+
       // Envoi de requête
       async function send() {
         clearError();
@@ -8403,7 +8420,10 @@ function openSheetAssistantChat() {
         addMessageToUI({ role: "user", content: raw, mode: "chat" });
 
         // 2) Reset du champ de saisie
-        if (inputReq) inputReq.value = "";
+        if (inputReq) {
+          await copyInputToClipboard(inputReq.value);
+          inputReq.value = "";
+        }
 
         // 3) Message "L’IA réfléchit…"
         const thinkingMsg = { role: "assistant", content: "⏳ L’IA réfléchit…", mode: "chat" };
@@ -8505,6 +8525,12 @@ function openSheetAssistantChat() {
 
       // Construction d'une row de df à partir d'un résultat d'index 
       function buildRowFromIndexResult(r) {
+
+        function capitalizeFirst(s) {
+          if (!s) return s;
+          return s.charAt(0).toUpperCase() + s.slice(1);
+        }        
+
         // r = item renvoyé par le worker (index)
         // adapte si tes noms diffèrent (activite vs Activite, etc.)
         const row = {
@@ -8521,11 +8547,10 @@ function openSheetAssistantChat() {
           Hyperlien:   r.hyperlien ?? null,
           HyperlienBR: r.hyperlienBR ?? null,
 
-          // si tu as remis Session/Relache dans l'index, tu peux les coller ici :
           Session:  r.session  ?? null,
           Relache:  r.relache  ?? null,
 
-          Orga:     (r.section || "").capitalizeFirst() || null, // "off" / "in"
+          Orga:     capitalizeFirst(r.section || ""), 
           Reserve:  "Non",
           Date:     null,
 
@@ -8604,6 +8629,7 @@ function openSheetAssistantChat() {
         saveChatHistoryToStorage(chatHistory);
         renderChat();
 
+        inputReq.value = "";
         // 4. Eventuel feedback
         // showError("Historique réinitialisé.");
         // setTimeout(() => clearError(), 2000);
