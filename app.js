@@ -8446,6 +8446,7 @@ function openSheetAssistantChat() {
           const selectionMode  = intentJson?.results?.selection_mode || "scored";
           const searchMode     = intentJson?.meta?.search_mode
                                 || (topIntent === "search_shows" ? "simple" : "none");
+          const freeAnswer     = intentJson?.free_answer || null;
 
           const meta = intentJson?.meta || {};
           const isSearch = (topIntent === "search_shows");
@@ -8469,9 +8470,12 @@ function openSheetAssistantChat() {
           
           let replyText = "";
 
-          if (topIntent !== "search_shows" || searchMode === "none") {
+          // if (topIntent !== "search_shows" || searchMode === "none") {
+          //   // 🔵 CAS 1 : Chat général / FAQ / analyse → route /ai
+          //   replyText = await callAI(raw, fullContext, intentJson);
+          if (topIntent !== "search_shows" && freeAnswer) {
             // 🔵 CAS 1 : Chat général / FAQ / analyse → route /ai
-            replyText = await callAI(raw, fullContext, intentJson);
+            replyText = freeAnswer;
           } else {
             // 🔵 CAS 2 : Intent de recherche de spectacles
             const canReusePreviousSelection =
