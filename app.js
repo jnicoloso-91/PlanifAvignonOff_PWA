@@ -117,6 +117,12 @@ const PHANTOM_DEFAULT_DURATION = 680;  // durée par default de la trajectoire d
 
 const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
 
+// Contexte du chat IA 
+let lastSemanticSelection = null;
+let seenSemanticKeysGlobal = new Set(); // clés déjà proposées en mode "global"
+let seenSemanticKeysLocal = new Set(); // clés déjà proposées en mode "local"
+let lastPresentedResults = []; // à alimenter quand on affiches une liste pour le bouton collage
+
 // ------- Debug -------
 const DEBUG = false;
 function getCaller(depth = 2) {
@@ -3977,6 +3983,8 @@ function buildAiExportFromDf(df, sectionLabel, editionYear = null) {
       Fin: cleanField(r.Fin),
       Style: cleanField(r.Style),
       Lieu: cleanField(r.Lieu),
+      Session: cleanField(r.Session),
+      Relache: cleanField(r.Relache),
       Hyperlien: cleanField(r.Hyperlien),
       HyperlienBR: cleanField(r.HyperlienBR),
       HyperlienAvis: cleanField(r.HyperlienAvis),
@@ -7413,12 +7421,17 @@ function openSheetAssistantChat() {
             <button id="btn-ai-reset"
                     type="button"
                     class="bb-btn is-primary">
-              Réinitialiser
+              Nouveau chat 
             </button>
             <button id="btn-ai-send"
                     type="button"
                     class="bb-btn is-primary">
-              Envoyer
+              Envoyer requête
+            </button>
+            <button id="btn-ai-paste"
+                    type="button"
+                    class="bb-btn is-primary">
+              Coller résultats 
             </button>
           </div>
         </div>
@@ -7427,15 +7440,12 @@ function openSheetAssistantChat() {
       const inputReq  = body.querySelector("#ai-request");
       const btnSend   = body.querySelector("#btn-ai-send");
       const btnReset  = body.querySelector("#btn-ai-reset");
+      const btnPaste  = body.querySelector("#btn-ai-paste");
       const errEl     = body.querySelector("#ai-error");
       const chatLogEl = body.querySelector("#ai-chat-log");
 
-      // Historique persistant : { role: "user"|"assistant", content: string, mode: "chat"|"semantic" }
       const chatHistory = loadChatHistoryFromStorage();
       let lastSemanticIntent = loadLastSemanticIntent();
-      let lastSemanticSelection = null;
-      let seenSemanticKeysGlobal = new Set(); // clés déjà proposées en mode "global"
-      let seenSemanticKeysLocal = new Set(); // clés déjà proposées en mode "local"
 
       const showError = (msg) => {
         if (!errEl) return;
@@ -8000,6 +8010,7 @@ function openSheetAssistantChat() {
           throw new Error("Erreur backend semantic-explain");
         }
 
+        lastPresentedResults = scoredResults;
         return resp.json(); // { answer, results, context_used }
       }
 
@@ -8052,17 +8063,22 @@ function openSheetAssistantChat() {
               : "";
 
           const descBlock = r.desc_summary 
-            ? `\n- ${r.desc_summary}`
+            ? `\n- **Description**: ${r.desc_summary}`
             : "";
 
           const avisBlock = r.avis_summary 
-            ? `\n- ${r.avis_summary}`
+            ? `\n- **Avis**: ${r.avis_summary}`
+            : "";
+
+          const moodBlock = r.mood 
+            ? `\n- **Mood**: ${r.mood}`
             : "";
 
           return (
             `${i + 1}. ${titlePart} — ${r.style || "Style inconnu"} — ${r.lieu || ""} ${noteBlock}` +
             `${descBlock}` +
-            `${avisBlock}`
+            `${avisBlock}` +
+            `${moodBlock}`
           );
         });
 
@@ -8099,17 +8115,22 @@ function openSheetAssistantChat() {
               : "";
 
           const descBlock = p.desc_summary 
-            ? `\n- Description: ${p.desc_summary}`
+            ? `\n- **Description**: ${p.desc_summary}`
             : "";
 
           const avisBlock = p.avis_summary 
-            ? `\n- Avis: ${p.avis_summary}`
+            ? `\n- **Avis**: ${p.avis_summary}`
+            : "";
+
+          const moodBlock = p.mood 
+            ? `\n- **Mood**: ${p.mood}`
             : "";
 
           return (
             `${i + 1}. ${titlePart} — ${style} — ${lieu} ${noteBlock}` +
             `${descBlock}` +
-            `${avisBlock}`
+            `${avisBlock}` +
+            `${moodBlock}`
           );
 
         });
@@ -8224,6 +8245,7 @@ function openSheetAssistantChat() {
         }
 
         // 8) MODE SIMPLE (comme avant) : on renvoie juste une liste textuelle
+        lastPresentedResults = finalList;
         return formatGlobalSearchResults(finalList, selectionMode, is_truncated);
       }
 
@@ -8363,6 +8385,7 @@ function openSheetAssistantChat() {
           }
         }
 
+        lastPresentedResults = pickedRowsWithScore;
         return formatLocalSearchResults(pickedRowsWithScore, scoreMap, selectionMode, is_truncated);
       }
 
@@ -8480,6 +8503,78 @@ function openSheetAssistantChat() {
         }
       }
 
+      // Construction d'une row de df à partir d'un résultat d'index 
+      function buildRowFromIndexResult(r) {
+        // r = item renvoyé par le worker (index)
+        // adapte si tes noms diffèrent (activite vs Activite, etc.)
+        const row = {
+          ...PARSED_DEFAULT,
+
+          Activite: r.activite ?? "",
+          Style:    r.style ?? "",
+          Lieu:     r.lieu ?? "",
+          Debut:    r.debut ?? "",
+          Duree:    r.duree ?? "",
+          Fin:      r.fin ?? "",
+          Theatre:  r.lieu ?? "",
+
+          Hyperlien:   r.hyperlien ?? null,
+          HyperlienBR: r.hyperlienBR ?? null,
+
+          // si tu as remis Session/Relache dans l'index, tu peux les coller ici :
+          Session:  r.session  ?? null,
+          Relache:  r.relache  ?? null,
+
+          Orga:     (r.section || "").toLowerCase() || null, // "off" / "in"
+          Reserve:  "Non",
+          Date:     null,
+
+          __uuid: crypto.randomUUID(),
+        };
+
+        // (optionnel) cache séances si tu l’utilises :
+        if (Array.isArray(r.seances)) row.__seances = r.seances;
+
+        return row;
+      }
+
+      // Handler de collage de résultats 
+      function handlePasteChatResultsIntoDf({ dedupe = true } = {}) {
+        const df = Array.isArray(ctx?.getDf?.()) ? ctx.getDf() : (Array.isArray(ctx?.df) ? ctx.df : []);
+        if (!df.length && !Array.isArray(df)) return;
+
+        const results = Array.isArray(lastPresentedResults) ? lastPresentedResults : [];
+        if (!results.length) {
+          alert("Aucun résultat à coller (fait d'abord une recherche).");
+          return;
+        }
+
+        // déduplication par clé (même logique que le worker)
+        const existingKeys = new Set(df.map(r => makeFullKey(r)).filter(Boolean));
+
+        const newRows = [];
+        for (const r of results) {
+          const row = buildRowFromIndexResult(r);
+          const k = makeFullKey(row);
+          if (dedupe && k && existingKeys.has(k)) continue;
+          if (k) existingKeys.add(k);
+          newRows.push(row);
+        }
+
+        if (!newRows.length) {
+          alert("Tous ces spectacles sont déjà présents dans le tableau.");
+          return;
+        }
+
+        let next = df.concat(newRows);
+        next = sortDf(next);
+
+        if (ctx?.setDf) ctx.setDf(next);
+        else ctx.df = next;
+
+        alert(`${newRows.length} spectacle(s) ajouté(s) au tableau.`);
+      }
+
       // ===========================
       // Event handlers
       // ===========================
@@ -8512,6 +8607,10 @@ function openSheetAssistantChat() {
         // 4. Eventuel feedback
         // showError("Historique réinitialisé.");
         // setTimeout(() => clearError(), 2000);
+      });
+
+      btnPaste?.addEventListener("click", () => {
+        handlePasteChatResultsIntoDf({ dedupe: true });
       });
 
       // Premier rendu : on affiche l'historique déjà en storage
