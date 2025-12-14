@@ -7415,7 +7415,7 @@ function openSheetAssistantChat() {
             <textarea id="ai-request"
                       class="ai-input"
                       rows="3"
-                      placeholder="Posez vos questions… (ex : Résume ce planning, propose 3 spectacles, explique les conflits, etc.)"></textarea>
+                      placeholder="Posez vos questions… (ex : propose 3 spectacles de style théâtre, Résume ce planning, explique les conflits, etc.)"></textarea>
           </div>
           <div class="ai-reset-wrapper">
             <button id="btn-ai-reset"
@@ -7594,40 +7594,6 @@ function openSheetAssistantChat() {
         return lastPairs.map(p => p.join("\n")).join("\n\n");
       }
 
-      function buildInterpretationMessage(qi) {
-        const intent = (qi?.intent || "unknown").toLowerCase();
-        const space  = (qi?.scope?.search_space || "none").toLowerCase();
-        const sections = Array.isArray(qi?.scope?.festival) ? qi.scope.festival : [];
-
-        const secLabel = sections.length
-          ? sections.map(s => s.toUpperCase()).join(" / ")
-          : "festival";
-
-        if (intent === "search_shows") {
-          if (space === "current_schedule") {
-            return `Je comprends que vous souhaitez une recherche complémentaire dans votre planning actuel (${secLabel}).`;
-          }
-          if (space === "full_festival") {
-            return `Je comprends que vous souhaitez une recherche dans le programme complet (${secLabel}).`;
-          }
-          return `Je comprends que vous souhaitez une recherche de spectacles.`;
-        }
-
-        if (intent === "analyze_shows") {
-          return "Je comprends que vous souhaitez une analyse des spectacles récemment proposés.";
-        }
-
-        if (intent === "plan_day") {
-          return "Je comprends que vous souhaitez organiser ou optimiser une journée de festival.";
-        }
-
-        if (intent === "faq") {
-          return "Je comprends que vous posez une question générale sur le festival ou son fonctionnement.";
-        }
-
-        return null; // ou une phrase générique si tu veux
-      }
-
       function dateISOToInt(iso) {
         if (!iso || typeof iso !== "string") return null;
         const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -7672,9 +7638,8 @@ function openSheetAssistantChat() {
        * @param {object} activitesAPI - objet fournissant estActiviteValideADate / estActiviteProgrammableADate
        * @returns {Array<object>}
        */
-      function filterCurrentScheduleWithIntent(intentJson) {
-        const df = ctx.df;
-        if (!Array.isArray(df) || !intentJson) return [];
+      function filterCurrentScheduleWithIntent(df, intentJson) {
+        if (!Array.isArray(df) || !df.length || !intentJson) return [];
 
         const filters = intentJson.filters || {};
         const scope   = intentJson.scope   || {};
@@ -7948,7 +7913,7 @@ function openSheetAssistantChat() {
       // Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies des keys.
       // Appelle la route /ai/semantic-wk du worker CloudFlare.
       // Cette fonction est utilisée pour scorer des rows du df local après un filtrage local effectué comme suite à une analyse d'intention IA sur une query
-      async function scoreAISemanticWithKeys(query, keys, topK=null, selectionMode="scored", distributionFilter=null) {
+      async function scoreAISemanticWithKeys(query, keys, topK=null, selectionMode="scored", distributionFilter=null, moodFilter=null) {
         if (!query || !keys || !keys.length) return [];
 
         if (!topK) topK = keys.length;
@@ -7956,7 +7921,7 @@ function openSheetAssistantChat() {
         const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, keys, topK, selection_mode: selectionMode, distribution_filter: distributionFilter })
+          body: JSON.stringify({ query, keys, topK, selection_mode: selectionMode, distribution_filter: distributionFilter, mood_filter: moodFilter  })
         });
 
         if (!res.ok) {
@@ -8040,120 +8005,76 @@ function openSheetAssistantChat() {
         return data?.answer || "";
       }
 
-      // Mise en forme des résultats sur recherche globale
-      function formatGlobalSearchResults(finalList, selectionMode, is_truncated) {
-
-        let presentation;
-        if (!is_truncated) {
-          presentation = "Voici les résultats des catalogues In & Off correspondant à votre demande:\n";
-        } else if (selectionMode === "random") {
-          presentation = "Voici quelques suggestions choisies dans les catalogues In & Off qui pourraient vous intéresser:\n";
-        } else {
-          presentation = "Voici les meilleures suggestions correspondant à votre demande triées par pertinence:\n";
-        }
-
-        const lines = finalList.map((r, i) => {
-          const titlePart = r.hyperlien
-            ? `[${r.activite}](${r.hyperlien})`
-            : `${r.activite}`;
-
-          const noteBlock =
-            r.avis && (r.avis.note != null || r.avis.count != null)
-              ? ` - ${r.avis.note != null ? r.avis.note + "/10" : "Note ?"}${r.avis.count != null ? ` (${r.avis.count} avis)` : ""}`
-              : "";
-
-          const descBlock = r.desc_summary 
-            ? `\n- **Description**: ${r.desc_summary}`
-            : "";
-
-          const avisBlock = r.avis_summary 
-            ? `\n- **Avis**: ${r.avis_summary}`
-            : "";
-
-          const moodBlock = r.mood 
-            ? `\n- **Mood**: ${r.mood}`
-            : "";
-
-          return (
-            `${i + 1}. ${titlePart} — ${r.style || "Style inconnu"} — ${r.lieu || ""} ${noteBlock}` +
-            `${descBlock}` +
-            `${avisBlock}` +
-            `${moodBlock}`
-          );
-        });
-
-        return presentation + lines.join("\n");
-      }
-
-      // Mise en forme des résultats sur recherche locale
-      function formatLocalSearchResults(pickedRowsWithScore, scoreMap = null, selectionMode = 'random', is_truncated) {
-        if (!pickedRowsWithScore || !pickedRowsWithScore.length) {
-          return "Je n'ai trouvé aucun spectacle correspondant dans votre planning actuel.";
-        }
-
-        const lines = pickedRowsWithScore.map((p, i) => {
-          const r = p.row;
-          const style = r.Style || "Style inconnu";
-          const lieu  = r.Lieu || "";
-
-          let scorePart = "";
-          if (scoreMap) {
-            const k = makeFullKey(r);
-            if (k && scoreMap.has(k)) {
-              const sc = scoreMap.get(k);
-              scorePart = ` (score: ${sc.toFixed(3)})`;
-            }
-          }
-
-          const titlePart = r.Hyperlien
-            ? `[${r.Activite}](${r.Hyperlien})`
-            : `${r.Activite}`;
-
-          const noteBlock =
-            p.avis && (p.avis.note != null || p.avis.count != null)
-              ? ` - ${p.avis.note != null ? p.avis.note + "/10" : "Note ?"}${p.avis.count != null ? ` (${p.avis.count} avis)` : ""}`
-              : "";
-
-          const descBlock = p.desc_summary 
-            ? `\n- **Description**: ${p.desc_summary}`
-            : "";
-
-          const avisBlock = p.avis_summary 
-            ? `\n- **Avis**: ${p.avis_summary}`
-            : "";
-
-          const moodBlock = p.mood 
-            ? `\n- **Mood**: ${p.mood}`
-            : "";
-
-          return (
-            `${i + 1}. ${titlePart} — ${style} — ${lieu} ${noteBlock}` +
-            `${descBlock}` +
-            `${avisBlock}` +
-            `${moodBlock}`
-          );
-
-        });
-
-        let presentation;
-        if (!is_truncated) {
-          presentation = "Voici les résultats choisies dans votre stock correspondant à votre demande:\n";
-        } else if (selectionMode === "random") {
-          presentation = "Voici quelques suggestions issues de votre stock qui pourraient vous intéresser:\n";
-        } else {
-          presentation = "Voici les meilleures suggestions correspondant à votre demande classées par pertinence:\n";
-        }
-        return presentation +
-              lines.join("\n");
-      }
-
       // Gestion de la recherche sémantique globale (In & Off)
       async function handleGlobalSemanticSearch(raw, intentJson) {
+        function formatResults(finalList) {
+
+          let festivalsLabel = "";
+          if (festivals.includes("in") && festivals.includes("off")) {
+            festivalsLabel = "catalogues In&Off";
+          } else if (festivals.includes("in")) {  
+            festivalsLabel = "catalogue du In";
+          } else if (festivals.includes("off")) {
+            festivalsLabel = "catalogue du Off";
+          }
+
+          let presentation;
+          if (!is_truncated) {
+            if (festivals.length > 1) {
+              presentation = `Voici les résultats des ${festivalsLabel} correspondant à votre demande:\n`;
+            } else {
+              presentation = `Voici les résultats du ${festivalsLabel} correspondant à votre demande:\n`;
+            }
+          } else if (selectionMode === "random") {
+            presentation = "Voici quelques suggestions choisies dans les catalogues In & Off qui pourraient vous intéresser:\n";
+            if (festivals.length > 1) {
+              presentation = `Voici quelques suggestions choisies dans les ${festivalsLabel} qui pourraient vous intéresser:\n`;
+            } else {
+              presentation = `Voici quelques suggestions choisies dans le ${festivalsLabel} qui pourraient vous intéresser:\n`;
+            }
+          } else {
+            presentation = "Voici les meilleures suggestions correspondant à votre demande triées par pertinence:\n";
+          }
+
+          const lines = finalList.map((r, i) => {
+            const titlePart = r.hyperlien
+              ? `[${r.activite}](${r.hyperlien})`
+              : `${r.activite}`;
+
+            const noteBlock =
+              r.avis && (r.avis.note != null || r.avis.count != null)
+                ? ` - ${r.avis.note != null ? r.avis.note + "/10" : "Note ?"}${r.avis.count != null ? ` (${r.avis.count} avis)` : ""}`
+                : "";
+
+            const descBlock = r.desc_summary 
+              ? `\n- **Description**: ${r.desc_summary}`
+              : "";
+
+            const avisBlock = r.avis_summary 
+              ? `\n- **Avis**: ${r.avis_summary}`
+              : "";
+
+            const moodBlock = r.mood 
+              ? `\n- **Mood**: ${r.mood}`
+              : "";
+
+            return (
+              `${i + 1}. ${titlePart} — ${r.style || "Style inconnu"} — ${r.lieu || ""} ${noteBlock}` +
+              `${descBlock}` +
+              `${avisBlock}` +
+              `${moodBlock}`
+            );
+          });
+
+          return presentation + lines.join("\n");
+        }
+
         const selectionMode = getSelectionModeFromIntent(intentJson);    // "random" | "scored"
         const limit         = getLimitFromIntent(intentJson, 10);        // nb demandé (ex: 3)
         const meta          = intentJson?.meta || {};
         const searchMode    = meta.search_mode || "simple";              // "simple" | "augmented"
         const scope         = intentJson?.scope || null;
+        const festivals     = scope?.festival || [];
 
         // 👉 Follow-up = on réutilise l’intent précédent (ex: "3 autres", "analyse les mêmes")
         const isFollowUp =
@@ -8246,15 +8167,82 @@ function openSheetAssistantChat() {
 
         // 8) MODE SIMPLE (comme avant) : on renvoie juste une liste textuelle
         lastPresentedResults = finalList;
-        return formatGlobalSearchResults(finalList, selectionMode, is_truncated);
+
+        return formatResults(finalList);
       }
 
       // Gestion de la recherche sémantique locale (planning / stock courant)
       async function handleLocalSemanticSearch(raw, intentJson) {
-        const selectionMode = getSelectionModeFromIntent(intentJson);         // "random" | "scored"
-        const limit         = getLimitFromIntent(intentJson, 10);             // nb demandé
-        const meta          = intentJson?.meta || {};
-        const searchMode    = meta.search_mode || "simple";                   // "simple" | "augmented"
+        function formatResults(finalList) {
+          if (!finalList || !finalList.length) {
+            return `Je n'ai trouvé aucun spectacle correspondant dans votre ${searchSpaceLabel}.`;
+          }
+
+          const lines = finalList.map((p, i) => {
+            const r = p.row;
+            const style = r.Style || "Style inconnu";
+            const lieu  = r.Lieu || "";
+
+            let scorePart = "";
+            if (scoreMap) {
+              const k = makeFullKey(r);
+              if (k && scoreMap.has(k)) {
+                const sc = scoreMap.get(k);
+                scorePart = ` (score: ${sc.toFixed(3)})`;
+              }
+            }
+
+            const titlePart = r.Hyperlien
+              ? `[${r.Activite}](${r.Hyperlien})`
+              : `${r.Activite}`;
+
+            const noteBlock =
+              p.avis && (p.avis.note != null || p.avis.count != null)
+                ? ` - ${p.avis.note != null ? p.avis.note + "/10" : "Note ?"}${p.avis.count != null ? ` (${p.avis.count} avis)` : ""}`
+                : "";
+
+            const descBlock = p.desc_summary 
+              ? `\n- **Description**: ${p.desc_summary}`
+              : "";
+
+            const avisBlock = p.avis_summary 
+              ? `\n- **Avis**: ${p.avis_summary}`
+              : "";
+
+            const moodBlock = p.mood 
+              ? `\n- **Mood**: ${p.mood}`
+              : "";
+
+            return (
+              `${i + 1}. ${titlePart} — ${style} — ${lieu} ${noteBlock}` +
+              `${descBlock}` +
+              `${avisBlock}` +
+              `${moodBlock}`
+            );
+
+          });
+
+          let presentation;
+          if (!is_truncated) {
+            presentation = `Voici les résultats choisies dans votre ${searchSpaceLabel} correspondant à votre demande:\n`;
+          } else if (selectionMode === "random") {
+            presentation = `Voici quelques suggestions issues de votre ${searchSpaceLabel} qui pourraient vous intéresser:\n`;
+          } else {
+            presentation = `Voici les meilleures suggestions correspondant à votre demande classées par pertinence:\n`;
+          }
+          return presentation +
+                lines.join("\n");
+        }
+
+        const selectionMode       = getSelectionModeFromIntent(intentJson);           // "random" | "scored"
+        const limit               = getLimitFromIntent(intentJson, 10);               // nb demandé
+        const searchSpace         = intentJson?.scope?.search_space || "local_stock"; // "local_stock" | "current_schedule"
+        const meta                = intentJson?.meta || {};
+        const searchMode          = meta.search_mode || "simple";                     // "simple" | "augmented"
+        const distributionFilter  =intentJson?.filters?.distribution || null
+        const moodFilter          =intentJson?.filters?.mood || null
+        
+        const searchSpaceLabel = searchSpace === 'current_schedule' ? 'planning' : 'stock';
 
         // 👉 Follow-up = on réutilise l’intent précédent (ex: "3 autres", "même style mais…")
         // => on DOIT relancer une recherche + anti-répétition (pas relire un cache)
@@ -8262,10 +8250,21 @@ function openSheetAssistantChat() {
           meta.uses_previous_intent &&
           meta.previous_intent_relation === "same_but_modified";
 
-        // 1) Filtrage logique sur df courant
-        const localRows = filterCurrentScheduleWithIntent(intentJson);
+        let df = ctx.df;
+
+        if (searchSpace === 'local_stock') {
+          df = activitesAPI.getActivitesNonProgrammees(df)
+        } else if (searchSpace === 'full_schedule') {
+          df = activitesAPI.getActivitesProgrammees(df)
+        }
+        if (!df.length) {
+          return `Je n'ai trouvé aucun spectacle dans votre ${searchSpaceLabel}.`;
+        }
+        
+        // 1) Filtrage logique sur df
+        const localRows = filterCurrentScheduleWithIntent(df, intentJson);
         if (!localRows.length) {
-          return "Je n'ai trouvé aucun spectacle correspondant dans votre stock courant.";
+          return `Je n'ai trouvé aucun spectacle correspondant dans votre ${searchSpaceLabel}.`;
         }
 
         // 2) Requête sémantique effective
@@ -8287,7 +8286,7 @@ function openSheetAssistantChat() {
         }
 
         if (!keys.length) {
-          return "Je n'ai pas de clé exploitable pour faire un tri sémantique sur le stock courant.";
+          return `Je n'ai pas de clé exploitable pour traiter votre ${searchSpaceLabel}.`;
         }
 
         // 4) Nombre de candidats demandés au worker (plus large sur follow-up pour éviter répétitions)
@@ -8300,11 +8299,13 @@ function openSheetAssistantChat() {
           semanticQuery,
           keys,
           workerTopK,
-          selectionMode
+          selectionMode,
+          distributionFilter,
+          moodFilter
         );
 
         if (!scores || !scores.length) {
-          return "Je n'ai pas réussi à classer les spectacles par pertinence dans votre stock courant.";
+          return `Je n'ai pas réussi à classer les spectacles par pertinence dans votre ${searchSpaceLabel}.`;
         }
 
         // 6) Anti-répétition sur follow-up (même logique que global)
@@ -8328,7 +8329,7 @@ function openSheetAssistantChat() {
         }
 
         if (!candidateScores.length) {
-          return "Je n'ai pas trouvé de spectacles supplémentaires correspondant dans votre stock courant.";
+          return `Je n'ai pas trouvé de spectacles supplémentaires correspondant dans votre ${searchSpaceLabel}.`;
         }
 
         // 7) Liste finale = les `limit` premiers (ordre déjà prêt à servir par le worker)
@@ -8380,13 +8381,15 @@ function openSheetAssistantChat() {
               score: Number(s.score) || 0, 
               avis: s.avis, 
               desc_summary: s.desc_summary, 
-              avis_summary: s.avis_summary 
+              avis_summary: s.avis_summary,
+              mood: s.mood
             });
           }
         }
 
         lastPresentedResults = pickedRowsWithScore;
-        return formatLocalSearchResults(pickedRowsWithScore, scoreMap, selectionMode, is_truncated);
+
+        return formatResults(pickedRowsWithScore);
       }
 
       async function copyInputToClipboard() {
@@ -8474,7 +8477,8 @@ function openSheetAssistantChat() {
           //   // 🔵 CAS 1 : Chat général / FAQ / analyse → route /ai
           //   replyText = await callAI(raw, fullContext, intentJson);
           if (topIntent !== "search_shows" && freeAnswer) {
-            // 🔵 CAS 1 : Chat général / FAQ / analyse → route /ai
+            // 🔵 CAS 1 : Hors intent de recherche de spectacles
+            //  💡 On utilise la réponse "libre" fournie par l’analyse d’intention IA
             replyText = freeAnswer;
           } else {
             // 🔵 CAS 2 : Intent de recherche de spectacles
@@ -8492,8 +8496,8 @@ function openSheetAssistantChat() {
               //    les spectacles de la sélection précédente.
               replyText = await callAISemanticExplainWithKeys(raw, lastSemanticSelection);
             } else {
-              // 🟦 CAS 2b : recherche "normale" (simple ou premier augmented)
-              if (searchSpace === "current_schedule") {
+              // 🟦 CAS 2b : recherche "normale" (simple ou augmented)
+              if (searchSpace === "local_stock" || searchSpace === "current_schedule") {
                 replyText = await handleLocalSemanticSearch(raw, intentJson);
               } else {
                 replyText = await handleGlobalSemanticSearch(raw, intentJson);
