@@ -8776,131 +8776,132 @@ function escapeAttr(s) {
 
 function wireAssistantProgrammationPopup(btn) {
 
-function closePopover() {
-  if (!_openPopover) return;
-  try { _openPopover.el.remove(); } catch {}
-  _openPopover = null;
-  document.removeEventListener("mousedown", _onDocPointerDown, true);
-  document.removeEventListener("touchstart", _onDocPointerDown, true);
-  document.removeEventListener("keydown", _onDocKeyDown, true);
-}
+  function closePopover() {
+    if (!_openPopover) return;
+    try { _openPopover.el.remove(); } catch {}
+    _openPopover = null;
+    document.removeEventListener("mousedown", _onDocPointerDown, true);
+    document.removeEventListener("touchstart", _onDocPointerDown, true);
+    document.removeEventListener("keydown", _onDocKeyDown, true);
+  }
 
-function _onDocPointerDown(e) {
-  if (!_openPopover) return;
-  const { el, anchorEl } = _openPopover;
-  // click à l'intérieur de la popover OU sur le bouton d’ancrage => ne ferme pas
-  if (el.contains(e.target) || anchorEl.contains(e.target)) return;
-  closePopover();
-}
-
-function _onDocKeyDown(e) {
-  if (e.key === "Escape") closePopover();
-}
-
-function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
-  closePopover();
-
-  const pop = document.createElement("div");
-  pop.className = "bb-popover";
-
-  const safe = (v) => (v == null || String(v).trim() === "" ? "—" : String(v));
-
-  pop.innerHTML = `
-    <div class="bb-popover-header">
-      <button class="bb-popover-close" type="button" aria-label="Fermer">×</button>
-    </div>
-    <div class="bb-popover-body">
-      <div>
-        <span class="bb-k">Description:</span>
-        <span class="bb-v">${escapeHtml(safe(desc))}</span>
-      </div>
-      <div>
-        <span class="bb-k">Avis:</span>
-        <span class="bb-v">${escapeHtml(safe(avis))}</span>
-      </div>
-      <div>
-        <span class="bb-k">Mood:</span>
-        <span class="bb-v">${escapeHtml(safe(mood))}</span>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(pop);
-
-  // Close button
-  pop.querySelector(".bb-popover-close").addEventListener("click", (e) => {
-    e.preventDefault();
+  function _onDocPointerDown(e) {
+    if (!_openPopover) return;
+    const { el, anchorEl } = _openPopover;
+    // click à l'intérieur de la popover OU sur le bouton d’ancrage => ne ferme pas
+    if (el.contains(e.target) || anchorEl.contains(e.target)) return;
     closePopover();
-  });
-
-  // Positionnement (fixed) à droite du bouton si possible sinon à gauche, en restant dans l’écran
-  const r = anchorEl.getBoundingClientRect();
-  const pr = pop.getBoundingClientRect();
-
-  const margin = 8;
-  let left = r.right + margin;               // à droite
-  let top  = r.top - 6;                      // aligné haut
-
-  // si ça déborde à droite, on passe à gauche
-  if (left + pr.width > window.innerWidth - margin) {
-    left = Math.max(margin, r.left - margin - pr.width);
   }
-  // clamp vertical
-  if (top + pr.height > window.innerHeight - margin) {
-    top = Math.max(margin, window.innerHeight - margin - pr.height);
+
+  function _onDocKeyDown(e) {
+    if (e.key === "Escape") closePopover();
   }
-  if (top < margin) top = margin;
 
-  pop.style.left = `${left}px`;
-  pop.style.top  = `${top}px`;
+  function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
+    closePopover();
 
-  _openPopover = { el: pop, anchorEl };
+    const pop = document.createElement("div");
+    pop.className = "bb-popover";
 
-  // listeners en capture pour choper le click avant stopPropagation éventuel
-  document.addEventListener("mousedown", _onDocPointerDown, true);
-  document.addEventListener("touchstart", _onDocPointerDown, true);
-  document.addEventListener("keydown", _onDocKeyDown, true);
-}
+    const safe = (v) => (v == null || String(v).trim() === "" ? "—" : String(v));
 
-function infoPopoverCellRenderer(params) {
-  const row = params.data || {};
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "bb-info-btn";
-  btn.textContent = "ℹ︎";
+      // <div class="bb-popover-header">
+      //   <button class="bb-popover-close" type="button" aria-label="Fermer">×</button>
+      // </div>
 
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation(); // évite de sélectionner la ligne / déclencher d’autres handlers
+    pop.innerHTML = `
+      <div class="bb-popover-body">
+        <div>
+          <span class="bb-k">Description:</span>
+          <span class="bb-v">${escapeHtml(safe(desc))}</span>
+        </div>
+        <div>
+          <span class="bb-k">Avis:</span>
+          <span class="bb-v">${escapeHtml(safe(avis))}</span>
+        </div>
+        <div>
+          <span class="bb-k">Mood:</span>
+          <span class="bb-v">${escapeHtml(safe(mood))}</span>
+        </div>
+      </div>
+    `;
 
-    openPopoverNear(btn, {
-      title: row.Activite || row.activite || "Détails",
-      desc: row._aiDescSummary,
-      avis: row._aiAvisSummary,
-      mood: row._aiMood
+    document.body.appendChild(pop);
+
+    // Close button
+    // pop.querySelector(".bb-popover-close").addEventListener("click", (e) => {
+    //   e.preventDefault();
+    //   closePopover();
+    // });
+
+    // Positionnement (fixed) à droite du bouton si possible sinon à gauche, en restant dans l’écran
+    const r = anchorEl.getBoundingClientRect();
+    const pr = pop.getBoundingClientRect();
+
+    const margin = 8;
+    let left = r.right + margin;               // à droite
+    let top  = r.top - 6;                      // aligné haut
+
+    // si ça déborde à droite, on passe à gauche
+    if (left + pr.width > window.innerWidth - margin) {
+      left = Math.max(margin, r.left - margin - pr.width);
+    }
+    // clamp vertical
+    if (top + pr.height > window.innerHeight - margin) {
+      top = Math.max(margin, window.innerHeight - margin - pr.height);
+    }
+    if (top < margin) top = margin;
+
+    pop.style.left = `${left}px`;
+    pop.style.top  = `${top}px`;
+
+    _openPopover = { el: pop, anchorEl };
+
+    // listeners en capture pour choper le click avant stopPropagation éventuel
+    document.addEventListener("mousedown", _onDocPointerDown, true);
+    document.addEventListener("touchstart", _onDocPointerDown, true);
+    document.addEventListener("keydown", _onDocKeyDown, true);
+  }
+
+  function infoPopoverCellRenderer(params) {
+    const row = params.data || {};
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "bb-info-btn";
+    btn.textContent = "ℹ︎";
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // évite de sélectionner la ligne / déclencher d’autres handlers
+
+      openPopoverNear(btn, {
+        title: row.Activite || row.activite || "Détails",
+        desc: row._aiDescSummary,
+        avis: row._aiAvisSummary,
+        mood: row._aiMood
+      });
     });
-  });
 
-  return btn;
-}
+    return btn;
+  }
 
-document.addEventListener("click", (e) => {
-    const btn = e.target.closest(".prog-info-btn");
-    if (!btn) return;
+  document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".prog-info-btn");
+      if (!btn) return;
 
-    e.preventDefault();
-    e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
 
-    openPopoverNear(btn, {
-      title: btn.dataset.title || "Détails",
-      desc:  btn.dataset.desc || "",
-      avis:  btn.dataset.avis || "",
-      mood:  btn.dataset.mood || ""
+      openPopoverNear(btn, {
+        title: btn.dataset.title || "Détails",
+        desc:  btn.dataset.desc || "",
+        avis:  btn.dataset.avis || "",
+        mood:  btn.dataset.mood || ""
+      });
     });
-  });
 
-  // window.addEventListener("scroll", () => closePopover(), { passive: true });
-  // window.addEventListener("resize", () => closePopover());
+  window.addEventListener("scroll", () => closePopover(), { passive: true });
+  window.addEventListener("resize", () => closePopover());
 }
 
 function openSheetAssistantProgrammation() {
@@ -10258,20 +10259,20 @@ function openSheetAssistantProgrammation() {
             const theatrePart = theatre ? ` <span class="prog-theatre">@ ${escapeHtml(theatre)}</span>` : "";
             const href    = r.Hyperlien || null;
 
-const desc = r._aiDescSummary || "";
-const avis = r._aiAvisSummary || "";
-const mood = r._aiMood || "";
+            const desc = r._aiDescSummary || "";
+            const avis = r._aiAvisSummary || "";
+            const mood = r._aiMood || "";
 
-// bouton seulement si on a au moins un champ utile
-const infoBtnHtml =
-  (desc || avis || mood)
-    ? ` <button type="button"
-          class="bb-info-btn prog-info-btn"
-          data-desc="${escapeAttr(desc)}"
-          data-avis="${escapeAttr(avis)}"
-          data-mood="${escapeAttr(mood)}"
-        >ℹ︎</button>`
-    : "";
+            // bouton seulement si on a au moins un champ utile
+            const infoBtnHtml =
+              (desc || avis || mood)
+                ? ` <button type="button"
+                      class="bb-info-btn prog-info-btn"
+                      data-desc="${escapeAttr(desc)}"
+                      data-avis="${escapeAttr(avis)}"
+                      data-mood="${escapeAttr(mood)}"
+                    >ℹ︎</button>`
+                : "";
 
             const key     = slotKey(dayInt, slot);
             const isExcluded = excludedKeys.has(key);
@@ -10293,7 +10294,7 @@ const infoBtnHtml =
                 partsAvis.push(`(${avisObj.count} avis)`);
               }
               if (partsAvis.length) {
-                avisTxt = `note : ${escapeHtml(`${partsAvis[0]} ${partsAvis[1]}`)}`;
+                avisTxt = `${escapeHtml(`${partsAvis[0]} ${partsAvis[1]}`)}`; // note (count avis)
               }
             }
 
@@ -10302,10 +10303,10 @@ const infoBtnHtml =
               //   ? `score : ${r._aiScore.toFixed(2)}`
               //   : null;
 
-            const metaTxt = [avisTxt, scoreTxt, r.Style].filter(Boolean).join(" , ");
+            const metaTxt = [avisTxt, scoreTxt, r.Style].filter(Boolean).join(" - ");
 
             const metaHtml = metaTxt
-              ? ` <span class="prog-meta">(${metaTxt})</span>`
+              ? ` <span class="prog-meta">${metaTxt}</span>`
               : "";
 
             const titleHtml = href
@@ -10320,7 +10321,7 @@ const infoBtnHtml =
                 </label>
                 <div class="prog-main">
                   <span class="prog-time">${h}</span>
-                  ${titleHtml}${theatrePart}${infoBtnHtml}
+                  ${titleHtml}${infoBtnHtml}${theatrePart}
                 </div>
               </li>
             `);

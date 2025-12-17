@@ -2304,7 +2304,7 @@ input[type="range"]:focus::-moz-range-thumb {
 /* ======== Popup détail =========*/
 .bb-info-btn{
   padding: 2px 8px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 15px;
   border-radius: 8px;
   border: 1px solid #c7cfdd;
