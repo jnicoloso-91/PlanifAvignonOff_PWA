@@ -1931,10 +1931,11 @@ function buildColumnsActivitesCommon(){
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique },
+    { field:'Note', headerName: 'Note', width, minWidth:width },
+    { field:'Mood', headerName: 'Mood', width, minWidth:width },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
     { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
     { field:'HyperlienAvis', headerName: 'Avis', minWidth:120, flex:1, cellRenderer: AvisRenderer },
-    { field:'Note', headerName: 'Note', width, minWidth:width },
   ];
 }
 
@@ -3314,14 +3315,14 @@ async function doImportExcel() {
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
   // importFromUrlOrTxt('https://festival-avignon.com/fr/edition-2025/programmation/par-categorie', 'parseAvignonInProgPage');
-  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=1897265067');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=181131891');
   importFromXlsxFile(f, {add:true});
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
   // importFromUrlOrTxt('https://www.festivaloffavignon.com/programme', 'parseAvignonOffProgPage');
-  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=886169448');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=1315999963');
   importFromXlsxFile(f, {add:true});
 }
 
@@ -7415,7 +7416,7 @@ function openSheetAssistantChat() {
             <textarea id="ai-request"
                       class="ai-input"
                       rows="3"
-                      placeholder="Posez vos questions… (ex : propose 3 spectacles de style théâtre, Résume ce planning, explique les conflits, etc.)"></textarea>
+                      placeholder="Posez vos questions… (ex : propose 3 spectacles de style théâtre ambiance intimiste, Résume le planning de tel jour, etc.)"></textarea>
           </div>
           <div class="ai-reset-wrapper">
             <button id="btn-ai-reset"
@@ -7446,6 +7447,9 @@ function openSheetAssistantChat() {
 
       const chatHistory = loadChatHistoryFromStorage();
       let lastSemanticIntent = loadLastSemanticIntent();
+      let baseUtterance = "";
+      let selectionOrigin = "";
+      let freeSpeechContext = "";
 
       const showError = (msg) => {
         if (!errEl) return;
@@ -7526,6 +7530,16 @@ function openSheetAssistantChat() {
             continue;
           }
 
+          // 1) Titres Markdown: ###, ##, #
+          const hm = trimmed.match(/^(#{1,6})\s+(.*)$/);
+          if (hm) {
+            flushListIfNeeded();
+            const level = hm[1].length;           // 1..6
+            const title = hm[2] || "";
+            out.push(`<h${level} class="ai-h${level}">${renderMarkdown(title, { convertNewlines: false })}</h${level}>`);
+            continue;
+          }
+
           // puce "- " ou "• "
           const m = trimmed.match(/^([-•])\s+(.*)$/);
           if (m) {
@@ -7574,11 +7588,13 @@ function openSheetAssistantChat() {
       }
 
       // Construit un contexte "conversationnel" compact à partir de l'historique
-      function buildContextFromHistory(maxPairs = 5) {
+      function buildContextFromHistory(maxPairs = 5, mode = null) {
         const pairs = [];
         let current = [];
 
         for (const msg of chatHistory) {
+          if (mode !== null && msg.mode !== mode) continue;
+
           if (msg.role === "user") {
             if (current.length) pairs.push(current);
             current = [`Utilisateur: ${msg.content}`];
@@ -7588,12 +7604,15 @@ function openSheetAssistantChat() {
             current = [];
           }
         }
+
         if (current.length) pairs.push(current);
 
-        const lastPairs = pairs.slice(-maxPairs);
-        return lastPairs.map(p => p.join("\n")).join("\n\n");
+        return pairs
+          .slice(-maxPairs)
+          .map(p => p.join("\n"))
+          .join("\n\n");
       }
-
+      
       function dateISOToInt(iso) {
         if (!iso || typeof iso !== "string") return null;
         const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -7647,7 +7666,7 @@ function openSheetAssistantChat() {
         let rows = df.slice();
 
         // --------------------------------
-        // 1) Sections / festival (In / Off)
+        // 0) Sections / festival (In / Off)
         // --------------------------------
         let wantedSections = null;
 
@@ -7669,6 +7688,23 @@ function openSheetAssistantChat() {
             if (!orga) return false;
             return wantedSections.has(orga);
           });
+        }
+
+        // --------------------------------
+        // 1) Shows (Activite)
+        // --------------------------------
+        if (Array.isArray(filters.shows) && filters.shows.length > 0) {
+          const actValues = filters.shows
+            .map(c => (c && c.value ? String(c.value).toLowerCase() : ""))
+            .filter(Boolean);
+
+          if (actValues.length > 0) {
+            rows = rows.filter(r => {
+              const activite = String(r.Activite || "").toLowerCase();
+              if (!activite) return false;
+              return actValues.some(act => activite.includes(act));
+            });
+          }
         }
 
         // --------------------------------
@@ -7857,7 +7893,8 @@ function openSheetAssistantChat() {
       async function callAIQueryUnderstand(message, previousIntent) {
         const body = {
           utterance: message,
-          edition_year: 2025
+          edition_year: 2025,
+          free_speech_context: freeSpeechContext
         };
         if (previousIntent) {
           body.previous_intent = previousIntent;
@@ -7943,30 +7980,26 @@ function openSheetAssistantChat() {
         };
       }
 
-      // Interprétation via IA des résultats du contexte RAG à partir d'un scoredResults
+      // Interprétation via IA d'une sélection parmi les résultats d'une recherche
       async function callAISemanticExplain(query, scoredResults) {
-        const items = (scoredResults || [])
-          .map(r => {
-            const key =
-              r._index_key ||
-              r.key ||
-              (r.row ? makeFullKey(r.row) : makeFullKey(r)); // fallback
-
-            return {
-              key,
-              score: Number(r.score) || 0
-            };
-          })
-          .filter(it => it.key);
+        const items = (scoredResults || []);
 
         if (!items.length) {
           return { answer: "Je n'ai pas de résultats exploitables pour une analyse.", results: [], context_used: "" };
         }
 
+        const body = {
+          query,
+          items,
+          context: "current_utterance_results",
+          origin: selectionOrigin,
+          base_utterance: baseUtterance
+        };
+
         const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-explain", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, items })
+          body: JSON.stringify(body)
         });
 
         if (!resp.ok) {
@@ -7979,13 +8012,20 @@ function openSheetAssistantChat() {
         return resp.json(); // { answer, results, context_used }
       }
 
-      // Interprétation via IA des résultats du contexte RAG à partir d'une sélection
-      async function callAISemanticExplainWithKeys(userQuery, selection) {
-        // selection : { origin: "global" | "local", keys: string[] }
+      // Interprétation via IA des résultatsde la sélection précédente
+      async function callAISemanticExplainWithKeys(query, selection) {
+        const items = (selection?.items || []);
+
+        if (!items.length) {
+          return "Je n'ai pas de résultats exploitables pour une analyse.";
+        }
 
         const body = {
-          query: userQuery,
-          items: selection.items
+          query,
+          items,
+          context: "base_utterance_results",
+          origin: selectionOrigin,
+          base_utterance: baseUtterance
         };
 
         const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-explain", {
@@ -8005,6 +8045,20 @@ function openSheetAssistantChat() {
         return data?.answer || "";
       }
 
+      // petite variété de fins de phrase
+      const PRESENTATION_TAILS = [
+        "qui pourraient vous intéresser",
+        "correspondant à votre demande",
+        "en lien avec votre requête",
+        "susceptibles de vous plaire",
+        "à explorer selon vos critères",
+        "proches de ce que vous cherchez"
+      ];
+
+      function pickRandom(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
       // Gestion de la recherche sémantique globale (In & Off)
       async function handleGlobalSemanticSearch(raw, intentJson) {
         function formatResults(finalList) {
@@ -8018,19 +8072,21 @@ function openSheetAssistantChat() {
             festivalsLabel = "catalogue du Off";
           }
 
+          const tail = pickRandom(PRESENTATION_TAILS);
+
           let presentation;
-          if (!is_truncated) {
+          if (!isTruncatedFinal) {
             if (festivals.length > 1) {
-              presentation = `Voici les résultats des ${festivalsLabel} correspondant à votre demande:\n`;
+              presentation = `Voici les résultats des ${festivalsLabel} ${tail}:\n`;
             } else {
-              presentation = `Voici les résultats du ${festivalsLabel} correspondant à votre demande:\n`;
+              presentation = `Voici les résultats du ${festivalsLabel} ${tail}:\n`;
             }
           } else if (selectionMode === "random") {
-            presentation = "Voici quelques suggestions choisies dans les catalogues In & Off qui pourraient vous intéresser:\n";
+            const followUpMarker = isFollowUp ? "autres" : "";
             if (festivals.length > 1) {
-              presentation = `Voici quelques suggestions choisies dans les ${festivalsLabel} qui pourraient vous intéresser:\n`;
+              presentation = `Voici quelques ${followUpMarker} suggestions choisies dans les ${festivalsLabel} ${tail}:\n`;
             } else {
-              presentation = `Voici quelques suggestions choisies dans le ${festivalsLabel} qui pourraient vous intéresser:\n`;
+              presentation = `Voici quelques ${followUpMarker} suggestions choisies dans le ${festivalsLabel} ${tail}:\n`;
             }
           } else {
             presentation = "Voici les meilleures suggestions correspondant à votre demande triées par pertinence:\n";
@@ -8096,7 +8152,7 @@ function openSheetAssistantChat() {
           : Math.min(limit * 3, 50);
 
         // 3) scoring global sur index In/Off (diversification + ranking gérés côté worker)
-        const { results, total_matches, is_truncated } = await scoreAISemanticWithFilters(
+        const { results, is_truncated } = await scoreAISemanticWithFilters(
           semanticQuery,
           workerLimit,
           filters,
@@ -8105,7 +8161,7 @@ function openSheetAssistantChat() {
         );
 
         if (!results || !results.length) {
-          return "Je n'ai pas trouvé de spectacle correspondant dans les catalogues In&Off.";
+          return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
         }
 
         // 4) Anti-répétition sur les follow-up :
@@ -8130,11 +8186,12 @@ function openSheetAssistantChat() {
         }
 
         if (!candidateList.length) {
-          return "Je n'ai pas trouvé de spectacle correspondant dans les catalogues In&Off.";
+          return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
         }
 
         // 5) Liste finale renvoyée à l’utilisateur (en respectant l’ordre donné par le worker)
         const finalList = candidateList.slice(0, limit);
+        const isTruncatedFinal = finalList.length < results.length || is_truncated;
 
         // 6) Mémoriser la sélection réellement présentée (clé + score) + marquer comme "vus"
         if (!seenSemanticKeysGlobal) {
@@ -8161,7 +8218,7 @@ function openSheetAssistantChat() {
         // 7) MODE AUGMENTED : on laisse le worker construire le contexte riche + réponse
         if (searchMode === "augmented") {
           // ⚠️ On n'explique que sur finalList, pas sur tout results
-          const explain = await callAISemanticExplain(raw, finalList);
+          const explain = await callAISemanticExplain(raw, lastSemanticSelection.items);
           return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
         }
 
@@ -8222,17 +8279,25 @@ function openSheetAssistantChat() {
 
           });
 
+          const tail = pickRandom(PRESENTATION_TAILS);
+
           let presentation;
-          if (!is_truncated) {
-            presentation = `Voici les résultats choisies dans votre ${searchSpaceLabel} correspondant à votre demande:\n`;
+          if (!isTruncatedFinal) {
+            presentation = `Voici les résultats choisies dans votre ${searchSpaceLabel} ${tail}:\n`;
           } else if (selectionMode === "random") {
-            presentation = `Voici quelques suggestions issues de votre ${searchSpaceLabel} qui pourraient vous intéresser:\n`;
+            const followUpMarker = isFollowUp ? "autres" : "";
+            presentation = `Voici quelques ${followUpMarker} suggestions issues de votre ${searchSpaceLabel} ${tail}:\n`;
           } else {
             presentation = `Voici les meilleures suggestions correspondant à votre demande classées par pertinence:\n`;
           }
           return presentation +
                 lines.join("\n");
         }
+
+        const toISO = (di) =>
+          di && di >= 19000101
+            ? `${String(Math.floor(di / 10000)).padStart(4, "0")}-${String(Math.floor((di / 100) % 100)).padStart(2, "0")}-${String(di % 100).padStart(2, "0")}`
+            : null;
 
         const selectionMode       = getSelectionModeFromIntent(intentJson);           // "random" | "scored"
         const limit               = getLimitFromIntent(intentJson, 10);               // nb demandé
@@ -8253,20 +8318,32 @@ function openSheetAssistantChat() {
         let df = ctx.df;
 
         if (searchSpace === 'local_stock') {
-          df = activitesAPI.getActivitesNonProgrammees(df)
-        } else if (searchSpace === 'full_schedule') {
-          df = activitesAPI.getActivitesProgrammees(df)
+          df = activitesAPI.getActivitesNonProgrammees(df);
+        } else if (searchSpace === 'current_schedule') {
+          df = activitesAPI.getActivitesProgrammees(df);
         }
         if (!df.length) {
-          return `Je n'ai trouvé aucun spectacle dans votre ${searchSpaceLabel}.`;
+          return `Désolé je n'ai trouvé aucun spectacle correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
         
         // 1) Filtrage logique sur df
         const localRows = filterCurrentScheduleWithIntent(df, intentJson);
         if (!localRows.length) {
-          return `Je n'ai trouvé aucun spectacle correspondant dans votre ${searchSpaceLabel}.`;
+          return `Désolé je n'ai trouvé aucun spectacle correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
 
+        const totalMatched = localRows.length;
+
+        // key -> [rows du planning local]
+        const keyToLocalRows = new Map();
+
+        for (const r of localRows) {
+          const k = makeFullKey(r);
+          if (!k) continue;
+          if (!keyToLocalRows.has(k)) keyToLocalRows.set(k, []);
+          keyToLocalRows.get(k).push(r);
+        }
+       
         // 2) Requête sémantique effective
         const semanticQuery =
           intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
@@ -8295,7 +8372,7 @@ function openSheetAssistantChat() {
           : Math.min(limit * 3, keys.length, 50);
 
         // 5) Scoring côté worker (diversification/ranking gérés côté worker)
-        const { scores, total_matches, is_truncated } = await scoreAISemanticWithKeys(
+        const { scores, is_truncated } = await scoreAISemanticWithKeys(
           semanticQuery,
           keys,
           workerTopK,
@@ -8344,12 +8421,29 @@ function openSheetAssistantChat() {
           if (s.key) seenSemanticKeysLocal.add(s.key);
         });
 
-        const items = finalScores
-          .map(s => ({
-            key: s.key,
-            score: Number(s.score) || 0
-          }))
-          .filter(i => !!i.key);
+        // const items = finalScores
+        //   .map(s => ({
+        //     key: s.key,
+        //     score: Number(s.score) || 0
+        //   }))
+        //   .filter(i => !!i.key);
+        const items = [];
+        for (const s of finalScores) {
+          const key = s.key;
+          if (!key) continue;
+
+          const rows = keyToLocalRows.get(key);
+          if (!rows || !rows.length) continue;
+
+          for (const r of rows) {
+            const dateInt = Number(r.Date) || null;
+            items.push({
+              key,
+              score: Number(s.score) || 0,
+              date: toISO(dateInt),         // "YYYY-MM-DD"
+            });
+          }
+        }
 
         lastSemanticSelection = {
           origin: "local",
@@ -8386,6 +8480,7 @@ function openSheetAssistantChat() {
             });
           }
         }
+        const isTruncatedFinal = pickedRowsWithScore.length < scores.length || is_truncated;
 
         lastPresentedResults = pickedRowsWithScore;
 
@@ -8419,6 +8514,9 @@ function openSheetAssistantChat() {
           return;
         }
 
+        // 0) Construit le freeSpeechContext pour callAIQueryUnderstand
+        freeSpeechContext = buildContextFromHistory(5); // mémorisation du contexte de chat libre
+
         // 1) Toujours logguer la question de l'utilisateur
         addMessageToUI({ role: "user", content: raw, mode: "chat" });
 
@@ -8445,7 +8543,7 @@ function openSheetAssistantChat() {
           lastSemanticIntent = intentJson || null;
 
           const topIntent      = intentJson?.intent || "unknown";
-          const searchSpace    = intentJson?.scope?.search_space || "auto";
+          const searchSpace    = intentJson?.scope?.search_space || "full_festival";
           const selectionMode  = intentJson?.results?.selection_mode || "scored";
           const searchMode     = intentJson?.meta?.search_mode
                                 || (topIntent === "search_shows" ? "simple" : "none");
@@ -8453,12 +8551,13 @@ function openSheetAssistantChat() {
 
           const meta = intentJson?.meta || {};
           const isSearch = (topIntent === "search_shows");
+          const freeSpeech = (topIntent === "free_speech");
 
           // 👉 Nouvelle recherche = on ne dépend PAS explicitement de l’intent précédent
           const isNewTopic =
-            !isSearch ||
-            !meta.uses_previous_intent ||
-            meta.previous_intent_relation === "none";
+            isSearch &&
+            (!meta.uses_previous_intent ||
+            meta.previous_intent_relation === "none");
 
           // Si c'est un nouveau "topic" de recherche, on réinitialise l'historique global
           if (isNewTopic) {
@@ -8469,14 +8568,10 @@ function openSheetAssistantChat() {
           
           // 4bis) Contexte historique pour le mode chat classique
           const histContext = buildContextFromHistory(5);
-          const fullContext = [contextSnapshot, histContext].filter(Boolean).join("\n\n");
           
           let replyText = "";
 
-          // if (topIntent !== "search_shows" || searchMode === "none") {
-          //   // 🔵 CAS 1 : Chat général / FAQ / analyse → route /ai
-          //   replyText = await callAI(raw, fullContext, intentJson);
-          if (topIntent !== "search_shows" && freeAnswer) {
+          if (freeSpeech) {
             // 🔵 CAS 1 : Hors intent de recherche de spectacles
             //  💡 On utilise la réponse "libre" fournie par l’analyse d’intention IA
             replyText = freeAnswer;
@@ -8497,6 +8592,10 @@ function openSheetAssistantChat() {
               replyText = await callAISemanticExplainWithKeys(raw, lastSemanticSelection);
             } else {
               // 🟦 CAS 2b : recherche "normale" (simple ou augmented)
+              if (topIntent === "search_shows" && !meta.uses_previous_intent) {
+                baseUtterance = raw;
+                selectionOrigin = searchSpace; 
+              }
               if (searchSpace === "local_stock" || searchSpace === "current_schedule") {
                 replyText = await handleLocalSemanticSearch(raw, intentJson);
               } else {
@@ -8654,6 +8753,156 @@ function openSheetAssistantChat() {
   });
 }
 
+// ========== Assistant Programmation Destail Popup =============
+let _openPopover = null; // { el, anchorEl, onClose }
+
+// helper pour éviter les surprises dans innerHTML
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttr(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function wireAssistantProgrammationPopup(btn) {
+
+function closePopover() {
+  if (!_openPopover) return;
+  try { _openPopover.el.remove(); } catch {}
+  _openPopover = null;
+  document.removeEventListener("mousedown", _onDocPointerDown, true);
+  document.removeEventListener("touchstart", _onDocPointerDown, true);
+  document.removeEventListener("keydown", _onDocKeyDown, true);
+}
+
+function _onDocPointerDown(e) {
+  if (!_openPopover) return;
+  const { el, anchorEl } = _openPopover;
+  // click à l'intérieur de la popover OU sur le bouton d’ancrage => ne ferme pas
+  if (el.contains(e.target) || anchorEl.contains(e.target)) return;
+  closePopover();
+}
+
+function _onDocKeyDown(e) {
+  if (e.key === "Escape") closePopover();
+}
+
+function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
+  closePopover();
+
+  const pop = document.createElement("div");
+  pop.className = "bb-popover";
+
+  const safe = (v) => (v == null || String(v).trim() === "" ? "—" : String(v));
+
+  pop.innerHTML = `
+    <div class="bb-popover-header">
+      <button class="bb-popover-close" type="button" aria-label="Fermer">×</button>
+    </div>
+    <div class="bb-popover-body">
+      <div>
+        <span class="bb-k">Description:</span>
+        <span class="bb-v">${escapeHtml(safe(desc))}</span>
+      </div>
+      <div>
+        <span class="bb-k">Avis:</span>
+        <span class="bb-v">${escapeHtml(safe(avis))}</span>
+      </div>
+      <div>
+        <span class="bb-k">Mood:</span>
+        <span class="bb-v">${escapeHtml(safe(mood))}</span>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(pop);
+
+  // Close button
+  pop.querySelector(".bb-popover-close").addEventListener("click", (e) => {
+    e.preventDefault();
+    closePopover();
+  });
+
+  // Positionnement (fixed) à droite du bouton si possible sinon à gauche, en restant dans l’écran
+  const r = anchorEl.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+
+  const margin = 8;
+  let left = r.right + margin;               // à droite
+  let top  = r.top - 6;                      // aligné haut
+
+  // si ça déborde à droite, on passe à gauche
+  if (left + pr.width > window.innerWidth - margin) {
+    left = Math.max(margin, r.left - margin - pr.width);
+  }
+  // clamp vertical
+  if (top + pr.height > window.innerHeight - margin) {
+    top = Math.max(margin, window.innerHeight - margin - pr.height);
+  }
+  if (top < margin) top = margin;
+
+  pop.style.left = `${left}px`;
+  pop.style.top  = `${top}px`;
+
+  _openPopover = { el: pop, anchorEl };
+
+  // listeners en capture pour choper le click avant stopPropagation éventuel
+  document.addEventListener("mousedown", _onDocPointerDown, true);
+  document.addEventListener("touchstart", _onDocPointerDown, true);
+  document.addEventListener("keydown", _onDocKeyDown, true);
+}
+
+function infoPopoverCellRenderer(params) {
+  const row = params.data || {};
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "bb-info-btn";
+  btn.textContent = "ℹ︎";
+
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // évite de sélectionner la ligne / déclencher d’autres handlers
+
+    openPopoverNear(btn, {
+      title: row.Activite || row.activite || "Détails",
+      desc: row._aiDescSummary,
+      avis: row._aiAvisSummary,
+      mood: row._aiMood
+    });
+  });
+
+  return btn;
+}
+
+document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".prog-info-btn");
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    openPopoverNear(btn, {
+      title: btn.dataset.title || "Détails",
+      desc:  btn.dataset.desc || "",
+      avis:  btn.dataset.avis || "",
+      mood:  btn.dataset.mood || ""
+    });
+  });
+
+  // window.addEventListener("scroll", () => closePopover(), { passive: true });
+  // window.addEventListener("resize", () => closePopover());
+}
+
 function openSheetAssistantProgrammation() {
   const df    = ctx?.df || [];
   const meta  = ctx?.meta || {};
@@ -8792,6 +9041,15 @@ function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
+              <label for="prog-mood-keywords">Mots-clés sur mood (ton, humeur)</label>
+              <input id="prog-mood-keywords"
+                     type="text"
+                     class="bb-input"
+                     value="${(aiProg.mots_cles_mood || []).join(", ")}"
+                     placeholder="Ex. : intimiste, immersif, décalé">
+            </div>
+
+            <div class="form-row">
               <label for="prog-distribution-keywords">Mots-clés sur distribution</label>
               <input id="prog-distribution-keywords"
                      type="text"
@@ -8862,6 +9120,7 @@ function openSheetAssistantProgrammation() {
       const eltraitPaus = body.querySelector("#prog-traiter-pauses");
       const elUseFilt  = body.querySelector("#prog-use-filters");
       const eStylKW    = body.querySelector("#prog-style-keywords");
+      const elMoodKW   = body.querySelector("#prog-mood-keywords");
       const elDistKW   = body.querySelector("#prog-distribution-keywords");
 
       const elNoteW    = body.querySelector("#prog-note-weight");
@@ -8914,6 +9173,7 @@ function openSheetAssistantProgrammation() {
           traiter_pauses: !!eltraitPaus.checked, 
           utiliser_filtres_grille: !!elUseFilt.checked,
           mots_cles_style: parseKeywords(eStylKW),
+          mots_cles_mood: parseKeywords(elMoodKW),
           mots_cles_distribution: parseKeywords(elDistKW),
           note_weight: noteWeight,
           exclure_deja_programmes: true
@@ -9234,6 +9494,25 @@ function openSheetAssistantProgrammation() {
           merged.mots_cles_style = existingStyleKw;
         }
 
+        // ====== MOOD → mots_cles_mood ======
+        const moodFilters = Array.isArray(filters.mood) ? filters.mood : [];
+        const moodValues = moodFilters
+          .map(c => c && c.value)
+          .filter(Boolean);
+
+        const existingMoodKw = Array.isArray(merged.mots_cles_mood)
+          ? merged.mots_cles_mood
+          : [];
+
+        if (moodValues.length) {
+          merged.mots_cles_mood = normalizeKeywordsArray([
+            ...existingMoodKw,
+            ...moodValues
+          ]);
+        } else {
+          merged.mots_cles_mood = existingMoodKw;
+        }
+
         // ====== PEOPLE → mots_cles_distribution ======
         const people = filters.people || {};
         const names = [
@@ -9263,11 +9542,13 @@ function openSheetAssistantProgrammation() {
       // Signature des contraintes IA
       function makeIAConstraintsKey(constraints) {
         const distriKW = normalizeKeywordsArray(constraints.mots_cles_distribution);
+        const moodKW = normalizeKeywordsArray(constraints.mots_cles_mood);
         const note     = Number(constraints.note_weight ?? 0);
 
         return JSON.stringify({
           request: (constraints.request || "").trim(),
           distribution: distriKW.sort(),  // tri pour que l’ordre n'importe pas
+          mood: moodKW.sort(),
           note
         });
       }
@@ -9285,6 +9566,13 @@ function openSheetAssistantProgrammation() {
         if (styleKws.length) {
           parts.push(
             `Je privilégie les spectacles dont le style ou la catégorie correspond à : ${styleKws.join(", ")}.`
+          );
+        }
+
+        const moodKws = constraints.mots_cles_mood || [];
+        if (moodKws.length) {
+          parts.push(
+            `Je privilégie les spectacles dont le mood l'humeur ou le ton correspond à : ${moodKws.join(", ")}.`
           );
         }
 
@@ -9315,6 +9603,7 @@ function openSheetAssistantProgrammation() {
         const query = buildSemanticQueryFromConstraints(constraints);
 
         const distriKW = normalizeKeywordsArray(constraints.mots_cles_distribution);
+        const moodKW = normalizeKeywordsArray(constraints.mots_cles_mood);
 
         // slider 0–100 → 0–1
         // const noteWeight = Math.max(0, Math.min(1, Number(constraints.note_weight ?? 0) / 100));
@@ -9323,6 +9612,7 @@ function openSheetAssistantProgrammation() {
         const hasAnyIA =
           query ||
           distriKW.length ||
+          moodKW.length ||
           noteWeight > 0;
 
         if (!hasAnyIA) {
@@ -9364,6 +9654,7 @@ function openSheetAssistantProgrammation() {
           query: query,
           candidate_keys: candidateKeys,
           distribution_keywords: distriKW,
+          mood_keywords: moodKW,
           note_weight: noteWeight,
           topK: candidateKeys.length
         };
@@ -9387,7 +9678,10 @@ function openSheetAssistantProgrammation() {
           const scoreMap = new Map(
             results.map(r => [r._index_key, {
               score: Number(r.score) || 0,
-              avis: r.avis || null
+              avis: r.avis || null,
+              desc_summary: r.desc_summary || null,
+              avis_summary: r.avis_summary || null,
+              mood: r.mood || null
             }])
           );
 
@@ -9401,12 +9695,13 @@ function openSheetAssistantProgrammation() {
               const key = makeFullKey(r);
               if (!scoreMap.has(key)) return null;
               const meta  = scoreMap.get(key);
-              const score = meta?.score ?? 0;
-              const avis  = meta?.avis  ?? null;
               return {
                 ...r,
-                _aiScore: score,
-                _aiAvis: avis
+                _aiScore: meta?.score ?? 0,
+                _aiAvis: meta?.avis  ?? null,
+                _aiDescSummary: meta?.desc_summary || null,
+                _aiAvisSummary: meta?.avis_summary || null,
+                _aiMood: meta?.mood || null
               };
             })
             .filter(Boolean);
@@ -9440,36 +9735,7 @@ function openSheetAssistantProgrammation() {
         return a;
       }
 
-      // Version "intelligente" du shuffleArrayInPlace à appeler quand il y scoring IA
-      // function shuffleArrayWithScore(arr) {
-      //   const a = arr.slice();
-      //   if (!a.length) return a;
-
-      //   const hasScore = a.some(r => typeof r._aiScore === "number");
-
-      //   if (!hasScore) {
-      //     // comportement historique
-      //     shuffleArrayInPlace(a);
-      //     return a;
-      //   }
-
-      //   // tri par score décroissant
-      //   a.sort((r1, r2) => (r2._aiScore || 0) - (r1._aiScore || 0));
-
-      //   const n = a.length;
-      //   const band1End = Math.max(1, Math.floor(n * 0.3)); // top 30%
-      //   const band2End = Math.max(band1End + 1, Math.floor(n * 0.7)); // 30–70%
-
-      //   const band1 = a.slice(0, band1End);
-      //   const band2 = a.slice(band1End, band2End);
-      //   const band3 = a.slice(band2End);
-
-      //   shuffleArrayInPlace(band1);
-      //   shuffleArrayInPlace(band2);
-      //   shuffleArrayInPlace(band3);
-
-      //   return band1.concat(band2, band3);
-      // }
+      // Version "intelligente" du shuffleArrayInPlace à appeler quand il y a scoring IA
       function shuffleArrayWithScore(arr, {
         temperature = 0.35,   // 0.15 = très autoritaire | 0.6 = très exploratoire
         scoreProp   = "_aiScore",
@@ -9521,42 +9787,6 @@ function openSheetAssistantProgrammation() {
       }
 
       // Construction d'une nouvelle proposition de programme
-      // async function buildProgram(constraints) {
-        // const allRows = ctx?.df || [];
-
-        // const GAP_MIN = constraints.gap_minutes || defaultGap || 30;
-        // const GAP     = GAP_MIN; // minutes
-
-        // const dateMinInt = constraints.date_min || null;
-        // const dateMaxInt = constraints.date_max || null;
-
-        // const minMinutes = debutMinToMinutes(constraints.debut_min); 
-        // const maxMinutes = finMaxToMinutes(constraints.fin_max);
-
-        // const maxPerDay = constraints.max_par_jour || Infinity;
-
-        // if (!dateMinInt || !dateMaxInt) {
-        //   // sans période on ne peut rien programmer proprement
-        //   return new Map();
-        // }
-
-        // excludedKeys.clear();
-
-        // // 1) Candidats issus des filtres "classiques"
-        // let rawCandidates = getCandidateRows(constraints) || [];
-
-        // if (rawCandidates.length && (
-        //       (constraints.request && constraints.request.trim()) ||
-        //       (constraints.mots_cles_distribution && constraints.mots_cles_distribution.length) ||
-        //       (constraints.note_weight != null && Number(constraints.note_weight) !== 0)
-        // )) {
-        //   // 🔹 scoring IA + filtre sur enrichissements
-        //   rawCandidates = await applyIAScoringToCandidates(rawCandidates, constraints);
-        //   rawCandidates = shuffleArrayWithScore(rawCandidates);
-        // } else {
-        //   // 🔹 ancien comportement : aléatoire uniforme
-        //   rawCandidates = shuffleArray(rawCandidates);
-        // }
       async function buildProgram(formConstraints) {
         const allRows = ctx?.df || [];
 
@@ -9614,6 +9844,7 @@ function openSheetAssistantProgrammation() {
         const hasSemanticStuff =
           !!(constraints.request && constraints.request.trim()) ||
           (constraints.mots_cles_distribution && constraints.mots_cles_distribution.length) ||
+          (constraints.mots_cles_mood && constraints.mots_cles_mood.length) ||
           (constraints.note_weight != null && Number(constraints.note_weight) !== 0);
 
         if (rawCandidates.length && hasSemanticStuff) {
@@ -10027,6 +10258,21 @@ function openSheetAssistantProgrammation() {
             const theatrePart = theatre ? ` <span class="prog-theatre">@ ${escapeHtml(theatre)}</span>` : "";
             const href    = r.Hyperlien || null;
 
+const desc = r._aiDescSummary || "";
+const avis = r._aiAvisSummary || "";
+const mood = r._aiMood || "";
+
+// bouton seulement si on a au moins un champ utile
+const infoBtnHtml =
+  (desc || avis || mood)
+    ? ` <button type="button"
+          class="bb-info-btn prog-info-btn"
+          data-desc="${escapeAttr(desc)}"
+          data-avis="${escapeAttr(avis)}"
+          data-mood="${escapeAttr(mood)}"
+        >ℹ︎</button>`
+    : "";
+
             const key     = slotKey(dayInt, slot);
             const isExcluded = excludedKeys.has(key);
             const checkedAttr = isExcluded ? "" : " checked";
@@ -10074,7 +10320,7 @@ function openSheetAssistantProgrammation() {
                 </label>
                 <div class="prog-main">
                   <span class="prog-time">${h}</span>
-                  ${titleHtml}${theatrePart}
+                  ${titleHtml}${theatrePart}${infoBtnHtml}
                 </div>
               </li>
             `);
@@ -10084,16 +10330,6 @@ function openSheetAssistantProgrammation() {
         }
 
         return parts.join("\n");
-      }
-
-      // helper pour éviter les surprises dans innerHTML
-      function escapeHtml(s) {
-        return String(s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#39;");
       }
 
       // Génération d'un proposition de programme
@@ -10217,6 +10453,63 @@ function enableKeyboardAutoScroll() {
   });
 }
 
+async function enrichDfWithMood(df, {
+  basePath = "./ai",          // chemin relatif depuis la page
+  overwrite = false,          // écraser un mood existant ?
+  log = true
+} = {}) {
+  if (!Array.isArray(df)) {
+    throw new Error("df doit être un tableau");
+  }
+
+  // 1) Chargement des fichiers
+  const all = await fetch(`${basePath}/index_avignon_2025.json`).then(r => r.json());
+
+  // 2) Construction map clé -> mood
+  const moodMap = new Map();
+
+  for (const it of all) {
+    const key = makeFullKey(it);
+    if (!key) continue;
+    if (it.mood) {
+      moodMap.set(key, it.mood);
+    }
+  }
+
+  // 3) Enrichissement du df
+  let copied = 0;
+  let skipped = 0;
+
+  for (const row of df) {
+    const key = makeFullKey(row);
+    if (!key) {
+      skipped++;
+      continue;
+    }
+
+    if (!overwrite && row.Mood) {
+      skipped++;
+      continue;
+    }
+
+    const mood = moodMap.get(key);
+    if (mood) {
+      row.Mood = mood;
+      copied++;
+    } else {
+      skipped++;
+    }
+  }
+
+  if (log) {
+    console.log(
+      `Mood enrichi : ${copied} lignes | ignorées : ${skipped} | index moods : ${moodMap.size}`
+    );
+  }
+
+  return df;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('⏳ DOM prêt, initialisation du contexte...');
 
@@ -10235,6 +10528,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireExpanderButtons();
   wireAppKebab();
   initSheetGrids();
+  wireAssistantProgrammationPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
 

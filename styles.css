@@ -2087,6 +2087,11 @@ body.lock-page-scroll {
   }
 }
 
+.ai-chat-message h1,.ai-chat-message h2,.ai-chat-message h3,.ai-chat-message h4,.ai-chat-message h5,.ai-chat-message h6{
+  margin: .35em 0 .25em;
+  font-size: 1em; /* tu peux ajuster par niveau */
+}
+
 /* =================================*/
 /*  Sheet Assistant Programmation   */
 /* =================================*/
@@ -2293,4 +2298,75 @@ input[type="range"]:focus::-moz-range-thumb {
 
 #prog-note-weight-val {
   font-weight: 400;
+}
+
+
+/* ======== Popup détail =========*/
+.bb-info-btn{
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 15px;
+  border-radius: 8px;
+  border: 1px solid #c7cfdd;
+  background: #f3f6fb;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bb-popover{
+  position: fixed;
+  z-index: 99999;
+  max-width: min(420px, 80vw);
+  min-width: 260px;
+  background: #fff;
+  border: 1px solid #cfd7e6;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.14);
+  padding: 10px 12px 12px 12px;
+}
+
+.bb-popover-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.bb-popover-title{
+  font-weight: 600;
+  font-size: 13px;
+  color: #24324a;
+}
+
+.bb-popover-close{
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 18px;
+  padding: 0 4px;
+  color: #6b7a99;
+}
+
+.bb-popover-body{
+  font-size: 12px;
+  color: #24324a;
+}
+
+/* ✅ espace entre Description / Avis / Mood */
+.bb-popover-body > div{
+  margin-bottom: 10px;   
+}
+
+.bb-popover-body > div:last-child{
+  margin-bottom: 0;
+}
+
+.bb-popover-body .bb-k{
+  font-weight: 600;
+}
+
+.bb-popover-body .bb-v{
+  white-space: pre-wrap;
 }

@@ -338,26 +338,30 @@ export function dateToDateint(x, defaultYear, defaultMonth) {
   return null;
 }
 
-// ── Dates: dateint (YYYYMMDD) <-> 'YYYY-MM-DD' ────────────────────────────────
-export function dateintToInput(dint){ // 20250709 -> '2025-07-09'
+// Dateint (YYYYMMDD) -> 'YYYY-MM-DD' 
+export function dateintToIso(dint){ 
   if (!dint) return '';
   const s = String(dint);
   if (s.length !== 8) return '';
   return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
 }
-export function inputToDateint(iso){  // '2025-07-09' -> 20250709
+
+// 'YYYY-MM-DD' -> Dateint (YYYYMMDD) 
+export function isoToDateint(iso){  
   if (!iso) return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
   if (!m) return null;
   return Number(`${m[1]}${m[2]}${m[3]}`);
 }
 
-// ── Durées: minutes <-> "HhMM" ────────────────────────────────────────────────
+// Durées: minutes -> "HhMM" 
 export function minutesToPretty(min){
   min = Math.max(0, Number(min||0)|0);
   const h = Math.floor(min/60), m = min%60;
   return `${h}h${String(m).padStart(2,'0')}`;
 }
+
+// Durées: minutes <- "HhMM" 
 export function prettyToMinutes(s){
   if (!s) return 0;
   const m = /^(\d{1,2})h(\d{2})$/.exec(String(s).trim());
@@ -365,7 +369,7 @@ export function prettyToMinutes(s){
   return (Number(m[1])|0)*60 + (Number(m[2])|0);
 }
 
-// 0) Date → "YYYY-MM-DD"  (toujours le jour local, sans décalage UTC)
+// Date → "YYYY-MM-DD"  (toujours le jour local, sans décalage UTC)
 export function localDateToIsoDate(d) {
   if (!(d instanceof Date)) return '';
   const y = d.getFullYear();
@@ -374,30 +378,18 @@ export function localDateToIsoDate(d) {
   return `${y}-${m}-${day}`;
 }
 
-// 1) Objet Date en LOCAL (00:00 locale)
+// Objet Date en LOCAL (00:00 locale)
 export function isoDateToLocalDate(s) {
   if (!s) return null;
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
 
-// 2) Timestamp UTC (ms) à minuit UTC
+// Timestamp UTC (ms) à minuit UTC
 export function isoDateToUtcMs(s) {
   if (!s) return null;
   const [y, m, d] = s.split('-').map(Number);
   return Date.UTC(y, m - 1, d);
-}
-
-// 3) "dateint" compact (YYYYMMDD, number)
-export function isoDateToInt(s) {
-  return s ? Number(s.replaceAll('-', '')) : null;
-}
-
-// (inverse utile pour repeupler un <input type="date"> depuis un int)
-export function intToIsoDate(n) {
-  if (!n) return '';
-  const s = String(n);
-  return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
 }
 
 /**
