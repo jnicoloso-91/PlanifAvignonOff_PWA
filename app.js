@@ -10321,8 +10321,9 @@ function openSheetAssistantProgrammation() {
                 </label>
                 <div class="prog-main">
                   <span class="prog-time">${h}</span>
-                  ${titleHtml}${infoBtnHtml}${theatrePart}
+                  ${titleHtml}${theatrePart}
                 </div>
+                ${infoBtnHtml}
               </li>
             `);
           }
