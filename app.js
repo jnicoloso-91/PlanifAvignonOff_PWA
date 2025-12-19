@@ -6778,6 +6778,25 @@ function openSheetFiltres(gridId) {
         }
         return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
       }
+
+      // Returns unique words extracted from values of a field.
+      // For each value (assumed possibly a CSV/list), split by `sep`, trim and collect unique tokens.
+      function uniqueWords(rows, field, { max = 500, includeEmpty = false, sep = ',' } = {}) {
+        const rawVals = uniqueValues(rows, field, { max, includeEmpty });
+        const set = new Set();
+        for (const v of rawVals) {
+          if (!v) continue;
+          const parts = String(v).split(sep);
+          for (const p of parts) {
+            const w = p.trim();
+            if (!w) continue;
+            set.add(w);
+            if (set.size >= max) break;
+          }
+          if (set.size >= max) break;
+        }
+        return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+      }
       function wireDatalistForField(field, rows) {
         const input = body.querySelector(`#filter-${field}`);
         if (!input) return;
@@ -6828,7 +6847,44 @@ function openSheetFiltres(gridId) {
           dl.appendChild(o);
         }
       }
-      function buildFilterLists(rows, fields) { fields.forEach(f => wireDatalistForField(f, rows)); }
+      function wireDatalistForFieldWords(field, rows) {
+        const input = body.querySelector(`#filter-${field}`);
+        if (!input) return;
+        const listId = `dl-${field}`;
+        const dlContainer = body.querySelector('#dl-container');
+        let dl = body.querySelector(`#${listId}`);
+        if (!dl) {
+          dl = document.createElement('datalist');
+          dl.id = listId;
+          dlContainer.appendChild(dl);
+        }
+        input.setAttribute('list', listId);
+
+        const words = uniqueWords(rows, field);
+        dl.replaceChildren(); // reset
+        for (const w of words) {
+          const san = sanitizeDatalistValue(w);
+          if (!san) continue;
+          const o = document.createElement('option');
+          o.value = san;
+          o.dataset.raw = String(w);
+          dl.appendChild(o);
+        }
+      }
+
+      function buildFilterLists(rows, fields) {
+        fields.forEach(f => {
+          try {
+            if (String(f).toLowerCase() === 'mood') {
+              wireDatalistForFieldWords(f, rows);
+            } else {
+              wireDatalistForField(f, rows);
+            }
+          } catch (e) {
+            console.warn('buildFilterLists error for field', f, e);
+          }
+        });
+      }
       buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
 
       const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
@@ -7450,6 +7506,7 @@ function openSheetAssistantChat() {
       let baseUtterance = "";
       let selectionOrigin = "";
       let freeSpeechContext = "";
+      let totalMatches = 0;
 
       const showError = (msg) => {
         if (!errEl) return;
@@ -7950,7 +8007,7 @@ function openSheetAssistantChat() {
       // Permet de scorer par similarité relativement à une query un ensemble d'entrées de l'index global définies des keys.
       // Appelle la route /ai/semantic-wk du worker CloudFlare.
       // Cette fonction est utilisée pour scorer des rows du df local après un filtrage local effectué comme suite à une analyse d'intention IA sur une query
-      async function scoreAISemanticWithKeys(query, keys, topK=null, selectionMode="scored", distributionFilter=null, moodFilter=null) {
+      async function scoreAISemanticWithKeys(query, keys, topK=null, selectionMode="scored", distributionFilter=null, moodFilter=null, kwdFilter=null) {
         if (!query || !keys || !keys.length) return [];
 
         if (!topK) topK = keys.length;
@@ -7958,7 +8015,16 @@ function openSheetAssistantChat() {
         const res = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-wk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, keys, topK, selection_mode: selectionMode, distribution_filter: distributionFilter, mood_filter: moodFilter  })
+          body: JSON.stringify({ 
+            query, 
+            keys, 
+            topK, 
+            selection_mode: 
+            selectionMode, 
+            distribution_filter: 
+            distributionFilter, 
+            mood_filter: moodFilter, 
+            kwd_filter: kwdFilter })
         });
 
         if (!res.ok) {
@@ -7993,7 +8059,9 @@ function openSheetAssistantChat() {
           items,
           context: "current_utterance_results",
           origin: selectionOrigin,
-          base_utterance: baseUtterance
+          base_utterance: baseUtterance,
+          free_speech_context: freeSpeechContext,
+          total_matches: totalMatches
         };
 
         const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-explain", {
@@ -8012,7 +8080,7 @@ function openSheetAssistantChat() {
         return resp.json(); // { answer, results, context_used }
       }
 
-      // Interprétation via IA des résultatsde la sélection précédente
+      // Interprétation via IA des résultats de la sélection précédente
       async function callAISemanticExplainWithKeys(query, selection) {
         const items = (selection?.items || []);
 
@@ -8025,7 +8093,8 @@ function openSheetAssistantChat() {
           items,
           context: "base_utterance_results",
           origin: selectionOrigin,
-          base_utterance: baseUtterance
+          base_utterance: baseUtterance,
+          total_matches: totalMatches
         };
 
         const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-explain", {
@@ -8128,14 +8197,16 @@ function openSheetAssistantChat() {
         const selectionMode = getSelectionModeFromIntent(intentJson);    // "random" | "scored"
         const limit         = getLimitFromIntent(intentJson, 10);        // nb demandé (ex: 3)
         const meta          = intentJson?.meta || {};
-        const searchMode    = meta.search_mode || "simple";              // "simple" | "augmented"
+        // const searchMode    = meta.search_mode || "simple";              // "simple" | "augmented"
         const scope         = intentJson?.scope || null;
         const festivals     = scope?.festival || [];
 
         // 👉 Follow-up = on réutilise l’intent précédent (ex: "3 autres", "analyse les mêmes")
-        const isFollowUp =
-          meta.uses_previous_intent &&
-          meta.previous_intent_relation === "same_but_modified";
+        // const isFollowUp =
+        //   meta.uses_previous_intent &&
+        //   meta.previous_intent_relation === "same_but_modified";
+        const isFollowUp =meta.uses_previous_intent;
+        const others = meta.previous_intent_relation === "others";
 
         // 1) requête sémantique effective
         const semanticQuery =
@@ -8152,7 +8223,7 @@ function openSheetAssistantChat() {
           : Math.min(limit * 3, 50);
 
         // 3) scoring global sur index In/Off (diversification + ranking gérés côté worker)
-        const { results, is_truncated } = await scoreAISemanticWithFilters(
+        const { results, total_matches, is_truncated } = await scoreAISemanticWithFilters(
           semanticQuery,
           workerLimit,
           filters,
@@ -8160,6 +8231,8 @@ function openSheetAssistantChat() {
           selectionMode
         );
 
+        totalMatches = total_matches;
+        
         if (!results || !results.length) {
           return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
         }
@@ -8169,28 +8242,30 @@ function openSheetAssistantChat() {
         //    - si pas assez, on complète avec des déjà vus
         let candidateList = results;
 
-        if (isFollowUp && seenSemanticKeysGlobal && seenSemanticKeysGlobal.size > 0) {
-          const fresh = results.filter(r => r._index_key && !seenSemanticKeysGlobal.has(r._index_key));
+        if (isFollowUp && others && seenSemanticKeysGlobal && seenSemanticKeysGlobal.size > 0) {
+          // const fresh = results.filter(r => r._index_key && !seenSemanticKeysGlobal.has(r._index_key)); 
+          // if (fresh.length >= limit) {
+          //   // Assez de "nouveaux" spectacles → on ne sert que ceux-là
+          //   candidateList = fresh;
+          // } else {
+          //   // Pas assez de nouveaux → on prend les nouveaux et on ajoute des déjà vus pour compléter
+          //   const stillNeeded = limit - fresh.length;
+          //   const alreadySeen = results.filter(r => r._index_key && seenSemanticKeysGlobal.has(r._index_key));
+          //   const backfill    = alreadySeen.slice(0, Math.max(0, stillNeeded));
 
-          if (fresh.length >= limit) {
-            // Assez de "nouveaux" spectacles → on ne sert que ceux-là
-            candidateList = fresh;
-          } else {
-            // Pas assez de nouveaux → on prend tout ce qui est nouveau
-            const stillNeeded = limit - fresh.length;
-            const alreadySeen = results.filter(r => r._index_key && seenSemanticKeysGlobal.has(r._index_key));
-            const backfill    = alreadySeen.slice(0, Math.max(0, stillNeeded));
-
-            candidateList = fresh.concat(backfill);
-          }
+          //   candidateList = fresh.concat(backfill);
+          // }
+          // on sélectionne des non-vus
+          candidateList = results.filter(r => r._index_key && !seenSemanticKeysGlobal.has(r._index_key)); 
         }
 
         if (!candidateList.length) {
-          return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
+          if (isFollowUp) return "Désolé il n'existe aucun autre spectacle correspondant à votre demande."
+          else return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
         }
 
         // 5) Liste finale renvoyée à l’utilisateur (en respectant l’ordre donné par le worker)
-        const finalList = candidateList.slice(0, limit);
+        const finalList = candidateList; //.slice(0, limit);
         const isTruncatedFinal = finalList.length < results.length || is_truncated;
 
         // 6) Mémoriser la sélection réellement présentée (clé + score) + marquer comme "vus"
@@ -8215,17 +8290,20 @@ function openSheetAssistantChat() {
           intent: intentJson
         };
 
-        // 7) MODE AUGMENTED : on laisse le worker construire le contexte riche + réponse
-        if (searchMode === "augmented") {
-          // ⚠️ On n'explique que sur finalList, pas sur tout results
-          const explain = await callAISemanticExplain(raw, lastSemanticSelection.items);
-          return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
-        }
+        const explain = await callAISemanticExplain(raw, lastSemanticSelection.items);
+        return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
 
-        // 8) MODE SIMPLE (comme avant) : on renvoie juste une liste textuelle
-        lastPresentedResults = finalList;
+        // // 7) MODE AUGMENTED : on laisse le worker construire le contexte riche + réponse
+        // if (searchMode === "augmented") {
+        //   // ⚠️ On n'explique que sur finalList, pas sur tout results
+        //   const explain = await callAISemanticExplain(raw, lastSemanticSelection.items);
+        //   return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
+        // }
 
-        return formatResults(finalList);
+        // // 8) MODE SIMPLE (comme avant) : on renvoie juste une liste textuelle
+        // lastPresentedResults = finalList;
+
+        // return formatResults(finalList);
       }
 
       // Gestion de la recherche sémantique locale (planning / stock courant)
@@ -8303,17 +8381,20 @@ function openSheetAssistantChat() {
         const limit               = getLimitFromIntent(intentJson, 10);               // nb demandé
         const searchSpace         = intentJson?.scope?.search_space || "local_stock"; // "local_stock" | "current_schedule"
         const meta                = intentJson?.meta || {};
-        const searchMode          = meta.search_mode || "simple";                     // "simple" | "augmented"
+        // const searchMode          = meta.search_mode || "simple";                     // "simple" | "augmented"
         const distributionFilter  =intentJson?.filters?.distribution || null
         const moodFilter          =intentJson?.filters?.mood || null
+        const kwdFilter           =intentJson?.filters?.keywords || null
         
         const searchSpaceLabel = searchSpace === 'current_schedule' ? 'planning' : 'stock';
 
         // 👉 Follow-up = on réutilise l’intent précédent (ex: "3 autres", "même style mais…")
         // => on DOIT relancer une recherche + anti-répétition (pas relire un cache)
-        const isFollowUp =
-          meta.uses_previous_intent &&
-          meta.previous_intent_relation === "same_but_modified";
+        // const isFollowUp =
+        //   meta.uses_previous_intent &&
+        //   meta.previous_intent_relation === "same_but_modified";
+        const isFollowUp =meta.uses_previous_intent;
+        const others = meta.previous_intent_relation === "others";
 
         let df = ctx.df;
 
@@ -8332,7 +8413,7 @@ function openSheetAssistantChat() {
           return `Désolé je n'ai trouvé aucun spectacle correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
 
-        const totalMatched = localRows.length;
+        totalMatches = localRows.length;
 
         // key -> [rows du planning local]
         const keyToLocalRows = new Map();
@@ -8378,7 +8459,8 @@ function openSheetAssistantChat() {
           workerTopK,
           selectionMode,
           distributionFilter,
-          moodFilter
+          moodFilter,
+          kwdFilter
         );
 
         if (!scores || !scores.length) {
@@ -8390,27 +8472,30 @@ function openSheetAssistantChat() {
         //    - si pas assez, on complète avec des déjà vus
         let candidateScores = scores;
 
-        if (isFollowUp) {
+        if (isFollowUp && others) {
           if (!seenSemanticKeysLocal) seenSemanticKeysLocal = new Set();
 
-          const fresh = scores.filter(s => s.key && !seenSemanticKeysLocal.has(s.key));
+          // const fresh = scores.filter(s => s.key && !seenSemanticKeysLocal.has(s.key));
 
-          if (fresh.length >= limit) {
-            candidateScores = fresh;
-          } else {
-            const stillNeeded = limit - fresh.length;
-            const alreadySeen = scores.filter(s => s.key && seenSemanticKeysLocal.has(s.key));
-            const backfill    = alreadySeen.slice(0, Math.max(0, stillNeeded));
-            candidateScores   = fresh.concat(backfill);
-          }
+          // if (fresh.length >= limit) {
+          //   candidateScores = fresh;
+          // } else {
+          //   const stillNeeded = limit - fresh.length;
+          //   const alreadySeen = scores.filter(s => s.key && seenSemanticKeysLocal.has(s.key));
+          //   const backfill    = alreadySeen.slice(0, Math.max(0, stillNeeded));
+          //   candidateScores   = fresh.concat(backfill);
+          // }
+          // on sélectionne des non-vus
+          candidateScores = scores.filter(s => s.key && !seenSemanticKeysLocal.has(s.key));
         }
 
         if (!candidateScores.length) {
-          return `Je n'ai pas trouvé de spectacles supplémentaires correspondant dans votre ${searchSpaceLabel}.`;
+          if (isFollowUp) return `Je n'ai pas trouvé de spectacles supplémentaires correspondant à votre demande dans votre ${searchSpaceLabel}.`;
+          else return `Je n'ai pas trouvé de spectacles correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
 
         // 7) Liste finale = les `limit` premiers (ordre déjà prêt à servir par le worker)
-        const finalScores = candidateScores.slice(0, limit);
+        const finalScores = candidateScores; //.slice(0, limit);
 
         // 8) Marquer “vus” + préparer lastSemanticSelection.items
         if (!seenSemanticKeysLocal) {
@@ -8421,12 +8506,6 @@ function openSheetAssistantChat() {
           if (s.key) seenSemanticKeysLocal.add(s.key);
         });
 
-        // const items = finalScores
-        //   .map(s => ({
-        //     key: s.key,
-        //     score: Number(s.score) || 0
-        //   }))
-        //   .filter(i => !!i.key);
         const items = [];
         for (const s of finalScores) {
           const key = s.key;
@@ -8451,40 +8530,43 @@ function openSheetAssistantChat() {
           intent: intentJson
         };
 
-        // 9) MODE AUGMENTED : on n’analyse que sur la sélection réellement présentée
-        if (searchMode === "augmented") {
-          const explain = await callAISemanticExplain(raw, items);
-          return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
-        }
+        const explain = await callAISemanticExplain(raw, items);
+        return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
 
-        // 10) MODE SIMPLE : affichage basé sur df local (avec scoreMap)
-        const scoreMap = new Map();
-        for (const s of finalScores) {
-          if (!s.key) continue;
-          const sc = Number(s.score) || 0;
-          if (!scoreMap.has(s.key) || scoreMap.get(s.key) < sc) scoreMap.set(s.key, sc);
-        }
+        // // 9) MODE AUGMENTED : on n’analyse que sur la sélection réellement présentée
+        // if (searchMode === "augmented") {
+        //   const explain = await callAISemanticExplain(raw, items);
+        //   return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
+        // }
 
-        // reconstruire les rows locales correspondant aux keys sélectionnées
-        const pickedRowsWithScore = [];
-        for (const s of finalScores) {
-          const rowsForKey = keyToRows.get(s.key) || [];
-          for (const r of rowsForKey) {
-            pickedRowsWithScore.push({ 
-              row: r, 
-              score: Number(s.score) || 0, 
-              avis: s.avis, 
-              desc_summary: s.desc_summary, 
-              avis_summary: s.avis_summary,
-              mood: s.mood
-            });
-          }
-        }
-        const isTruncatedFinal = pickedRowsWithScore.length < scores.length || is_truncated;
+        // // 10) MODE SIMPLE : affichage basé sur df local (avec scoreMap)
+        // const scoreMap = new Map();
+        // for (const s of finalScores) {
+        //   if (!s.key) continue;
+        //   const sc = Number(s.score) || 0;
+        //   if (!scoreMap.has(s.key) || scoreMap.get(s.key) < sc) scoreMap.set(s.key, sc);
+        // }
 
-        lastPresentedResults = pickedRowsWithScore;
+        // // reconstruire les rows locales correspondant aux keys sélectionnées
+        // const pickedRowsWithScore = [];
+        // for (const s of finalScores) {
+        //   const rowsForKey = keyToRows.get(s.key) || [];
+        //   for (const r of rowsForKey) {
+        //     pickedRowsWithScore.push({ 
+        //       row: r, 
+        //       score: Number(s.score) || 0, 
+        //       avis: s.avis, 
+        //       desc_summary: s.desc_summary, 
+        //       avis_summary: s.avis_summary,
+        //       mood: s.mood
+        //     });
+        //   }
+        // }
+        // const isTruncatedFinal = pickedRowsWithScore.length < scores.length || is_truncated;
 
-        return formatResults(pickedRowsWithScore);
+        // lastPresentedResults = pickedRowsWithScore;
+
+        // return formatResults(pickedRowsWithScore);
       }
 
       async function copyInputToClipboard() {
@@ -8502,6 +8584,50 @@ function openSheetAssistantChat() {
         inputReq.select();
         inputReq.setSelectionRange(0, inputReq.value.length); // mobile safe
         document.execCommand("copy");
+      }
+
+      // Private helper: merge auteurs from filters.distribution into filters.keywords
+      function mergeAuteursIntoKeywords(intent) {
+        try {
+          if (!intent || !intent.filters) return;
+          const dist = intent.filters.distribution;
+          const auteursStr = dist && typeof dist.auteurs === 'string' ? dist.auteurs : null;
+          if (!auteursStr) return;
+
+          const kwStr = intent.filters.keywords || '';
+          const kws = kwStr.split(',').map(s => s.trim()).filter(Boolean);
+          const auteurs = auteursStr.split(',').map(s => s.trim()).filter(Boolean);
+          for (const a of auteurs) {
+            const normA = a.toLowerCase();
+            const exists = kws.some(k => k.toLowerCase() === normA);
+            if (!exists) kws.push(a);
+          }
+          intent.filters.keywords = kws.join(', ');
+        } catch (e) {
+          console.warn('merge auteurs->keywords failed', e);
+        }
+      }
+
+      // Private helper: merge acteurs (array or CSV string) into filters.keywords
+      function mergeActeursIntoKeywords(intent) {
+        try {
+          if (!intent || !intent.filters) return;
+          const dist = intent.filters.distribution;
+          const acteursStr = dist && typeof dist.acteurs === 'string' ? dist.acteurs : null;
+          if (!acteursStr) return;
+
+          const kwStr = intent.filters.keywords || '';
+          const kws = kwStr.split(',').map(s => s.trim()).filter(Boolean);
+          const acteurs = acteursStr.split(',').map(s => s.trim()).filter(Boolean);
+          for (const a of acteurs) {
+            const normA = a.toLowerCase();
+            const exists = kws.some(k => k.toLowerCase() === normA);
+            if (!exists) kws.push(a);
+          }
+          intent.filters.keywords = kws.join(', ');
+        } catch (e) {
+          console.warn('merge acteurs->keywords failed', e);
+        }
       }
 
       // Envoi de requête
@@ -8538,6 +8664,9 @@ function openSheetAssistantChat() {
           const previousIntent = lastSemanticIntent || null;
           const intentJson = await callAIQueryUnderstand(raw, previousIntent);
 
+          mergeAuteursIntoKeywords(intentJson);
+          mergeActeursIntoKeywords(intentJson);
+
           console.log(intentJson);
 
           lastSemanticIntent = intentJson || null;
@@ -8545,8 +8674,8 @@ function openSheetAssistantChat() {
           const topIntent      = intentJson?.intent || "unknown";
           const searchSpace    = intentJson?.scope?.search_space || "full_festival";
           const selectionMode  = intentJson?.results?.selection_mode || "scored";
-          const searchMode     = intentJson?.meta?.search_mode
-                                || (topIntent === "search_shows" ? "simple" : "none");
+          // const searchMode     = intentJson?.meta?.search_mode
+          //                       || (topIntent === "search_shows" ? "simple" : "none");
           const freeAnswer     = intentJson?.free_answer || null;
 
           const meta = intentJson?.meta || {};
@@ -8578,7 +8707,7 @@ function openSheetAssistantChat() {
           } else {
             // 🔵 CAS 2 : Intent de recherche de spectacles
             const canReusePreviousSelection =
-              searchMode === "augmented" &&
+              // searchMode === "augmented" &&
               meta.uses_previous_intent &&
               meta.reuse_previous_selection && 
               lastSemanticSelection &&
@@ -9135,6 +9264,85 @@ function openSheetAssistantProgrammation() {
         });
       }
 
+      // --- Construire des datalists pour les inputs de mots-clés (style / mood)
+      (function attachProgDatalists() {
+        try {
+          const rows = Array.isArray(ctx?.df) ? ctx.df : [];
+
+          function sanitizeDL(s) {
+            return String(s || '')
+              .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+          }
+
+          function uniqueValuesFromRows(rows, field, { max = 500, includeEmpty = false } = {}) {
+            const set = new Set();
+            for (const r of rows || []) {
+              let v = r && r[field];
+              if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
+              set.add(String(v));
+              if (set.size >= max) break;
+            }
+            return [...set].sort((a,b) => a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+          }
+
+          function uniqueWordsFromRows(rows, field, { max = 500, sep = ',' } = {}) {
+            const raw = uniqueValuesFromRows(rows, field, { max });
+            const set = new Set();
+            for (const v of raw) {
+              if (!v) continue;
+              const parts = String(v).split(sep);
+              for (const p of parts) {
+                const w = p.trim();
+                if (!w) continue;
+                set.add(w);
+                if (set.size >= max) break;
+              }
+              if (set.size >= max) break;
+            }
+            return [...set].sort((a,b) => a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+          }
+
+          // Helper to create datalist and attach to input
+          function createAndAttachDatalist(inputEl, id, values, { storeRaw = false } = {}) {
+            if (!inputEl) return;
+            let dl = document.getElementById(id);
+            if (!dl) {
+              dl = document.createElement('datalist');
+              dl.id = id;
+              // append near the form so it is available in the sheet
+              (body || document.body).appendChild(dl);
+            }
+            inputEl.setAttribute('list', id);
+            dl.replaceChildren();
+            for (const v of values) {
+              const san = sanitizeDL(v);
+              if (!san) continue;
+              const o = document.createElement('option');
+              o.value = san;
+              if (storeRaw) o.dataset.raw = String(v);
+              dl.appendChild(o);
+            }
+          }
+
+          // STYLE : valeurs uniques de la colonne 'Style'
+          try {
+            const styleVals = uniqueValuesFromRows(rows, 'Style');
+            createAndAttachDatalist(eStylKW, 'dl-prog-style-keywords', styleVals, { storeRaw: true });
+          } catch (e) { console.warn('attach prog style datalist error', e); }
+
+          // MOOD : extraire les mots (CSV) depuis la colonne 'Mood' puis attacher
+          try {
+            const moodWords = uniqueWordsFromRows(rows, 'Mood', { max: 500, sep: ',' });
+            createAndAttachDatalist(elMoodKW, 'dl-prog-mood-keywords', moodWords, { storeRaw: true });
+          } catch (e) { console.warn('attach prog mood datalist error', e); }
+
+        } catch (e) {
+          console.warn('attachProgDatalists error', e);
+        }
+      })();
+
       btnApply.disabled = true;
       let progError = true;
       let selectedByDay = new Map();
@@ -9365,17 +9573,20 @@ function openSheetAssistantProgrammation() {
       }
 
       function normalizeKeywordsArray(v) {
-        if (Array.isArray(v)) {
-          return v
-            .map(s => String(s).trim())
-            .filter(s => s.length > 0);
-        }
         if (!v) return [];
-        // fallback si un jour ça arrive sous forme de string "a, b"
-        return String(v)
-          .split(",")
-          .map(s => s.trim())
-          .filter(s => s.length > 0);
+
+        const arr = Array.isArray(v) ? v : [v];
+
+        return Array.from(
+          new Set(
+            arr.flatMap(s =>
+              String(s)
+                .split(",")
+                .map(x => x.trim())
+                .filter(Boolean)
+            )
+          )
+        );
       }
 
       async function fetchProgQueryIntent(freeQuery, previousIntent = null) {
@@ -9428,21 +9639,6 @@ function openSheetAssistantProgrammation() {
         return y * 10000 + m * 100 + d;
       }
 
-      function normalizeKeywordsArray(arr) {
-        if (!Array.isArray(arr)) return [];
-        return Array.from(
-          new Set(
-            arr
-              .flatMap(s =>
-                String(s)
-                  .split(/[;,/]/)    // on découpe sur virgule / ; / slash
-                  .map(x => x.trim())
-                  .filter(Boolean)
-              )
-          )
-        );
-      }
-
       /**
        * Fusionne les contraintes du formulaire avec l'intent IA (QueryIntent).
        * - ne modifie PAS l'objet original (clone)
@@ -9477,8 +9673,8 @@ function openSheetAssistantProgrammation() {
         }
 
         // ====== STYLE → mots_cles_style ======
-        const catFilters = Array.isArray(filters.categories) ? filters.categories : [];
-        const catValues = catFilters
+        const catFilter = Array.isArray(filters.categories) ? filters.categories : [];
+        const catValues = catFilter
           .map(c => c && c.value)
           .filter(Boolean);
 
@@ -9496,8 +9692,8 @@ function openSheetAssistantProgrammation() {
         }
 
         // ====== MOOD → mots_cles_mood ======
-        const moodFilters = Array.isArray(filters.mood) ? filters.mood : [];
-        const moodValues = moodFilters
+        const moodFilter = Array.isArray(filters.mood) ? filters.mood : [];
+        const moodValues = moodFilter
           .map(c => c && c.value)
           .filter(Boolean);
 
@@ -9514,12 +9710,12 @@ function openSheetAssistantProgrammation() {
           merged.mots_cles_mood = existingMoodKw;
         }
 
-        // ====== PEOPLE → mots_cles_distribution ======
-        const people = filters.people || {};
+        // ====== DISTRIBUTION → mots_cles_distribution ======
+        const distributionFilter = filters.distribution || {};
         const names = [
-          ...(people.actors || []),
-          ...(people.authors || []),
-          ...(people.companies || [])
+          ...(distributionFilter.actors || []),
+          ...(distributionFilter.authors || []),
+          ...(distributionFilter.companies || [])
         ].filter(Boolean);
 
         const existingDistKw = Array.isArray(merged.mots_cles_distribution)
@@ -9535,21 +9731,42 @@ function openSheetAssistantProgrammation() {
           merged.mots_cles_distribution = existingDistKw;
         }
 
+        // ====== KEYWORDS → mots_cles_keywords ======
+        const kwdFilter = Array.isArray(filters.keywords) ? filters.keywords : [];
+        const kwdValues = kwdFilter
+          .map(c => c && c.value)
+          .filter(Boolean);
+
+        const existingKeywordsKw = Array.isArray(merged.mots_cles_keywords)
+          ? merged.mots_cles_keywords
+          : [];
+
+        if (kwdValues.length) {
+          merged.mots_cles_keywords = normalizeKeywordsArray([
+            ...existingKeywordsKw,
+            ...kwdValues
+          ]);
+        } else {
+          merged.mots_cles_keywords = existingKeywordsKw;
+        }
+
         // NOTE : on laisse note_weight tel que choisi par le slider utilisateur
 
         return merged;
       }
 
       // Signature des contraintes IA
-      function makeIAConstraintsKey(constraints) {
+      function makeAIConstraintsKey(constraints) {
         const distriKW = normalizeKeywordsArray(constraints.mots_cles_distribution);
         const moodKW = normalizeKeywordsArray(constraints.mots_cles_mood);
+        const genKW = normalizeKeywordsArray(constraints.mots_cles_keywords);
         const note     = Number(constraints.note_weight ?? 0);
 
         return JSON.stringify({
           request: (constraints.request || "").trim(),
-          distribution: distriKW.sort(),  // tri pour que l’ordre n'importe pas
-          mood: moodKW.sort(),
+          distribution_keywords: distriKW.sort(),  // tri pour que l’ordre n'importe pas
+          mood_keywords: moodKW.sort(),
+          generic_keywords: genKW.sort(),
           note
         });
       }
@@ -9596,7 +9813,7 @@ function openSheetAssistantProgrammation() {
       }
 
       // Application de l'IA Scoring aux candidats
-      async function applyIAScoringToCandidates(candidates, constraints) {
+      async function applyAIScoringToCandidates(candidates, constraints) {
         const rows = candidates || [];
         if (!rows.length) return rows;
 
@@ -9605,6 +9822,7 @@ function openSheetAssistantProgrammation() {
 
         const distriKW = normalizeKeywordsArray(constraints.mots_cles_distribution);
         const moodKW = normalizeKeywordsArray(constraints.mots_cles_mood);
+        const genKW = normalizeKeywordsArray(constraints.mots_cles_keywords);
 
         // slider 0–100 → 0–1
         // const noteWeight = Math.max(0, Math.min(1, Number(constraints.note_weight ?? 0) / 100));
@@ -9614,6 +9832,7 @@ function openSheetAssistantProgrammation() {
           query ||
           distriKW.length ||
           moodKW.length ||
+          genKW.length ||
           noteWeight > 0;
 
         if (!hasAnyIA) {
@@ -9622,7 +9841,7 @@ function openSheetAssistantProgrammation() {
         }
 
         const candidateKeys = rows.map(makeFullKey);
-        const constraintsKey = makeIAConstraintsKey(constraints);
+        const constraintsKey = makeAIConstraintsKey(constraints);
         const candidateSetKey = candidateKeys.slice().sort().join("||");
 
         // 🔁 1) Tentative de réutilisation du cache
@@ -9656,6 +9875,7 @@ function openSheetAssistantProgrammation() {
           candidate_keys: candidateKeys,
           distribution_keywords: distriKW,
           mood_keywords: moodKW,
+          generic_keywords: genKW,
           note_weight: noteWeight,
           topK: candidateKeys.length
         };
@@ -9709,7 +9929,7 @@ function openSheetAssistantProgrammation() {
 
           return scoredRows;
         } catch (e) {
-          console.warn("applyIAScoringToCandidates error:", e);
+          console.warn("applyAIScoringToCandidates error:", e);
           return rows;
         } finally {
           overlayAttente.hidden = true; // Masque l'overlay d'attente
@@ -9844,13 +10064,14 @@ function openSheetAssistantProgrammation() {
         // ====== 3) Scoring IA + shuffle pondéré (ou aléatoire simple) ======
         const hasSemanticStuff =
           !!(constraints.request && constraints.request.trim()) ||
+          (constraints.mots_cles_keywords && constraints.mots_cles_keywords.length) ||
           (constraints.mots_cles_distribution && constraints.mots_cles_distribution.length) ||
           (constraints.mots_cles_mood && constraints.mots_cles_mood.length) ||
           (constraints.note_weight != null && Number(constraints.note_weight) !== 0);
 
         if (rawCandidates.length && hasSemanticStuff) {
           // 🔹 scoring IA + filtre sur enrichissements (route /ai/semantic+keywords)
-          rawCandidates = await applyIAScoringToCandidates(rawCandidates, constraints);
+          rawCandidates = await applyAIScoringToCandidates(rawCandidates, constraints);
           rawCandidates = shuffleArrayWithScore(rawCandidates);
         } else {
           // 🔹 ancien comportement : aléatoire uniforme
