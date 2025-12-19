@@ -79,9 +79,11 @@ const MANDATORY_COLS = new Set([
   'Session',
   'Relache',
   'Style',
+  'Ton',
   'Orga',
   'Reserve',
   'Priorite',
+  'Note',
   'Hyperlien',
   'HyperlienBR',
   'HyperlienAvis',
@@ -264,7 +266,7 @@ const CANON = {
   'duree': 'Duree',
   'activite': 'Activite',
   'lieu': 'Lieu',
-  'site web': 'Hyperlien',
+  'page web': 'Hyperlien',
   'billet reduc': 'HyperlienBR',
   'avis': 'HyperlienAvis',
   'validite': 'Session',
@@ -276,6 +278,7 @@ const CANON = {
   'relaches': 'Relache',
   'reserve': 'Reserve',
   'priorite': 'Priorite',
+  'ton': 'Mood',
   // tolérances diverses
   'debut (HHhMM)': 'Debut',
   'duree (HhMM)': 'Duree',
@@ -1928,11 +1931,11 @@ function buildColumnsActivitesCommon(){
     { field:'Session', headerName: 'Séances', width:widthSR, minWidth:widthSR, valueParser: valueParserSession, onCellValueChanged: updSeances },
     { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
     { field:'Style', headerName: 'Style', minWidth:160, flex:0.6 },
+    { field:'Mood', headerName: 'Ton', minWidth:160, flex:0.6 },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique },
     { field:'Note', headerName: 'Note', width, minWidth:width },
-    { field:'Mood', headerName: 'Mood', minWidth:160, flex:0.6 },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
     { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
     { field:'HyperlienAvis', headerName: 'Avis', minWidth:120, flex:1, cellRenderer: AvisRenderer },
@@ -3405,8 +3408,8 @@ async function doExportExcel() {
     
     cleanData = cleanRows(cleanData, 
       ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances"],
-      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienAvis: "Avis" },
-      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Style", "Orga", "Réservé", "Priorité", "Billet Réduc", "Avis" ],
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienAvis: "Avis" },
+      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Style", "Ton", "Orga", "Réservé", "Priorité", "Note", "Billet Réduc", "Avis" ],
       false
     );
 
@@ -9194,7 +9197,7 @@ function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-mood-keywords">Mots-clés mood (ton, humeur)</label>
+              <label for="prog-mood-keywords">Mots-clés ton, humeur</label>
               <input id="prog-mood-keywords"
                      type="text"
                      class="bb-input"
