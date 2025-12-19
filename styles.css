@@ -2370,3 +2370,8 @@ input[type="range"]:focus::-moz-range-thumb {
 .bb-popover-body .bb-v{
   white-space: pre-wrap;
 }
+
+.prog-row { display: flex; align-items: center; gap: 0.5rem; }
+.prog-row .prog-main { flex: 1 1 auto; min-width: 0; }
+.prog-row .prog-toggle-wrap { flex: 0 0 auto; }
+.prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }

@@ -9264,19 +9264,6 @@ function openSheetAssistantProgrammation() {
         });
       }
 
-      // Styles locaux pour coller le bouton d'info à droite dans chaque ligne de programme
-      if (!document.getElementById('prog-inline-css')) {
-        const style = document.createElement('style');
-        style.id = 'prog-inline-css';
-        style.textContent = `
-          .prog-row { display: flex; align-items: center; gap: 0.5rem; }
-          .prog-row .prog-main { flex: 1 1 auto; min-width: 0; }
-          .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
-          .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
-        `;
-        document.head.appendChild(style);
-      }
-
       // --- Construire des datalists pour les inputs de mots-clés (style / mood)
       (function attachProgDatalists() {
         try {
