@@ -5480,8 +5480,8 @@ function wireAppKebab() {
     openKebabMenu(btn, {
       items: [
         { id:'carnet',    label:"Carnet d'adresses",        onClick: ()=>openSheetCarnet() },
-        { id:'AI',        label:"Assistant programmation",  onClick: ()=>openSheetAssistantProgrammation() },
-        { id:'AI',        label:"Assistant IA",             onClick: ()=>openSheetAssistantChat() },
+        { id:'prog',      label:"Assistant programmation",  onClick: ()=>openSheetAssistantProgrammation() },
+        { id:'chat',      label:"Assistant chat",           onClick: ()=>openSheetAssistantChat() },
         { id:'settings',  label:'Paramètres',               onClick: ()=>openSheetParams() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
         // { id:'exportInForAi',  label:'export In ForAi',       onClick: ()=>exportJsonForAi('in') },
@@ -6392,6 +6392,7 @@ function openSheetAide() {
           <a data-target="generalites">Fonctionnalités générales</a>
           <a data-target="regles-programmation">Règles de programmation</a>
           <a data-target="ui">Interface utilisateur</a>
+          <a data-target="ia">Interface IA</a>
           <a data-target="format-donnees">Format des données</a>
         </div>
 
@@ -6404,8 +6405,8 @@ function openSheetAide() {
           <div class="help-block">
             <p><u><i>In & Off</u></i> est là pour vous aider à bâtir votre programme de spectacles.</p>
             
-            <p>L'application est paramétrée pour offrir un accès direct aux catalogues du festival d'Avignon, mais peut répondre plus généralement à toute utilisation 
-            nécessitant de programmer des activités sur une période donnée.</p>
+            <p>Il vous offre une interface d'accès unifiée aux catalogues du In et du Off du festival d'Avignon, mais peut répondre plus généralement à toute utilisation 
+            nécessitant de programmer des activités.</p>
             
             <p style="margin-bottom: 0.2em"><u><i>In & Off</u></i> vous permettra notamment :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
@@ -6419,9 +6420,12 @@ function openSheetAide() {
             </ul>            
           </div>
 
-            <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
-            choisissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
-            La période de programmation peut être modifiée en allant dans le menu <u><i>.../Paramètres</u></i>.</p>
+          <p>Un <u><i>Assistant de programmation automatique</u></i> est là pour vous proposer des solutions instantannées de programmation répondant 
+          à vos critères de dates et vos préférences stylistiques.</p>
+
+          <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
+          choisissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
+          La période de programmation peut être modifiée en allant dans le menu <u><i>.../Paramètres</u></i>.</p>
         </div>
             
         <div id="help-regles-programmation" class="help-chapter">
@@ -6513,11 +6517,12 @@ function openSheetAide() {
                     <u><i></u>Téléphone</i> / <u><i></u>Web</i> de chaque entrée peuvent être édités et des boutons permettent d'ajouter / supprimer 
                     des entrées, défaire / refaire ces opérations. Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent 
                     d'appeler le numéro de téléphone ou aller sur le site Web correspondant.</li>
-                    <li><u><i>Assistant programmation</u></i>: permet de générer automatiquement un programme d'activités en en donnant une spécification par texte libre 
-                    incluant des préférences sur les spectacles, ou par des critères de dates, horaires, nombre d'activités par jour, prise en compte ou non du filtrage 
-                    courant sur le stock, mots clefs portant sur les styles.</li>
-                    <li><u><i>Assistant IA</u></i>: permet d'interroger une IA au travers d'une interface de chat sur des sujets généraux ou liés aux programmes de spectacles 
-                    importés.</li>
+                    <li><u><i>Assistant programmation</u></i>: permet de générer automatiquement un programme de spectacles en donnant vous préférences par texte libre 
+                    et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
+                    courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions et pour 
+                    chaque spectacle proposé l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web.</li>
+                    <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
+                    mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
                     <li><u><i>Paramètres</u></i>: permet d'éditer les paramètres de l'application comprenant:
                       <ul>
                         <li>la <u><i>période de programmation</u></i></li>
@@ -6530,6 +6535,24 @@ function openSheetAide() {
                     <li><u><i>Aide</u></i>: la présente aide</li>
                 </ul>
               </li>
+            </ul>                        
+          </div>
+        </div>
+
+        <div id="help-ia" class="help-chapter">
+          <div class="help-back" data-back>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Retour
+          </div>
+          <div class="help-block">
+            <p>Le menu "..." en haut à droite de l'application vous donne accès à deux assistants IA:</p>
+            <ul style="margin-top: 0em">
+              <li><u><i>Assistant programmation</u></i>: permet de générer automatiquement un programme de spectacles en donnant vous préférences par texte libre 
+              et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
+              courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions et pour 
+              chaque spectacle proposé l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web.</li>
+              <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
+              mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
             </ul>                        
           </div>
         </div>
@@ -9162,7 +9185,7 @@ function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-style-keywords">Mots-clés sur style</label>
+              <label for="prog-style-keywords">Mots-clés style</label>
               <input id="prog-style-keywords"
                      type="text"
                      class="bb-input"
@@ -9171,7 +9194,7 @@ function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-mood-keywords">Mots-clés sur mood (ton, humeur)</label>
+              <label for="prog-mood-keywords">Mots-clés mood (ton, humeur)</label>
               <input id="prog-mood-keywords"
                      type="text"
                      class="bb-input"
@@ -9180,28 +9203,38 @@ function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-distribution-keywords">Mots-clés sur distribution</label>
+              <label for="prog-distribution-keywords">Mots-clés auteurs, acteurs</label>
               <input id="prog-distribution-keywords"
                      type="text"
                      class="bb-input"
                      value="${(aiProg.mots_cles_distribution || []).join(", ")}"
-                     placeholder="Ex. : donner des noms de metteurs en scène, artistes">
+                     placeholder="Ex. : noms d'auteurs, acteurs">
             </div>
-              <div class="form-row">
-                <label for="prog-note-weight">
-                  Influence de la note : 
-                  <strong><span id="prog-note-weight-val">
-                    ${aiProg.note_weight != null ? aiProg.note_weight : 1}
-                  </span></strong>
-                </label>
+            
+            <div class="form-row">
+              <label for="prog-general-keywords">Autres mots-clés</label>
+              <input id="prog-general-keywords"
+                     type="text"
+                     class="bb-input"
+                     value="${(aiProg.mots_cles_generaux || []).join(", ")}"
+                     placeholder="">
+            </div>
+            
+            <div class="form-row">
+              <label for="prog-note-weight">
+                Influence de la note : 
+                <strong><span id="prog-note-weight-val">
+                  ${aiProg.note_weight != null ? aiProg.note_weight : 1}
+                </span></strong>
+              </label>
 
-                <input id="prog-note-weight"
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value="${aiProg.note_weight != null ? aiProg.note_weight : 1}">
-              </div>
+              <input id="prog-note-weight"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="${aiProg.note_weight != null ? aiProg.note_weight : 1}">
+            </div>
           </div>
 
           <!-- SECTION : Résultat -->
@@ -9252,6 +9285,7 @@ function openSheetAssistantProgrammation() {
       const eStylKW    = body.querySelector("#prog-style-keywords");
       const elMoodKW   = body.querySelector("#prog-mood-keywords");
       const elDistKW   = body.querySelector("#prog-distribution-keywords");
+      const elGenKW    = body.querySelector("#prog-general-keywords");
 
       const elNoteW    = body.querySelector("#prog-note-weight");
       const elNoteWV    = body.querySelector("#prog-note-weight-val");
@@ -9384,6 +9418,7 @@ function openSheetAssistantProgrammation() {
           mots_cles_style: parseKeywords(eStylKW),
           mots_cles_mood: parseKeywords(elMoodKW),
           mots_cles_distribution: parseKeywords(elDistKW),
+          mots_cles_generaux: parseKeywords(elGenKW),
           note_weight: noteWeight,
           exclure_deja_programmes: true
         };
@@ -9733,23 +9768,23 @@ function openSheetAssistantProgrammation() {
           merged.mots_cles_distribution = existingDistKw;
         }
 
-        // ====== KEYWORDS → mots_cles_keywords ======
+        // ====== KEYWORDS → mots_cles_generaux ======
         const kwdFilter = Array.isArray(filters.keywords) ? filters.keywords : [];
         const kwdValues = kwdFilter
           .map(c => c && c.value)
           .filter(Boolean);
 
-        const existingKeywordsKw = Array.isArray(merged.mots_cles_keywords)
-          ? merged.mots_cles_keywords
+        const existingGeneralKw = Array.isArray(merged.mots_cles_generaux)
+          ? merged.mots_cles_generaux
           : [];
 
         if (kwdValues.length) {
-          merged.mots_cles_keywords = normalizeKeywordsArray([
-            ...existingKeywordsKw,
+          merged.mots_cles_generaux = normalizeKeywordsArray([
+            ...existingGeneralKw,
             ...kwdValues
           ]);
         } else {
-          merged.mots_cles_keywords = existingKeywordsKw;
+          merged.mots_cles_generaux = existingGeneralKw;
         }
 
         // NOTE : on laisse note_weight tel que choisi par le slider utilisateur
@@ -9761,7 +9796,7 @@ function openSheetAssistantProgrammation() {
       function makeAIConstraintsKey(constraints) {
         const distriKW = normalizeKeywordsArray(constraints.mots_cles_distribution);
         const moodKW = normalizeKeywordsArray(constraints.mots_cles_mood);
-        const genKW = normalizeKeywordsArray(constraints.mots_cles_keywords);
+        const genKW = normalizeKeywordsArray(constraints.mots_cles_generaux);
         const note     = Number(constraints.note_weight ?? 0);
 
         return JSON.stringify({
@@ -9824,7 +9859,7 @@ function openSheetAssistantProgrammation() {
 
         const distriKW = normalizeKeywordsArray(constraints.mots_cles_distribution);
         const moodKW = normalizeKeywordsArray(constraints.mots_cles_mood);
-        const genKW = normalizeKeywordsArray(constraints.mots_cles_keywords);
+        const genKW = normalizeKeywordsArray(constraints.mots_cles_generaux);
 
         // slider 0–100 → 0–1
         // const noteWeight = Math.max(0, Math.min(1, Number(constraints.note_weight ?? 0) / 100));
@@ -10073,7 +10108,7 @@ function openSheetAssistantProgrammation() {
         // ====== 3) Scoring IA + shuffle pondéré (ou aléatoire simple) ======
         const hasSemanticStuff =
           !!(constraints.request && constraints.request.trim()) ||
-          (constraints.mots_cles_keywords && constraints.mots_cles_keywords.length) ||
+          (constraints.mots_cles_generaux && constraints.mots_cles_generaux.length) ||
           (constraints.mots_cles_distribution && constraints.mots_cles_distribution.length) ||
           (constraints.mots_cles_mood && constraints.mots_cles_mood.length) ||
           (constraints.note_weight != null && Number(constraints.note_weight) !== 0);
