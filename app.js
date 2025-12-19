@@ -9542,7 +9542,6 @@ function openSheetAssistantProgrammation() {
 
         //
         // 3) Fenêtre horaire Debut / Fin (en minutes)
-        //    -> exactement ce que tu décrivais :
         //       df.Debut >= debut_min ET df.Fin <= fin_max
         //
         const minMinutes = debutMinToMinutes(constraints.debut_min); 
@@ -10034,7 +10033,8 @@ function openSheetAssistantProgrammation() {
               intentJson = lastProgIntentJson;
             } else {
               const previousIntent = lastProgIntentJson || null;
-              intentJson = await fetchProgQueryIntent(freeQuery, previousIntent);
+              const fullQuery = "Je cherche des spectacles du stock avec les mots-clés, mood, filtres et autres critères de choix suivants : " + freeQuery; 
+              intentJson = await fetchProgQueryIntent(fullQuery, previousIntent);
               lastProgQueryText  = freeQuery;
               lastProgIntentJson = intentJson || null;
             }
