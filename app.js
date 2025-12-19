@@ -7453,6 +7453,50 @@ function buildAIContext() {
   return lines.join("\n");
 }
 
+// Private helper pour chat et programmation: merge auteurs from filters.distribution into filters.keywords
+function mergeAuteursIntoKeywords(intent) {
+  try {
+    if (!intent || !intent.filters) return;
+    const dist = intent.filters.distribution;
+    const auteursStr = dist && typeof dist.auteurs === 'string' ? dist.auteurs : null;
+    if (!auteursStr) return;
+
+    const kwStr = intent.filters.keywords || '';
+    const kws = kwStr.split(',').map(s => s.trim()).filter(Boolean);
+    const auteurs = auteursStr.split(',').map(s => s.trim()).filter(Boolean);
+    for (const a of auteurs) {
+      const normA = a.toLowerCase();
+      const exists = kws.some(k => k.toLowerCase() === normA);
+      if (!exists) kws.push(a);
+    }
+    intent.filters.keywords = kws.join(', ');
+  } catch (e) {
+    console.warn('merge auteurs->keywords failed', e);
+  }
+}
+
+// Private helper pour chat et programmation: merge acteurs (array or CSV string) into filters.keywords
+function mergeActeursIntoKeywords(intent) {
+  try {
+    if (!intent || !intent.filters) return;
+    const dist = intent.filters.distribution;
+    const acteursStr = dist && typeof dist.acteurs === 'string' ? dist.acteurs : null;
+    if (!acteursStr) return;
+
+    const kwStr = intent.filters.keywords || '';
+    const kws = kwStr.split(',').map(s => s.trim()).filter(Boolean);
+    const acteurs = acteursStr.split(',').map(s => s.trim()).filter(Boolean);
+    for (const a of acteurs) {
+      const normA = a.toLowerCase();
+      const exists = kws.some(k => k.toLowerCase() === normA);
+      if (!exists) kws.push(a);
+    }
+    intent.filters.keywords = kws.join(', ');
+  } catch (e) {
+    console.warn('merge acteurs->keywords failed', e);
+  }
+}
+
 function openSheetAssistantChat() {
   const contextSnapshot = buildAIContext(); // ton contexte global (planning, etc.)
 
@@ -8586,50 +8630,6 @@ function openSheetAssistantChat() {
         document.execCommand("copy");
       }
 
-      // Private helper: merge auteurs from filters.distribution into filters.keywords
-      function mergeAuteursIntoKeywords(intent) {
-        try {
-          if (!intent || !intent.filters) return;
-          const dist = intent.filters.distribution;
-          const auteursStr = dist && typeof dist.auteurs === 'string' ? dist.auteurs : null;
-          if (!auteursStr) return;
-
-          const kwStr = intent.filters.keywords || '';
-          const kws = kwStr.split(',').map(s => s.trim()).filter(Boolean);
-          const auteurs = auteursStr.split(',').map(s => s.trim()).filter(Boolean);
-          for (const a of auteurs) {
-            const normA = a.toLowerCase();
-            const exists = kws.some(k => k.toLowerCase() === normA);
-            if (!exists) kws.push(a);
-          }
-          intent.filters.keywords = kws.join(', ');
-        } catch (e) {
-          console.warn('merge auteurs->keywords failed', e);
-        }
-      }
-
-      // Private helper: merge acteurs (array or CSV string) into filters.keywords
-      function mergeActeursIntoKeywords(intent) {
-        try {
-          if (!intent || !intent.filters) return;
-          const dist = intent.filters.distribution;
-          const acteursStr = dist && typeof dist.acteurs === 'string' ? dist.acteurs : null;
-          if (!acteursStr) return;
-
-          const kwStr = intent.filters.keywords || '';
-          const kws = kwStr.split(',').map(s => s.trim()).filter(Boolean);
-          const acteurs = acteursStr.split(',').map(s => s.trim()).filter(Boolean);
-          for (const a of acteurs) {
-            const normA = a.toLowerCase();
-            const exists = kws.some(k => k.toLowerCase() === normA);
-            if (!exists) kws.push(a);
-          }
-          intent.filters.keywords = kws.join(', ');
-        } catch (e) {
-          console.warn('merge acteurs->keywords failed', e);
-        }
-      }
-
       // Envoi de requête
       async function send() {
         clearError();
@@ -9649,6 +9649,9 @@ function openSheetAssistantProgrammation() {
 
         const merged = { ...formConstraints };
         const filters = intentJson.filters || {};
+        
+        mergeAuteursIntoKeywords(intentJson);
+        mergeActeursIntoKeywords(intentJson);
 
         // ====== DATES ======
         const intentDates = filters.dates || {};
