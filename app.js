@@ -9858,10 +9858,16 @@ function openSheetAssistantProgrammation() {
               const meta  = lastIAScoreMap.get(key);
               const score = meta?.score ?? 0;
               const avis  = meta?.avis  ?? null;
+              const desc  = meta?.desc_summary || null;
+              const avisSummary = meta?.avis_summary || null;
+              const mood  = meta?.mood || null;
               return {
                 ...r,
                 _aiScore: score,
-                _aiAvis: avis
+                _aiAvis: avis,
+                _aiDescSummary: desc,
+                _aiAvisSummary: avisSummary,
+                _aiMood: mood
               };
             })
             .filter(Boolean);
