@@ -8117,7 +8117,7 @@ function openSheetAssistantChat() {
       }
 
       // Interprétation via IA d'une sélection parmi les résultats d'une recherche
-      async function callAISemanticExplain(query, scoredResults) {
+      async function callAISemanticExplain(query, semanticQuery, scoredResults) {
         const items = (scoredResults || []);
 
         if (!items.length) {
@@ -8126,11 +8126,11 @@ function openSheetAssistantChat() {
 
         const body = {
           query,
+          semanticQuery,
           items,
           context: "current_utterance_results",
           origin: selectionOrigin,
           base_utterance: baseUtterance,
-          free_speech_context: freeSpeechContext,
           total_matches: totalMatches
         };
 
@@ -8151,7 +8151,7 @@ function openSheetAssistantChat() {
       }
 
       // Interprétation via IA des résultats de la sélection précédente
-      async function callAISemanticExplainWithKeys(query, selection) {
+      async function callAISemanticExplainWithKeys(query, semanticQuery, selection) {
         const items = (selection?.items || []);
 
         if (!items.length) {
@@ -8160,6 +8160,7 @@ function openSheetAssistantChat() {
 
         const body = {
           query,
+          semanticQuery,
           items,
           context: "base_utterance_results",
           origin: selectionOrigin,
@@ -8360,13 +8361,13 @@ function openSheetAssistantChat() {
           intent: intentJson
         };
 
-        const explain = await callAISemanticExplain(raw, lastSemanticSelection.items);
+        const explain = await callAISemanticExplain(raw, semanticQuery, lastSemanticSelection.items);
         return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
 
         // // 7) MODE AUGMENTED : on laisse le worker construire le contexte riche + réponse
         // if (searchMode === "augmented") {
         //   // ⚠️ On n'explique que sur finalList, pas sur tout results
-        //   const explain = await callAISemanticExplain(raw, lastSemanticSelection.items);
+        //   const explain = await callAISemanticExplain(raw, semanticQuery, lastSemanticSelection.items);
         //   return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
         // }
 
@@ -8600,12 +8601,12 @@ function openSheetAssistantChat() {
           intent: intentJson
         };
 
-        const explain = await callAISemanticExplain(raw, items);
+        const explain = await callAISemanticExplain(raw, semanticQuery, items);
         return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
 
         // // 9) MODE AUGMENTED : on n’analyse que sur la sélection réellement présentée
         // if (searchMode === "augmented") {
-        //   const explain = await callAISemanticExplain(raw, items);
+        //   const explain = await callAISemanticExplain(raw, semanticQuery, items);
         //   return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
         // }
 
@@ -8703,6 +8704,9 @@ function openSheetAssistantChat() {
           // const searchMode     = intentJson?.meta?.search_mode
           //                       || (topIntent === "search_shows" ? "simple" : "none");
           const freeAnswer     = intentJson?.free_answer || null;
+          const semanticQuery  = intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
+              ? intentJson.semantic.embedding_query.trim()
+              : raw;
 
           const meta = intentJson?.meta || {};
           const isSearch = (topIntent === "search_shows");
@@ -8744,11 +8748,11 @@ function openSheetAssistantChat() {
               // 🧠 CAS 2a : analyse des spectacles précédemment proposés
               // 💡 On NE refait PAS de recherche : on explique uniquement
               //    les spectacles de la sélection précédente.
-              replyText = await callAISemanticExplainWithKeys(raw, lastSemanticSelection);
+              replyText = await callAISemanticExplainWithKeys(raw, semanticQuery, lastSemanticSelection);
             } else {
               // 🟦 CAS 2b : recherche "normale" (simple ou augmented)
               if (topIntent === "search_shows" && !meta.uses_previous_intent) {
-                baseUtterance = raw;
+                baseUtterance = semanticQuery;
                 selectionOrigin = searchSpace; 
               }
               if (searchSpace === "local_stock" || searchSpace === "current_schedule") {
