@@ -85,8 +85,10 @@ const MANDATORY_COLS = new Set([
   'Priorite',
   'Note',
   'Hyperlien',
-  'HyperlienBR',
   'HyperlienAvis',
+  'HyperlienBR',
+  '__desc_summary',
+  '__avis_summary',
   '__uuid'
 ]);
 
@@ -267,8 +269,8 @@ const CANON = {
   'activite': 'Activite',
   'lieu': 'Lieu',
   'page web': 'Hyperlien',
+  'avis web': 'HyperlienAvis',
   'billet reduc': 'HyperlienBR',
-  'avis': 'HyperlienAvis',
   'validite': 'Session',
   'session': 'Session',
   'sessions': 'Session',
@@ -1836,11 +1838,11 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
   let hyperlinkBRCol = null;
   let avisCol = null;
 
-  // a) Construire toutes les colonnes sauf "Hyperlien" "HyperlienBR" "HyperlienAvis"
+  // a) Construire toutes les colonnes sauf "Hyperlien" "HyperlienAvis" "HyperlienBR" 
   for (const field of knownFields) {
     if (field === 'Hyperlien') continue;  // on la traitera ensuite
-    if (field === 'HyperlienBR') continue;  // on la traitera ensuite
     if (field === 'HyperlienAvis') continue;  // on la traitera ensuite
+    if (field === 'HyperlienBR') continue;  // on la traitera ensuite
 
     const base = baseMap.get(field);
     if (base) {
@@ -1857,8 +1859,8 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
     }
   }
 
-  // b) Ajouter les colonnes "Hyperlien" "HyperlienBR" et "HyperlienAvis" en dernier 
-  if (knownFields.has('Hyperlien') || knownFields.has('HyperlienBR') || knownFields.has('HyperlienAvis')) {
+  // b) Ajouter les colonnes "Hyperlien" "HyperlienAvis" et "HyperlienBR" en dernier 
+  if (knownFields.has('Hyperlien') || knownFields.has('HyperlienAvis') || knownFields.has('HyperlienBR')) {
     const base = baseMap.get('Hyperlien');
     hyperlinkCol = base || {
       field: 'Hyperlien',
@@ -1870,17 +1872,6 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
     };
     newColDefs.push(hyperlinkCol);
 
-    const baseBR = baseMap.get('HyperlienBR');
-    hyperlinkBRCol = baseBR || {
-      field: 'HyperlienBR',
-      headerName: 'Billet Réduc',
-      minWidth: 100,
-      flex: 1,
-      sortable: true,
-      filter: true,
-    };
-    newColDefs.push(hyperlinkBRCol);
-
     const baseAvis = baseMap.get('HyperlienAvis');
     avisCol = baseAvis || {
       field: 'HyperlienAvis',
@@ -1891,6 +1882,17 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
       filter: true,
     };
     newColDefs.push(avisCol);
+
+    const baseBR = baseMap.get('HyperlienBR');
+    hyperlinkBRCol = baseBR || {
+      field: 'HyperlienBR',
+      headerName: 'Billet Réduc',
+      minWidth: 100,
+      flex: 1,
+      sortable: true,
+      filter: true,
+    };
+    newColDefs.push(hyperlinkBRCol);
   }
 
   // 6) Appliquer proprement aux options du grid
@@ -1925,20 +1927,21 @@ function buildColumnsActivitesCommon(){
       }
     },
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer },
+    { field:'__desc_summary', headerName: '', width, minWidth:40, filter: false, sortable: false ,  cellRenderer: infosPlusPopoverCellRenderer },
+    { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
+    { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
+    { field:'Note', headerName: 'Note', width, minWidth:width },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
     { field:'Session', headerName: 'Séances', width:widthSR, minWidth:widthSR, valueParser: valueParserSession, onCellValueChanged: updSeances },
     { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
-    { field:'Style', headerName: 'Style', minWidth:160, flex:0.6 },
-    { field:'Mood', headerName: 'Ton', minWidth:160, flex:0.6 },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique },
-    { field:'Note', headerName: 'Note', width, minWidth:width },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
+    { field:'HyperlienAvis', headerName: 'Avis Web', minWidth:120, flex:1, cellRenderer: AvisRenderer },
     { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
-    { field:'HyperlienAvis', headerName: 'Avis', minWidth:120, flex:1, cellRenderer: AvisRenderer },
   ];
 }
 
@@ -3318,14 +3321,14 @@ async function doImportExcel() {
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
   // importFromUrlOrTxt('https://festival-avignon.com/fr/edition-2025/programmation/par-categorie', 'parseAvignonInProgPage');
-  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=181131891');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=112249550');
   importFromXlsxFile(f, {add:true});
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
   // importFromUrlOrTxt('https://www.festivaloffavignon.com/programme', 'parseAvignonOffProgPage');
-  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=1315999963');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=1588321450');
   importFromXlsxFile(f, {add:true});
 }
 
@@ -3407,9 +3410,9 @@ async function doExportExcel() {
     })
     
     cleanData = cleanRows(cleanData, 
-      ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances"],
-      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienAvis: "Avis" },
-      [ "Date", "Début", "Activité", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Style", "Ton", "Orga", "Réservé", "Priorité", "Note", "Billet Réduc", "Avis" ],
+      ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances", "__desc_summary", "__avis_summary"],
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Priorité", HyperlienAvis: "Avis Web", HyperlienBR: "Billet Réduc" },
+      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Priorité", "Avis Web", "Billet Réduc" ],
       false
     );
 
@@ -3990,8 +3993,8 @@ function buildAiExportFromDf(df, sectionLabel, editionYear = null) {
       Session: cleanField(r.Session),
       Relache: cleanField(r.Relache),
       Hyperlien: cleanField(r.Hyperlien),
-      HyperlienBR: cleanField(r.HyperlienBR),
       HyperlienAvis: cleanField(r.HyperlienAvis),
+      HyperlienBR: cleanField(r.HyperlienBR),
       Section: section,      // 🔹 nouveau champ : "off" ou "in"
       Seances: seances,      // 🔹 nouveau champ : tableau ISO
       __uuid: r.__uuid || null
@@ -4451,17 +4454,17 @@ async function importFromUrlOrTxt(raw, parser=null) {
         Debut: row.Debut || null, 
         Duree: row.Duree || null,
         Activite: nom, 
+        Style: row.Style || null,
         Lieu: row.Lieu || null, 
         Session: row.Session || null,
         Relache: row.Relache || null, 
-        Style: row.Style || null,
         Orga: row.Orga || null,
         Reserve: null, 
         Priorite: null, 
         Note: note,
         Hyperlien: row.Hyperlien || hyperlienDefault,
-        HyperlienBR: row.HyperlienBR || hyperlienBRDefault,
         HyperlienAvis: row.HyperlienAvis || avisDefault,
+        HyperlienBR: row.HyperlienBR || hyperlienBRDefault,
       }
       nouvellesActivites.push(nouvelleActivite);
   }
@@ -5071,16 +5074,16 @@ async function importFromXlsxFile(f, {add=false} = {}) {
           dfRows[i].Hyperlien = link;
         }
 
-        // S’il y a déjà une colonne "HyperlienBR" dans Excel, on la garde prioritaire,
-        // sinon on remplit depuis le lien de la cellule Activité.
-        if (!dfRows[i].HyperlienBR) {
-          dfRows[i].HyperlienBR = `https://www.billetreduc.com/search.htm?se=${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
-        }
-
         // S’il y a déjà une colonne "HyperlienAvis" dans Excel, on la garde prioritaire,
         // sinon on remplit depuis le lien de la cellule Activité.
         if (!dfRows[i].HyperlienAvis) {
           dfRows[i].HyperlienAvis = `https://www.google.com/search?q=spectacle+${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
+        }
+
+        // S’il y a déjà une colonne "HyperlienBR" dans Excel, on la garde prioritaire,
+        // sinon on remplit depuis le lien de la cellule Activité.
+        if (!dfRows[i].HyperlienBR) {
+          dfRows[i].HyperlienBR = `https://www.billetreduc.com/search.htm?se=${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
         }
       }
     }
@@ -7401,83 +7404,11 @@ function openSheetImportBilletReduc() {
 }
 
 // =======================
-// Appels backend IA
+// Backend AI
 // =======================
 
 const AI_CHAT_HISTORY_KEY = "in_off_ai_chat_history_v1";
 const AI_LAST_SEMANTIC_INTENT_KEY = "in_off_ai_last_semantic_intent_v1";
-
-function loadChatHistoryFromStorage() {
-  try {
-    if (typeof localStorage === "undefined") return [];
-    const raw = localStorage.getItem(AI_CHAT_HISTORY_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    console.warn("loadChatHistoryFromStorage error:", e);
-    return [];
-  }
-}
-
-function saveChatHistoryToStorage(history) {
-  try {
-    if (typeof localStorage === "undefined") return;
-    localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(history));
-  } catch (e) {
-    console.warn("saveChatHistoryToStorage error:", e);
-  }
-}
-
-function loadLastSemanticIntent() {
-  try {
-    if (typeof localStorage === "undefined") return null;
-    const raw = localStorage.getItem(AI_LAST_SEMANTIC_INTENT_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) {
-    console.warn("loadLastSemanticIntent error:", e);
-    return null;
-  }
-}
-
-function saveLastSemanticIntent(intentJson) {
-  try {
-    if (typeof localStorage === "undefined") return;
-    localStorage.setItem(AI_LAST_SEMANTIC_INTENT_KEY, JSON.stringify(intentJson));
-  } catch (e) {
-    console.warn("saveLastSemanticIntent error:", e);
-  }
-}
-
-/**
- * Construit un contexte texte à partir de la grille ou du df.
- */
-function buildAIContext() {
-  const rows = ctx?.df || [];
-  if (!rows.length) return "";
-
-  // On limite pour ne pas envoyer un roman complet
-  const max = 50;
-  const lines = [];
-
-  for (let i = 0; i < rows.length && i < max; i++) {
-    const r = rows[i];
-    if (!r) continue;
-
-    const date = r.Date || r.date || "";
-    const debut = r.Debut || r.debut || "";
-    const duree = r.Duree || r.duree || "";
-    const titre = r.Spectacle || r.spectacle || r.Titre || r.titre || "";
-    const theatre = r.Theatre || r.theatre || "";
-
-    lines.push(
-      `${date} ${debut} (${duree}) - ${titre} @ ${theatre}`
-    );
-  }
-
-  return lines.join("\n");
-}
 
 // Private helper pour chat et programmation: merge auteurs from filters.distribution into filters.keywords
 function mergeAuteursIntoKeywords(intent) {
@@ -7523,8 +7454,9 @@ function mergeActeursIntoKeywords(intent) {
   }
 }
 
+// Assistant Chat
 function openSheetAssistantChat() {
-  const contextSnapshot = buildAIContext(); // ton contexte global (planning, etc.)
+  // const contextSnapshot = buildAIContext(); // ton contexte global (planning, etc.)
 
   openSheetExclusive({
     title: "Assistant IA",
@@ -7629,6 +7561,40 @@ function openSheetAssistantChat() {
         }
 
         return s;
+      }
+
+      function loadChatHistoryFromStorage() {
+        try {
+          if (typeof localStorage === "undefined") return [];
+          const raw = localStorage.getItem(AI_CHAT_HISTORY_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          console.warn("loadChatHistoryFromStorage error:", e);
+          return [];
+        }
+      }
+
+      function saveChatHistoryToStorage(history) {
+        try {
+          if (typeof localStorage === "undefined") return;
+          localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(history));
+        } catch (e) {
+          console.warn("saveChatHistoryToStorage error:", e);
+        }
+      }
+
+      function loadLastSemanticIntent() {
+        try {
+          if (typeof localStorage === "undefined") return null;
+          const raw = localStorage.getItem(AI_LAST_SEMANTIC_INTENT_KEY);
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch (e) {
+          console.warn("loadLastSemanticIntent error:", e);
+          return null;
+        }
       }
 
       function formatChatContent(text) {
@@ -8912,157 +8878,7 @@ function openSheetAssistantChat() {
   });
 }
 
-// ========== Assistant Programmation Destail Popup =============
-let _openPopover = null; // { el, anchorEl, onClose }
-
-// helper pour éviter les surprises dans innerHTML
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeAttr(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function wireAssistantProgrammationPopup(btn) {
-
-  function closePopover() {
-    if (!_openPopover) return;
-    try { _openPopover.el.remove(); } catch {}
-    _openPopover = null;
-    document.removeEventListener("mousedown", _onDocPointerDown, true);
-    document.removeEventListener("touchstart", _onDocPointerDown, true);
-    document.removeEventListener("keydown", _onDocKeyDown, true);
-  }
-
-  function _onDocPointerDown(e) {
-    if (!_openPopover) return;
-    const { el, anchorEl } = _openPopover;
-    // click à l'intérieur de la popover OU sur le bouton d’ancrage => ne ferme pas
-    if (el.contains(e.target) || anchorEl.contains(e.target)) return;
-    closePopover();
-  }
-
-  function _onDocKeyDown(e) {
-    if (e.key === "Escape") closePopover();
-  }
-
-  function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
-    closePopover();
-
-    const pop = document.createElement("div");
-    pop.className = "bb-popover";
-
-    const safe = (v) => (v == null || String(v).trim() === "" ? "—" : String(v));
-
-      // <div class="bb-popover-header">
-      //   <button class="bb-popover-close" type="button" aria-label="Fermer">×</button>
-      // </div>
-
-    pop.innerHTML = `
-      <div class="bb-popover-body">
-        <div>
-          <span class="bb-k">Description:</span>
-          <span class="bb-v">${escapeHtml(safe(desc))}</span>
-        </div>
-        <div>
-          <span class="bb-k">Avis:</span>
-          <span class="bb-v">${escapeHtml(safe(avis))}</span>
-        </div>
-        <div>
-          <span class="bb-k">Mood:</span>
-          <span class="bb-v">${escapeHtml(safe(mood))}</span>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(pop);
-
-    // Close button
-    // pop.querySelector(".bb-popover-close").addEventListener("click", (e) => {
-    //   e.preventDefault();
-    //   closePopover();
-    // });
-
-    // Positionnement (fixed) à droite du bouton si possible sinon à gauche, en restant dans l’écran
-    const r = anchorEl.getBoundingClientRect();
-    const pr = pop.getBoundingClientRect();
-
-    const margin = 8;
-    let left = r.right + margin;               // à droite
-    let top  = r.top - 6;                      // aligné haut
-
-    // si ça déborde à droite, on passe à gauche
-    if (left + pr.width > window.innerWidth - margin) {
-      left = Math.max(margin, r.left - margin - pr.width);
-    }
-    // clamp vertical
-    if (top + pr.height > window.innerHeight - margin) {
-      top = Math.max(margin, window.innerHeight - margin - pr.height);
-    }
-    if (top < margin) top = margin;
-
-    pop.style.left = `${left}px`;
-    pop.style.top  = `${top}px`;
-
-    _openPopover = { el: pop, anchorEl };
-
-    // listeners en capture pour choper le click avant stopPropagation éventuel
-    document.addEventListener("mousedown", _onDocPointerDown, true);
-    document.addEventListener("touchstart", _onDocPointerDown, true);
-    document.addEventListener("keydown", _onDocKeyDown, true);
-  }
-
-  function infoPopoverCellRenderer(params) {
-    const row = params.data || {};
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "bb-info-btn";
-    btn.textContent = "ℹ︎";
-
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation(); // évite de sélectionner la ligne / déclencher d’autres handlers
-
-      openPopoverNear(btn, {
-        title: row.Activite || row.activite || "Détails",
-        desc: row._aiDescSummary,
-        avis: row._aiAvisSummary,
-        mood: row._aiMood
-      });
-    });
-
-    return btn;
-  }
-
-  document.addEventListener("click", (e) => {
-      const btn = e.target.closest(".prog-info-btn");
-      if (!btn) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      openPopoverNear(btn, {
-        title: btn.dataset.title || "Détails",
-        desc:  btn.dataset.desc || "",
-        avis:  btn.dataset.avis || "",
-        mood:  btn.dataset.mood || ""
-      });
-    });
-
-  window.addEventListener("scroll", () => closePopover(), { passive: true });
-  window.addEventListener("resize", () => closePopover());
-}
-
+// Assistant Programmation
 function openSheetAssistantProgrammation() {
   const df    = ctx?.df || [];
   const meta  = ctx?.meta || {};
@@ -10678,6 +10494,168 @@ function openSheetAssistantProgrammation() {
 }
 
 // =======================
+// InfosPlus Popup
+// =======================
+
+let _openPopover = null; // { el, anchorEl, onClose }
+
+// helper pour éviter les surprises dans innerHTML
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttr(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Cell Renderer des colonnes InfosPlus 
+function infosPlusPopoverCellRenderer(params) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "bb-info-btn";
+  const row = params.data || {};
+  if (row.__desc_summary || row.__avis_summary) {
+    btn.textContent = "ℹ︎+";
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // évite de sélectionner la ligne / déclencher d’autres handlers
+
+      openPopoverNear(btn, {
+        title: row.Activite || row.activite || "Détails",
+        desc: row.__desc_summary,
+        avis: row.__avis_summary,
+        mood: row.Mood
+      });
+    });
+  }
+
+  return btn;
+}
+
+function closePopover() {
+  if (!_openPopover) return;
+  try { _openPopover.el.remove(); } catch {}
+  _openPopover = null;
+  document.removeEventListener("mousedown", _onDocPointerDown, true);
+  document.removeEventListener("touchstart", _onDocPointerDown, true);
+  document.removeEventListener("keydown", _onDocKeyDown, true);
+}
+
+function _onDocPointerDown(e) {
+  if (!_openPopover) return;
+  const { el, anchorEl } = _openPopover;
+  // click à l'intérieur de la popover OU sur le bouton d’ancrage => ne ferme pas
+  if (el.contains(e.target) || anchorEl.contains(e.target)) return;
+  closePopover();
+}
+
+function _onDocKeyDown(e) {
+  if (e.key === "Escape") closePopover();
+}
+
+// Handler de click sur les boutons InfosPlus
+function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
+  closePopover();
+
+  const pop = document.createElement("div");
+  pop.className = "bb-popover";
+
+  const safe = (v) => (v == null || String(v).trim() === "" ? "—" : String(v));
+
+    // <div class="bb-popover-header">
+    //   <button class="bb-popover-close" type="button" aria-label="Fermer">×</button>
+    // </div>
+
+  pop.innerHTML = `
+    <div class="bb-popover-body">
+      <div>
+        <span class="bb-k">Description:</span>
+        <span class="bb-v">${escapeHtml(safe(desc))}</span>
+      </div>
+      <div>
+        <span class="bb-k">Avis:</span>
+        <span class="bb-v">${escapeHtml(safe(avis))}</span>
+      </div>
+      <div>
+        <span class="bb-k">Mood:</span>
+        <span class="bb-v">${escapeHtml(safe(mood))}</span>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(pop);
+
+  // Close button
+  // pop.querySelector(".bb-popover-close").addEventListener("click", (e) => {
+  //   e.preventDefault();
+  //   closePopover();
+  // });
+
+  // Positionnement (fixed) à droite du bouton si possible sinon à gauche, en restant dans l’écran
+  const r = anchorEl.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+
+  const margin = 8;
+  let left = r.right + margin;               // à droite
+  let top  = r.top - 6;                      // aligné haut
+
+  // si ça déborde à droite, on passe à gauche
+  if (left + pr.width > window.innerWidth - margin) {
+    left = Math.max(margin, r.left - margin - pr.width);
+  }
+  // clamp vertical
+  if (top + pr.height > window.innerHeight - margin) {
+    top = Math.max(margin, window.innerHeight - margin - pr.height);
+  }
+  if (top < margin) top = margin;
+
+  pop.style.left = `${left}px`;
+  pop.style.top  = `${top}px`;
+
+  _openPopover = { el: pop, anchorEl };
+
+  // listeners en capture pour choper le click avant stopPropagation éventuel
+  document.addEventListener("mousedown", _onDocPointerDown, true);
+  document.addEventListener("touchstart", _onDocPointerDown, true);
+  document.addEventListener("keydown", _onDocKeyDown, true);
+}
+
+function wireInfosPlusPopup(btn) {
+  
+  document.addEventListener("click", (e) => {
+      const btn = e.target.closest(".prog-info-btn");
+      if (!btn) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      openPopoverNear(btn, {
+        title: btn.dataset.title || "Détails",
+        desc:  btn.dataset.desc || "",
+        avis:  btn.dataset.avis || "",
+        mood:  btn.dataset.mood || ""
+      });
+    });
+
+  function closeAllInfoPopovers() {
+    document.querySelectorAll(".bb-popover").forEach(p => p.remove());
+  }
+
+  document.addEventListener("scroll", closeAllInfoPopovers, { capture: true, passive: true });
+  window.addEventListener("resize", () => closePopover());
+}
+
+// =======================
 // Init / Wiring
 // =======================
 
@@ -10784,6 +10762,66 @@ async function enrichDfWithMood(df, {
   return df;
 }
 
+async function enrichDfWithInfoPlus(df, {
+  basePath = "./ai",          // chemin relatif depuis la page
+  overwrite = false,          // écraser un mood existant ?
+  log = true
+} = {}) {
+  if (!Array.isArray(df)) {
+    throw new Error("df doit être un tableau");
+  }
+
+  // 1) Chargement des fichiers
+  const all = await fetch(`${basePath}/index_avignon_2025.json`).then(r => r.json());
+
+  console.log(`enrichDfWithInfoPlus: loaded ${all.length} entries from info-plus index`);
+
+  // 2) Construction map clé -> mood
+  const infoMap = new Map();
+
+  for (const it of all) {
+    const key = makeFullKey(it);
+    if (!key) continue;
+    if (it.desc_summary || it.avis_summary) {
+      infoMap.set(key, {desc_summary:it.desc_summary || null, avis_summary:it.avis_summary || null} );
+    }
+  }
+
+  // 3) Enrichissement du df
+  let copied = 0;
+  let skipped = 0;
+
+  for (const row of df) {
+    const key = makeFullKey(row);
+    if (!key) {
+      skipped++;
+      continue;
+    }
+
+    if (!overwrite && row.desc_summary && row.avis_summary) {
+      skipped++;
+      continue;
+    }
+
+    const infoPlus = infoMap.get(key);
+    if (infoPlus) {
+      row.__desc_summary = escapeAttr(infoPlus.desc_summary);
+      row.__avis_summary = escapeAttr(infoPlus.avis_summary);
+      copied++;
+    } else {
+      skipped++;
+    }
+  }
+
+  if (log) {
+    console.log(
+      `summaries : ${copied} lignes | ignorées : ${skipped} | index : ${infoMap.size}`
+    );
+  }
+
+  return df;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('⏳ DOM prêt, initialisation du contexte...');
 
@@ -10802,7 +10840,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireExpanderButtons();
   wireAppKebab();
   initSheetGrids();
-  wireAssistantProgrammationPopup();
+  wireInfosPlusPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
 

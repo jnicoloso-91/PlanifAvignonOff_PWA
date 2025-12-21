@@ -2313,6 +2313,24 @@ input[type="range"]:focus::-moz-range-thumb {
   user-select: none;
 }
 
+.ag-theme-quartz .bb-info-btn {
+    border: none; /* Pas de bordure */
+    background: transparent; /* Fond transparent */
+    color: #5f656b; /* Couleur du texte pour indiquer qu'il est cliquable */
+    font-size: 12px; /* Taille de police ajustée */
+    line-height: normal; /* Ajuster la hauteur de ligne si nécessaire */
+}
+
+/* Ensure info buttons remain visible and clickable when inserted dynamically */
+.bb-info-btn,
+.prog-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  z-index: 3;
+}
+
 .bb-popover{
   position: fixed;
   z-index: 99999;
@@ -2371,7 +2389,7 @@ input[type="range"]:focus::-moz-range-thumb {
   white-space: pre-wrap;
 }
 
-.prog-row { display: flex; align-items: center; gap: 0.5rem; }
+.prog-row { display: flex; align-items: center; gap: 0.5rem; overflow: visible; }
 .prog-row .prog-main { flex: 1 1 auto; min-width: 0; }
 .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
 .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
