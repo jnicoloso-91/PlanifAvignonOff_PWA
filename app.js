@@ -10343,6 +10343,7 @@ function openSheetAssistantProgrammation() {
             const r = slot.row || {};
             const h = mmToHHhMM(slot.startMin);
             const titre   = r.Activite || "(sans titre)";
+            const style = r.Style || "";
             const theatre = r.Theatre   || "";
             const theatrePart = theatre ? ` <span class="prog-theatre">@ ${escapeHtml(theatre)}</span>` : "";
             const href    = r.Hyperlien || null;
@@ -10356,6 +10357,8 @@ function openSheetAssistantProgrammation() {
               (desc || avis || mood)
                 ? ` <button type="button"
                       class="bb-info-btn prog-info-btn"
+                      data-title="${escapeAttr(titre)}"
+                      data-style="${escapeAttr(style)}"
                       data-desc="${escapeAttr(desc)}"
                       data-avis="${escapeAttr(avis)}"
                       data-mood="${escapeAttr(mood)}"
@@ -10532,6 +10535,7 @@ function infosPlusPopoverCellRenderer(params) {
 
       openPopoverNear(btn, {
         title: row.Activite || row.activite || "Détails",
+        style: row.Style,
         desc: row.__desc_summary,
         avis: row.__avis_summary,
         mood: row.Mood
@@ -10564,7 +10568,7 @@ function _onDocKeyDown(e) {
 }
 
 // Handler de click sur les boutons InfosPlus
-function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
+function openPopoverNear(anchorEl, { title = "Détails", style, desc, avis, mood }) {
   closePopover();
 
   const pop = document.createElement("div");
@@ -10580,6 +10584,7 @@ function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
     <div class="bb-popover-body">
       <div>
         <span class="bb-k">${escapeHtml(safe(title))}</span>
+        <span class="bb-v">(${escapeHtml(safe(style))})</span>
       </div>
       <div>
         <span class="bb-k">Description:</span>
@@ -10590,7 +10595,7 @@ function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
         <span class="bb-v">${escapeHtml(safe(avis))}</span>
       </div>
       <div>
-        <span class="bb-k">Mood:</span>
+        <span class="bb-k">Ton:</span>
         <span class="bb-v">${escapeHtml(safe(mood))}</span>
       </div>
     </div>
@@ -10644,6 +10649,7 @@ function wireInfosPlusPopup(btn) {
 
       openPopoverNear(btn, {
         title: btn.dataset.title || "Détails",
+        style: btn.dataset.style || "",
         desc:  btn.dataset.desc || "",
         avis:  btn.dataset.avis || "",
         mood:  btn.dataset.mood || ""
