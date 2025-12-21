@@ -10579,6 +10579,9 @@ function openPopoverNear(anchorEl, { title = "Détails", desc, avis, mood }) {
   pop.innerHTML = `
     <div class="bb-popover-body">
       <div>
+        <span class="bb-k">${escapeHtml(safe(title))}</span>
+      </div>
+      <div>
         <span class="bb-k">Description:</span>
         <span class="bb-v">${escapeHtml(safe(desc))}</span>
       </div>
