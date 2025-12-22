@@ -7459,7 +7459,7 @@ function openSheetAssistantChat() {
   // const contextSnapshot = buildAIContext(); // ton contexte global (planning, etc.)
 
   openSheetExclusive({
-    title: "Assistant IA",
+    title: "Assistant IA (bêta)",
     panelHeight: "auto",
     panelMaxHeight: "80vh",
     mount: (body, { close }) => {
@@ -7474,7 +7474,7 @@ function openSheetAssistantChat() {
             <textarea id="ai-request"
                       class="ai-input"
                       rows="3"
-                      placeholder="Posez vos questions… (ex : propose 3 spectacles de style théâtre ambiance intimiste, Résume le planning de tel jour, etc.)"></textarea>
+                      placeholder="Posez vos questions… (ex : propose 3 pièces de Molière, fais un résumé du planning, etc.)"></textarea>
           </div>
           <div class="ai-reset-wrapper">
             <button id="btn-ai-reset"
@@ -8112,7 +8112,6 @@ function openSheetAssistantChat() {
           throw new Error("Erreur backend semantic-explain");
         }
 
-        lastPresentedResults = scoredResults;
         return resp.json(); // { answer, results, context_used }
       }
 
@@ -8238,14 +8237,12 @@ function openSheetAssistantChat() {
         const scope         = intentJson?.scope || null;
         const festivals     = scope?.festival || [];
 
-        // 👉 Follow-up = on réutilise l’intent précédent (ex: "3 autres", "analyse les mêmes")
-        // const isFollowUp =
-        //   meta.uses_previous_intent &&
-        //   meta.previous_intent_relation === "same_but_modified";
-        const isFollowUp =meta.uses_previous_intent;
+        // isFollowUp: demande en lien avec l’intent précédent (ex: "3 autres", "analyse les mêmes")
+        // others: demande de nouveaux résultats
+        const isFollowUp = meta.uses_previous_intent;
         const others = meta.previous_intent_relation === "others";
 
-        // 1) requête sémantique effective
+        // Requête sémantique effective
         const semanticQuery =
           intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
             ? intentJson.semantic.embedding_query.trim()
@@ -8253,13 +8250,13 @@ function openSheetAssistantChat() {
 
         const filters = intentJson?.filters || null;
 
-        // 2) Nombre de candidats demandés au worker
-        //    On demande un peu plus large sur les follow-up pour avoir de quoi éviter les répétitions.
+        // Nombre de candidats demandés au worker
+        // On demande un peu plus large sur les follow-up pour avoir de quoi éviter les répétitions.
         const workerLimit = isFollowUp
           ? Math.min(limit * 4, 50)
           : Math.min(limit * 3, 50);
 
-        // 3) scoring global sur index In/Off (diversification + ranking gérés côté worker)
+        // Filtre et scoring sur index In/Off (diversification + ranking gérés côté worker)
         const { results, total_matches, is_truncated } = await scoreAISemanticWithFilters(
           semanticQuery,
           workerLimit,
@@ -8274,42 +8271,26 @@ function openSheetAssistantChat() {
           return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
         }
 
-        // 4) Anti-répétition sur les follow-up :
-        //    - on privilégie les spectacles pas encore vus dans ce "thread"
-        //    - si pas assez, on complète avec des déjà vus
         let candidateList = results;
 
+        // Si demande de nouveaux résultats on sélectionne des non-vus
         if (isFollowUp && others && seenSemanticKeysGlobal && seenSemanticKeysGlobal.size > 0) {
-          // const fresh = results.filter(r => r._index_key && !seenSemanticKeysGlobal.has(r._index_key)); 
-          // if (fresh.length >= limit) {
-          //   // Assez de "nouveaux" spectacles → on ne sert que ceux-là
-          //   candidateList = fresh;
-          // } else {
-          //   // Pas assez de nouveaux → on prend les nouveaux et on ajoute des déjà vus pour compléter
-          //   const stillNeeded = limit - fresh.length;
-          //   const alreadySeen = results.filter(r => r._index_key && seenSemanticKeysGlobal.has(r._index_key));
-          //   const backfill    = alreadySeen.slice(0, Math.max(0, stillNeeded));
-
-          //   candidateList = fresh.concat(backfill);
-          // }
-          // on sélectionne des non-vus
           candidateList = results.filter(r => r._index_key && !seenSemanticKeysGlobal.has(r._index_key)); 
         }
 
         if (!candidateList.length) {
-          if (isFollowUp) return "Désolé il n'existe aucun autre spectacle correspondant à votre demande."
+          if (others) return "Désolé il n'existe aucun autre spectacle correspondant à votre demande."
           else return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
         }
 
-        // 5) Liste finale renvoyée à l’utilisateur (en respectant l’ordre donné par le worker)
+        // Liste finale passée à l'étage Explain (index filtré moins les déjà vus si demande de nouveaux résultats)
         const finalList = candidateList; //.slice(0, limit);
         const isTruncatedFinal = finalList.length < results.length || is_truncated;
 
-        // 6) Mémoriser la sélection réellement présentée (clé + score) + marquer comme "vus"
+        // Mémorisation de la sélection finale
         if (!seenSemanticKeysGlobal) {
           seenSemanticKeysGlobal = new Set();
         }
-
         finalList.forEach(r => {
           if (r._index_key) {
             seenSemanticKeysGlobal.add(r._index_key);
@@ -8328,19 +8309,9 @@ function openSheetAssistantChat() {
         };
 
         const explain = await callAISemanticExplain(raw, semanticQuery, lastSemanticSelection.items);
+        lastPresentedResults = explain.results;
         return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
 
-        // // 7) MODE AUGMENTED : on laisse le worker construire le contexte riche + réponse
-        // if (searchMode === "augmented") {
-        //   // ⚠️ On n'explique que sur finalList, pas sur tout results
-        //   const explain = await callAISemanticExplain(raw, semanticQuery, lastSemanticSelection.items);
-        //   return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
-        // }
-
-        // // 8) MODE SIMPLE (comme avant) : on renvoie juste une liste textuelle
-        // lastPresentedResults = finalList;
-
-        // return formatResults(finalList);
       }
 
       // Gestion de la recherche sémantique locale (planning / stock courant)
@@ -8425,11 +8396,8 @@ function openSheetAssistantChat() {
         
         const searchSpaceLabel = searchSpace === 'current_schedule' ? 'planning' : 'stock';
 
-        // 👉 Follow-up = on réutilise l’intent précédent (ex: "3 autres", "même style mais…")
-        // => on DOIT relancer une recherche + anti-répétition (pas relire un cache)
-        // const isFollowUp =
-        //   meta.uses_previous_intent &&
-        //   meta.previous_intent_relation === "same_but_modified";
+        // isFollowUp: demande en lien avec l’intent précédent (ex: "3 autres", "analyse les mêmes")
+        // others: demande de nouveaux résultats
         const isFollowUp =meta.uses_previous_intent;
         const others = meta.previous_intent_relation === "others";
 
@@ -8444,7 +8412,7 @@ function openSheetAssistantChat() {
           return `Désolé je n'ai trouvé aucun spectacle correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
         
-        // 1) Filtrage logique sur df
+        // Filtrage sur df
         const localRows = filterCurrentScheduleWithIntent(df, intentJson);
         if (!localRows.length) {
           return `Désolé je n'ai trouvé aucun spectacle correspondant à votre demande dans votre ${searchSpaceLabel}.`;
@@ -8462,13 +8430,13 @@ function openSheetAssistantChat() {
           keyToLocalRows.get(k).push(r);
         }
        
-        // 2) Requête sémantique effective
+        // Requête sémantique effective
         const semanticQuery =
           intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
             ? intentJson.semantic.embedding_query.trim()
             : raw;
 
-        // 3) Construction clés locales + map key -> rows[]
+        // Construction des clés locales + map key -> rows[]
         const keyToRows = new Map();
         const keys = [];
 
@@ -8484,12 +8452,12 @@ function openSheetAssistantChat() {
           return `Je n'ai pas de clé exploitable pour traiter votre ${searchSpaceLabel}.`;
         }
 
-        // 4) Nombre de candidats demandés au worker (plus large sur follow-up pour éviter répétitions)
+        // Nombre de candidats demandés au worker (plus large sur follow-up pour éviter répétitions)
         const workerTopK = isFollowUp
           ? Math.min(limit * 4, keys.length, 50)
           : Math.min(limit * 3, keys.length, 50);
 
-        // 5) Scoring côté worker (diversification/ranking gérés côté worker)
+        // Filtrage complémentaire (celui fait côté worker sur données index) et scoring  (diversification/ranking gérés côté worker)
         const { scores, is_truncated } = await scoreAISemanticWithKeys(
           semanticQuery,
           keys,
@@ -8504,37 +8472,23 @@ function openSheetAssistantChat() {
           return `Je n'ai pas réussi à classer les spectacles par pertinence dans votre ${searchSpaceLabel}.`;
         }
 
-        // 6) Anti-répétition sur follow-up (même logique que global)
-        //    - on privilégie les spectacles pas encore vus dans ce "thread"
-        //    - si pas assez, on complète avec des déjà vus
         let candidateScores = scores;
 
+        // Si demande de nouveaux résultats on sélectionne des non-vus
         if (isFollowUp && others) {
           if (!seenSemanticKeysLocal) seenSemanticKeysLocal = new Set();
-
-          // const fresh = scores.filter(s => s.key && !seenSemanticKeysLocal.has(s.key));
-
-          // if (fresh.length >= limit) {
-          //   candidateScores = fresh;
-          // } else {
-          //   const stillNeeded = limit - fresh.length;
-          //   const alreadySeen = scores.filter(s => s.key && seenSemanticKeysLocal.has(s.key));
-          //   const backfill    = alreadySeen.slice(0, Math.max(0, stillNeeded));
-          //   candidateScores   = fresh.concat(backfill);
-          // }
-          // on sélectionne des non-vus
           candidateScores = scores.filter(s => s.key && !seenSemanticKeysLocal.has(s.key));
         }
 
         if (!candidateScores.length) {
-          if (isFollowUp) return `Je n'ai pas trouvé de spectacles supplémentaires correspondant à votre demande dans votre ${searchSpaceLabel}.`;
+          if (others) return `Je n'ai pas trouvé de spectacles supplémentaires correspondant à votre demande dans votre ${searchSpaceLabel}.`;
           else return `Je n'ai pas trouvé de spectacles correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
 
-        // 7) Liste finale = les `limit` premiers (ordre déjà prêt à servir par le worker)
+        // Liste finale passée à l'étage Explain
         const finalScores = candidateScores; //.slice(0, limit);
 
-        // 8) Marquer “vus” + préparer lastSemanticSelection.items
+        // Marquer “vus” + préparer lastSemanticSelection.items
         if (!seenSemanticKeysLocal) {
           seenSemanticKeysLocal = new Set();
         }
@@ -8568,42 +8522,9 @@ function openSheetAssistantChat() {
         };
 
         const explain = await callAISemanticExplain(raw, semanticQuery, items);
+        lastPresentedResults = explain.results;
         return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
 
-        // // 9) MODE AUGMENTED : on n’analyse que sur la sélection réellement présentée
-        // if (searchMode === "augmented") {
-        //   const explain = await callAISemanticExplain(raw, semanticQuery, items);
-        //   return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
-        // }
-
-        // // 10) MODE SIMPLE : affichage basé sur df local (avec scoreMap)
-        // const scoreMap = new Map();
-        // for (const s of finalScores) {
-        //   if (!s.key) continue;
-        //   const sc = Number(s.score) || 0;
-        //   if (!scoreMap.has(s.key) || scoreMap.get(s.key) < sc) scoreMap.set(s.key, sc);
-        // }
-
-        // // reconstruire les rows locales correspondant aux keys sélectionnées
-        // const pickedRowsWithScore = [];
-        // for (const s of finalScores) {
-        //   const rowsForKey = keyToRows.get(s.key) || [];
-        //   for (const r of rowsForKey) {
-        //     pickedRowsWithScore.push({ 
-        //       row: r, 
-        //       score: Number(s.score) || 0, 
-        //       avis: s.avis, 
-        //       desc_summary: s.desc_summary, 
-        //       avis_summary: s.avis_summary,
-        //       mood: s.mood
-        //     });
-        //   }
-        // }
-        // const isTruncatedFinal = pickedRowsWithScore.length < scores.length || is_truncated;
-
-        // lastPresentedResults = pickedRowsWithScore;
-
-        // return formatResults(pickedRowsWithScore);
       }
 
       async function copyInputToClipboard() {
@@ -8787,6 +8708,8 @@ function openSheetAssistantChat() {
           Date:     null,
 
           __uuid: crypto.randomUUID(),
+          __desc_summary: r.desc_summary,
+          __avis_summary: r.avis_summary,
         };
 
         // (optionnel) cache séances si tu l’utilises :
