@@ -7474,7 +7474,7 @@ function openSheetAssistantChat() {
             <textarea id="ai-request"
                       class="ai-input"
                       rows="3"
-                      placeholder="Posez vos questions… (ex : propose 3 pièces de Molière, fais un résumé du planning, etc.)"></textarea>
+                      placeholder="Posez vos questions… (ex : propose 3 pièces de Molière du Off, fais un résumé du planning, etc.)"></textarea>
           </div>
           <div class="ai-reset-wrapper">
             <button id="btn-ai-reset"
@@ -8695,7 +8695,7 @@ function openSheetAssistantChat() {
           Debut:    r.debut ?? "",
           Duree:    r.duree ?? "",
           Fin:      r.fin ?? "",
-          Lieu:     r.lieu ?? "",
+          Mood:     r.mood ?? "",
 
           Hyperlien:   r.hyperlien ?? null,
           HyperlienBR: r.hyperlienBR ?? null,
