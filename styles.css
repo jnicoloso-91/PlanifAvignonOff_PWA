@@ -2334,7 +2334,7 @@ input[type="range"]:focus::-moz-range-thumb {
 .bb-popover{
   position: fixed;
   z-index: 99999;
-  max-width: min(350px, 78vw);
+  max-width: min(200px, 78vw);
   min-width: 260px;
   background: #fff;
   border: 1px solid #cfd7e6;
