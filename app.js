@@ -8028,6 +8028,8 @@ function openSheetAssistantChat() {
 
         const js = await res.json();
 
+        console.log(`${js.sl} ${js.total_matches}`)
+
         return {
           results: Array.isArray(js.results) ? js.results : [],
           total_matches: Number.isFinite(js.total_matches)
@@ -8095,7 +8097,8 @@ function openSheetAssistantChat() {
           context: "current_utterance_results",
           origin: selectionOrigin,
           base_utterance: baseUtterance,
-          total_matches: totalMatches
+          total_matches: totalMatches,
+          free_speech_context: freeSpeechContext
         };
 
         const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-explain", {
@@ -8128,7 +8131,8 @@ function openSheetAssistantChat() {
           context: "base_utterance_results",
           origin: selectionOrigin,
           base_utterance: baseUtterance,
-          total_matches: totalMatches
+          total_matches: totalMatches,
+          free_speech_context: freeSpeechContext
         };
 
         const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/semantic-explain", {
@@ -8237,8 +8241,10 @@ function openSheetAssistantChat() {
 
         // isFollowUp: demande en lien avec l’intent précédent (ex: "3 autres", "analyse les mêmes")
         // others: demande de nouveaux résultats
+        // sameButModified: nouvelle recherche avec previous_intent modifié  
         const isFollowUp = meta.uses_previous_intent;
         const others = meta.previous_intent_relation === "others";
+        const sameButModified = meta.previous_intent_relation === "same_but_modified";
 
         // Requête sémantique effective
         const semanticQuery =
@@ -8272,18 +8278,14 @@ function openSheetAssistantChat() {
         );
 
         // Met à jour le totalMatches si on n'est pas en follow up
-        if (!isFollowUp) totalMatches = total_matches;
+        if (!isFollowUp || (isFollowUp && sameButModified)) totalMatches = total_matches;
         
         if (!results || !results.length) {
-          return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
-        }
-
-        let candidateList = results;
-
-        if (!candidateList.length) {
           if (others) return "Désolé il n'existe aucun autre spectacle correspondant à votre demande."
           else return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
         }
+
+        let candidateList = results;
 
         // Liste finale passée à l'étage Explain (index filtré moins les déjà vus si demande de nouveaux résultats)
         const finalList = candidateList.slice(0, limit);
@@ -8401,8 +8403,10 @@ function openSheetAssistantChat() {
 
         // isFollowUp: demande en lien avec l’intent précédent (ex: "3 autres", "analyse les mêmes")
         // others: demande de nouveaux résultats
+        // sameButModified: nouvelle recherche avec previous_intent modifié  
         const isFollowUp =meta.uses_previous_intent;
         const others = meta.previous_intent_relation === "others";
+        const sameButModified = meta.previous_intent_relation === "same_but_modified";
 
         let df = ctx.df;
 
@@ -8423,7 +8427,8 @@ function openSheetAssistantChat() {
         // Filtrage local
         const localRows = filterCurrentScheduleWithIntent(df, intentJson);
         if (!localRows.length) {
-          return `Désolé je n'ai trouvé aucun spectacle correspondant à votre demande dans votre ${searchSpaceLabel}.`;
+          if (others) return `Je n'ai pas trouvé de spectacles supplémentaires correspondant à votre demande dans votre ${searchSpaceLabel}.`;
+          else return `Je n'ai pas trouvé de spectacles correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
 
         // key -> [rows du planning local]
@@ -8481,7 +8486,7 @@ function openSheetAssistantChat() {
         }
 
         // Met à jour le totalMatches si on n'est pas en follow up
-        if (!isFollowUp) totalMatches = total_matches;
+        if (!isFollowUp || (isFollowUp && sameButModified)) totalMatches = total_matches;
 
         let candidateScores = scores;
 
