@@ -8010,8 +8010,8 @@ function openSheetAssistantChat() {
       // Appelle la route /ai/semantic-wf du worker CloudFlare.
       // Cette fonction est utilisée pour filtrer via le paramètre filters, puis scorer l'index global, comme suite à une analyse d'intention IA.
       // Typiquement le paramètre filters provient de l'analyse d'intention IA qui renvoie un objet QueryIntent.filters à partir d'une query textuelle libre.
-      async function scoreAISemanticWithFilters(query, topK = 10, filters = null, scope = null, selectionMode="scored") {
-        const body = { query, topK, selection_mode: selectionMode };
+      async function scoreAISemanticWithFilters(query, already_seen, topK = 10, filters = null, scope = null, selectionMode="scored") {
+        const body = { query, already_seen, topK, selection_mode: selectionMode };
         if (filters) body.filters = filters;
         if (scope)   body.scope   = scope;
 
@@ -8055,10 +8055,8 @@ function openSheetAssistantChat() {
             query, 
             keys, 
             topK, 
-            selection_mode: 
-            selectionMode, 
-            distribution_filter: 
-            distributionFilter, 
+            selection_mode: selectionMode, 
+            distribution_filter: distributionFilter, 
             mood_filter: moodFilter, 
             kwd_filter: kwdFilter })
         });
@@ -8233,9 +8231,9 @@ function openSheetAssistantChat() {
         const selectionMode = getSelectionModeFromIntent(intentJson);    // "random" | "scored"
         const limit         = getLimitFromIntent(intentJson, 10);        // nb demandé (ex: 3)
         const meta          = intentJson?.meta || {};
-        // const searchMode    = meta.search_mode || "simple";              // "simple" | "augmented"
         const scope         = intentJson?.scope || null;
         const festivals     = scope?.festival || [];
+        // const searchMode    = meta.search_mode || "simple";              // "simple" | "augmented"
 
         // isFollowUp: demande en lien avec l’intent précédent (ex: "3 autres", "analyse les mêmes")
         // others: demande de nouveaux résultats
@@ -8248,24 +8246,33 @@ function openSheetAssistantChat() {
             ? intentJson.semantic.embedding_query.trim()
             : raw;
 
-        const filters = intentJson?.filters || null;
-
         // Nombre de candidats demandés au worker
         // On demande un peu plus large sur les follow-up pour avoir de quoi éviter les répétitions.
-        const workerLimit = isFollowUp
-          ? Math.min(limit * 4, 50)
-          : Math.min(limit * 3, 50);
+        // const workerLimit = isFollowUp
+        //   ? Math.min(limit * 4, 50)
+        //   : Math.min(limit * 3, 50);
+        const workerLimit = limit;
 
-        // Filtre et scoring sur index In/Off (diversification + ranking gérés côté worker)
+        // Si demande de nouveaux résultats on enlève les déjà vus 
+        let alreadySeen = [];
+        if (isFollowUp && others && seenSemanticKeysGlobal && seenSemanticKeysGlobal.size > 0) {
+          alreadySeen = [...seenSemanticKeysGlobal]; 
+        }
+
+        const filters = intentJson?.filters || null;
+
+        // Filtre et scoring sur index In/Off moins les déja vus (diversification + ranking gérés côté worker)
         const { results, total_matches, is_truncated } = await scoreAISemanticWithFilters(
           semanticQuery,
+          alreadySeen,
           workerLimit,
           filters,
           scope,
           selectionMode
         );
 
-        totalMatches = total_matches;
+        // Met à jour le totalMatches si on n'est pas en follow up
+        if (!isFollowUp) totalMatches = total_matches;
         
         if (!results || !results.length) {
           return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
@@ -8273,29 +8280,14 @@ function openSheetAssistantChat() {
 
         let candidateList = results;
 
-        // Si demande de nouveaux résultats on sélectionne des non-vus
-        if (isFollowUp && others && seenSemanticKeysGlobal && seenSemanticKeysGlobal.size > 0) {
-          candidateList = results.filter(r => r._index_key && !seenSemanticKeysGlobal.has(r._index_key)); 
-        }
-
         if (!candidateList.length) {
           if (others) return "Désolé il n'existe aucun autre spectacle correspondant à votre demande."
           else return "Désolé il n'existe aucun spectacle correspondant à votre demande.";
         }
 
         // Liste finale passée à l'étage Explain (index filtré moins les déjà vus si demande de nouveaux résultats)
-        const finalList = candidateList; //.slice(0, limit);
+        const finalList = candidateList.slice(0, limit);
         const isTruncatedFinal = finalList.length < results.length || is_truncated;
-
-        // Mémorisation de la sélection finale
-        if (!seenSemanticKeysGlobal) {
-          seenSemanticKeysGlobal = new Set();
-        }
-        finalList.forEach(r => {
-          if (r._index_key) {
-            seenSemanticKeysGlobal.add(r._index_key);
-          }
-        });
 
         lastSemanticSelection = {
           origin: "global",
@@ -8310,6 +8302,17 @@ function openSheetAssistantChat() {
 
         const explain = await callAISemanticExplain(raw, semanticQuery, lastSemanticSelection.items);
         lastPresentedResults = explain.results;
+
+        // Marquer les déjà "vus"
+        if (!seenSemanticKeysGlobal) {
+          seenSemanticKeysGlobal = new Set();
+        }
+        lastPresentedResults.forEach(r => {
+          if (r._index_key) {
+            seenSemanticKeysGlobal.add(r._index_key);
+          }
+        });
+
         return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
 
       }
@@ -8412,13 +8415,16 @@ function openSheetAssistantChat() {
           return `Désolé je n'ai trouvé aucun spectacle correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
         
-        // Filtrage sur df
+        // Si demande de nouveaux résultats on enlève les déjà vus 
+        if (isFollowUp && others && seenSemanticKeysLocal && seenSemanticKeysLocal.size > 0) {
+          df = df.filter(r => { const k = makeFullKey(r) && !seenSemanticKeysLocal.has(k) });
+        }
+
+        // Filtrage local
         const localRows = filterCurrentScheduleWithIntent(df, intentJson);
         if (!localRows.length) {
           return `Désolé je n'ai trouvé aucun spectacle correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
-
-        totalMatches = localRows.length;
 
         // key -> [rows du planning local]
         const keyToLocalRows = new Map();
@@ -8453,12 +8459,13 @@ function openSheetAssistantChat() {
         }
 
         // Nombre de candidats demandés au worker (plus large sur follow-up pour éviter répétitions)
-        const workerTopK = isFollowUp
-          ? Math.min(limit * 4, keys.length, 50)
-          : Math.min(limit * 3, keys.length, 50);
+        // const workerTopK = isFollowUp
+        //   ? Math.min(limit * 4, keys.length, 50)
+        //   : Math.min(limit * 3, keys.length, 50);
+        const workerTopK = limit;
 
         // Filtrage complémentaire (celui fait côté worker sur données index) et scoring  (diversification/ranking gérés côté worker)
-        const { scores, is_truncated } = await scoreAISemanticWithKeys(
+        const { scores, total_matches, is_truncated } = await scoreAISemanticWithKeys(
           semanticQuery,
           keys,
           workerTopK,
@@ -8469,33 +8476,17 @@ function openSheetAssistantChat() {
         );
 
         if (!scores || !scores.length) {
-          return `Je n'ai pas réussi à classer les spectacles par pertinence dans votre ${searchSpaceLabel}.`;
-        }
-
-        let candidateScores = scores;
-
-        // Si demande de nouveaux résultats on sélectionne des non-vus
-        if (isFollowUp && others) {
-          if (!seenSemanticKeysLocal) seenSemanticKeysLocal = new Set();
-          candidateScores = scores.filter(s => s.key && !seenSemanticKeysLocal.has(s.key));
-        }
-
-        if (!candidateScores.length) {
           if (others) return `Je n'ai pas trouvé de spectacles supplémentaires correspondant à votre demande dans votre ${searchSpaceLabel}.`;
           else return `Je n'ai pas trouvé de spectacles correspondant à votre demande dans votre ${searchSpaceLabel}.`;
         }
 
+        // Met à jour le totalMatches si on n'est pas en follow up
+        if (!isFollowUp) totalMatches = total_matches;
+
+        let candidateScores = scores;
+
         // Liste finale passée à l'étage Explain
-        const finalScores = candidateScores; //.slice(0, limit);
-
-        // Marquer “vus” + préparer lastSemanticSelection.items
-        if (!seenSemanticKeysLocal) {
-          seenSemanticKeysLocal = new Set();
-        }
-
-        finalScores.forEach(s => {
-          if (s.key) seenSemanticKeysLocal.add(s.key);
-        });
+        const finalScores = candidateScores.slice(0, limit);
 
         const items = [];
         for (const s of finalScores) {
@@ -8523,6 +8514,15 @@ function openSheetAssistantChat() {
 
         const explain = await callAISemanticExplain(raw, semanticQuery, items);
         lastPresentedResults = explain.results;
+
+        // Marquer les “vus” 
+        if (!seenSemanticKeysLocal) {
+          seenSemanticKeysLocal = new Set();
+        }
+        lastPresentedResults.forEach(s => {
+          if (s._index_key) seenSemanticKeysLocal.add(s._index_key);
+        });
+
         return explain.answer || "Je n'ai pas réussi à analyser ces spectacles.";
 
       }
@@ -8578,6 +8578,7 @@ function openSheetAssistantChat() {
           const previousIntent = lastSemanticIntent || null;
           const intentJson = await callAIQueryUnderstand(raw, previousIntent);
 
+          // Ajoute les auteurs et acteurs demandés dans les mots clefs
           mergeAuteursIntoKeywords(intentJson);
           mergeActeursIntoKeywords(intentJson);
 
@@ -8586,16 +8587,26 @@ function openSheetAssistantChat() {
           lastSemanticIntent = intentJson || null;
 
           const topIntent      = intentJson?.intent || "unknown";
-          const searchSpace    = intentJson?.scope?.search_space || "full_festival";
-          const selectionMode  = intentJson?.results?.selection_mode || "scored";
-          // const searchMode     = intentJson?.meta?.search_mode
-          //                       || (topIntent === "search_shows" ? "simple" : "none");
           const freeAnswer     = intentJson?.free_answer || null;
+          const meta           = intentJson?.meta || {};
+          
+          // isFollowUp: demande en lien avec l’intent précédent (ex: "3 autres", "analyse les mêmes")
+          // others: demande de nouveaux résultats
+          const isFollowUp = meta.uses_previous_intent;
+          const others = meta.previous_intent_relation === "others";
+
+          // Correction de intentJson au cas où le retour de callAIQueryUnderstand est incohérent
+          if (isFollowUp && intentJson && previousIntent) {
+            intentJson.filters = previousIntent.filters;
+            intentJson.scope = previousIntent.scope;
+            intentJson.semantic = previousIntent.semantic;            
+          }
+
+          const searchSpace    = intentJson?.scope?.search_space || "full_festival";
           const semanticQuery  = intentJson?.semantic?.embedding_query && intentJson.semantic.embedding_query.trim()
               ? intentJson.semantic.embedding_query.trim()
               : raw;
 
-          const meta = intentJson?.meta || {};
           const isSearch = (topIntent === "search_shows");
           const freeSpeech = (topIntent === "free_speech");
 
