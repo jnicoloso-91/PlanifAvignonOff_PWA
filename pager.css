@@ -446,7 +446,7 @@ html, body {
 .page--catalogs {
   overflow-x: hidden;               /* pas de scroll horizontal natif (pour ne pas inteférer avec le swip est géré par le pager parent) */
   overflow-y: hidden;               /* pas de scroll vertical */
-  touch-action: pan-y;              /* idem : on laisse le vertical natif */
+  touch-action: pan-x pan-y;              /* idem : on laisse le vertical natif */
   -webkit-overflow-scrolling: touch;/* fluidité verticale iOS */
 }
 
