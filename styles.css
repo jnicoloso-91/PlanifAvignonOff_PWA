@@ -2419,3 +2419,8 @@ input[type="range"]:focus::-moz-range-thumb {
 .st-expander-body .ag-center-cols-viewport{
   min-height: 0;
 }
+
+.st-expander-body .ag-root-wrapper,
+.st-expander-body .ag-root-wrapper-body{
+  height: 100%;
+}
