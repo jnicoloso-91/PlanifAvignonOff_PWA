@@ -1927,7 +1927,7 @@ function buildColumnsActivitesCommon(){
       }
     },
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer },
-    // { field:'__desc_summary', headerName: '', width, minWidth:40, filter: false, sortable: false ,  cellRenderer: infosPlusPopoverCellRenderer },
+    { field:'__desc_summary', headerName: '', width, minWidth:40, filter: false, sortable: false ,  cellRenderer: infosPlusPopoverCellRenderer },
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width },
@@ -10788,7 +10788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireExpanderButtons();
   wireAppKebab();
   initSheetGrids();
-  // wireInfosPlusPopup();
+  wireInfosPlusPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
 
