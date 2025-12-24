@@ -136,16 +136,16 @@ import {
   }
 
   // Écouteurs
-  // if (window.PointerEvent){
-  //   pager.addEventListener('pointerdown', onStart, { passive:true });
-  //   window.addEventListener('pointermove', onMove, { passive:false });
-  //   window.addEventListener('pointerup',   onEnd,  { passive:true });
-  //   window.addEventListener('pointercancel', onEnd, { passive:true });
-  // } else {
-  //   pager.addEventListener('touchstart', onStart, { passive:true });
-  //   window.addEventListener('touchmove',  onMove, { passive:false });
-  //   window.addEventListener('touchend',   onEnd,  { passive:true });
-  // }
+  if (window.PointerEvent){
+    pager.addEventListener('pointerdown', onStart, { passive:true });
+    window.addEventListener('pointermove', onMove, { passive:false });
+    window.addEventListener('pointerup',   onEnd,  { passive:true });
+    window.addEventListener('pointercancel', onEnd, { passive:true });
+  } else {
+    pager.addEventListener('touchstart', onStart, { passive:true });
+    window.addEventListener('touchmove',  onMove, { passive:false });
+    window.addEventListener('touchend',   onEnd,  { passive:true });
+  }
 
   window.addEventListener('resize', () => { measure(); goto(index, false); });
 
