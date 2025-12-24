@@ -10784,7 +10784,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireBottomBar();
   wireGrids();
   wireExpanders();
-  wireExpanderSplitters();
+  // wireExpanderSplitters();
   wireExpanderButtons();
   wireAppKebab();
   initSheetGrids();
