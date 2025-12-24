@@ -2397,34 +2397,25 @@ input[type="range"]:focus::-moz-range-thumb {
 /* hhhhhhhhhhhhhhhhhhhh */
 
 
-/* le host qui contient la grid */
-.st-expander-body {
-  height: 100%;
-  min-height: 0;
-}
-
-/* chaîne ag-grid : permettre au viewport d’avoir une vraie hauteur scrollable */
-.ag-root-wrapper,
-.ag-root-wrapper-body,
-.ag-root,
-.ag-body,
-.ag-body-viewport,
-.ag-center-cols-viewport {
-  height: 100%;
-  min-height: 0;
-}
-
-/* si ton expander body est dans un layout flex, c’est CRUCIAL */
-.st-expander-body {
-  min-height: 0;
-}
-
-/* si le parent de la grid est flex-column, le host doit prendre la place */
-.st-expander-body {
+/* Le pane Streamlit qui contient la grille */
+.st-expander-body{
   display: flex;
   flex-direction: column;
+  min-height: 0;     /* CRITIQUE */
 }
-.st-expander-body .grid-host {
+
+/* Ton host de grille */
+.st-expander-body > .grid-host{
   flex: 1 1 auto;
+  min-height: 0;     /* CRITIQUE */
+}
+
+/* Chaîne AG Grid : permet au viewport d'avoir une vraie hauteur scrollable */
+.st-expander-body .ag-root-wrapper,
+.st-expander-body .ag-root-wrapper-body,
+.st-expander-body .ag-root,
+.st-expander-body .ag-body,
+.st-expander-body .ag-body-viewport,
+.st-expander-body .ag-center-cols-viewport{
   min-height: 0;
 }
