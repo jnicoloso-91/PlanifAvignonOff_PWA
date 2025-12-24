@@ -10788,7 +10788,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireExpanderButtons();
   wireAppKebab();
   initSheetGrids();
-  wireInfosPlusPopup();
+  // wireInfosPlusPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
 
