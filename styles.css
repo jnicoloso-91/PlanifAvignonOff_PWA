@@ -2394,33 +2394,3 @@ input[type="range"]:focus::-moz-range-thumb {
 .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
 .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
 
-/* hhhhhhhhhhhhhhhhhhhh */
-
-
-/* Le pane Streamlit qui contient la grille */
-.st-expander-body{
-  display: flex;
-  flex-direction: column;
-  min-height: 0;     /* CRITIQUE */
-}
-
-/* Ton host de grille */
-.st-expander-body > .grid-host{
-  flex: 1 1 auto;
-  min-height: 0;     /* CRITIQUE */
-}
-
-/* Chaîne AG Grid : permet au viewport d'avoir une vraie hauteur scrollable */
-.st-expander-body .ag-root-wrapper,
-.st-expander-body .ag-root-wrapper-body,
-.st-expander-body .ag-root,
-.st-expander-body .ag-body,
-.st-expander-body .ag-body-viewport,
-.st-expander-body .ag-center-cols-viewport{
-  min-height: 0;
-}
-
-.st-expander-body .ag-root-wrapper,
-.st-expander-body .ag-root-wrapper-body{
-  height: 100%;
-}
