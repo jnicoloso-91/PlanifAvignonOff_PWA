@@ -21,8 +21,8 @@ html, body {
 #pager {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   overflow: hidden;              /* masque le débordement horizontal */
   touch-action: pan-y;           /* on gère le pan-x en JS */
   background: #fff;              /* fond par défaut */
@@ -42,9 +42,8 @@ html, body {
 
 /* Chaque page : 100vw x 100vh, pas de grow/shrink */
 #pager .pager-track > .page {
-  flex: 0 0 100vw;
-  width: 100vw;
-  /* height: 100vh; */
+  flex: 0 0 100%;
+  width: 100%;
   box-sizing: border-box;
   overflow: auto;                /* scroll vertical interne par page */
   -webkit-overflow-scrolling: touch;
