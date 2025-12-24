@@ -1553,8 +1553,8 @@ function wireExpanderButtons() {
     onClick: () => {
       openKebabMenu($('btn-col-non-prog'), {
         items: [
-          { id:'add-column',       label:"Ajouter",        onClick: ()=>doAjouterColonne() },
-          { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
+          // { id:'add-column',       label:"Ajouter",        onClick: ()=>doAjouterColonne() },
+          // { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
         ]
       });
     },
