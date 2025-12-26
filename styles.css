@@ -570,7 +570,8 @@ main, .page-wrap {
 #gridA, #gridB, #gridC, #gridD {
   overflow: auto;
   -webkit-overflow-scrolling: touch; /* inertie iOS */
-  touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
+  /*touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
+  touch-action: pan-x pan-y;                
   overscroll-behavior: contain;       /* évite le rebond qui “fait bouger” la page */
 }
 
