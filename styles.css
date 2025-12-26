@@ -513,7 +513,7 @@ main, .page-wrap {
 }
 
 .ag-root, .ag-root * { -webkit-user-select: text; user-select: text; }
-[id^="grid"], #grid { touch-action: manipulation; }
+/* [id^="grid"], #grid { touch-action: manipulation; } */
 
 /* la grille occupe 100% de la hauteur du panneau */
 .grid-host { height: 100%; min-height: 0; }
@@ -569,8 +569,8 @@ main, .page-wrap {
 #gridA, #gridB, #gridC, #gridD {
   overflow: auto;
   -webkit-overflow-scrolling: touch; /* inertie iOS */
-  touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
   overscroll-behavior: contain;       /* évite le rebond qui “fait bouger” la page */
+  /*touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
 }
 
 /* Couches internes d'AG Grid qui gèrent le scroll */
@@ -2399,20 +2399,63 @@ input[type="range"]:focus::-moz-range-thumb {
 /* ==========================*/
 
 /* Evite les scrollers concurrents */
-.ag-root-wrapper-body {
+/* .ag-root-wrapper-body {
+  overflow: hidden !important;
+} */
+
+/* Laisse un seul viewport gérer les 2 directions */
+/* .ag-body-viewport { */
+  /*overflow: auto !important;                 /* <= auto dans les 2 axes */
+  /* -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior: contain;
+} */
+
+/* Les autres viewports ne doivent pas voler le scroll */
+/* .ag-center-cols-viewport { */
+  /*overflow: visible !important;              /* ou hidden selon ton thème */
+  /* touch-action: auto !important;
+} */
+
+/* ========= AG GRID TOUCH SCROLL (Android/iOS) ========= */
+/* Met ça TOUT EN BAS du style.css pour gagner contre les overrides précédents */
+
+/* 0) Reset des overrides tactiles trop agressifs */
+.ag-theme-quartz .ag-cell,
+.ag-theme-quartz .ag-cell *{
+  touch-action: auto !important;
+}
+
+/* 1) Evite les scrollers concurrents */
+.ag-theme-quartz .ag-root-wrapper-body{
   overflow: hidden !important;
 }
 
-/* Laisse un seul viewport gérer les 2 directions */
-.ag-body-viewport {
-  overflow: auto !important;                 /* <= auto dans les 2 axes */
+/* 2) Y = scroller vertical principal */
+.ag-theme-quartz .ag-body-viewport{
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;
+  touch-action: pan-y !important;
   overscroll-behavior: contain;
 }
 
-/* Les autres viewports ne doivent pas voler le scroll */
-.ag-center-cols-viewport {
-  overflow: visible !important;              /* ou hidden selon ton thème */
-  touch-action: auto !important;
+/* 3) X = scroller horizontal principal (celui qui drive le header) */
+.ag-theme-quartz .ag-center-cols-viewport{
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+  overscroll-behavior: contain;
+}
+
+/* 4) Header : ne doit pas devenir un scroller indépendant */
+.ag-theme-quartz .ag-header-viewport{
+  overflow: hidden !important;
+}
+
+/* 5) Important : aucun overlay ne doit voler les events */
+.ag-theme-quartz .ag-row::before,
+.ag-theme-quartz .ag-row::after{
+  pointer-events: none !important;
 }
