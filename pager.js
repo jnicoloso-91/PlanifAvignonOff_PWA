@@ -104,40 +104,89 @@ import {
     track.style.transition = ''; // optionnel
   }
 
-  function onStart(ev){
-    const t = ev.touches ? ev.touches[0] : ev;
+  // function onStart(ev){
+  //   const t = ev.touches ? ev.touches[0] : ev;
 
-		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
-		const target = ev.target;
-		if (isInNoSwipeZone(target)) cancelPagerDrag();  // <- Et non return
+	// 	// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
+	// 	const target = ev.target;
+	// 	if (isInNoSwipeZone(target)) cancelPagerDrag();  // <- Et non return
 
-		startX = curX = t.clientX;
-    startY = t.clientY;
-    dragging = true; engaged = false;
-    track.style.transition = 'none';
-  }
-  function onMove(ev){
-    if (!dragging) return;
-    const t  = ev.touches ? ev.touches[0] : ev;
-    curX     = t.clientX;
-    const dx = curX - startX;
-    const dy = t.clientY - startY;
+	// 	startX = curX = t.clientX;
+  //   startY = t.clientY;
+  //   dragging = true; engaged = false;
+  //   track.style.transition = 'none';
+  // }
+  // function onMove(ev){
+  //   if (!dragging) return;
+  //   const t  = ev.touches ? ev.touches[0] : ev;
+  //   curX     = t.clientX;
+  //   const dx = curX - startX;
+  //   const dy = t.clientY - startY;
 
-    if (!engaged){
-      if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
-      if (Math.abs(dx) > Math.abs(dy)){
-        engaged = true;
-        pager.classList.add('is-dragging');
-      } else {
-        // dragging = false; // geste vertical
-        cancelPagerDrag();
-        return;
-      }
+  //   if (!engaged){
+  //     if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+  //     if (Math.abs(dx) > Math.abs(dy)){
+  //       engaged = true;
+  //       pager.classList.add('is-dragging');
+  //     } else {
+  //       // dragging = false; // geste vertical
+  //       cancelPagerDrag();
+  //       return;
+  //     }
+  //   }
+
+  //   ev.preventDefault?.(); // bloque le scroll pendant le drag
+  //   applyTransform((-index * pageW) + dx, false);
+  // }
+function onStart(ev){
+  const t = ev.touches ? ev.touches[0] : ev;
+
+  // reset systématique au début d’un nouveau geste
+  dragging = false;
+  engaged  = false;
+
+  const target = ev.target;
+  if (isInNoSwipeZone(target)) return;
+
+  startX = curX = t.clientX;
+  startY = t.clientY;
+  dragging = true;
+  track.style.transition = 'none';
+}
+function onCancel(){
+  dragging = false;
+  engaged  = false;
+  pager.classList.remove('is-dragging');
+  // optionnel : re-snap
+  goto(index, true);
+}
+function onMove(ev){
+  if (!dragging) return;
+  const t  = ev.touches ? ev.touches[0] : ev;
+  curX     = t.clientX;
+  const dx = curX - startX;
+  const dy = t.clientY - startY;
+
+  if (!engaged){
+    if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+
+    if (Math.abs(dx) > Math.abs(dy)){
+      engaged = true;
+      pager.classList.add('is-dragging');
+    } else {
+      // geste vertical => on abandonne ET on reset proprement
+      dragging = false;
+      engaged  = false;
+      pager.classList.remove('is-dragging');
+      return;
     }
-
-    ev.preventDefault?.(); // bloque le scroll pendant le drag
-    applyTransform((-index * pageW) + dx, false);
   }
+
+  // ICI seulement on bloque le scroll natif
+  ev.preventDefault?.();
+  applyTransform((-index * pageW) + dx, false);
+}
+
   function onEnd(){
     if (!dragging) return;
     dragging = false;
@@ -163,7 +212,8 @@ import {
     pager.addEventListener('touchstart', onStart, { passive:true });
     window.addEventListener('touchmove',  onMove, { passive:false });
     window.addEventListener('touchend',   onEnd,  { passive:true });
-    window.addEventListener('touchcancel',   () => cancelPagerDrag(),  { passive:true });  // <- Ajout
+    // window.addEventListener('touchcancel',   () => cancelPagerDrag(),  { passive:true });  // <- Ajout
+    window.addEventListener('touchcancel',  onCancel,  { passive:true });  // <- Ajout
   }
 
   window.addEventListener('resize', () => { measure(); goto(index, false); });
