@@ -87,12 +87,19 @@ import {
 		return !!(evTarget && evTarget.closest && evTarget.closest(NO_SWIPE_START));
 	}
 
+  function cancelPagerDrag(){
+    dragging = false;
+    engaged = false;
+    pager.classList.remove('is-dragging');
+    track.style.transition = ''; // optionnel
+  }
+
   function onStart(ev){
     const t = ev.touches ? ev.touches[0] : ev;
 
 		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
 		const target = ev.target;
-		if (isInNoSwipeZone(target)) return;
+		if (isInNoSwipeZone(target)) cancelPagerDrag();
 
 		startX = curX = t.clientX;
     startY = t.clientY;
