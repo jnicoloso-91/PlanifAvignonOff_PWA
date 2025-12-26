@@ -2454,28 +2454,21 @@ input[type="range"]:focus::-moz-range-thumb {
    AG Grid: Y + X au touch
    ========================= */
 
-/* 1) Vertical scroll = SEULEMENT ici */
-.ag-body-viewport {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important;         /* ✅ swipe vertical dans la grille */
-}
-
-/* 2) Horizontal scroll (swipe dans les cellules) = ici */
+/* Empêche les wrappers de devenir des scrollers concurrents */
+.ag-root-wrapper-body,
 .ag-center-cols-viewport {
-  overflow-x: auto !important;            /* ✅ rend X possible au doigt */
-  overflow-y: hidden !important;          /* évite le double scroll */
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x !important;         /* ✅ swipe horizontal */
-}
-
-/* 3) Le wrapper ne doit pas créer un 2e scroller */
-.ag-root-wrapper-body {
   overflow: hidden !important;
 }
 
-/* 4) Scrollbar horizontal (la “barre du bas” d’AG Grid) */
+/* ✅ Un seul scroller tactile : X + Y */
+.ag-body-viewport {
+  overflow: auto !important;                 /* <-- X ET Y */
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;      /* <-- autorise les deux gestes */
+  overscroll-behavior: contain;
+}
+
+/* Optionnel : garde le “bottom scrollbar” mais sans interférer */
 .ag-body-horizontal-scroll-viewport {
   overflow-x: auto !important;
   overflow-y: hidden !important;
