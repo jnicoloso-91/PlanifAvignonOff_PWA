@@ -2455,26 +2455,26 @@ input[type="range"]:focus::-moz-range-thumb {
    ========================= */
 
 /* Empêche les wrappers de devenir des scrollers concurrents */
-/* .ag-root-wrapper-body,
+.ag-root-wrapper-body,
 .ag-center-cols-viewport {
   overflow: hidden !important;
-} */
+}
 
 /* ✅ Un seul scroller tactile : X + Y */
-/* .ag-body-viewport { */
-  /*overflow: auto !important;                 /* <-- X ET Y */
-  /* -webkit-overflow-scrolling: touch !important; */
-  /*touch-action: pan-x pan-y !important;      /* <-- autorise les deux gestes */
-  /* overscroll-behavior: contain; */
-/* } */
+.ag-body-viewport {
+  overflow: auto !important;                 /* <-- X ET Y */
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;      /* <-- autorise les deux gestes */
+  overscroll-behavior: contain;
+}
 
 /* Optionnel : garde le “bottom scrollbar” mais sans interférer */
-/* .ag-body-horizontal-scroll-viewport {
+.ag-body-horizontal-scroll-viewport {
   overflow-x: auto !important;
   overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x !important;
-} */
+}
 
 /* =========================
    AG Grid: Y + X au touch Option B
@@ -2502,33 +2502,37 @@ input[type="range"]:focus::-moz-range-thumb {
   touch-action: pan-x !important;
 } */
 
+
+/* =========================
+   AG Grid: Y + X au touch Option C
+   ========================= */
 /* 1) Pas de scrollers concurrents */
-.ag-root-wrapper-body {
+/* .ag-root-wrapper-body {
   overflow: hidden !important;
-}
+} */
 
 /* 2) Scroll vertical principal */
-.ag-body-viewport {
+/* .ag-body-viewport {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-y !important;
   overscroll-behavior: contain;
-}
+} */
 
 /* 3) Scroll horizontal directement dans la zone cellules (au doigt) */
-.ag-center-cols-viewport {
+/* .ag-center-cols-viewport {
   overflow-x: auto !important;
   overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x !important;
   overscroll-behavior: contain;
-}
+} */
 
 /* 4) La barre horizontale du bas peut rester (optionnel) */
-.ag-body-horizontal-scroll-viewport {
+/* .ag-body-horizontal-scroll-viewport {
   overflow-x: auto !important;
   overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x !important;
-}
+} */
