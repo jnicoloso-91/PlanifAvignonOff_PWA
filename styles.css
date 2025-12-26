@@ -512,7 +512,7 @@ main, .page-wrap {
   }
 }
 
-.ag-root, .ag-root * { -webkit-user-select: text; user-select: text; }
+/* .ag-root, .ag-root * { -webkit-user-select: text; user-select: text; } */
 /* [id^="grid"], #grid { touch-action: manipulation; } */
 [id^="grid"], #grid { touch-action: auto; }
 
@@ -1395,7 +1395,7 @@ main, .page-wrap {
 }
 
 /* Évite que Safari “interprète” le double tap comme zoom */
-.sheet-body, .sheet-panel, .ag-root {
+.sheet-body, .sheet-panel {
   touch-action: manipulation;  /* important sur iOS */
 }
 
