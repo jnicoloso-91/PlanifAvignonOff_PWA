@@ -2451,7 +2451,7 @@ input[type="range"]:focus::-moz-range-thumb {
 
 
 /* =========================
-   AG Grid: Y + X au touch
+   AG Grid: Y + X au touch Option A
    ========================= */
 
 /* Empêche les wrappers de devenir des scrollers concurrents */
@@ -2476,12 +2476,38 @@ input[type="range"]:focus::-moz-range-thumb {
   touch-action: pan-x !important;
 } */
 
-.ag-root-wrapper-body,
+/* =========================
+   AG Grid: Y + X au touch Option B
+   ========================= */
+
+/* .ag-root-wrapper-body,
 .ag-center-cols-viewport {
+  overflow: hidden !important;
+} */
+
+/* Y uniquement */
+/* .ag-body-viewport {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior: contain;
+} */
+
+/* X uniquement (barre du bas) */
+/* .ag-body-horizontal-scroll-viewport {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+} */
+
+/* 1) Pas de scrollers concurrents */
+.ag-root-wrapper-body {
   overflow: hidden !important;
 }
 
-/* Y uniquement */
+/* 2) Scroll vertical principal */
 .ag-body-viewport {
   overflow-y: auto !important;
   overflow-x: hidden !important;
@@ -2490,7 +2516,16 @@ input[type="range"]:focus::-moz-range-thumb {
   overscroll-behavior: contain;
 }
 
-/* X uniquement (barre du bas) */
+/* 3) Scroll horizontal directement dans la zone cellules (au doigt) */
+.ag-center-cols-viewport {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+  overscroll-behavior: contain;
+}
+
+/* 4) La barre horizontale du bas peut rester (optionnel) */
 .ag-body-horizontal-scroll-viewport {
   overflow-x: auto !important;
   overflow-y: hidden !important;
