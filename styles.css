@@ -2393,3 +2393,26 @@ input[type="range"]:focus::-moz-range-thumb {
 .prog-row .prog-main { flex: 1 1 auto; min-width: 0; }
 .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
 .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
+
+/* ==========================*/
+/*  Pb de scroll dans grid   */
+/* ==========================*/
+
+/* Evite les scrollers concurrents */
+.ag-root-wrapper-body {
+  overflow: hidden !important;
+}
+
+/* Laisse un seul viewport gérer les 2 directions */
+.ag-body-viewport {
+  overflow: auto !important;                 /* <= auto dans les 2 axes */
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior: contain;
+}
+
+/* Les autres viewports ne doivent pas voler le scroll */
+.ag-center-cols-viewport {
+  overflow: visible !important;              /* ou hidden selon ton thème */
+  touch-action: auto !important;
+}
