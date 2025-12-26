@@ -2409,3 +2409,21 @@ input[type="range"]:focus::-moz-range-thumb {
 .ag-root-wrapper-body {
   touch-action: pan-x pan-y !important; /* ou 'auto' */
 }
+
+/* 1) NE PAS bloquer le pan sur les hôtes de grille */
+[id^="grid"], #grid {
+  touch-action: auto !important;   /* ou pan-x pan-y */
+}
+
+/* 2) Autoriser explicitement le scroll tactile à l’intérieur d’AG Grid */
+[id^="grid"] .ag-body-viewport,
+[id^="grid"] .ag-center-cols-viewport {
+  touch-action: pan-x pan-y !important;
+}
+
+/* 3) (optionnel) si AG Grid force manipulation sur .ag-root */
+[id^="grid"] .ag-root,
+[id^="grid"] .ag-root-wrapper,
+[id^="grid"] .ag-root-wrapper-body {
+  touch-action: pan-x pan-y !important;
+}
