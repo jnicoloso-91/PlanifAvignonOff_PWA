@@ -75,13 +75,23 @@ import {
   const THRESH   = 0.18; // 18% largeur
 
 	// Sélecteurs “interactifs” où le pager NE doit PAS se déclencher
-	const NO_SWIPE_START = [
-		'.ag-root', '.ag-root-wrapper', '.ag-header', '.ag-header-cell', '.ag-cell',
-		'.ag-header-cell-resize', '.ag-column-resize', // poignées de resize colonnes
-		'.sheet-panel', '.sheet-header',               // si tu as des sheets
-		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
-		'.st-expander-header'                          // si tu veux aussi ignorer ces headers
-	].join(',');
+	// const NO_SWIPE_START = [
+	// 	'.ag-root', '.ag-root-wrapper', '.ag-header', '.ag-header-cell', '.ag-cell',
+	// 	'.ag-header-cell-resize', '.ag-column-resize', // poignées de resize colonnes
+	// 	'.sheet-panel', '.sheet-header',               // si tu as des sheets
+	// 	'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
+	// 	'.st-expander-header'                          // si tu veux aussi ignorer ces headers
+	// ].join(',');
+  const NO_SWIPE_START = [
+    '.grid-host',                 // ✅ ton conteneur
+    '.ag-root', '.ag-body-viewport', '.ag-center-cols-viewport', // ✅ viewports
+    '.ag-root-wrapper', '.ag-header', '.ag-header-cell', '.ag-cell',
+    '.ag-header-cell-resize', '.ag-column-resize',
+    '.sheet-panel', '.sheet-header',
+    'input', 'select', 'textarea', 'button', 'a',
+    '.st-expander-header'
+  ].join(',');
+
 
 	function isInNoSwipeZone(evTarget){
 		return !!(evTarget && evTarget.closest && evTarget.closest(NO_SWIPE_START));
@@ -99,7 +109,7 @@ import {
 
 		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
 		const target = ev.target;
-		if (isInNoSwipeZone(target)) cancelPagerDrag();
+		if (isInNoSwipeZone(target)) cancelPagerDrag();  // <- Et non return
 
 		startX = curX = t.clientX;
     startY = t.clientY;
@@ -152,7 +162,7 @@ import {
     pager.addEventListener('touchstart', onStart, { passive:true });
     window.addEventListener('touchmove',  onMove, { passive:false });
     window.addEventListener('touchend',   onEnd,  { passive:true });
-    window.addEventListener('touchcancel',   () => cancelPagerDrag(),  { passive:true });
+    window.addEventListener('touchcancel',   () => cancelPagerDrag(),  { passive:true });  // <- Ajout
   }
 
   window.addEventListener('resize', () => { measure(); goto(index, false); });
