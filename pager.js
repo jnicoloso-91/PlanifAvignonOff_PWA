@@ -99,7 +99,7 @@ import {
 
 		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
 		const target = ev.target;
-		if (isInNoSwipeZone(target)) cancelPagerDrag();
+		if (isInNoSwipeZone(target)) return;
 
 		startX = curX = t.clientX;
     startY = t.clientY;
