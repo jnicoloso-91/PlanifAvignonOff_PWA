@@ -129,7 +129,8 @@ import {
         engaged = true;
         pager.classList.add('is-dragging');
       } else {
-        dragging = false; // geste vertical
+        // dragging = false; // geste vertical
+        cancelPagerDrag();
         return;
       }
     }
