@@ -2449,43 +2449,36 @@ input[type="range"]:focus::-moz-range-thumb {
   touch-action: pan-x !important;
 } */
 
-/* =========================================================
-   AG Grid — scroll tactile OK en Y + X (Android/iOS)
-   Objectif :
-   - 1 seul scroller vertical : .ag-body-viewport
-   - scroll horizontal conservé via le scroller horizontal d’AG Grid
-   ========================================================= */
 
-/* 1) Empêche les "double scrollers" verticaux (cause fréquente de bugs touch) */
-.ag-root-wrapper-body,
+/* =========================
+   AG Grid: Y + X au touch
+   ========================= */
+
+/* 1) Vertical scroll = SEULEMENT ici */
+.ag-body-viewport {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;         /* ✅ swipe vertical dans la grille */
+}
+
+/* 2) Horizontal scroll (swipe dans les cellules) = ici */
 .ag-center-cols-viewport {
+  overflow-x: auto !important;            /* ✅ rend X possible au doigt */
+  overflow-y: hidden !important;          /* évite le double scroll */
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;         /* ✅ swipe horizontal */
+}
+
+/* 3) Le wrapper ne doit pas créer un 2e scroller */
+.ag-root-wrapper-body {
   overflow: hidden !important;
 }
 
-/* 2) Scroller vertical principal (au doigt) */
-.ag-body-viewport {
-  overflow-y: auto !important;
-  overflow-x: hidden; /* PAS en !important (AG Grid doit gérer le X ailleurs) */
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important; /* ✅ autorise swipe vertical + horizontal */
-}
-
-/* 3) Scroller horizontal principal (au doigt) */
+/* 4) Scrollbar horizontal (la “barre du bas” d’AG Grid) */
 .ag-body-horizontal-scroll-viewport {
   overflow-x: auto !important;
   overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x !important;
-}
-
-/* 4) (Optionnel mais souvent utile) : autorise le pan-x dans la zone colonnes */
-.ag-center-cols-viewport {
-  touch-action: pan-x pan-y !important;
-}
-
-/* 5) (Optionnel) : inertie iOS sur d’autres viewports/containers impliqués */
-.ag-center-cols-viewport,
-.ag-body-viewport,
-.ag-body-horizontal-scroll-viewport {
-  -webkit-overflow-scrolling: touch !important;
 }
