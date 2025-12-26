@@ -1880,11 +1880,11 @@ body.lock-page-scroll {
 
 /* Si classe d’override overflow visible en édition,
    éviter de l’appliquer au viewport (sinon Safari repart scroller la page) */
-.ag-overflow-visible .ag-body-viewport,
-.ag-overflow-visible .ag-center-cols-viewport {
+/* .ag-overflow-visible .ag-body-viewport,
+.ag-overflow-visible .ag-center-cols-viewport { */
   /* NE PAS remettre visible ici, conserve auto pour le scroll fluide */
-  overflow: auto !important;
-}
+  /* overflow: auto !important; */
+/* } */
 
 /* Petit plus : désactiver les “glissements” latéraux iOS dans les grids si on ne veut pas de pan-x.
    À n’activer que si on n’a pas besoin du scroll horizontal au doigt. */
