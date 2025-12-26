@@ -21,13 +21,19 @@ import {
 	// const hasDF = window.ctx?.df && window.ctx.df.length > 0;
 	// let index = hasDF ? 0 : 1; // 1 = planning, 0 = catalogues
 
-	let dragging = false, engaged = false;
+  let dragging = false, engaged = false;
   let startX = 0, startY = 0, curX = 0;
-  let pageW = pager.clientWidth || window.innerWidth || 1;
+  let pageW = computePageW() ; //pager.clientWidth || window.innerWidth || 1;
 
   function measure(){
-    pageW = pager.clientWidth || window.innerWidth || 1;
+    pageW = computePageW() ; //pager.clientWidth || window.innerWidth || 1;
   }
+
+  function computePageW() {
+    const rect = pager.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    return Math.round(rect.width * dpr) / dpr;
+	}
 
   function applyTransform(px, animate=false){
     track.style.transition = animate ? 'transform .25s ease' : 'none';
@@ -75,118 +81,51 @@ import {
   const THRESH   = 0.18; // 18% largeur
 
 	// Sélecteurs “interactifs” où le pager NE doit PAS se déclencher
-	// const NO_SWIPE_START = [
-	// 	'.ag-root', '.ag-root-wrapper', '.ag-header', '.ag-header-cell', '.ag-cell',
-	// 	'.ag-header-cell-resize', '.ag-column-resize', // poignées de resize colonnes
-	// 	'.sheet-panel', '.sheet-header',               // si tu as des sheets
-	// 	'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
-	// 	'.st-expander-header'                          // si tu veux aussi ignorer ces headers
-	// ].join(',');
-  const NO_SWIPE_START = [
-    '.grid-host',                 // ✅ ton conteneur
-    '.ag-root', '.ag-body-viewport', '.ag-center-cols-viewport', // ✅ viewports
-    '.ag-root-wrapper', '.ag-header', '.ag-header-cell', '.ag-cell',
-    '.ag-header-cell-resize', '.ag-column-resize',
-    '.sheet-panel', '.sheet-header',
-    'input', 'select', 'textarea', 'button', 'a',
-    '.st-expander-header'
-  ].join(',');
-
+	const NO_SWIPE_START = [
+		'.ag-root', '.ag-root-wrapper', '.ag-header', '.ag-header-cell', '.ag-cell',
+		'.ag-header-cell-resize', '.ag-column-resize', // poignées de resize colonnes
+		'.sheet-panel', '.sheet-header',               // si tu as des sheets
+		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
+		'.st-expander-header'                          // si tu veux aussi ignorer ces headers
+	].join(',');
 
 	function isInNoSwipeZone(evTarget){
 		return !!(evTarget && evTarget.closest && evTarget.closest(NO_SWIPE_START));
 	}
 
-  function cancelPagerDrag(){
-    dragging = false;
-    engaged = false;
-    pager.classList.remove('is-dragging');
-    track.style.transition = ''; // optionnel
+  function onStart(ev){
+    const t = ev.touches ? ev.touches[0] : ev;
+
+		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
+		const target = ev.target;
+		if (isInNoSwipeZone(target)) return;
+
+		startX = curX = t.clientX;
+    startY = t.clientY;
+    dragging = true; engaged = false;
+    track.style.transition = 'none';
   }
+  function onMove(ev){
+    if (!dragging) return;
+    const t  = ev.touches ? ev.touches[0] : ev;
+    curX     = t.clientX;
+    const dx = curX - startX;
+    const dy = t.clientY - startY;
 
-  // function onStart(ev){
-  //   const t = ev.touches ? ev.touches[0] : ev;
-
-	// 	// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
-	// 	const target = ev.target;
-	// 	if (isInNoSwipeZone(target)) cancelPagerDrag();  // <- Et non return
-
-	// 	startX = curX = t.clientX;
-  //   startY = t.clientY;
-  //   dragging = true; engaged = false;
-  //   track.style.transition = 'none';
-  // }
-  // function onMove(ev){
-  //   if (!dragging) return;
-  //   const t  = ev.touches ? ev.touches[0] : ev;
-  //   curX     = t.clientX;
-  //   const dx = curX - startX;
-  //   const dy = t.clientY - startY;
-
-  //   if (!engaged){
-  //     if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
-  //     if (Math.abs(dx) > Math.abs(dy)){
-  //       engaged = true;
-  //       pager.classList.add('is-dragging');
-  //     } else {
-  //       // dragging = false; // geste vertical
-  //       cancelPagerDrag();
-  //       return;
-  //     }
-  //   }
-
-  //   ev.preventDefault?.(); // bloque le scroll pendant le drag
-  //   applyTransform((-index * pageW) + dx, false);
-  // }
-function onStart(ev){
-  const t = ev.touches ? ev.touches[0] : ev;
-
-  // reset systématique au début d’un nouveau geste
-  dragging = false;
-  engaged  = false;
-
-  const target = ev.target;
-  if (isInNoSwipeZone(target)) return;
-
-  startX = curX = t.clientX;
-  startY = t.clientY;
-  dragging = true;
-  track.style.transition = 'none';
-}
-function onCancel(){
-  dragging = false;
-  engaged  = false;
-  pager.classList.remove('is-dragging');
-  // optionnel : re-snap
-  goto(index, true);
-}
-function onMove(ev){
-  if (!dragging) return;
-  const t  = ev.touches ? ev.touches[0] : ev;
-  curX     = t.clientX;
-  const dx = curX - startX;
-  const dy = t.clientY - startY;
-
-  if (!engaged){
-    if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
-
-    if (Math.abs(dx) > Math.abs(dy)){
-      engaged = true;
-      pager.classList.add('is-dragging');
-    } else {
-      // geste vertical => on abandonne ET on reset proprement
-      dragging = false;
-      engaged  = false;
-      pager.classList.remove('is-dragging');
-      return;
+    if (!engaged){
+      if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+      if (Math.abs(dx) > Math.abs(dy)){
+        engaged = true;
+        pager.classList.add('is-dragging');
+      } else {
+        dragging = false; // geste vertical
+        return;
+      }
     }
+
+    ev.preventDefault?.(); // bloque le scroll pendant le drag
+    applyTransform((-index * pageW) + dx, false);
   }
-
-  // ICI seulement on bloque le scroll natif
-  ev.preventDefault?.();
-  applyTransform((-index * pageW) + dx, false);
-}
-
   function onEnd(){
     if (!dragging) return;
     dragging = false;
@@ -203,18 +142,16 @@ function onMove(ev){
   }
 
   // Écouteurs
-  // if (window.PointerEvent){
-  //   pager.addEventListener('pointerdown', onStart, { passive:true });
-  //   window.addEventListener('pointermove', onMove, { passive:false });
-  //   window.addEventListener('pointerup',   onEnd,  { passive:true });
-  //   window.addEventListener('pointercancel', onEnd, { passive:true });
-  // } else {
-  //   pager.addEventListener('touchstart', onStart, { passive:true });
-  //   window.addEventListener('touchmove',  onMove, { passive:false });
-  //   window.addEventListener('touchend',   onEnd,  { passive:true });
-  //   // window.addEventListener('touchcancel',   () => cancelPagerDrag(),  { passive:true });  // <- Ajout
-  //   window.addEventListener('touchcancel',  onCancel,  { passive:true });  // <- Ajout
-  // }
+  if (window.PointerEvent){
+    pager.addEventListener('pointerdown', onStart, { passive:true });
+    window.addEventListener('pointermove', onMove, { passive:false });
+    window.addEventListener('pointerup',   onEnd,  { passive:true });
+    window.addEventListener('pointercancel', onEnd, { passive:true });
+  } else {
+    pager.addEventListener('touchstart', onStart, { passive:true });
+    window.addEventListener('touchmove',  onMove, { passive:false });
+    window.addEventListener('touchend',   onEnd,  { passive:true });
+  }
 
   window.addEventListener('resize', () => { measure(); goto(index, false); });
 
@@ -291,4 +228,3 @@ function onMove(ev){
 	});
 
 })();
-

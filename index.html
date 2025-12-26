@@ -36,17 +36,242 @@
   </head>
 
   <body>
+    <header class="app-header" id="appHeader">
+      <img src="./icon-192.png" alt="Planif Avignon" id="btn-app-logo" class="app-logo">
+      <div id="headerPager" class="header-pager">
+        <button id="pg-next" class="nav-btn" title="Suivant">&#8644;</button>
+      </div>
+      <button class="kebab-btn" id="btn-app-kebab" title="Menu">
+        <span class="dot">⋯</span>
+      </button>
+    </header>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar" id="bottomBar" role="toolbar" aria-label="Actions">
+      <div class="bottom-bar__scroller" id="bottomBarScroller">
+
+        <!-- Bouton Fichier -->
+        <button class="bb-icon-btn" id="btn-file">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h7l3 3h6v13H4z"/>
+          </svg>
+          <span class="bb-label">Fichier</span>
+        </button>
+
+        <!-- Bouton Défaire -->
+        <button class="bb-icon-btn" id="btn-undo">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 7v6h6M3 13a9 9 0 1 0 9-9"/>
+          </svg>
+          <span class="bb-label">Défaire</span>
+        </button>
+
+        <!-- Bouton Refaire -->
+        <button class="bb-icon-btn" id="btn-redo">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 7v6h-6M21 13a9 9 0 1 1-9-9"/>
+          </svg>
+          <span class="bb-label">Refaire</span>
+        </button>
+
+        <!-- Bouton Ajouter avec collage -->
+        <button class="bb-icon-btn" id="btn-paste">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h7l3 3h6v13H4z"/>
+            <path d="M9 14h6"/>
+            <path d="M9 18h6"/>
+          </svg>
+          <span class="bb-label">Coller</span>
+        </button>
+
+        <!-- Bouton Ajouter -->
+        <button class="bb-icon-btn" id="btn-add">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span class="bb-label">Ajouter</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- Popup clipboard (masquée par défaut) -->
+    <div id="paste-popup" aria-hidden="true">
+      <div class="pp-backdrop"></div>
+      <div class="pp-dialog" role="dialog" aria-modal="true">
+        <p class="pp-msg">Touchez la zone puis « Coller »</p>
+        <div id="paste-proxy" contenteditable="true" spellcheck="false"></div>
+      </div>
+    </div>
+
+    <!-- Languette dela Bottom Bar -->
+    <!-- <button id="toggleBar" class="bar-toggle" aria-label="Montrer ou cacher la barre">^</button> -->
+    
+    <!-- Masque de la Bottom Bar sur la safe-area d'IOS -->
+    <div id="safeMask" class="safe-bottom-mask"></div>
+
+
+    <!-- ÉCRAN D’ACCUEIL (hors pager) -->
+    <section id="welcome" class="welcome-screen">
+      <div class="welcome-inner">
+        <h2 class="welcome-title">In & Off</h2>
+        <!-- <p class="welcome-sub">Prépare ton Off en 3 minutes</p> -->
+      </div>
+    </section>
+
+    <!-- PAGER à 2 pages (0: Catalogues, 1: Planning) -->
+    <div id="pager" class="pager">
+      <div class="pager-track">
+
+        <!-- Page 0 : CATALOGUES -->
+        <section class="page page--catalogs" data-page="0">
+          <!-- <div class="catalog-wrap"> -->
+
+            <div class="catalog-grid">
+              <button class="catalog-btn is-bright" data-url="https://festival-avignon.com/fr/edition-2025/programmation/par-categorie?cat=1001">
+                <span class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+                </span>
+                <span class="txt">
+                  <span class="label">Avignon In</span>
+                  <span class="sub">festival-avignon.com</span>
+                </span>
+              </button>
+
+              <button class="catalog-btn  is-bright" data-url="https://www.festivaloffavignon.com/programme">
+                <span class="icon" aria-hidden="true">
+                  <!-- <svg viewBox="0 0 24 24"><path d="M12 22s7-4.35 7-10a7 7 0 0 0-14 0c0 5.65 7 10 7 10Z"/><circle cx="12" cy="12" r="2.5"/></svg> -->
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+                </span>
+                <span class="txt">
+                  <span class="label">Avignon Off</span>
+                  <span class="sub">festivaloffavignon.com</span>
+                </span>
+              </button>
+
+              <button class="catalog-btn  is-bright" data-url="https://www.billetreduc.com/">
+                <span class="icon" aria-hidden="true">
+                  <!-- <svg viewBox="0 0 24 24"><path d="M12 22s7-4.35 7-10a7 7 0 0 0-14 0c0 5.65 7 10 7 10Z"/><circle cx="12" cy="12" r="2.5"/></svg> -->
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
+                </span>
+                <span class="txt">
+                  <span class="label">Billet réduc</span>
+                  <span class="sub">billetreduc.com</span>
+                </span>
+                <!-- ⭐ Mini-bouton Avignon -->
+                <!-- <span class="mini-corner-btn" data-url="https://www.billetreduc.com/collection/avignon">
+                  Avignon
+                </span> -->
+              </button>
+              
+              <button class="catalog-btn  is-bright" id="mon-programme">
+                <span class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
+                      stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="12" x2="20" y2="12"/>
+                    <polyline points="14,6 20,12 14,18"/>
+                  </svg>
+                </span>
+                <span class="txt">
+                  <span class="label">Mon programme</span>
+                  <span class="sub">Je construis mon programme de spectacles</span>
+                </span>
+              </button>
+              
+            </div>
+          <!-- </div> -->
+        </section>
+        
+        <!-- Page 1 : PLANNING -->
+        <section class="page page--planning" data-page="1">
           <div id="planningRoot">
+            <!-- EXPANDER Activités programmées -->
+            <div class="st-expander" id="exp-programmees">
+              <div class="st-expander-header">
+                <span class="chevron"></span>
+                <span class="title" id="titleA">Programme</span>
+                <span class="exp-badge" id="badge-prog">0</span>
+              </div>
+              <div class="st-expander-body">
+                <div id="gridA" class="ag-theme-quartz compact grid-host"></div>
+              </div>
+            </div>
+
+            <!-- Séparateur -->
+            <div class="v-splitter" data-top="exp-programmees" data-bottom="exp-creneaux">
+              <div class="v-splitter__handle" title="Redimensionner"></div>
+            </div>
+
+            <!-- EXPANDER Créneaux disponibles -->
+            <div class="st-expander" id="exp-creneaux">
+              <div class="st-expander-header">
+                <span class="chevron"></span>
+                <span class="title" id="titleC">Plages libres</span>
+                <span class="exp-badge" id="badge-creneaux">0</span>
+              </div>
+              <div class="st-expander-body">
+                <div id="gridC" class="ag-theme-quartz compact grid-host"></div>
+              </div>
+            </div>
+
+            <!-- Séparateur -->
+            <div class="v-splitter" data-top="exp-creneaux" data-bottom="exp-programmables">
+              <div class="v-splitter__handle" title="Redimensionner"></div>
+            </div>
+
+            <!-- EXPANDER Activités programmables -->
+            <div class="st-expander" id="exp-programmables">
+              <div class="st-expander-header">
+                <span class="chevron"></span>
+                <span class="title" id="titleD">Programmer...</span>
+                <span class="exp-badge" id="badge-programmables">0</span>
+              </div>
+              <div class="st-expander-body">
+                <div id="gridD" class="ag-theme-quartz compact grid-host"></div>
+              </div>
+            </div>
+
+            <!-- Séparateur -->
+            <div class="v-splitter" data-top="exp-programmables" data-bottom="exp-non-programmees">
+              <div class="v-splitter__handle" title="Redimensionner"></div>
+            </div>
+
+            <!-- EXPANDER Activités non programmées -->
+            <div class="st-expander" id="exp-non-programmees">
+              <div class="st-expander-header">
+                <span class="chevron"></span>
+                <span class="title" id="titleB">Stock</span>
+                <span class="exp-badge" id="badge-non-prog">0</span>
+              </div>
               <div class="st-expander-body">
                 <div id="gridB" class="ag-theme-quartz compact grid-host"></div>
               </div>
+            </div>
+
+            <!-- Séparateur -->
+            <div class="v-splitter" data-top="exp-non-programmees" data-bottom="__end__" data-last="1">
+              <div class="v-splitter__handle" title="Redimensionner"></div>
+            </div>
+
+            <div class="page-end-spacer"></div>
+
+            <!-- Position antérieure de la bottom bar et consors -->
+
+            <!-- input fichier caché pour import -->
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" />
           </div>
+        </section>
+        
+      </div>
+    </div>
 
     <!-- Overlay attente -->
     <div id="overlay-attente" hidden>
       <div class="overlay-spinner"></div>
     </div>
 
+    <!-- <script src="https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js"></script> -->
     <script type="module" src="./app.js"></script>
     <script type="module" src="./pager.js"></script>
 

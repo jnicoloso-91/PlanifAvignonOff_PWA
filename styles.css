@@ -512,9 +512,8 @@ main, .page-wrap {
   }
 }
 
-/* .ag-root, .ag-root * { -webkit-user-select: text; user-select: text; } */
-/* [id^="grid"], #grid { touch-action: manipulation; } */
-[id^="grid"], #grid { touch-action: pan-x pan-y; }
+.ag-root, .ag-root * { -webkit-user-select: text; user-select: text; }
+[id^="grid"], #grid { touch-action: manipulation; }
 
 /* la grille occupe 100% de la hauteur du panneau */
 .grid-host { height: 100%; min-height: 0; }
@@ -570,8 +569,7 @@ main, .page-wrap {
 #gridA, #gridB, #gridC, #gridD {
   overflow: auto;
   -webkit-overflow-scrolling: touch; /* inertie iOS */
-  /*touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
-  touch-action: pan-x pan-y;                
+  touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
   overscroll-behavior: contain;       /* évite le rebond qui “fait bouger” la page */
 }
 
@@ -772,11 +770,11 @@ main, .page-wrap {
 }
 
 /* Normal : overflow masqué pour un scroll performant */
-/* .ag-center-cols-viewport,
+.ag-center-cols-viewport,
 .ag-body-viewport,
 .ag-root-wrapper-body {
-  overflow: auto; /* ou hidden 
-} */
+  overflow: auto; /* ou hidden */
+}
 
 /* BUG IPad : assure que les popup menus soient au dessus de la colo (début) */
 /* Colo de ligne en dessous de tout */
@@ -1395,7 +1393,7 @@ main, .page-wrap {
 }
 
 /* Évite que Safari “interprète” le double tap comme zoom */
-.sheet-body, .sheet-panel {
+.sheet-body, .sheet-panel, .ag-root {
   touch-action: manipulation;  /* important sur iOS */
 }
 
@@ -1864,7 +1862,7 @@ html { -webkit-text-size-adjust: 100%; }
   overscroll-behavior: contain;           /* moderne */
   overscroll-behavior-y: contain;
   /* Indique qu’on gère le scroll au doigt ici (y et x pour AG Grid) */
-  touch-action: pan-x pan-y;
+  touch-action: pan-y pan-x;
 }
 
 /* Le wrapper de la grille ne doit PAS scroller */
@@ -1880,11 +1878,11 @@ body.lock-page-scroll {
 
 /* Si classe d’override overflow visible en édition,
    éviter de l’appliquer au viewport (sinon Safari repart scroller la page) */
-/* .ag-overflow-visible .ag-body-viewport,
-.ag-overflow-visible .ag-center-cols-viewport { */
+.ag-overflow-visible .ag-body-viewport,
+.ag-overflow-visible .ag-center-cols-viewport {
   /* NE PAS remettre visible ici, conserve auto pour le scroll fluide */
-  /* overflow: auto !important; */
-/* } */
+  overflow: auto !important;
+}
 
 /* Petit plus : désactiver les “glissements” latéraux iOS dans les grids si on ne veut pas de pan-x.
    À n’activer que si on n’a pas besoin du scroll horizontal au doigt. */
@@ -2395,144 +2393,3 @@ input[type="range"]:focus::-moz-range-thumb {
 .prog-row .prog-main { flex: 1 1 auto; min-width: 0; }
 .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
 .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
-
-
-/* ====================== */
-[id^="grid"] .ag-body-viewport,
-[id^="grid"] .ag-center-cols-viewport {
-  touch-action: pan-x pan-y;
-}
-
-/* Autorise le scroll au doigt dans AG Grid sur Android */
-.ag-root,
-.ag-root-wrapper,
-.ag-root-wrapper-body {
-  touch-action: pan-x pan-y !important; /* ou 'auto' */
-}
-
-/* 1) NE PAS bloquer le pan sur les hôtes de grille */
-[id^="grid"], #grid {
-  touch-action: auto !important;   /* ou pan-x pan-y */
-}
-
-/* 2) Autoriser explicitement le scroll tactile à l’intérieur d’AG Grid */
-[id^="grid"] .ag-body-viewport,
-[id^="grid"] .ag-center-cols-viewport {
-  touch-action: pan-x pan-y !important;
-}
-
-/* 3) (optionnel) si AG Grid force manipulation sur .ag-root */
-[id^="grid"] .ag-root,
-[id^="grid"] .ag-root-wrapper,
-[id^="grid"] .ag-root-wrapper-body {
-  touch-action: pan-x pan-y !important;
-}
-
-/* ✅ Laisse AG Grid gérer le scroll : un seul scroller vertical */
-/* .ag-root-wrapper-body,
-.ag-center-cols-viewport {
-  overflow: hidden !important;
-} */
-
-/* ✅ Le scroller vertical principal */
-/* .ag-body-viewport {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;
-} */
-
-/* (optionnel) si tu veux aussi permettre pan-x dans la zone colonnes */
-/* .ag-body-horizontal-scroll-viewport {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  touch-action: pan-x !important;
-} */
-
-
-/* =========================
-   AG Grid: Y + X au touch Option A
-   ========================= */
-
-/* Empêche les wrappers de devenir des scrollers concurrents */
-.ag-root-wrapper-body,
-.ag-center-cols-viewport {
-  overflow: hidden !important;
-}
-
-/* ✅ Un seul scroller tactile : X + Y */
-.ag-body-viewport {
-  overflow: auto !important;                 /* <-- X ET Y */
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;      /* <-- autorise les deux gestes */
-  overscroll-behavior: contain;
-}
-
-/* Optionnel : garde le “bottom scrollbar” mais sans interférer */
-.ag-body-horizontal-scroll-viewport {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x !important;
-}
-
-/* =========================
-   AG Grid: Y + X au touch Option B
-   ========================= */
-
-/* .ag-root-wrapper-body,
-.ag-center-cols-viewport {
-  overflow: hidden !important;
-} */
-
-/* Y uniquement */
-/* .ag-body-viewport {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important;
-  overscroll-behavior: contain;
-} */
-
-/* X uniquement (barre du bas) */
-/* .ag-body-horizontal-scroll-viewport {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x !important;
-} */
-
-
-/* =========================
-   AG Grid: Y + X au touch Option C
-   ========================= */
-/* 1) Pas de scrollers concurrents */
-/* .ag-root-wrapper-body {
-  overflow: hidden !important;
-} */
-
-/* 2) Scroll vertical principal */
-/* .ag-body-viewport {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important;
-  overscroll-behavior: contain;
-} */
-
-/* 3) Scroll horizontal directement dans la zone cellules (au doigt) */
-/* .ag-center-cols-viewport {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x !important;
-  overscroll-behavior: contain;
-} */
-
-/* 4) La barre horizontale du bas peut rester (optionnel) */
-/* .ag-body-horizontal-scroll-viewport {
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x !important;
-} */

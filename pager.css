@@ -24,7 +24,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;              /* masque le débordement horizontal */
-  /*touch-action: pan-y;           /* on gère le pan-x en JS */
+  touch-action: pan-y;           /* on gère le pan-x en JS */
   background: #fff;              /* fond par défaut */
 }
 /* iOS/modern: contrairement à 100vh permet à la page de s'ajuster en fonction de la barre/clavier */
@@ -433,7 +433,7 @@ html, body {
 #pager {
   overflow: hidden;                 /* stoppe tout scroll natif du pager */
   overscroll-behavior-x: contain;   /* pas d’élastique horizontal */
-  /*touch-action: pan-y;              /* le navigateur gère le vertical, pas l’horizontal */
+  touch-action: pan-y;              /* le navigateur gère le vertical, pas l’horizontal */
 }
 
 /* La piste qui translate ne doit pas capter d’overscroll non plus */
@@ -460,4 +460,3 @@ html, body {
   font: inherit;
   font-size: 1.5rem;
 }
-

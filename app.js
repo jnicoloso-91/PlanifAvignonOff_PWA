@@ -10784,13 +10784,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireBottomBar();
   wireGrids();
   wireExpanders();
-  // wireExpanderSplitters();
-  // wireExpanderButtons();
-  // wireAppKebab();
-  // initSheetGrids();
-  // wireInfosPlusPopup();
-  // enableKeyboardAutoScroll();
-  // rebuildColumnsForActiviteGrids(ctx.df);
+  wireExpanderSplitters();
+  wireExpanderButtons();
+  wireAppKebab();
+  initSheetGrids();
+  wireInfosPlusPopup();
+  enableKeyboardAutoScroll();
+  rebuildColumnsForActiviteGrids(ctx.df);
 
   console.log('✅ Application initialisée');
 
