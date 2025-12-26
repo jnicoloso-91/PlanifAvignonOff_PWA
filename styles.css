@@ -2439,7 +2439,7 @@ input[type="range"]:focus::-moz-range-thumb {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important;
+  touch-action: pan-x pan-y !important;
 }
 
 /* (optionnel) si tu veux aussi permettre pan-x dans la zone colonnes */
