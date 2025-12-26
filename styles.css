@@ -2427,3 +2427,23 @@ input[type="range"]:focus::-moz-range-thumb {
 [id^="grid"] .ag-root-wrapper-body {
   touch-action: pan-x pan-y !important;
 }
+
+/* ✅ Laisse AG Grid gérer le scroll : un seul scroller vertical */
+.ag-root-wrapper-body,
+.ag-center-cols-viewport {
+  overflow: hidden !important;
+}
+
+/* ✅ Le scroller vertical principal */
+.ag-body-viewport {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+}
+
+/* (optionnel) si tu veux aussi permettre pan-x dans la zone colonnes */
+.ag-body-horizontal-scroll-viewport {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
