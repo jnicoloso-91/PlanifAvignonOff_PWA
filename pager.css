@@ -433,7 +433,7 @@ html, body {
 #pager {
   overflow: hidden;                 /* stoppe tout scroll natif du pager */
   overscroll-behavior-x: contain;   /* pas d’élastique horizontal */
-  touch-action: pan-y;              /* le navigateur gère le vertical, pas l’horizontal */
+  /*touch-action: pan-y;              /* le navigateur gère le vertical, pas l’horizontal */
 }
 
 /* La piste qui translate ne doit pas capter d’overscroll non plus */
