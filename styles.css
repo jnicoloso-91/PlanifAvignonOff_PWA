@@ -2417,45 +2417,29 @@ input[type="range"]:focus::-moz-range-thumb {
   /* touch-action: auto !important;
 } */
 
-/* ========= AG GRID TOUCH SCROLL (Android/iOS) ========= */
-/* Met ça TOUT EN BAS du style.css pour gagner contre les overrides précédents */
-
-/* 0) Reset des overrides tactiles trop agressifs */
-.ag-theme-quartz .ag-cell,
-.ag-theme-quartz .ag-cell *{
-  touch-action: auto !important;
-}
-
-/* 1) Evite les scrollers concurrents */
-.ag-theme-quartz .ag-root-wrapper-body{
-  overflow: hidden !important;
-}
-
-/* 2) Y = scroller vertical principal */
+/* 1) Le conteneur vertical principal */
 .ag-theme-quartz .ag-body-viewport{
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important;
-  overscroll-behavior: contain;
+  touch-action: pan-y !important;           /* vertical autorisé */
 }
 
-/* 3) X = scroller horizontal principal (celui qui drive le header) */
+/* 2) Le conteneur horizontal (sous le doigt) :
+      IMPORTANT: on autorise AUSSI pan-y ici, sinon Y est bloqué */
 .ag-theme-quartz .ag-center-cols-viewport{
   overflow-x: auto !important;
   overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x !important;
-  overscroll-behavior: contain;
+  touch-action: pan-x pan-y !important;     /* ✅ clé : PAS pan-x seul */
 }
 
-/* 4) Header : ne doit pas devenir un scroller indépendant */
+/* 3) Le header ne doit pas scroller “tout seul” */
 .ag-theme-quartz .ag-header-viewport{
   overflow: hidden !important;
 }
 
-/* 5) Important : aucun overlay ne doit voler les events */
-.ag-theme-quartz .ag-row::before,
-.ag-theme-quartz .ag-row::after{
-  pointer-events: none !important;
+/* 4) Eviter les scrollers concurrents */
+.ag-theme-quartz .ag-root-wrapper-body{
+  overflow: hidden !important;
 }
