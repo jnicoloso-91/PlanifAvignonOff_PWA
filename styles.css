@@ -2455,20 +2455,42 @@ input[type="range"]:focus::-moz-range-thumb {
    ========================= */
 
 /* Empêche les wrappers de devenir des scrollers concurrents */
+/* .ag-root-wrapper-body,
+.ag-center-cols-viewport {
+  overflow: hidden !important;
+} */
+
+/* ✅ Un seul scroller tactile : X + Y */
+/* .ag-body-viewport { */
+  /*overflow: auto !important;                 /* <-- X ET Y */
+  /* -webkit-overflow-scrolling: touch !important; */
+  /*touch-action: pan-x pan-y !important;      /* <-- autorise les deux gestes */
+  /* overscroll-behavior: contain; */
+/* } */
+
+/* Optionnel : garde le “bottom scrollbar” mais sans interférer */
+/* .ag-body-horizontal-scroll-viewport {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x !important;
+} */
+
 .ag-root-wrapper-body,
 .ag-center-cols-viewport {
   overflow: hidden !important;
 }
 
-/* ✅ Un seul scroller tactile : X + Y */
+/* Y uniquement */
 .ag-body-viewport {
-  overflow: auto !important;                 /* <-- X ET Y */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;      /* <-- autorise les deux gestes */
+  touch-action: pan-y !important;
   overscroll-behavior: contain;
 }
 
-/* Optionnel : garde le “bottom scrollbar” mais sans interférer */
+/* X uniquement (barre du bas) */
 .ag-body-horizontal-scroll-viewport {
   overflow-x: auto !important;
   overflow-y: hidden !important;
