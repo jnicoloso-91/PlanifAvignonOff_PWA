@@ -2437,7 +2437,7 @@ input[type="range"]:focus::-moz-range-thumb {
 /* ✅ Le scroller vertical principal */
 .ag-body-viewport {
   overflow-y: auto !important;
-  overflow-x: hidden !important;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
 }
@@ -2446,4 +2446,5 @@ input[type="range"]:focus::-moz-range-thumb {
 .ag-body-horizontal-scroll-viewport {
   overflow-x: auto !important;
   overflow-y: hidden !important;
+  touch-action: pan-x !important;
 }
