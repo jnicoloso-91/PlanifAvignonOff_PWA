@@ -1864,7 +1864,7 @@ html { -webkit-text-size-adjust: 100%; }
   overscroll-behavior: contain;           /* moderne */
   overscroll-behavior-y: contain;
   /* Indique qu’on gère le scroll au doigt ici (y et x pour AG Grid) */
-  touch-action: pan-y pan-x;
+  touch-action: pan-x pan-y;
 }
 
 /* Le wrapper de la grille ne doit PAS scroller */
@@ -2401,4 +2401,11 @@ input[type="range"]:focus::-moz-range-thumb {
 [id^="grid"] .ag-body-viewport,
 [id^="grid"] .ag-center-cols-viewport {
   touch-action: pan-x pan-y;
+}
+
+/* Autorise le scroll au doigt dans AG Grid sur Android */
+.ag-root,
+.ag-root-wrapper,
+.ag-root-wrapper-body {
+  touch-action: pan-x pan-y !important; /* ou 'auto' */
 }
