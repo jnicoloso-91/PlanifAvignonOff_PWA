@@ -772,11 +772,11 @@ main, .page-wrap {
 }
 
 /* Normal : overflow masqué pour un scroll performant */
-.ag-center-cols-viewport,
+/* .ag-center-cols-viewport,
 .ag-body-viewport,
 .ag-root-wrapper-body {
-  overflow: auto; /* ou hidden */
-}
+  overflow: auto; /* ou hidden 
+} */
 
 /* BUG IPad : assure que les popup menus soient au dessus de la colo (début) */
 /* Colo de ligne en dessous de tout */
