@@ -2151,7 +2151,7 @@ function gridOptionsCommon(gridId, el) {
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
-      requestAnimationFrame(() => wireGridTouchScrollRouter(gridId));
+      requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
     },
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);
@@ -3051,51 +3051,93 @@ function wireSingleScrollerHeaderSync(gridId) {
 //   gridEl.addEventListener("touchstart", onTouchStart, { passive: true });
 //   gridEl.addEventListener("touchmove",  onTouchMove,  { passive: false });
 // }
-function wireGridTouchScrollRouter(gridId) {
+// function wireGridTouchScrollRouter(gridId) {
+//   const h = grids.get(gridId);
+//   if (!h) return;
+//   const gridEl = h.el;
+//   const centerVp = gridEl.querySelector(".ag-center-cols-viewport");
+//   const headerVp = gridEl.querySelector(".ag-header-viewport");
+//   if (!centerVp || !headerVp) return;
+//   if (gridEl.__bbTouchRouter) return;
+//   gridEl.__bbTouchRouter = true;
+
+//   let startX = 0, startY = 0, startLeft = 0;
+//   let engaged = false, horiz = false;
+
+//   const DEADZONE = 10;      // px
+//   const RATIO = 1.25;       // horizontal si |dx| > |dy|*RATIO
+
+//   centerVp.addEventListener("touchstart", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
+//     startX = t.clientX;
+//     startY = t.clientY;
+//     startLeft = centerVp.scrollLeft;
+//     engaged = false;
+//     horiz = false;
+//   }, { passive: true });
+
+//   centerVp.addEventListener("touchmove", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
+//     const dx = t.clientX - startX;
+//     const dy = t.clientY - startY;
+
+//     if (!engaged) {
+//       if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+//       engaged = true;
+
+//       // ⚠️ bias vers vertical : on ne lock horizontal que si c'est vraiment horizontal
+//       horiz = Math.abs(dx) > Math.abs(dy) * RATIO;
+//       if (!horiz) return; // vertical => on ne touche à rien, Android va scroller le parent (Y)
+//     }
+
+//     if (horiz) {
+//       e.preventDefault(); // on prend le contrôle du X
+//       centerVp.scrollLeft = startLeft - dx;
+//       headerVp.scrollLeft = centerVp.scrollLeft; // sync header
+//     }
+//   }, { passive: false });
+// }
+function wireAgTouchScrollRouter(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
   const gridEl = h.el;
-  const centerVp = gridEl.querySelector(".ag-center-cols-viewport");
-  const headerVp = gridEl.querySelector(".ag-header-viewport");
-  if (!centerVp || !headerVp) return;
+  const bodyVp = gridEl.querySelector(".ag-body-viewport");
+  const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
+  if (!bodyVp || !xVp) return;
   if (gridEl.__bbTouchRouter) return;
   gridEl.__bbTouchRouter = true;
 
-  let startX = 0, startY = 0, startLeft = 0;
-  let engaged = false, horiz = false;
+  let sx=0, sy=0, sl=0, engaged=false, horiz=false;
+  const DEADZONE = 10;     // px
+  const RATIO = 1.15;      // plus petit = plus facile de prendre X
 
-  const DEADZONE = 10;      // px
-  const RATIO = 1.25;       // horizontal si |dx| > |dy|*RATIO
-
-  centerVp.addEventListener("touchstart", (e) => {
+  bodyVp.addEventListener("touchstart", (e) => {
     if (!e.touches || e.touches.length !== 1) return;
     const t = e.touches[0];
-    startX = t.clientX;
-    startY = t.clientY;
-    startLeft = centerVp.scrollLeft;
-    engaged = false;
-    horiz = false;
+    sx = t.clientX; sy = t.clientY;
+    sl = xVp.scrollLeft;
+    engaged = false; horiz = false;
   }, { passive: true });
 
-  centerVp.addEventListener("touchmove", (e) => {
+  bodyVp.addEventListener("touchmove", (e) => {
     if (!e.touches || e.touches.length !== 1) return;
     const t = e.touches[0];
-    const dx = t.clientX - startX;
-    const dy = t.clientY - startY;
+    const dx = t.clientX - sx;
+    const dy = t.clientY - sy;
 
     if (!engaged) {
       if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
       engaged = true;
-
-      // ⚠️ bias vers vertical : on ne lock horizontal que si c'est vraiment horizontal
       horiz = Math.abs(dx) > Math.abs(dy) * RATIO;
-      if (!horiz) return; // vertical => on ne touche à rien, Android va scroller le parent (Y)
+      if (!horiz) return; // vertical => on laisse le Y naturel (bodyVp)
     }
 
     if (horiz) {
-      e.preventDefault(); // on prend le contrôle du X
-      centerVp.scrollLeft = startLeft - dx;
-      headerVp.scrollLeft = centerVp.scrollLeft; // sync header
+      // geste horizontal => on route vers le scroller X officiel
+      e.preventDefault();
+      xVp.scrollLeft = sl - dx;
     }
   }, { passive: false });
 }
