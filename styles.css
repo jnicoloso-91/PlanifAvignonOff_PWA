@@ -2400,23 +2400,23 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* SOLUTION 1 */
 /* Evite les scrollers concurrents */
-.ag-root-wrapper-body {
+/* .ag-root-wrapper-body {
   overflow: hidden !important;
-}
+} */
 
 /* Laisse un seul viewport gérer les 2 directions */
-.ag-body-viewport {
-  overflow: auto !important;                 /* <= auto dans les 2 axes */
-  -webkit-overflow-scrolling: touch !important;
+/* .ag-body-viewport { */
+  /*overflow: auto !important;                 /* <= auto dans les 2 axes */
+  /* -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
   overscroll-behavior: contain;
-}
+} */
 
 /* Les autres viewports ne doivent pas voler le scroll */
-.ag-center-cols-viewport {
-  overflow: visible !important;              /* ou hidden selon ton thème */
-  touch-action: auto !important;
-}
+/* .ag-center-cols-viewport { */
+  /*overflow: visible !important;              /* ou hidden selon ton thème */
+  /* touch-action: auto !important;
+} */
 
 
 /* SOLUTION 2 */
@@ -2472,3 +2472,29 @@ input[type="range"]:focus::-moz-range-thumb {
   /*overflow: hidden !important;               /* laisse AG Grid gérer */
 /* } */
 
+/* SOLUTION 4 */
+/* pas de scroller au niveau host : AG Grid gère */
+.grid-host { overflow: hidden !important; }
+
+/* wrapper body : ne doit pas scroller */
+.ag-root-wrapper-body { overflow: hidden !important; }
+
+/* ✅ Y = scroller vertical principal */
+.ag-body-viewport{
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important; /* priorité au vertical */
+  overscroll-behavior: contain;
+}
+
+/* ✅ X = scroller horizontal (celui qui drive header) */
+.ag-center-cols-viewport{
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: auto !important; /* on laisse JS router */
+}
+
+/* header : pas de scroll direct */
+.ag-header-viewport{ overflow: hidden !important; }

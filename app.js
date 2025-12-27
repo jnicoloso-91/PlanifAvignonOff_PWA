@@ -2151,7 +2151,7 @@ function gridOptionsCommon(gridId, el) {
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
-      requestAnimationFrame(() => wireSingleScrollerHeaderSync(gridId));
+      requestAnimationFrame(() => wireGridTouchScrollRouter(gridId));
     },
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);
@@ -2997,6 +2997,60 @@ function wireSingleScrollerHeaderSync(gridId) {
   }, { passive: true });
 }
 
+function wireGridTouchScrollRouter(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return;
+  const gridEl = h.el;
+  const bodyVp   = gridEl.querySelector(".ag-body-viewport");
+  const centerVp = gridEl.querySelector(".ag-center-cols-viewport");
+  const headerVp = gridEl.querySelector(".ag-header-viewport");
+  if (!bodyVp || !centerVp || !headerVp) return;
+
+  if (gridEl.__bbTouchRouter) return;
+  gridEl.__bbTouchRouter = true;
+
+  let startX = 0, startY = 0, startLeft = 0;
+  let engaged = false;
+  let horiz = false;
+
+  const DEADZONE = 8; // px
+
+  function onTouchStart(e) {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    startLeft = centerVp.scrollLeft;
+    engaged = false;
+    horiz = false;
+  }
+
+  function onTouchMove(e) {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+
+    if (!engaged) {
+      if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+      engaged = true;
+      horiz = Math.abs(dx) > Math.abs(dy);
+    }
+
+    if (horiz) {
+      // 🔒 geste horizontal => on prend la main, sinon Android bloque Y
+      e.preventDefault();               // IMPORTANT (passive:false)
+      centerVp.scrollLeft = startLeft - dx;
+      headerVp.scrollLeft = centerVp.scrollLeft; // sync header
+    } else {
+      // geste vertical => NE RIEN FAIRE, laisser bodyVp scroller naturellement
+    }
+  }
+
+  // on écoute sur la zone où le doigt tombe (cells), et on “route”
+  gridEl.addEventListener("touchstart", onTouchStart, { passive: true });
+  gridEl.addEventListener("touchmove",  onTouchMove,  { passive: false });
+}
 
 // ===== Actions =====
 
