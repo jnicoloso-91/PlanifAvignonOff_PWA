@@ -2398,6 +2398,7 @@ input[type="range"]:focus::-moz-range-thumb {
 /*  Pb de scroll dans grid   */
 /* ==========================*/
 
+/* SOLUTION 1 */
 /* Evite les scrollers concurrents */
 /* .ag-root-wrapper-body {
   overflow: hidden !important;
@@ -2417,29 +2418,57 @@ input[type="range"]:focus::-moz-range-thumb {
   /* touch-action: auto !important;
 } */
 
+
+/* SOLUTION 2 */
 /* 1) Le conteneur vertical principal */
-.ag-theme-quartz .ag-body-viewport{
+/* .ag-theme-quartz .ag-body-viewport{
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important;           /* vertical autorisé */
-}
+  -webkit-overflow-scrolling: touch !important; */
+  /*touch-action: pan-y !important;           /* vertical autorisé */
+/* } */
 
 /* 2) Le conteneur horizontal (sous le doigt) :
       IMPORTANT: on autorise AUSSI pan-y ici, sinon Y est bloqué */
-.ag-theme-quartz .ag-center-cols-viewport{
+/* .ag-theme-quartz .ag-center-cols-viewport{
   overflow-x: auto !important;
   overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;     /* ✅ clé : PAS pan-x seul */
-}
+  -webkit-overflow-scrolling: touch !important; */
+  /* touch-action: pan-x pan-y !important;     ✅ clé : PAS pan-x seul */
+/* } */
 
 /* 3) Le header ne doit pas scroller “tout seul” */
-.ag-theme-quartz .ag-header-viewport{
+/* .ag-theme-quartz .ag-header-viewport{
+  overflow: hidden !important;
+} */
+
+/* 4) Eviter les scrollers concurrents */
+/* .ag-theme-quartz .ag-root-wrapper-body{
+  overflow: hidden !important;
+} */
+
+/* SOLUTION 3 */
+/* 1) On évite les scrollers concurrents */
+.ag-root-wrapper-body,
+.ag-center-cols-viewport {
   overflow: hidden !important;
 }
 
-/* 4) Eviter les scrollers concurrents */
-.ag-theme-quartz .ag-root-wrapper-body{
+/* 2) Un seul scroller tactile pour X + Y */
+.ag-body-viewport {
+  overflow: auto !important;                 /* X + Y */
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior: contain;
+}
+
+/* 3) Header : ne pas scroller tout seul (on le sync en JS) */
+.ag-header-viewport {
   overflow: hidden !important;
 }
+
+/* 4) IMPORTANT : ne crée pas un autre scroller au niveau host */
+.grid-host {
+  overflow: hidden !important;               /* laisse AG Grid gérer */
+}
+

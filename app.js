@@ -2151,6 +2151,7 @@ function gridOptionsCommon(gridId, el) {
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
+      requestAnimationFrame(() => wireSingleScrollerHeaderSync(gridId));
     },
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);
@@ -2977,6 +2978,25 @@ function wireExpanders(){
     header.setAttribute('aria-expanded', 'true');
   });
 }
+
+function wireSingleScrollerHeaderSync(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return;
+  const gridEl = h.el;
+  const bodyVp   = gridEl.querySelector(".ag-body-viewport");
+  const headerVp = gridEl.querySelector(".ag-header-viewport");
+  if (!bodyVp || !headerVp) return;
+
+  // évite double binding
+  if (bodyVp.__bbHeaderSync) return;
+  bodyVp.__bbHeaderSync = true;
+
+  bodyVp.addEventListener("scroll", () => {
+    // sync du header sur le scrollLeft du body
+    headerVp.scrollLeft = bodyVp.scrollLeft;
+  }, { passive: true });
+}
+
 
 // ===== Actions =====
 
