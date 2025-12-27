@@ -2474,27 +2474,53 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* SOLUTION 4 */
 /* pas de scroller au niveau host : AG Grid gère */
-.grid-host { overflow: hidden !important; }
+/* .grid-host { overflow: hidden !important; } */
 
 /* wrapper body : ne doit pas scroller */
-.ag-root-wrapper-body { overflow: hidden !important; }
+/* .ag-root-wrapper-body { overflow: hidden !important; } */
 
 /* ✅ Y = scroller vertical principal */
+/* .ag-body-viewport{
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important; /* priorité au vertical *
+  overscroll-behavior: contain;
+} */
+
+/* ✅ X = scroller horizontal (celui qui drive header) */
+/* .ag-center-cols-viewport{
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: auto !important; /* on laisse JS router *
+} */
+
+/* header : pas de scroll direct */
+/* .ag-header-viewport{ overflow: hidden !important; } */
+
+/* SOLUTION 5 */
+/* Empêche les scrollers concurrents */
+.ag-root-wrapper-body { overflow: hidden !important; }
+.grid-host { overflow: hidden !important; }
+
+/* ✅ Scroll vertical = body viewport */
 .ag-body-viewport{
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important; /* priorité au vertical */
+  touch-action: pan-y !important;
   overscroll-behavior: contain;
 }
 
-/* ✅ X = scroller horizontal (celui qui drive header) */
+/* ✅ Scroll horizontal = center viewport
+   IMPORTANT: autorise pan-y pour que le Y "bulle" vers ag-body-viewport */
 .ag-center-cols-viewport{
   overflow-x: auto !important;
   overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
-  touch-action: auto !important; /* on laisse JS router */
+  touch-action: pan-y !important;      /* <- LA clé Android */
 }
 
-/* header : pas de scroll direct */
-.ag-header-viewport{ overflow: hidden !important; }
+/* Header piloté par la synchro */
+.ag-header-viewport { overflow: hidden !important; }
