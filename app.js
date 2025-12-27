@@ -3051,7 +3051,10 @@ function wireSingleScrollerHeaderSync(gridId) {
 //   gridEl.addEventListener("touchstart", onTouchStart, { passive: true });
 //   gridEl.addEventListener("touchmove",  onTouchMove,  { passive: false });
 // }
-function wireGridTouchScrollRouter(gridEl) {
+function wireGridTouchScrollRouter(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return;
+  const gridEl = h.el;
   const centerVp = gridEl.querySelector(".ag-center-cols-viewport");
   const headerVp = gridEl.querySelector(".ag-header-viewport");
   if (!centerVp || !headerVp) return;
