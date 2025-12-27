@@ -2400,23 +2400,23 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* SOLUTION 1 */
 /* Evite les scrollers concurrents */
-/* .ag-root-wrapper-body {
+.ag-root-wrapper-body {
   overflow: hidden !important;
-} */
+}
 
 /* Laisse un seul viewport gérer les 2 directions */
-/* .ag-body-viewport { */
-  /*overflow: auto !important;                 /* <= auto dans les 2 axes */
-  /* -webkit-overflow-scrolling: touch !important;
+.ag-body-viewport {
+  overflow: auto !important;                 /* <= auto dans les 2 axes */
+  -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
   overscroll-behavior: contain;
-} */
+}
 
 /* Les autres viewports ne doivent pas voler le scroll */
-/* .ag-center-cols-viewport { */
-  /*overflow: visible !important;              /* ou hidden selon ton thème */
-  /* touch-action: auto !important;
-} */
+.ag-center-cols-viewport {
+  overflow: visible !important;              /* ou hidden selon ton thème */
+  touch-action: auto !important;
+}
 
 
 /* SOLUTION 2 */
@@ -2449,26 +2449,26 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* SOLUTION 3 */
 /* 1) On évite les scrollers concurrents */
-.ag-root-wrapper-body,
+/* .ag-root-wrapper-body,
 .ag-center-cols-viewport {
   overflow: hidden !important;
-}
+} */
 
 /* 2) Un seul scroller tactile pour X + Y */
-.ag-body-viewport {
-  overflow: auto !important;                 /* X + Y */
-  -webkit-overflow-scrolling: touch !important;
+/* .ag-body-viewport { */
+  /*overflow: auto !important;                 /* X + Y */
+  /* -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
   overscroll-behavior: contain;
-}
+} */
 
 /* 3) Header : ne pas scroller tout seul (on le sync en JS) */
-.ag-header-viewport {
+/* .ag-header-viewport {
   overflow: hidden !important;
-}
+} */
 
 /* 4) IMPORTANT : ne crée pas un autre scroller au niveau host */
-.grid-host {
-  overflow: hidden !important;               /* laisse AG Grid gérer */
-}
+/* .grid-host { */
+  /*overflow: hidden !important;               /* laisse AG Grid gérer */
+/* } */
 
