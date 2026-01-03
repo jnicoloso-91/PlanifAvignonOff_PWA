@@ -2839,44 +2839,33 @@ function getViewportBottom() {
   return window.innerHeight;
 }
 
-function maybeAutoGrow() {
-  if (!isLast || !dragging) return;
+// function maybeAutoGrow() {
+//   if (!isLast || !dragging) return;
 
-  // const vpBottom = getViewportBottom();
+//   const MARGIN = getBottomBarH() + getSafeBottomPx();
 
-  // const safeBottom = getSafeBottomPx ? getSafeBottomPx() : 0;
-  // const bottomBarH = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
+//   const bb = document.getElementById("bottomBar");
+//   console.log("BB", {
+//     exists: !!bb,
+//     display: bb ? getComputedStyle(bb).display : null,
+//     h_offset: bb ? bb.offsetHeight : null,
+//     h_rect: bb ? bb.getBoundingClientRect().height : null
+//   });
 
-  // // IMPORTANT : on regarde le splitter/handle, pas le doigt
-  // const hRect = handle.getBoundingClientRect();
+//   // const nearBottom = clientY >= (window.innerHeight - MARGIN);
+//   const vv = window.visualViewport;
+//   const viewH = vv ? vv.height : window.innerHeight;
+//   const nearBottom = clientY >= (viewH - MARGIN);
 
-  // const MARGIN = bottomBarH + safeBottom + 8; // 8px de marge visuelle
-  // const nearBottom = hRect.bottom >= (vpBottom - MARGIN);
-
-const MARGIN = getBottomBarH(); + getSafeBottomPx();
-
-const bb = document.getElementById("bottomBar");
-console.log("BB", {
-  exists: !!bb,
-  display: bb ? getComputedStyle(bb).display : null,
-  h_offset: bb ? bb.offsetHeight : null,
-  h_rect: bb ? bb.getBoundingClientRect().height : null
-});
-
-// const nearBottom = clientY >= (window.innerHeight - MARGIN);
-const vv = window.visualViewport;
-const viewH = vv ? vv.height : window.innerHeight;
-const nearBottom = clientY >= (viewH - MARGIN);
-
-  if (nearBottom && !autoGrowActive) {
-    autoGrowActive = true;
-    if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-  } else if (!nearBottom && autoGrowActive) {
-    autoGrowActive = false;
-    if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
-    growAccum = 0;
-  }
-}
+//   if (nearBottom && !autoGrowActive) {
+//     autoGrowActive = true;
+//     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+//   } else if (!nearBottom && autoGrowActive) {
+//     autoGrowActive = false;
+//     if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+//     growAccum = 0;
+//   }
+// }
 
     // function update(clientY, e) {
     //   if (!dragging) return;
@@ -3116,6 +3105,33 @@ const nearBottom = clientY >= (viewH - MARGIN);
 //     });
 //   }
 // }
+function maybeAutoGrow(clientY) {
+  if (!isLast || !dragging) return;
+
+  const MARGIN = getBottomBarH() + getSafeBottomPx(); // ✅ (sans ; au milieu)
+
+  const bb = document.getElementById("bottomBar");
+  console.log("BB", {
+    exists: !!bb,
+    display: bb ? getComputedStyle(bb).display : null,
+    h_offset: bb ? bb.offsetHeight : null,
+    h_rect: bb ? bb.getBoundingClientRect().height : null
+  });
+
+  const vv = window.visualViewport;
+  const viewH = vv ? vv.height : window.innerHeight;
+
+  const nearBottom = clientY >= (viewH - MARGIN);
+
+  if (nearBottom && !autoGrowActive) {
+    autoGrowActive = true;
+    if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+  } else if (!nearBottom && autoGrowActive) {
+    autoGrowActive = false;
+    if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+    growAccum = 0;
+  }
+}
 
 function update(clientY, e) {
   if (!dragging) return;
