@@ -2707,6 +2707,14 @@ function wireExpanderSplitters() {
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
+    function getViewportBottom() {
+      // bas visible réel (mobile)
+      if (window.visualViewport) {
+        return window.visualViewport.offsetTop + window.visualViewport.height;
+      }
+      return window.innerHeight;
+    }
+
     function begin(clientY, e) {
       // const expTop = paneTop.closest('.st-expander');
       if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
@@ -2751,7 +2759,8 @@ function wireExpanderSplitters() {
 
       setH(paneTop, hTop + dy);
 
-      scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+      // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+      scrollBottomIntoView(handle, scroller, {
         pad: 12,
         extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
         behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
@@ -2771,24 +2780,48 @@ function wireExpanderSplitters() {
       autoGrowRaf = requestAnimationFrame(tickAutoGrow);
     }
 
-    function maybeAutoGrow(clientY){
-      lastClientY = clientY;
+    // function maybeAutoGrow(clientY){
+    //   lastClientY = clientY;
 
+    //   if (!isLast || !dragging) return;
+
+    //   // marge depuis le bas pour déclencher l’auto-grow
+    //   const safeInset =  Math.max(0, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0', 10)) || 0;
+    //   // const MARGIN = 16 + safeInset; // px au-dessus du bas de l’écran
+    //   const bottomBar = document.getElementById('bottomBar');
+    //   const bottomBarHeight = bottomBar?.offsetHeight || 0;
+    //   const MARGIN = bottomBarHeight + safeInset; // px au-dessus du bas de l’écran
+    //   const nearBottom = clientY >= (window.innerHeight - MARGIN);
+
+    //   if (nearBottom && !autoGrowActive) {
+    //     autoGrowActive = true;
+    //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+    //   } else if (!nearBottom && autoGrowActive) {
+    //     // on est remonté : on arrête l’auto-grow
+    //     autoGrowActive = false;
+    //     if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+    //     growAccum = 0;
+    //   }
+    // }
+
+    function maybeAutoGrow() {
       if (!isLast || !dragging) return;
 
-      // marge depuis le bas pour déclencher l’auto-grow
-      const safeInset =  Math.max(0, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0', 10)) || 0;
-      // const MARGIN = 16 + safeInset; // px au-dessus du bas de l’écran
-      const bottomBar = document.getElementById('bottomBar');
-      const bottomBarHeight = bottomBar?.offsetHeight || 0;
-      const MARGIN = bottomBarHeight + safeInset; // px au-dessus du bas de l’écran
-      const nearBottom = clientY >= (window.innerHeight - MARGIN);
+      const vpBottom = getViewportBottom();
+
+      const safeBottom = getSafeBottomPx ? getSafeBottomPx() : 0;
+      const bottomBarH = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
+
+      // IMPORTANT : on regarde le splitter/handle, pas le doigt
+      const hRect = handle.getBoundingClientRect();
+      const MARGIN = bottomBarH + safeBottom + 8; // 8px de marge visuelle
+
+      const nearBottom = hRect.bottom >= (vpBottom - MARGIN);
 
       if (nearBottom && !autoGrowActive) {
         autoGrowActive = true;
         if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
       } else if (!nearBottom && autoGrowActive) {
-        // on est remonté : on arrête l’auto-grow
         autoGrowActive = false;
         if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
         growAccum = 0;
@@ -2821,7 +2854,8 @@ function wireExpanderSplitters() {
           (typeof getSafeBottom === 'function' ? parseFloat(getSafeBottom()) || 0 : 0) +
           (document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0);
 
-        scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+        // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+        scrollBottomIntoView(handle, scroller, {
           pad: 12,
           extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
           behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
@@ -2829,7 +2863,8 @@ function wireExpanderSplitters() {
       }
 
       // 🆕 déclenche/arrête auto-grow si besoin
-      maybeAutoGrow(clientY);
+      // maybeAutoGrow(clientY);
+      maybeAutoGrow();
     }
 
     function finish() {
