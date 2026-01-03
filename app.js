@@ -2751,11 +2751,11 @@ function wireExpanderSplitters() {
 
       setH(paneTop, hTop + dy);
 
-      // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-      //   pad: 12,
-      //   extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
-      //   behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
-      // });
+      scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+        pad: 12,
+        extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
+        behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
+      });
 
       // notify AG Grid haut
       try {
@@ -2821,11 +2821,11 @@ function wireExpanderSplitters() {
           (typeof getSafeBottom === 'function' ? parseFloat(getSafeBottom()) || 0 : 0) +
           (document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0);
 
-        // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-        //   pad: 12,
-        //   extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
-        //   behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
-        // });
+        scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+          pad: 12,
+          extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
+          behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
+        });
       }
 
       // 🆕 déclenche/arrête auto-grow si besoin
