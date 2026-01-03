@@ -2708,6 +2708,7 @@ function wireExpanderSplitters() {
 let pinned = false;
 let pinClientY = 0;     // Y “virtuel” de la poignée (limite)
 let pinRect0 = null;     // rect initial du handle
+let pinDy = null;      // dy minimal autorisé pendant auto-grow
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
@@ -2767,6 +2768,7 @@ function getViewportBottomPx() {
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
 
+pinDy = null;
 pinned = false;
 pinClientY = 0;     
 pinRect0 = handle.getBoundingClientRect();
@@ -3125,11 +3127,20 @@ function maybeAutoGrow(clientY) {
 
   if (nearBottom && !autoGrowActive) {
     autoGrowActive = true;
+
+      // ✅ on verrouille l'état courant pour empêcher une chute à dyMin
+  const dyNow = Math.max(dyMin, Math.min((clientY - startY) + growAccum, dyMax));
+  pinDy = dyNow;
+  pinned = true;
+
     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
   } else if (!nearBottom && autoGrowActive) {
     autoGrowActive = false;
     if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
     growAccum = 0;
+
+    pinned = false;
+    pinDy = null;
   }
 }
 
@@ -3138,18 +3149,15 @@ function update(clientY, e) {
 
   const dyRaw = clientY - startY + (isLast ? growAccum : 0);
   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+
+// ✅ anti “jump to 0” : pendant auto-grow, ne jamais descendre sous le pin
+if (isLast && pinned && pinDy != null) {
+  dy = Math.max(dy, pinDy);
+}
+
   setH(paneTop, hTop + dy);
 
-if (isLast) {
-  console.log({
-    clientY,
-    innerH: window.innerHeight,
-    vvH: window.visualViewport?.height,
-    vvOff: window.visualViewport?.offsetTop,
-    bottomBarH: getBottomBarH(),
-    safe: getSafeBottomPx()
-  });
-}
+  if (isLast) console.log({ clientY, startY, dyRaw, dyMin, dyMax, hTop });
 
   // ✅ PIN le splitter avant qu'il passe sous la bottom bar
   if (isLast) {
