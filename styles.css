@@ -711,7 +711,7 @@ main, .page-wrap {
 .page-end-spacer {
   /* height: calc(var(--bar-height) + env(safe-area-inset-bottom) + var(--safe-gap, 0px) + 12px); */
   /* height: calc(var(--bar-height) + var(--safe-gap, 0px) + 12px); */
-  height: calc(var(--bar-height) + 12px);
+  height: calc(var(--bar-height) + 15px);
   flex: 0 0 auto;
 }
 
