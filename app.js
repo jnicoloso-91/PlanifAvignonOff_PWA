@@ -2836,34 +2836,82 @@ function wireExpanderSplitters() {
       const dyRaw = clientY - startY + (isLast ? growAccum : 0);
       let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
 
-      // ✅ anti “jump to 0”
-      if (isLast && pinned && pinDy != null) {
-        dy = Math.max(dy, pinDy);
-      }
+      // // ✅ anti “jump to 0”
+      // if (isLast && pinned && pinDy != null) {
+      //   dy = Math.max(dy, pinDy);
+      // }
+// Si pinned, dy = dy au clamp + dépassement du doigt
+if (isLast && pinned) {
+  dy = Math.max(dyMin, Math.min(pinDy0 + growAccum, dyMax));
+}
+
+// Anti-collapse conservé
+if (isLast && pinned && pinDy != null) {
+  dy = Math.max(dy, pinDy);
+}
 
       setH(paneTop, hTop + dy);
 
       // ✅ si le splitter risque de passer sous la bottom bar, on “paye” en growAccum
+      // if (isLast) {
+      //   const handleRect = handle.getBoundingClientRect();
+      //   const viewportBottom = getViewportBottomPx();
+      //   const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
+
+      //   if (handleRect.bottom > bottomLimit) {
+      //     const overflow = handleRect.bottom - bottomLimit;
+
+      //     // 1) on peut aider le scroller à suivre (optionnel)
+      //     try {
+      //       const sc = scroller || findPageScroller(paneTop);
+      //       const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+      //       sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
+      //     } catch {}
+
+      //     // 2) ✅ on convertit l’overflow en “croissance synthétique”
+      //     growAccum += overflow;
+
+      //     // 3) ✅ activation autogrow + pin immédiat (pas “parfois”)
+      //     activateAutoGrow(clientY);
+      //   }
+      // }
+
+      // ✅ clamp + pin au contact de la bottom bar (pas après)
       if (isLast) {
-        const handleRect = handle.getBoundingClientRect();
         const viewportBottom = getViewportBottomPx();
         const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
 
-        if (handleRect.bottom > bottomLimit) {
-          const overflow = handleRect.bottom - bottomLimit;
+        const r = handle.getBoundingClientRect();
+        const overflow = r.bottom - bottomLimit;
 
-          // 1) on peut aider le scroller à suivre (optionnel)
-          try {
-            const sc = scroller || findPageScroller(paneTop);
-            const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
-            sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
-          } catch {}
+        if (overflow > 0) {
+          // 1) CLAMP IMMEDIAT: on rebase startY pour annuler exactement l'overflow
+          // -> la poignée reste visuellement à bottomLimit
+          startY += overflow;
 
-          // 2) ✅ on convertit l’overflow en “croissance synthétique”
-          growAccum += overflow;
+          // 2) recalc dy après clamp
+          let dyClamped = Math.max(dyMin, Math.min(clientY - startY, dyMax));
 
-          // 3) ✅ activation autogrow + pin immédiat (pas “parfois”)
-          activateAutoGrow(clientY);
+          // 3) PIN propre au point de clamp (une seule fois)
+          if (!pinned) {
+            pinned = true;
+            pinAtY = clientY;    // repère doigt au moment du clamp
+            pinDy0 = dyClamped;  // dy au moment du clamp
+            growAccum = 0;
+            pinDy = dyClamped;   // anti-collapse
+          } else {
+            // ne jamais laisser pinDy descendre
+            pinDy = Math.max(pinDy ?? dyClamped, dyClamped);
+          }
+
+          // 4) démarre l'auto-grow dès qu'on touche la limite
+          autoGrowActive = true;
+          if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+        }
+
+        // 5) si on est pinned: la croissance vient uniquement du dépassement du doigt
+        if (pinned) {
+          growAccum = Math.max(0, clientY - pinAtY);
         }
       }
 
