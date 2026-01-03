@@ -2707,7 +2707,7 @@ function wireExpanderSplitters() {
 
 let pinned = false;
 let pinClientY = 0;     // Y “virtuel” de la poignée (limite)
-let pinRect = null;     // rect initial du handle
+let pinRect0 = null;     // rect initial du handle
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
@@ -2753,28 +2753,9 @@ function getBottomBarPx() {
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
 
-if (isLast) {
-  pinRect = handle.getBoundingClientRect();
-
-  const safe = (typeof getSafeBottomPx === "function") ? getSafeBottomPx() : 0;
-  const barH = getBottomBarPx();
-  const vpBottom = getViewportBottomPx();
-
-  const GAP = 8; // marge au-dessus de la barre
-  // Y cible de la poignée (au centre) quand elle est “pinnée”
-  const pinBottom = barH + safe + GAP;
-  const pinTop = (vpBottom - pinBottom) - pinRect.height;
-
-  // On mémorise un clientY “virtuel” correspondant à la poignée “pinnée”
-  pinClientY = pinTop + pinRect.height / 2;
-
-  // Active le mode pinned (poignée fixed)
-  pinned = true;
-  handle.classList.add("is-pinned");
-  handle.style.left = `${pinRect.left}px`;
-  handle.style.top  = `${pinTop}px`;
-  handle.style.width = `${pinRect.width}px`;
-}
+pinned = false;
+pinClientY = 0;     
+pinRect0 = handle.getBoundingClientRect();
 
     }
 
@@ -2970,34 +2951,120 @@ function maybeAutoGrow() {
 //     }
 //   } catch {}
 // }
-function update(clientY) {
+// function update(clientY) {
+//   if (!dragging) return;
+
+//   // Si on est sur le dernier splitter et en mode pinned :
+//   // - le handle ne descend pas visuellement
+//   // - tout ce que le doigt fait “en dessous” devient growAccum
+//   let effectiveY = clientY;
+//   if (isLast && pinned) {
+//     const below = clientY - pinClientY;
+//     growAccum = Math.max(0, below);
+//     effectiveY = Math.min(clientY, pinClientY); // la poignée “réelle” est bloquée
+//   } else {
+//     growAccum = 0;
+//   }
+
+//   const dyRaw = (effectiveY - startY) + (isLast ? growAccum : 0);
+//   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+//   setH(paneTop, hTop + dy);
+
+//   // (option) si tu veux “suivre” vers le bas quand ça grandit :
+//   // je te conseille de le laisser en 'auto' pendant drag pour éviter les effets de saut
+//   if (isLast && dy > 0) {
+//     scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+//       pad: 12,
+//       extraPad: getSafeBottomPx() + bottomBarH,
+//       behavior: 'auto'
+//     });
+//   }
+
+//   // notifier la grille du haut
+//   try {
+//     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+//     for (const g of (window.grids?.values?.() || [])) {
+//       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+//     }
+//   } catch {}
+// }
+function computePinTop() {
+  const safe = (typeof getSafeBottomPx === "function") ? getSafeBottomPx() : 0;
+  const barH = getBottomBarHeightPx();
+  const vpBottom = getViewportBottomPx();
+
+  const GAP = 8;
+  const h = pinRect0?.height || handle.getBoundingClientRect().height || 10;
+  const w = pinRect0?.width  || handle.getBoundingClientRect().width  || 100;
+  const left = pinRect0?.left ?? handle.getBoundingClientRect().left;
+
+  // top pour que la poignée soit juste au-dessus bottom bar + safe area
+  const pinTop = (vpBottom - (barH + safe + GAP)) - h;
+
+  // clamp de sécurité (évite disparition si valeurs bizarres)
+  const topClamped = Math.max(0, Math.min(pinTop, vpBottom - h - 2));
+
+  return { top: topClamped, left, width: w, height: h, vpBottom, barH, safe };
+}
+
+function pinHandle() {
+  if (pinned) return;
+  const g = computePinTop();
+  pinned = true;
+
+  handle.classList.add("is-pinned");
+  handle.style.left = `${g.left}px`;
+  handle.style.top = `${g.top}px`;
+  handle.style.width = `${g.width}px`;
+
+  pinClientY = g.top + g.height / 2;
+}
+
+function unpinHandle() {
+  if (!pinned) return;
+  pinned = false;
+  handle.classList.remove("is-pinned");
+  handle.style.removeProperty("left");
+  handle.style.removeProperty("top");
+  handle.style.removeProperty("width");
+  pinClientY = 0;
+  growAccum = 0;
+}
+
+function update(clientY, e) {
   if (!dragging) return;
 
-  // Si on est sur le dernier splitter et en mode pinned :
-  // - le handle ne descend pas visuellement
-  // - tout ce que le doigt fait “en dessous” devient growAccum
-  let effectiveY = clientY;
-  if (isLast && pinned) {
-    const below = clientY - pinClientY;
-    growAccum = Math.max(0, below);
-    effectiveY = Math.min(clientY, pinClientY); // la poignée “réelle” est bloquée
-  } else {
-    growAccum = 0;
+  // On n’utilise ce mécanisme QUE pour le dernier splitter
+  if (isLast) {
+    // Détecte si la poignée “normale” serait en train de passer sous la bottom bar
+    // -> alors on pin.
+    const h = pinRect0?.height || handle.getBoundingClientRect().height || 10;
+    const g = computePinTop();
+    const handleBottomIfFree = clientY + h/2;           // approx : poignée centrée sur doigt
+    const limitBottom = g.vpBottom - (g.barH + g.safe); // bas “visible” avant bottom bar
+
+    // Si on descend et qu’on franchit la limite => pin
+    if (!pinned && handleBottomIfFree >= limitBottom) {
+      pinHandle();
+    }
+
+    // Si on remonte franchement au-dessus de la limite => unpin (optionnel)
+    if (pinned && clientY < (pinClientY - 24)) {
+      unpinHandle();
+    }
+
+    // Si pinned: le doigt peut descendre, la poignée reste, le surplus devient growAccum
+    if (pinned) {
+      growAccum = Math.max(0, clientY - pinClientY);
+      clientY = Math.min(clientY, pinClientY);
+    } else {
+      growAccum = 0;
+    }
   }
 
-  const dyRaw = (effectiveY - startY) + (isLast ? growAccum : 0);
+  const dyRaw = (clientY - startY) + (isLast ? growAccum : 0);
   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
   setH(paneTop, hTop + dy);
-
-  // (option) si tu veux “suivre” vers le bas quand ça grandit :
-  // je te conseille de le laisser en 'auto' pendant drag pour éviter les effets de saut
-  if (isLast && dy > 0) {
-    scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-      pad: 12,
-      extraPad: getSafeBottomPx() + bottomBarH,
-      behavior: 'auto'
-    });
-  }
 
   // notifier la grille du haut
   try {
@@ -3006,10 +3073,24 @@ function update(clientY) {
       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
     }
   } catch {}
+
+  // auto-scroll pendant croissance (comme tu avais)
+  const hNow = Math.round(paneTop.getBoundingClientRect().height);
+  const isGrowing = (lastHFrame == null) ? true : (hNow > lastHFrame);
+  lastHFrame = hNow;
+
+  if (isLast && isGrowing) {
+    scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+      pad: 12,
+      extraPad: getSafeBottomPx() + bottomBarH,
+      behavior: 'auto',
+    });
+  }
 }
 
     function finish() {
       if (!dragging) return;
+unpinHandle();      
       dragging = false;
       lastHFrame = null;
 
@@ -3034,15 +3115,7 @@ function update(clientY) {
 
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      
-if (pinned) {
-  pinned = false;
-  handle.classList.remove("is-pinned");
-  handle.style.removeProperty("left");
-  handle.style.removeProperty("top");
-  handle.style.removeProperty("width");
-}
-growAccum = 0;
+
     }
 
     // Souris
