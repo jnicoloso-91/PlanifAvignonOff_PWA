@@ -2693,7 +2693,7 @@ function wireExpanderSplitters() {
     //   ? getScrollContainer(expTop)
     //   : expTop.closest('.page') || document.scrollingElement || document.documentElement;
     const scroller = findPageScroller(paneTop);
-    const bottomBarH = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
+    // const bottomBarH = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
 
     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
     let prevTransition = '', prevAnimation = '';
@@ -2711,6 +2711,14 @@ let pinRect0 = null;     // rect initial du handle
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
+function getBottomBarH() {
+  const bb = document.getElementById("bottomBar");
+  if (!bb) return 0;
+
+  // offsetHeight est souvent plus fiable que getBoundingClientRect()
+  const h = bb.offsetHeight || bb.getBoundingClientRect().height || 0;
+  return Math.round(h);
+}
 // function getViewportBottomPx() {
 //   // mobile: VisualViewport est plus fiable que innerHeight
 //   if (window.visualViewport) {
@@ -2725,9 +2733,9 @@ function getViewportBottomPx() {
   return offTop + h; // bottom du viewport visible
 }
 
-function getBottomBarPx() {
-  return document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
-}
+// function getBottomBarPx() {
+//   return document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
+// }
 
     function begin(clientY, e) {
       // const expTop = paneTop.closest('.st-expander');
@@ -2781,7 +2789,7 @@ pinRect0 = handle.getBoundingClientRect();
       // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
       scrollBottomIntoView(handle, scroller, {
         pad: 12,
-        extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
+        extraPad: getSafeBottomPx() + getBottomBarH(),  // évite de passer sous la bottom bar
         behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
       });
 
@@ -2837,13 +2845,28 @@ function maybeAutoGrow() {
   const vpBottom = getViewportBottom();
 
   const safeBottom = getSafeBottomPx ? getSafeBottomPx() : 0;
-  const bottomBarH = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
+  const bottomBarH = getBottomBarH(); //document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
 
   // IMPORTANT : on regarde le splitter/handle, pas le doigt
   const hRect = handle.getBoundingClientRect();
-  const MARGIN = bottomBarH + safeBottom + 8; // 8px de marge visuelle
 
-  const nearBottom = hRect.bottom >= (vpBottom - MARGIN);
+  // const MARGIN = bottomBarH + safeBottom + 8; // 8px de marge visuelle
+  // const nearBottom = hRect.bottom >= (vpBottom - MARGIN);
+
+const MARGIN = bottomBarH + safeInset;
+
+const bb = document.getElementById("bottomBar");
+console.log("BB", {
+  exists: !!bb,
+  display: bb ? getComputedStyle(bb).display : null,
+  h_offset: bb ? bb.offsetHeight : null,
+  h_rect: bb ? bb.getBoundingClientRect().height : null
+});
+
+// const nearBottom = clientY >= (window.innerHeight - MARGIN);
+const vv = window.visualViewport;
+const viewH = vv ? vv.height : window.innerHeight;
+const nearBottom = clientY >= (viewH - MARGIN);
 
   if (nearBottom && !autoGrowActive) {
     autoGrowActive = true;
@@ -3107,7 +3130,7 @@ if (isLast) {
     innerH: window.innerHeight,
     vvH: window.visualViewport?.height,
     vvOff: window.visualViewport?.offsetTop,
-    bottomBarH,
+    getBottomBarH(),
     safe: getSafeBottomPx()
   });
 }
@@ -3116,7 +3139,7 @@ if (isLast) {
   if (isLast) {
     const handleRect = handle.getBoundingClientRect();
     const viewportBottom = getViewportBottomPx();
-    const bottomLimit = viewportBottom - (getSafeBottomPx() + bottomBarH + 6); // 6px marge
+    const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6); // 6px marge
 
     if (handleRect.bottom > bottomLimit) {
       // on est en train de le perdre sous la bar → on "paye" en auto-grow
