@@ -2830,116 +2830,116 @@ function wireExpanderSplitters() {
       }
     }
 
-    // function update(clientY, e) {
-    //   if (!dragging) return;
+    function update(clientY, e) {
+      if (!dragging) return;
 
-    //   const dyRaw = clientY - startY + (isLast ? growAccum : 0);
-    //   let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+      const dyRaw = clientY - startY + (isLast ? growAccum : 0);
+      let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
 
-    //   // ✅ anti “jump to 0”
-    //   if (isLast && pinned && pinDy != null) {
-    //     dy = Math.max(dy, pinDy);
-    //   }
+      // ✅ anti “jump to 0”
+      if (isLast && pinned && pinDy != null) {
+        dy = Math.max(dy, pinDy);
+      }
 
-    //   setH(paneTop, hTop + dy);
+      setH(paneTop, hTop + dy);
 
-    //   // ✅ si le splitter risque de passer sous la bottom bar, on “paye” en growAccum
-    //   if (isLast) {
-    //     const handleRect = handle.getBoundingClientRect();
-    //     const viewportBottom = getViewportBottomPx();
-    //     const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
+      // ✅ si le splitter risque de passer sous la bottom bar, on “paye” en growAccum
+      if (isLast) {
+        const handleRect = handle.getBoundingClientRect();
+        const viewportBottom = getViewportBottomPx();
+        const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
 
-    //     if (handleRect.bottom > bottomLimit) {
-    //       const overflow = handleRect.bottom - bottomLimit;
+        if (handleRect.bottom > bottomLimit) {
+          const overflow = handleRect.bottom - bottomLimit;
 
-    //       // 1) on peut aider le scroller à suivre (optionnel)
-    //       try {
-    //         const sc = scroller || findPageScroller(paneTop);
-    //         const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
-    //         sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
-    //       } catch {}
+          // 1) on peut aider le scroller à suivre (optionnel)
+          try {
+            const sc = scroller || findPageScroller(paneTop);
+            const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+            sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
+          } catch {}
 
-    //       // 2) ✅ on convertit l’overflow en “croissance synthétique”
-    //       growAccum += overflow;
+          // 2) ✅ on convertit l’overflow en “croissance synthétique”
+          growAccum += overflow;
 
-    //       // 3) ✅ activation autogrow + pin immédiat (pas “parfois”)
-    //       activateAutoGrow(clientY);
-    //     }
-    //   }
+          // 3) ✅ activation autogrow + pin immédiat (pas “parfois”)
+          activateAutoGrow(clientY);
+        }
+      }
 
-    //   // ... notify ag-grid + isGrowing + scrollBottomIntoView (si tu gardes)
-    //   maybeAutoGrow(clientY);
-    // }
-function update(clientY, e) {
-  if (!dragging) return;
-
-  // dy “normal”
-  let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
-
-  if (isLast) {
-    const viewportBottom = getViewportBottomPx();
-    const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
-
-    const handleRect = handle.getBoundingClientRect();
-
-    // 1) déclenchement du pin au moment exact où ça dépasse
-    if (!pinned && handleRect.bottom > bottomLimit) {
-      pinned = true;
-
-      // pinAtY = position doigt au moment du pin
-      pinAtY = clientY;
-
-      // dy au moment du pin
-      pinDy0 = dy;
-      growAccum = 0;
+      // ... notify ag-grid + isGrowing + scrollBottomIntoView (si tu gardes)
+      maybeAutoGrow(clientY);
     }
+// function update(clientY, e) {
+//   if (!dragging) return;
 
-    // 2) si pinned : la croissance dépend UNIQUEMENT du dépassement du doigt
-    if (pinned) {
-      growAccum = Math.max(0, clientY - pinAtY);
+//   // dy “normal”
+//   let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
 
-      // dy = dy au pin + dépassement
-      dy = Math.max(dyMin, Math.min(pinDy0 + growAccum, dyMax));
+//   if (isLast) {
+//     const viewportBottom = getViewportBottomPx();
+//     const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
 
-      // (optionnel) aide le scroller à suivre juste un peu (sans gros saut)
-      // → surtout PAS scrollBottomIntoView ici
-      try {
-        const sc = scroller || findPageScroller(paneTop);
-        const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+//     const handleRect = handle.getBoundingClientRect();
 
-        // petit scroll correctif si la poignée est vraiment en train de passer sous la bar
-        const r = handle.getBoundingClientRect();
-        const overflow = r.bottom - bottomLimit;
-        if (overflow > 0) sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
-      } catch {}
-    } else {
-      // si on n’est plus pinned, growAccum doit rester 0
-      growAccum = 0;
-    }
+//     // 1) déclenchement du pin au moment exact où ça dépasse
+//     if (!pinned && handleRect.bottom > bottomLimit) {
+//       pinned = true;
 
-    // 3) si tu veux “dé-pinner” quand on remonte assez :
-    // (ça rend l’aller-retour super fluide)
-    if (pinned && clientY <= pinAtY) {
-      // on repasse en mode normal dès qu’on repasse sous le pin
-      pinned = false;
-      growAccum = 0;
+//       // pinAtY = position doigt au moment du pin
+//       pinAtY = clientY;
 
-      // IMPORTANT : rebaser startY pour éviter un saut à la transition
-      // On veut que dy normal == dy courant
-      startY = clientY - dy;
-    }
-  }
+//       // dy au moment du pin
+//       pinDy0 = dy;
+//       growAccum = 0;
+//     }
 
-  setH(paneTop, hTop + dy);
+//     // 2) si pinned : la croissance dépend UNIQUEMENT du dépassement du doigt
+//     if (pinned) {
+//       growAccum = Math.max(0, clientY - pinAtY);
 
-  // notify AG Grid haut (inchangé)
-  try {
-    const gridDiv = paneTop.querySelector('div[id^="grid"]');
-    for (const g of (window.grids?.values?.() || [])) {
-      if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-    }
-  } catch {}
-}
+//       // dy = dy au pin + dépassement
+//       dy = Math.max(dyMin, Math.min(pinDy0 + growAccum, dyMax));
+
+//       // (optionnel) aide le scroller à suivre juste un peu (sans gros saut)
+//       // → surtout PAS scrollBottomIntoView ici
+//       try {
+//         const sc = scroller || findPageScroller(paneTop);
+//         const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+
+//         // petit scroll correctif si la poignée est vraiment en train de passer sous la bar
+//         const r = handle.getBoundingClientRect();
+//         const overflow = r.bottom - bottomLimit;
+//         if (overflow > 0) sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
+//       } catch {}
+//     } else {
+//       // si on n’est plus pinned, growAccum doit rester 0
+//       growAccum = 0;
+//     }
+
+//     // 3) si tu veux “dé-pinner” quand on remonte assez :
+//     // (ça rend l’aller-retour super fluide)
+//     if (pinned && clientY <= pinAtY) {
+//       // on repasse en mode normal dès qu’on repasse sous le pin
+//       pinned = false;
+//       growAccum = 0;
+
+//       // IMPORTANT : rebaser startY pour éviter un saut à la transition
+//       // On veut que dy normal == dy courant
+//       startY = clientY - dy;
+//     }
+//   }
+
+//   setH(paneTop, hTop + dy);
+
+//   // notify AG Grid haut (inchangé)
+//   try {
+//     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+//     for (const g of (window.grids?.values?.() || [])) {
+//       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+//     }
+//   } catch {}
+// }
 
     function finish() {
       if (!dragging) return;
