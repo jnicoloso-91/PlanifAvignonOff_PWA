@@ -3101,6 +3101,17 @@ function update(clientY, e) {
   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
   setH(paneTop, hTop + dy);
 
+if (isLast) {
+  console.log({
+    clientY,
+    innerH: window.innerHeight,
+    vvH: window.visualViewport?.height,
+    vvOff: window.visualViewport?.offsetTop,
+    bottomBarH,
+    safe: getSafeBottomPx()
+  });
+}
+
   // ✅ PIN le splitter avant qu'il passe sous la bottom bar
   if (isLast) {
     const handleRect = handle.getBoundingClientRect();
