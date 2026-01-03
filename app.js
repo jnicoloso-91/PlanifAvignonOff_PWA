@@ -3130,7 +3130,7 @@ if (isLast) {
     innerH: window.innerHeight,
     vvH: window.visualViewport?.height,
     vvOff: window.visualViewport?.offsetTop,
-    getBottomBarH(),
+    bottomBarH: getBottomBarH(),
     safe: getSafeBottomPx()
   });
 }
