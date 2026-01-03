@@ -2842,18 +2842,18 @@ function getViewportBottom() {
 function maybeAutoGrow() {
   if (!isLast || !dragging) return;
 
-  const vpBottom = getViewportBottom();
+  // const vpBottom = getViewportBottom();
 
-  const safeBottom = getSafeBottomPx ? getSafeBottomPx() : 0;
-  const bottomBarH = getBottomBarH(); //document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
+  // const safeBottom = getSafeBottomPx ? getSafeBottomPx() : 0;
+  // const bottomBarH = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
 
-  // IMPORTANT : on regarde le splitter/handle, pas le doigt
-  const hRect = handle.getBoundingClientRect();
+  // // IMPORTANT : on regarde le splitter/handle, pas le doigt
+  // const hRect = handle.getBoundingClientRect();
 
   // const MARGIN = bottomBarH + safeBottom + 8; // 8px de marge visuelle
   // const nearBottom = hRect.bottom >= (vpBottom - MARGIN);
 
-const MARGIN = bottomBarH + safeInset;
+const MARGIN = getBottomBarH(); + getSafeBottomPx();
 
 const bb = document.getElementById("bottomBar");
 console.log("BB", {
