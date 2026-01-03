@@ -573,6 +573,13 @@ main, .page-wrap {
   /*touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
 }
 
+/* Poignée “pinnée” pendant le drag : reste au-dessus de la bottom bar */
+.v-splitter__handle.is-pinned {
+  position: fixed !important;
+  z-index: 999999 !important;
+  /* left/top/width seront set en JS */
+}
+
 /* Couches internes d'AG Grid qui gèrent le scroll */
 .ag-root-wrapper,
 .ag-root-wrapper-body,
