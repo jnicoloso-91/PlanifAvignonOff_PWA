@@ -3148,7 +3148,7 @@ function update(clientY, e) {
   if (!dragging) return;
 
   const dyRaw = clientY - startY + (isLast ? growAccum : 0);
-  const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+  let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
 
 // ✅ anti “jump to 0” : pendant auto-grow, ne jamais descendre sous le pin
 if (isLast && pinned && pinDy != null) {
