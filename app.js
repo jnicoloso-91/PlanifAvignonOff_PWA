@@ -2776,7 +2776,39 @@ pinRect0 = handle.getBoundingClientRect();
     }
 
     // 🆕 boucle d’auto-grow quand on est “coincé” en bas du viewport
-    function tickAutoGrow() {
+    // function tickAutoGrow() {
+    //   if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
+
+    //   // vitesse de croissance (pixels/frame) – ajuste à ton goût
+    //   const SPEED = 6;
+
+    //   growAccum += SPEED;
+    //   const dyRaw = (lastClientY - startY) + growAccum;
+    //   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+
+    //   setH(paneTop, hTop + dy);
+
+    //   // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+    //   scrollBottomIntoView(handle, scroller, {
+    //     pad: 12,
+    //     extraPad: getSafeBottomPx() + getBottomBarH(),  // évite de passer sous la bottom bar
+    //     behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
+    //   });
+
+    //   // notify AG Grid haut
+    //   try {
+    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+    //     for (const g of (window.grids?.values?.() || [])) {
+    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+    //     }
+    //   } catch {}
+
+    //   // stop si on touche la borne haute
+    //   if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
+
+    //   autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+    // }
+function tickAutoGrow() {
       if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
 
       // vitesse de croissance (pixels/frame) – ajuste à ton goût
@@ -2808,7 +2840,7 @@ pinRect0 = handle.getBoundingClientRect();
 
       autoGrowRaf = requestAnimationFrame(tickAutoGrow);
     }
-
+    
     // function maybeAutoGrow(clientY){
     //   lastClientY = clientY;
 
