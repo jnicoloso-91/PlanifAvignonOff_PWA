@@ -1087,6 +1087,7 @@ function findPageScroller(fromEl){
   // fallback : document
   return document.scrollingElement || document.documentElement;
 }
+
 function scrollBottomIntoView(target, scroller, {
   pad = 8,            // coussin visuel
   extraPad = 0,       // safe-area + bottom-bar, etc.
@@ -2750,12 +2751,11 @@ function wireExpanderSplitters() {
 
       setH(paneTop, hTop + dy);
 
-      // scrollBottomIntoView(expTop, scroller, { pad: 12 });
-      scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-        pad: 12,
-        extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
-        behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
-      });
+      // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+      //   pad: 12,
+      //   extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
+      //   behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
+      // });
 
       // notify AG Grid haut
       try {
@@ -2802,8 +2802,6 @@ function wireExpanderSplitters() {
       const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
       setH(paneTop, hTop + dy);
       
-      // scrollBottomIntoView(expTop, scroller, { pad: 12 });
-
       // notifier la grille du haut
       try {
         const gridDiv = paneTop.querySelector('div[id^="grid"]');
@@ -2824,13 +2822,10 @@ function wireExpanderSplitters() {
           (document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0);
 
         // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-        //   pad: 12, extraPad, overflowStart: 10
+        //   pad: 12,
+        //   extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
+        //   behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
         // });
-        scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-          pad: 12,
-          extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
-          behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
-        });
       }
 
       // 🆕 déclenche/arrête auto-grow si besoin
