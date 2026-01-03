@@ -2689,11 +2689,7 @@ function wireExpanderSplitters() {
     if (!paneTop || (!paneBot && !isLast)) return;
 
     const expTop = paneTop.closest('.st-expander');        // parent expander (top)
-    // const scroller = (typeof getScrollContainer === 'function')
-    //   ? getScrollContainer(expTop)
-    //   : expTop.closest('.page') || document.scrollingElement || document.documentElement;
     const scroller = findPageScroller(paneTop);
-    // const bottomBarH = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
 
     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
     let prevTransition = '', prevAnimation = '';
@@ -2703,40 +2699,29 @@ function wireExpanderSplitters() {
     let autoGrowRaf = null;
     let autoGrowActive = false;
     let lastClientY = 0;
-    let growAccum = 0; // pixels synthétiques ajoutés quand on “coince” en bas
-
-let pinned = false;
-let pinClientY = 0;     // Y “virtuel” de la poignée (limite)
-let pinRect0 = null;     // rect initial du handle
-let pinDy = null;      // dy minimal autorisé pendant auto-grow
+    let pinDy = null;      // dy minimal autorisé pendant auto-grow
+    let pinned = false;
+    let pinAtY = 0;      // Y doigt au moment où on pin (repère)
+    let pinDy0 = 0;      // dy au moment où on pin (repère)
+    let growAccum = 0;   // = max(0, clientY - pinAtY)
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
-function getBottomBarH() {
-  const bb = document.getElementById("bottomBar");
-  if (!bb) return 0;
+    function getBottomBarH() {
+      const bb = document.getElementById("bottomBar");
+      if (!bb) return 0;
 
-  // offsetHeight est souvent plus fiable que getBoundingClientRect()
-  const h = bb.offsetHeight || bb.getBoundingClientRect().height || 0;
-  return Math.round(h);
-}
-// function getViewportBottomPx() {
-//   // mobile: VisualViewport est plus fiable que innerHeight
-//   if (window.visualViewport) {
-//     return window.visualViewport.offsetTop + window.visualViewport.height;
-//   }
-//   return window.innerHeight;
-// }
-function getViewportBottomPx() {
-  const vv = window.visualViewport;
-  const h = vv ? vv.height : window.innerHeight;
-  const offTop = vv ? vv.offsetTop : 0;
-  return offTop + h; // bottom du viewport visible
-}
+      // offsetHeight est souvent plus fiable que getBoundingClientRect()
+      const h = bb.offsetHeight || bb.getBoundingClientRect().height || 0;
+      return Math.round(h);
+    }
 
-// function getBottomBarPx() {
-//   return document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
-// }
+    function getViewportBottomPx() {
+      const vv = window.visualViewport;
+      const h = vv ? vv.height : window.innerHeight;
+      const offTop = vv ? vv.offsetTop : 0;
+      return offTop + h; // bottom du viewport visible
+    }
 
     function begin(clientY, e) {
       // const expTop = paneTop.closest('.st-expander');
@@ -2768,47 +2753,14 @@ function getViewportBottomPx() {
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
 
-pinDy = null;
-pinned = false;
-pinClientY = 0;     
-pinRect0 = handle.getBoundingClientRect();
-
+      pinDy = null;
+      pinDy0 = 0;
+      pinned = false;
+      pinAtY = 0;
+      growAccum = 0;
     }
 
-    // 🆕 boucle d’auto-grow quand on est “coincé” en bas du viewport
-    // function tickAutoGrow() {
-    //   if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
-
-    //   // vitesse de croissance (pixels/frame) – ajuste à ton goût
-    //   const SPEED = 6;
-
-    //   growAccum += SPEED;
-    //   const dyRaw = (lastClientY - startY) + growAccum;
-    //   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-
-    //   setH(paneTop, hTop + dy);
-
-    //   // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-    //   scrollBottomIntoView(handle, scroller, {
-    //     pad: 12,
-    //     extraPad: getSafeBottomPx() + getBottomBarH(),  // évite de passer sous la bottom bar
-    //     behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
-    //   });
-
-    //   // notify AG Grid haut
-    //   try {
-    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
-    //     for (const g of (window.grids?.values?.() || [])) {
-    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-    //     }
-    //   } catch {}
-
-    //   // stop si on touche la borne haute
-    //   if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
-
-    //   autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-    // }
-function tickAutoGrow() {
+    function tickAutoGrow() {
       if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
 
       // vitesse de croissance (pixels/frame) – ajuste à ton goût
@@ -2840,467 +2792,157 @@ function tickAutoGrow() {
 
       autoGrowRaf = requestAnimationFrame(tickAutoGrow);
     }
-    
-    // function maybeAutoGrow(clientY){
-    //   lastClientY = clientY;
 
-    //   if (!isLast || !dragging) return;
+    function activateAutoGrow(clientY) {
+      // calcule dy courant (avec accum)
+      const dyNow = Math.max(dyMin, Math.min((clientY - startY) + (isLast ? growAccum : 0), dyMax));
 
-    //   // marge depuis le bas pour déclencher l’auto-grow
-    //   const safeInset =  Math.max(0, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0', 10)) || 0;
-    //   // const MARGIN = 16 + safeInset; // px au-dessus du bas de l’écran
-    //   const bottomBar = document.getElementById('bottomBar');
-    //   const bottomBarHeight = bottomBar?.offsetHeight || 0;
-    //   const MARGIN = bottomBarHeight + safeInset; // px au-dessus du bas de l’écran
-    //   const nearBottom = clientY >= (window.innerHeight - MARGIN);
+      // ✅ verrouille immédiatement (anti collapse)
+      if (!pinned || pinDy == null) {
+        pinned = true;
+        pinDy = dyNow;
+      } else {
+        // on ne baisse jamais le pin
+        pinDy = Math.max(pinDy, dyNow);
+      }
 
-    //   if (nearBottom && !autoGrowActive) {
-    //     autoGrowActive = true;
-    //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-    //   } else if (!nearBottom && autoGrowActive) {
-    //     // on est remonté : on arrête l’auto-grow
-    //     autoGrowActive = false;
-    //     if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
-    //     growAccum = 0;
-    //   }
-    // }
+      autoGrowActive = true;
+      if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+    }
 
-function getViewportBottom() {
-  // bas visible réel sur mobile
-  if (window.visualViewport) {
-    return window.visualViewport.offsetTop + window.visualViewport.height;
-  }
-  return window.innerHeight;
-}
+    function maybeAutoGrow(clientY) {
+      if (!isLast || !dragging) return;
 
-// function maybeAutoGrow() {
-//   if (!isLast || !dragging) return;
+      const MARGIN = getBottomBarH() + getSafeBottomPx() + 6;
+      const vv = window.visualViewport;
+      const viewH = vv ? vv.height : window.innerHeight;
 
-//   const MARGIN = getBottomBarH() + getSafeBottomPx();
+      const nearBottom = clientY >= (viewH - MARGIN);
 
-//   const bb = document.getElementById("bottomBar");
-//   console.log("BB", {
-//     exists: !!bb,
-//     display: bb ? getComputedStyle(bb).display : null,
-//     h_offset: bb ? bb.offsetHeight : null,
-//     h_rect: bb ? bb.getBoundingClientRect().height : null
-//   });
-
-//   // const nearBottom = clientY >= (window.innerHeight - MARGIN);
-//   const vv = window.visualViewport;
-//   const viewH = vv ? vv.height : window.innerHeight;
-//   const nearBottom = clientY >= (viewH - MARGIN);
-
-//   if (nearBottom && !autoGrowActive) {
-//     autoGrowActive = true;
-//     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-//   } else if (!nearBottom && autoGrowActive) {
-//     autoGrowActive = false;
-//     if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
-//     growAccum = 0;
-//   }
-// }
+      if (nearBottom) {
+        activateAutoGrow(clientY);
+      } else if (autoGrowActive) {
+        autoGrowActive = false;
+        if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+        growAccum = 0;
+        pinned = false;
+        pinDy = null;
+      }
+    }
 
     // function update(clientY, e) {
     //   if (!dragging) return;
 
-    //   const dyRaw = clientY - startY + (isLast ? growAccum : 0); // 🆕 accumulé si last
-    //   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-    //   setH(paneTop, hTop + dy);
-      
-    //   // notifier la grille du haut
-    //   try {
-    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
-    //     for (const g of (window.grids?.values?.() || [])) {
-    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-    //     }
-    //   } catch {}
+    //   const dyRaw = clientY - startY + (isLast ? growAccum : 0);
+    //   let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
 
-    //   const hNow = Math.round(paneTop.getBoundingClientRect().height);
-    //   const isGrowing = (lastHFrame == null) ? true : (hNow > lastHFrame);
-    //   lastHFrame = hNow;
-
-    //   // Only auto-scroll when pane grows (dy > 0), and ONLY for the last splitter
-    //   if (isLast && isGrowing) {
-    //     // bottom breathing space = bottom bar height + iOS safe-area if you want
-    //     const extraPad =
-    //       (typeof getSafeBottom === 'function' ? parseFloat(getSafeBottom()) || 0 : 0) +
-    //       (document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0);
-
-    //     // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-    //     scrollBottomIntoView(handle, scroller, {
-    //       pad: 12,
-    //       extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
-    //       behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
-    //     });
+    //   // ✅ anti “jump to 0”
+    //   if (isLast && pinned && pinDy != null) {
+    //     dy = Math.max(dy, pinDy);
     //   }
 
-    //   // 🆕 déclenche/arrête auto-grow si besoin
-    //   // maybeAutoGrow(clientY);
-    //   maybeAutoGrow();
+    //   setH(paneTop, hTop + dy);
+
+    //   // ✅ si le splitter risque de passer sous la bottom bar, on “paye” en growAccum
+    //   if (isLast) {
+    //     const handleRect = handle.getBoundingClientRect();
+    //     const viewportBottom = getViewportBottomPx();
+    //     const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
+
+    //     if (handleRect.bottom > bottomLimit) {
+    //       const overflow = handleRect.bottom - bottomLimit;
+
+    //       // 1) on peut aider le scroller à suivre (optionnel)
+    //       try {
+    //         const sc = scroller || findPageScroller(paneTop);
+    //         const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+    //         sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
+    //       } catch {}
+
+    //       // 2) ✅ on convertit l’overflow en “croissance synthétique”
+    //       growAccum += overflow;
+
+    //       // 3) ✅ activation autogrow + pin immédiat (pas “parfois”)
+    //       activateAutoGrow(clientY);
+    //     }
+    //   }
+
+    //   // ... notify ag-grid + isGrowing + scrollBottomIntoView (si tu gardes)
+    //   maybeAutoGrow(clientY);
     // }
-
-// function scrollByPx(scroller, dy) {
-//   if (!dy) return 0;
-
-//   // mesure avant/après pour connaitre le delta réel (si on est “en butée”)
-//   const isDoc =
-//     scroller === document.scrollingElement ||
-//     scroller === document.documentElement ||
-//     scroller === document.body;
-
-//   const prev = isDoc ? (window.scrollY || document.documentElement.scrollTop || 0) : scroller.scrollTop;
-
-//   if (isDoc) window.scrollTo({ top: prev + dy, behavior: 'auto' });
-//   else scroller.scrollTop = prev + dy;
-
-//   const now = isDoc ? (window.scrollY || document.documentElement.scrollTop || 0) : scroller.scrollTop;
-//   return now - prev;
-// }
-
-// function update(clientY) {
-//   if (!dragging) return;
-
-//   // 1) applique la hauteur “demandée”
-//   let dyRaw = clientY - startY;
-//   let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-//   setH(paneTop, hTop + dy);
-
-//   // 2) si last splitter : on empêche le handle de passer sous la bottom bar
-//   if (isLast) {
-//     const vpBottom = getViewportBottom();
-//     const safe = (typeof getSafeBottomPx === 'function') ? getSafeBottomPx() : 0;
-//     const barH  = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
-//     const LIMIT = vpBottom - (barH + safe + 8); // 8px marge visuelle
-
-//     // on mesure APRES setH (car le handle a bougé)
-//     const hRect = handle.getBoundingClientRect();
-//     const overflow = hRect.bottom - LIMIT;
-
-//     if (overflow > 0) {
-//       // 2a) tente de “rattraper” en scrollant (vers le bas) pour remettre le handle au-dessus
-//       const moved = scrollByPx(scroller, overflow);
-
-//       // 2b) si on n’a pas pu scroller assez (butée), on “pinn” le handle :
-//       const remain = overflow - moved;
-//       if (remain > 0) {
-//         // magie : on décale startY => le doigt peut continuer, mais le handle ne descend plus
-//         startY += remain;
-
-//         // on recalcule et on ré-applique une fois (pour éviter toute frame “sous la barre”)
-//         dyRaw = clientY - startY;
-//         dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-//         setH(paneTop, hTop + dy);
-//       }
-//     }
-//   }
-
-//   // 3) notifier la grille du haut (comme tu fais déjà)
-//   try {
-//     const gridDiv = paneTop.querySelector('div[id^="grid"]');
-//     for (const g of (window.grids?.values?.() || [])) {
-//       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-//     }
-//   } catch {}
-// }
-// function update(clientY) {
-//   if (!dragging) return;
-
-//   // Si on est sur le dernier splitter et en mode pinned :
-//   // - le handle ne descend pas visuellement
-//   // - tout ce que le doigt fait “en dessous” devient growAccum
-//   let effectiveY = clientY;
-//   if (isLast && pinned) {
-//     const below = clientY - pinClientY;
-//     growAccum = Math.max(0, below);
-//     effectiveY = Math.min(clientY, pinClientY); // la poignée “réelle” est bloquée
-//   } else {
-//     growAccum = 0;
-//   }
-
-//   const dyRaw = (effectiveY - startY) + (isLast ? growAccum : 0);
-//   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-//   setH(paneTop, hTop + dy);
-
-//   // (option) si tu veux “suivre” vers le bas quand ça grandit :
-//   // je te conseille de le laisser en 'auto' pendant drag pour éviter les effets de saut
-//   if (isLast && dy > 0) {
-//     scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-//       pad: 12,
-//       extraPad: getSafeBottomPx() + bottomBarH,
-//       behavior: 'auto'
-//     });
-//   }
-
-//   // notifier la grille du haut
-//   try {
-//     const gridDiv = paneTop.querySelector('div[id^="grid"]');
-//     for (const g of (window.grids?.values?.() || [])) {
-//       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-//     }
-//   } catch {}
-// }
-// function computePinTop() {
-//   const safe = (typeof getSafeBottomPx === "function") ? getSafeBottomPx() : 0;
-//   const barH = getBottomBarHeightPx();
-//   const vpBottom = getViewportBottomPx();
-
-//   const GAP = 8;
-//   const h = pinRect0?.height || handle.getBoundingClientRect().height || 10;
-//   const w = pinRect0?.width  || handle.getBoundingClientRect().width  || 100;
-//   const left = pinRect0?.left ?? handle.getBoundingClientRect().left;
-
-//   // top pour que la poignée soit juste au-dessus bottom bar + safe area
-//   const pinTop = (vpBottom - (barH + safe + GAP)) - h;
-
-//   // clamp de sécurité (évite disparition si valeurs bizarres)
-//   const topClamped = Math.max(0, Math.min(pinTop, vpBottom - h - 2));
-
-//   return { top: topClamped, left, width: w, height: h, vpBottom, barH, safe };
-// }
-
-// function pinHandle() {
-//   if (pinned) return;
-//   const g = computePinTop();
-//   pinned = true;
-
-//   handle.classList.add("is-pinned");
-//   handle.style.left = `${g.left}px`;
-//   handle.style.top = `${g.top}px`;
-//   handle.style.width = `${g.width}px`;
-
-//   pinClientY = g.top + g.height / 2;
-// }
-
-// function unpinHandle() {
-//   if (!pinned) return;
-//   pinned = false;
-//   handle.classList.remove("is-pinned");
-//   handle.style.removeProperty("left");
-//   handle.style.removeProperty("top");
-//   handle.style.removeProperty("width");
-//   pinClientY = 0;
-//   growAccum = 0;
-// }
-
-// function update(clientY, e) {
-//   if (!dragging) return;
-
-//   // On n’utilise ce mécanisme QUE pour le dernier splitter
-//   if (isLast) {
-//     // Détecte si la poignée “normale” serait en train de passer sous la bottom bar
-//     // -> alors on pin.
-//     const h = pinRect0?.height || handle.getBoundingClientRect().height || 10;
-//     const g = computePinTop();
-//     const handleBottomIfFree = clientY + h/2;           // approx : poignée centrée sur doigt
-//     const limitBottom = g.vpBottom - (g.barH + g.safe); // bas “visible” avant bottom bar
-
-//     // Si on descend et qu’on franchit la limite => pin
-//     if (!pinned && handleBottomIfFree >= limitBottom) {
-//       pinHandle();
-//     }
-
-//     // Si on remonte franchement au-dessus de la limite => unpin (optionnel)
-//     if (pinned && clientY < (pinClientY - 24)) {
-//       unpinHandle();
-//     }
-
-//     // Si pinned: le doigt peut descendre, la poignée reste, le surplus devient growAccum
-//     if (pinned) {
-//       growAccum = Math.max(0, clientY - pinClientY);
-//       clientY = Math.min(clientY, pinClientY);
-//     } else {
-//       growAccum = 0;
-//     }
-//   }
-
-//   const dyRaw = (clientY - startY) + (isLast ? growAccum : 0);
-//   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-//   setH(paneTop, hTop + dy);
-
-//   // notifier la grille du haut
-//   try {
-//     const gridDiv = paneTop.querySelector('div[id^="grid"]');
-//     for (const g of (window.grids?.values?.() || [])) {
-//       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-//     }
-//   } catch {}
-
-//   // auto-scroll pendant croissance (comme tu avais)
-//   const hNow = Math.round(paneTop.getBoundingClientRect().height);
-//   const isGrowing = (lastHFrame == null) ? true : (hNow > lastHFrame);
-//   lastHFrame = hNow;
-
-//   if (isLast && isGrowing) {
-//     scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-//       pad: 12,
-//       extraPad: getSafeBottomPx() + bottomBarH,
-//       behavior: 'auto',
-//     });
-//   }
-// }
-// function maybeAutoGrow(clientY) {
-//   if (!isLast || !dragging) return;
-
-//   const MARGIN = getBottomBarH() + getSafeBottomPx(); // ✅ (sans ; au milieu)
-
-//   const bb = document.getElementById("bottomBar");
-//   console.log("BB", {
-//     exists: !!bb,
-//     display: bb ? getComputedStyle(bb).display : null,
-//     h_offset: bb ? bb.offsetHeight : null,
-//     h_rect: bb ? bb.getBoundingClientRect().height : null
-//   });
-
-//   const vv = window.visualViewport;
-//   const viewH = vv ? vv.height : window.innerHeight;
-
-//   const nearBottom = clientY >= (viewH - MARGIN);
-
-//   if (nearBottom && !autoGrowActive) {
-//     autoGrowActive = true;
-
-//       // ✅ on verrouille l'état courant pour empêcher une chute à dyMin
-//   const dyNow = Math.max(dyMin, Math.min((clientY - startY) + growAccum, dyMax));
-//   pinDy = dyNow;
-//   pinned = true;
-
-//     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-//   } else if (!nearBottom && autoGrowActive) {
-//     autoGrowActive = false;
-//     if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
-//     growAccum = 0;
-
-//     pinned = false;
-//     pinDy = null;
-//   }
-// }
-
-// function update(clientY, e) {
-//   if (!dragging) return;
-
-//   const dyRaw = clientY - startY + (isLast ? growAccum : 0);
-//   let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-
-// // ✅ anti “jump to 0” : pendant auto-grow, ne jamais descendre sous le pin
-// if (isLast && pinned && pinDy != null) {
-//   dy = Math.max(dy, pinDy);
-// }
-
-//   setH(paneTop, hTop + dy);
-
-//   if (isLast) console.log({ clientY, startY, dyRaw, dyMin, dyMax, hTop });
-
-//   // ✅ PIN le splitter avant qu'il passe sous la bottom bar
-//   if (isLast) {
-//     const handleRect = handle.getBoundingClientRect();
-//     const viewportBottom = getViewportBottomPx();
-//     const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6); // 6px marge
-
-//     if (handleRect.bottom > bottomLimit) {
-//       // on est en train de le perdre sous la bar → on "paye" en auto-grow
-//       const overflow = handleRect.bottom - bottomLimit;
-
-//       // 1) on compense immédiatement en scrollant le scroller (si possible)
-//       try {
-//         const sc = scroller || findPageScroller(paneTop);
-//         const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
-//         sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
-//       } catch {}
-
-//       // 2) et on active l'auto-grow (immédiat, pas “parfois”)
-//       autoGrowActive = true;
-//       if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-
-//       // 3) IMPORTANT: on “rebase” startY pour éviter le jump (sinon ça re-overflow)
-//       startY += overflow;
-//     }
-//   }
-
-//   // ... ton notify ag-grid + isGrowing + scrollBottomIntoView + maybeAutoGrow si tu veux
-//   maybeAutoGrow(clientY);
-// }
-function activateAutoGrow(clientY) {
-  // calcule dy courant (avec accum)
-  const dyNow = Math.max(dyMin, Math.min((clientY - startY) + (isLast ? growAccum : 0), dyMax));
-
-  // ✅ verrouille immédiatement (anti collapse)
-  if (!pinned || pinDy == null) {
-    pinned = true;
-    pinDy = dyNow;
-  } else {
-    // on ne baisse jamais le pin
-    pinDy = Math.max(pinDy, dyNow);
-  }
-
-  autoGrowActive = true;
-  if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-}
-
-function maybeAutoGrow(clientY) {
-  if (!isLast || !dragging) return;
-
-  const MARGIN = getBottomBarH() + getSafeBottomPx() + 6;
-  const vv = window.visualViewport;
-  const viewH = vv ? vv.height : window.innerHeight;
-
-  const nearBottom = clientY >= (viewH - MARGIN);
-
-  if (nearBottom) {
-    activateAutoGrow(clientY);
-  } else if (autoGrowActive) {
-    autoGrowActive = false;
-    if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
-    growAccum = 0;
-    pinned = false;
-    pinDy = null;
-  }
-}
-
 function update(clientY, e) {
   if (!dragging) return;
 
-  const dyRaw = clientY - startY + (isLast ? growAccum : 0);
-  let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+  // dy “normal”
+  let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
 
-  // ✅ anti “jump to 0”
-  if (isLast && pinned && pinDy != null) {
-    dy = Math.max(dy, pinDy);
+  if (isLast) {
+    const viewportBottom = getViewportBottomPx();
+    const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
+
+    const handleRect = handle.getBoundingClientRect();
+
+    // 1) déclenchement du pin au moment exact où ça dépasse
+    if (!pinned && handleRect.bottom > bottomLimit) {
+      pinned = true;
+
+      // pinAtY = position doigt au moment du pin
+      pinAtY = clientY;
+
+      // dy au moment du pin
+      pinDy0 = dy;
+      growAccum = 0;
+    }
+
+    // 2) si pinned : la croissance dépend UNIQUEMENT du dépassement du doigt
+    if (pinned) {
+      growAccum = Math.max(0, clientY - pinAtY);
+
+      // dy = dy au pin + dépassement
+      dy = Math.max(dyMin, Math.min(pinDy0 + growAccum, dyMax));
+
+      // (optionnel) aide le scroller à suivre juste un peu (sans gros saut)
+      // → surtout PAS scrollBottomIntoView ici
+      try {
+        const sc = scroller || findPageScroller(paneTop);
+        const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+
+        // petit scroll correctif si la poignée est vraiment en train de passer sous la bar
+        const r = handle.getBoundingClientRect();
+        const overflow = r.bottom - bottomLimit;
+        if (overflow > 0) sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
+      } catch {}
+    } else {
+      // si on n’est plus pinned, growAccum doit rester 0
+      growAccum = 0;
+    }
+
+    // 3) si tu veux “dé-pinner” quand on remonte assez :
+    // (ça rend l’aller-retour super fluide)
+    if (pinned && clientY <= pinAtY) {
+      // on repasse en mode normal dès qu’on repasse sous le pin
+      pinned = false;
+      growAccum = 0;
+
+      // IMPORTANT : rebaser startY pour éviter un saut à la transition
+      // On veut que dy normal == dy courant
+      startY = clientY - dy;
+    }
   }
 
   setH(paneTop, hTop + dy);
 
-  // ✅ si le splitter risque de passer sous la bottom bar, on “paye” en growAccum
-  if (isLast) {
-    const handleRect = handle.getBoundingClientRect();
-    const viewportBottom = getViewportBottomPx();
-    const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
-
-    if (handleRect.bottom > bottomLimit) {
-      const overflow = handleRect.bottom - bottomLimit;
-
-      // 1) on peut aider le scroller à suivre (optionnel)
-      try {
-        const sc = scroller || findPageScroller(paneTop);
-        const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
-        sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
-      } catch {}
-
-      // 2) ✅ on convertit l’overflow en “croissance synthétique”
-      growAccum += overflow;
-
-      // 3) ✅ activation autogrow + pin immédiat (pas “parfois”)
-      activateAutoGrow(clientY);
+  // notify AG Grid haut (inchangé)
+  try {
+    const gridDiv = paneTop.querySelector('div[id^="grid"]');
+    for (const g of (window.grids?.values?.() || [])) {
+      if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
     }
-  }
-
-  // ... notify ag-grid + isGrowing + scrollBottomIntoView (si tu gardes)
-  maybeAutoGrow(clientY);
+  } catch {}
 }
 
     function finish() {
       if (!dragging) return;
-// unpinHandle();      
       dragging = false;
       lastHFrame = null;
 
