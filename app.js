@@ -2707,14 +2707,6 @@ function wireExpanderSplitters() {
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
-    function getViewportBottom() {
-      // bas visible réel (mobile)
-      if (window.visualViewport) {
-        return window.visualViewport.offsetTop + window.visualViewport.height;
-      }
-      return window.innerHeight;
-    }
-
     function begin(clientY, e) {
       // const expTop = paneTop.closest('.st-expander');
       if (!expTop || !expTop.classList.contains('open')) return;  // 🔒
@@ -2828,45 +2820,115 @@ function wireExpanderSplitters() {
       }
     }
 
-    function update(clientY, e) {
-      if (!dragging) return;
+    // function update(clientY, e) {
+    //   if (!dragging) return;
 
-      const dyRaw = clientY - startY + (isLast ? growAccum : 0); // 🆕 accumulé si last
-      const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
-      setH(paneTop, hTop + dy);
+    //   const dyRaw = clientY - startY + (isLast ? growAccum : 0); // 🆕 accumulé si last
+    //   const dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+    //   setH(paneTop, hTop + dy);
       
-      // notifier la grille du haut
-      try {
-        const gridDiv = paneTop.querySelector('div[id^="grid"]');
-        for (const g of (window.grids?.values?.() || [])) {
-          if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-        }
-      } catch {}
+    //   // notifier la grille du haut
+    //   try {
+    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+    //     for (const g of (window.grids?.values?.() || [])) {
+    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+    //     }
+    //   } catch {}
 
-      const hNow = Math.round(paneTop.getBoundingClientRect().height);
-      const isGrowing = (lastHFrame == null) ? true : (hNow > lastHFrame);
-      lastHFrame = hNow;
+    //   const hNow = Math.round(paneTop.getBoundingClientRect().height);
+    //   const isGrowing = (lastHFrame == null) ? true : (hNow > lastHFrame);
+    //   lastHFrame = hNow;
 
-      // Only auto-scroll when pane grows (dy > 0), and ONLY for the last splitter
-      if (isLast && isGrowing) {
-        // bottom breathing space = bottom bar height + iOS safe-area if you want
-        const extraPad =
-          (typeof getSafeBottom === 'function' ? parseFloat(getSafeBottom()) || 0 : 0) +
-          (document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0);
+    //   // Only auto-scroll when pane grows (dy > 0), and ONLY for the last splitter
+    //   if (isLast && isGrowing) {
+    //     // bottom breathing space = bottom bar height + iOS safe-area if you want
+    //     const extraPad =
+    //       (typeof getSafeBottom === 'function' ? parseFloat(getSafeBottom()) || 0 : 0) +
+    //       (document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0);
 
-        // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
-        scrollBottomIntoView(handle, scroller, {
-          pad: 12,
-          extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
-          behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
-        });
+    //     // scrollBottomIntoView(paneTop.closest('.st-expander'), scroller, {
+    //     scrollBottomIntoView(handle, scroller, {
+    //       pad: 12,
+    //       extraPad: getSafeBottomPx() + bottomBarH,  // évite de passer sous la bottom bar
+    //       behavior: 'auto', // fluide si tu préfères, 'auto' pendant le drag
+    //     });
+    //   }
+
+    //   // 🆕 déclenche/arrête auto-grow si besoin
+    //   // maybeAutoGrow(clientY);
+    //   maybeAutoGrow();
+    // }
+function getViewportBottom() {
+  // bas visible réel sur mobile
+  if (window.visualViewport) {
+    return window.visualViewport.offsetTop + window.visualViewport.height;
+  }
+  return window.innerHeight;
+}
+
+function scrollByPx(scroller, dy) {
+  if (!dy) return 0;
+
+  // mesure avant/après pour connaitre le delta réel (si on est “en butée”)
+  const isDoc =
+    scroller === document.scrollingElement ||
+    scroller === document.documentElement ||
+    scroller === document.body;
+
+  const prev = isDoc ? (window.scrollY || document.documentElement.scrollTop || 0) : scroller.scrollTop;
+
+  if (isDoc) window.scrollTo({ top: prev + dy, behavior: 'auto' });
+  else scroller.scrollTop = prev + dy;
+
+  const now = isDoc ? (window.scrollY || document.documentElement.scrollTop || 0) : scroller.scrollTop;
+  return now - prev;
+}
+
+function update(clientY) {
+  if (!dragging) return;
+
+  // 1) applique la hauteur “demandée”
+  let dyRaw = clientY - startY;
+  let dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+  setH(paneTop, hTop + dy);
+
+  // 2) si last splitter : on empêche le handle de passer sous la bottom bar
+  if (isLast) {
+    const vpBottom = getViewportBottom();
+    const safe = (typeof getSafeBottomPx === 'function') ? getSafeBottomPx() : 0;
+    const barH  = document.getElementById('bottomBar')?.getBoundingClientRect?.().height || 0;
+    const LIMIT = vpBottom - (barH + safe + 8); // 8px marge visuelle
+
+    // on mesure APRES setH (car le handle a bougé)
+    const hRect = handle.getBoundingClientRect();
+    const overflow = hRect.bottom - LIMIT;
+
+    if (overflow > 0) {
+      // 2a) tente de “rattraper” en scrollant (vers le bas) pour remettre le handle au-dessus
+      const moved = scrollByPx(scroller, overflow);
+
+      // 2b) si on n’a pas pu scroller assez (butée), on “pinn” le handle :
+      const remain = overflow - moved;
+      if (remain > 0) {
+        // magie : on décale startY => le doigt peut continuer, mais le handle ne descend plus
+        startY += remain;
+
+        // on recalcule et on ré-applique une fois (pour éviter toute frame “sous la barre”)
+        dyRaw = clientY - startY;
+        dy = Math.max(dyMin, Math.min(dyRaw, dyMax));
+        setH(paneTop, hTop + dy);
       }
-
-      // 🆕 déclenche/arrête auto-grow si besoin
-      // maybeAutoGrow(clientY);
-      maybeAutoGrow();
     }
+  }
 
+  // 3) notifier la grille du haut (comme tu fais déjà)
+  try {
+    const gridDiv = paneTop.querySelector('div[id^="grid"]');
+    for (const g of (window.grids?.values?.() || [])) {
+      if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+    }
+  } catch {}
+}
     function finish() {
       if (!dragging) return;
       dragging = false;
