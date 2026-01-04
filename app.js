@@ -2796,6 +2796,11 @@ function wireExpanderSplitters() {
     let pinDy0 = 0;               // dy au moment où on pin (repère)
     let autoGrowExtra = 0;        // px ajoutés par auto-grow (temps)
 
+let rafPending = false;
+let pendingY = 0;
+let fingerLimit = 0;
+let autoGrowLastT = 0;
+
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
     // limite basse “visible” dans le même repère que getBoundingClientRect()
@@ -2828,6 +2833,11 @@ function wireExpanderSplitters() {
       autoGrowExtra = 0;
       nearBottomLatch = false;
 
+rafPending = false;
+pendingY = 0;
+fingerLimit = getFingerLimitPx(); // calc une fois au début du drag
+autoGrowLastT = 0;
+
       autoGrowActive = false;
       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
 
@@ -2857,46 +2867,111 @@ function wireExpanderSplitters() {
       pinAtY = 0;
     }
 
-    function tickAutoGrow() {
-      if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
+    // function tickAutoGrow() {
+    //   if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
       
-    // ✅ si le doigt remonte au-dessus du pin, on coupe net
-      if (lastClientY < pinAtY) {
-        autoGrowActive = false;
-        autoGrowRaf = null;
-        return;
-      }
+    // // ✅ si le doigt remonte au-dessus du pin, on coupe net
+    //   if (lastClientY < pinAtY) {
+    //     autoGrowActive = false;
+    //     autoGrowRaf = null;
+    //     return;
+    //   }
 
-      const SPEED = 6;
+    //   const SPEED = 6;
 
-      // ✅ pousse uniquement l’extra, pas le fingerDelta
-      autoGrowExtra += SPEED;
+    //   // ✅ pousse uniquement l’extra, pas le fingerDelta
+    //   autoGrowExtra += SPEED;
 
-      // dy = dy au pin + extra + delta du doigt depuis le pin
-      const fingerDelta = lastClientY - pinAtY;
-      let dy = pinDy0 + autoGrowExtra + fingerDelta;
-      dy = Math.max(dyMin, Math.min(dy, dyMax));
+    //   // dy = dy au pin + extra + delta du doigt depuis le pin
+    //   const fingerDelta = lastClientY - pinAtY;
+    //   let dy = pinDy0 + autoGrowExtra + fingerDelta;
+    //   dy = Math.max(dyMin, Math.min(dy, dyMax));
 
-      setH(paneTop, hTop + dy);
+    //   setH(paneTop, hTop + dy);
 
-      // garder le handle visible
-      scrollBottomIntoView(handle, scroller, {
-        pad: 12,
-        extraPad: getSafeBottomPx() + getBottomBarH(),
-        behavior: "auto",
-      });
+    //   // garder le handle visible
+    //   scrollBottomIntoView(handle, scroller, {
+    //     pad: 12,
+    //     extraPad: getSafeBottomPx() + getBottomBarH(),
+    //     behavior: "auto",
+    //   });
 
-      // notify AG Grid
-      try {
-        const gridDiv = paneTop.querySelector('div[id^="grid"]');
-        for (const g of (window.grids?.values?.() || [])) {
-          if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
-        }
-      } catch {}
+    //   // notify AG Grid
+    //   try {
+    //     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+    //     for (const g of (window.grids?.values?.() || [])) {
+    //       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+    //     }
+    //   } catch {}
 
-      if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
-      autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+    //   if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
+    //   autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+    // }
+function tickAutoGrow() {
+  if (!dragging || !autoGrowActive) {
+    autoGrowRaf = null;
+    autoGrowLastT = 0;
+    return;
+  }
+
+  // stop net si le doigt remonte au-dessus du pin
+  if (lastClientY < pinAtY) {
+    autoGrowActive = false;
+    autoGrowRaf = null;
+    autoGrowLastT = 0;
+    return;
+  }
+
+  const now = performance.now();
+  if (!autoGrowLastT) autoGrowLastT = now;
+
+  // delta temps (ms) — clamp pour téléphones lents
+  const dt = Math.min(50, Math.max(0, now - autoGrowLastT));
+  autoGrowLastT = now;
+
+  // vitesse px/s (stable quel que soit le FPS)
+  const SPEED_PX_PER_S = 360; // ajuste si besoin (240–480)
+  autoGrowExtra += (SPEED_PX_PER_S * dt) / 1000;
+
+  const fingerDelta = lastClientY - pinAtY;
+  let dy = pinDy0 + autoGrowExtra + fingerDelta;
+  dy = Math.max(dyMin, Math.min(dy, dyMax));
+
+  setH(paneTop, hTop + dy);
+
+  // 🔒 maintien du splitter au-dessus de la bottom bar (sans wobble)
+  try {
+    const hr = handle.getBoundingClientRect();
+    const bottomLimit = getBottomLimitPx();
+    const overflow = hr.bottom - bottomLimit;
+
+    if (overflow > 0) {
+      const sc = scroller || findPageScroller(paneTop);
+      const maxTop = Math.max(0, sc.scrollHeight - sc.clientHeight);
+      sc.scrollTop = Math.min(maxTop, sc.scrollTop + overflow);
     }
+  } catch {}
+
+  // notify AG Grid
+  try {
+    const gridDiv = paneTop.querySelector('div[id^="grid"]');
+    for (const g of (window.grids?.values?.() || [])) {
+      if (g.el === gridDiv) {
+        g.api.onGridSizeChanged();
+        break;
+      }
+    }
+  } catch {}
+
+  if (dy >= dyMax) {
+    autoGrowActive = false;
+    autoGrowRaf = null;
+    autoGrowLastT = 0;
+    return;
+  }
+
+  autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+}
 
     function update(clientY, e) {
       if (!dragging) return;
@@ -2966,42 +3041,58 @@ function wireExpanderSplitters() {
       // }
       const goingDown = (clientY - prevClientY) > 0;
       prevClientY = clientY;
+      
+if (isLast && !pinned && (clientY % 12 === 0)) {
+  fingerLimit = getFingerLimitPx();
+}
 
       let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
 
       // --- Déclenchement robuste du pin ---
-      if (isLast && !pinned) {
-        // pré-apply pour que le rect soit cohérent (utile iOS/PWA)
-        setH(paneTop, hTop + dy);
+      // if (isLast && !pinned) {
+      //   // pré-apply pour que le rect soit cohérent (utile iOS/PWA)
+      //   setH(paneTop, hTop + dy);
 
-        const hr = handle.getBoundingClientRect();
-        const bottomLimit = getBottomLimitPx();
-        const fingerLimit = getFingerLimitPx();
+      //   const hr = handle.getBoundingClientRect();
+      //   const bottomLimit = getBottomLimitPx();
+      //   const fingerLimit = getFingerLimitPx();
 
-        // latch: une fois qu’on est "proche bas", on garde l’état tant qu’on ne remonte pas franchement
-        const closeEnough =
-          (hr.bottom >= (bottomLimit - LATCH_PX)) || (clientY >= (fingerLimit - LATCH_PX));
+      //   // latch: une fois qu’on est "proche bas", on garde l’état tant qu’on ne remonte pas franchement
+      //   const closeEnough =
+      //     (hr.bottom >= (bottomLimit - LATCH_PX)) || (clientY >= (fingerLimit - LATCH_PX));
 
-        if (goingDown && closeEnough) nearBottomLatch = true;
-        if (!goingDown && clientY < (fingerLimit - 2 * LATCH_PX)) nearBottomLatch = false;
+      //   if (goingDown && closeEnough) nearBottomLatch = true;
+      //   if (!goingDown && clientY < (fingerLimit - 2 * LATCH_PX)) nearBottomLatch = false;
 
-        const shouldPin =
-          goingDown && (
-            hr.bottom >= bottomLimit ||          // A: géométrie
-            clientY >= fingerLimit ||            // B: doigt (fallback Android)
-            nearBottomLatch                      // C: hystérésis (anti raté)
-          );
+      //   const shouldPin =
+      //     goingDown && (
+      //       hr.bottom >= bottomLimit ||          // A: géométrie
+      //       clientY >= fingerLimit ||            // B: doigt (fallback Android)
+      //       nearBottomLatch                      // C: hystérésis (anti raté)
+      //     );
 
-        if (shouldPin) {
-          pinned = true;
-          pinAtY = clientY;
-          pinDy0 = dy;
-          autoGrowExtra = 0;
-          autoGrowActive = true;
-          if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-        }
-      }
+      //   if (shouldPin) {
+      //     pinned = true;
+      //     pinAtY = clientY;
+      //     pinDy0 = dy;
+      //     autoGrowExtra = 0;
+      //     autoGrowActive = true;
+      //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+      //   }
+      // }
+// --- Déclenchement du pin (finger-only, robuste Android lent) ---
+if (isLast && !pinned) {
+  // optionnel: n’autoriser le pin que si on descend
+  if (goingDown && clientY >= fingerLimit) {
+    pinned = true;
+    pinAtY = clientY;
+    pinDy0 = dy;
+    autoGrowExtra = 0;
 
+    autoGrowActive = true;
+    if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+  }
+}    
       // 2) Mode pinned : croissance/décroissance continue sans lever le doigt
       if (isLast && pinned) {
         const fingerDelta = clientY - pinAtY; // peut être négatif
@@ -3057,6 +3148,7 @@ function wireExpanderSplitters() {
       if (!dragging) return;
       dragging = false;
       lastHFrame = null;
+autoGrowLastT = 0;
 
       // 🆕 coupe l’auto-grow
       autoGrowActive = false;
@@ -3094,12 +3186,24 @@ function wireExpanderSplitters() {
     //   if (!e.isPrimary) return;
     //   update(e.clientY, e);
     // }, { passive: true });
+    // handle.addEventListener('pointermove', (e) => {
+    //   if (!dragging) return;
+    //   if (!e.isPrimary) return;
+    //   e.preventDefault();          // très important Android
+    //   update(e.clientY, e);
+    // }, { passive: false });
 handle.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
-  if (!e.isPrimary) return;
-  e.preventDefault();          // très important Android
-  update(e.clientY, e);
-}, { passive: false });
+  if (!dragging || !e.isPrimary) return;
+  pendingY = e.clientY;
+
+  if (rafPending) return;
+  rafPending = true;
+
+  requestAnimationFrame(() => {
+    rafPending = false;
+    update(pendingY, e);
+  });
+}, { passive: true });
 
     handle.addEventListener('pointerup', (e) => {
       if (!dragging) return;
