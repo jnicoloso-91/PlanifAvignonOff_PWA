@@ -2796,9 +2796,9 @@ function wireExpanderSplitters() {
     let pinDy0 = 0;               // dy au moment où on pin (repère)
     let autoGrowExtra = 0;        // px ajoutés par auto-grow (temps)
 
-let rafPending = false;
-let pendingY = 0;
-let fingerLimit = 0;
+    let rafPending = false;
+    let pendingY = 0;
+    let fingerLimit = 0;
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
@@ -2832,9 +2832,9 @@ let fingerLimit = 0;
       autoGrowExtra = 0;
       nearBottomLatch = false;
 
-rafPending = false;
-pendingY = 0;
-fingerLimit = getFingerLimitPx(); // calc une fois au début du drag
+      rafPending = false;
+      pendingY = 0;
+      fingerLimit = getFingerLimitPx(); // calc une fois au début du drag
 
       autoGrowActive = false;
       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
@@ -2875,7 +2875,7 @@ fingerLimit = getFingerLimitPx(); // calc une fois au début du drag
         return;
       }
 
-      const SPEED = 8;
+      const SPEED = 6;
 
       // ✅ pousse uniquement l’extra, pas le fingerDelta
       autoGrowExtra += SPEED;
@@ -2910,122 +2910,29 @@ fingerLimit = getFingerLimitPx(); // calc une fois au début du drag
       if (!dragging) return;
       lastClientY = clientY;
 
-      // // dy normal tant qu’on n’est pas pinned
-      // let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
-
-      // // 1) Déclenchement du pin AVANT que la poignée passe sous la bottom bar
-      // if (isLast && !pinned) {
-      //   // ⚠️ iOS/PWA: pour mesurer correctement hr.bottom, il faut que la hauteur reflète dy
-      //   // mais on évite le "double jump" : on fait cette pré-application uniquement ici.
-      //   setH(paneTop, hTop + dy);
-
-      //   // const hr = handle.getBoundingClientRect();
-      //   // const bottomLimit = getBottomLimitPx();
-
-      //   // if (hr.bottom >= bottomLimit) {
-      //   //   pinned = true;
-      //   //   pinAtY = clientY;
-      //   //   pinDy0 = dy;
-
-      //   //   // croissance synthétique injectée par tickAutoGrow()
-      //   //   autoGrowExtra = 0;
-
-      //   //   autoGrowActive = true;
-      //   //   if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-      //   // }
-      //   const fingerLimit = getFingerLimitPx();
-
-      //   if (clientY >= fingerLimit) {
-      //     pinned = true;
-      //     pinAtY = clientY;
-      //     pinDy0 = dy;
-      //     autoGrowExtra = 0;
-
-      //     autoGrowActive = true;
-      //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-      //   }
-      // }
-
-      // const goingDown = clientY > prevClientY + 0.5;
-      // prevClientY = clientY;
-
-      // let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
-
-      // if (isLast && !pinned) {
-      //   // pré-apply pour que le layout soit cohérent (comme tu fais déjà)
-      //   setH(paneTop, hTop + dy);
-
-      //   const fingerLimit = getFingerLimitPx(); // si tu l’as gardée
-      //   const hitBottomByFinger = clientY >= fingerLimit;
-      //   const hitDyMax = dy >= (dyMax - 1);
-
-      //   // ✅ TRIGGER robuste Android :
-      //   // - soit on est au bas du viewport
-      //   // - soit on a atteint dyMax mais le doigt continue à descendre
-      //   if (hitBottomByFinger || (hitDyMax && goingDown)) {
-      //     pinned = true;
-      //     pinAtY = clientY;
-      //     pinDy0 = dy;
-      //     autoGrowExtra = 0;
-
-      //     autoGrowActive = true;
-      //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-      //   }
-      // }
       const goingDown = (clientY - prevClientY) > 0;
       prevClientY = clientY;
       
-if (isLast && !pinned && (clientY % 12 === 0)) {
-  fingerLimit = getFingerLimitPx();
-}
+      if (isLast && !pinned && (clientY % 12 === 0)) {
+        fingerLimit = getFingerLimitPx();
+      }
 
       let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
 
-      // --- Déclenchement robuste du pin ---
-      // if (isLast && !pinned) {
-      //   // pré-apply pour que le rect soit cohérent (utile iOS/PWA)
-      //   setH(paneTop, hTop + dy);
+      // --- Déclenchement du pin (finger-only, robuste Android lent) ---
+      if (isLast && !pinned) {
+        // optionnel: n’autoriser le pin que si on descend
+        if (goingDown && clientY >= fingerLimit) {
+          pinned = true;
+          pinAtY = clientY;
+          pinDy0 = dy;
+          autoGrowExtra = 0;
 
-      //   const hr = handle.getBoundingClientRect();
-      //   const bottomLimit = getBottomLimitPx();
-      //   const fingerLimit = getFingerLimitPx();
+          autoGrowActive = true;
+          if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+        }
+      }    
 
-      //   // latch: une fois qu’on est "proche bas", on garde l’état tant qu’on ne remonte pas franchement
-      //   const closeEnough =
-      //     (hr.bottom >= (bottomLimit - LATCH_PX)) || (clientY >= (fingerLimit - LATCH_PX));
-
-      //   if (goingDown && closeEnough) nearBottomLatch = true;
-      //   if (!goingDown && clientY < (fingerLimit - 2 * LATCH_PX)) nearBottomLatch = false;
-
-      //   const shouldPin =
-      //     goingDown && (
-      //       hr.bottom >= bottomLimit ||          // A: géométrie
-      //       clientY >= fingerLimit ||            // B: doigt (fallback Android)
-      //       nearBottomLatch                      // C: hystérésis (anti raté)
-      //     );
-
-      //   if (shouldPin) {
-      //     pinned = true;
-      //     pinAtY = clientY;
-      //     pinDy0 = dy;
-      //     autoGrowExtra = 0;
-      //     autoGrowActive = true;
-      //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-      //   }
-      // }
-// --- Déclenchement du pin (finger-only, robuste Android lent) ---
-if (isLast && !pinned) {
-  // optionnel: n’autoriser le pin que si on descend
-  if (goingDown && clientY >= fingerLimit) {
-    pinned = true;
-    pinAtY = clientY;
-    pinDy0 = dy;
-    autoGrowExtra = 0;
-
-    autoGrowActive = true;
-    if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-  }
-}    
       // 2) Mode pinned : croissance/décroissance continue sans lever le doigt
       if (isLast && pinned) {
         const fingerDelta = clientY - pinAtY; // peut être négatif
@@ -3113,29 +3020,18 @@ if (isLast && !pinned) {
       try { handle.setPointerCapture(e.pointerId); } catch {}
     }, { passive: false });
 
-    // handle.addEventListener('pointermove', (e) => {
-    //   if (!dragging) return;
-    //   if (!e.isPrimary) return;
-    //   update(e.clientY, e);
-    // }, { passive: true });
-    // handle.addEventListener('pointermove', (e) => {
-    //   if (!dragging) return;
-    //   if (!e.isPrimary) return;
-    //   e.preventDefault();          // très important Android
-    //   update(e.clientY, e);
-    // }, { passive: false });
-handle.addEventListener('pointermove', (e) => {
-  if (!dragging || !e.isPrimary) return;
-  pendingY = e.clientY;
+    handle.addEventListener('pointermove', (e) => {
+      if (!dragging || !e.isPrimary) return;
+      pendingY = e.clientY;
 
-  if (rafPending) return;
-  rafPending = true;
+      if (rafPending) return;
+      rafPending = true;
 
-  requestAnimationFrame(() => {
-    rafPending = false;
-    update(pendingY, e);
-  });
-}, { passive: true });
+      requestAnimationFrame(() => {
+        rafPending = false;
+        update(pendingY, e);
+      });
+    }, { passive: true });
 
     handle.addEventListener('pointerup', (e) => {
       if (!dragging) return;
@@ -11103,7 +10999,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   activitesAPI = creerActivitesAPI(ctx);
 
   // 2️⃣ Branchements UI
-  initPageLogger();
+  // initPageLogger();
   wireContext();
   wireBottomBar();
   wireGrids();
