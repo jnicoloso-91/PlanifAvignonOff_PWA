@@ -2813,12 +2813,21 @@ function wireExpanderSplitters() {
       return bb ? Math.round(bb.offsetHeight || bb.getBoundingClientRect().height || 0) : 0;
     }
 
+    // function getFingerLimitPx() {
+    //   const PAD = 8;
+    //   const vv = window.visualViewport;
+    //   const vpH = vv ? vv.height : window.innerHeight;
+    //   // clientY est relatif au viewport visible (top=0), donc on compare avec vv.height
+    //   return vpH - (getBottomBarH() + getSafeBottomPx() + PAD);
+    // }
     function getFingerLimitPx() {
       const PAD = 8;
       const vv = window.visualViewport;
-      const vpH = vv ? vv.height : window.innerHeight;
-      // clientY est relatif au viewport visible (top=0), donc on compare avec vv.height
-      return vpH - (getBottomBarH() + getSafeBottomPx() + PAD);
+
+      // Bas du viewport visible, exprimé dans le repère "layout" (comme clientY)
+      const viewBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
+
+      return viewBottom - (getBottomBarH() + getSafeBottomPx() + PAD);
     }
 
     function begin(clientY, e) {
@@ -6630,8 +6639,8 @@ function openSheetAide() {
           <div class="help-block">
             <p><u><i>In & Off</u></i> est là pour vous aider à bâtir votre programme de spectacles.</p>
             
-            <p>Il vous offre une interface d'accès unifiée aux catalogues du In et du Off du festival d'Avignon, mais peut répondre plus généralement à toute utilisation 
-            nécessitant de programmer des activités.</p>
+            <p>Il vous offre une interface d'accès unifiée aux catalogues du In et du Off du festival d'Avignon, et peut répondre plus généralement à toute utilisation 
+            nécessitant de rechercher des activités dans un catalogue et de les programmer.</p>
             
             <p style="margin-bottom: 0.2em"><u><i>In & Off</u></i> vous permettra notamment :</p>
             <ul style="margin-top: 0em; margin-bottom: 2em">
@@ -6646,11 +6655,15 @@ function openSheetAide() {
           </div>
 
           <p>Un <u><i>Assistant de programmation automatique</u></i> est là pour vous proposer des solutions instantannées de programmation répondant 
-          à vos critères de dates et vos préférences stylistiques.</p>
+          à vos critères de dates et vos préférences stylistiques.</p> 
+          
+          <p>Vous pouvez également poser des questions à un <u><i>chatbot</u></i> sur les spectacles des catalogues.</p>
 
           <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
           choisissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
           La période de programmation peut être modifiée en allant dans le menu <u><i>.../Paramètres</u></i>.</p>
+          <p>Pour installer l'application sur mobile : sur Android, allez dans le menu Chrome (en haut à droite) et choisissez <u><i>Ajouter à l'écran d'accueil</u></i>. 
+          Sur Iphone ou Ipad allez dans le menu Partager de Safari et choisissez <u><i>Sur l'écran d'accueil</u></i>.</p>
         </div>
             
         <div id="help-regles-programmation" class="help-chapter">
@@ -7693,7 +7706,7 @@ function openSheetAssistantChat() {
             <textarea id="ai-request"
                       class="ai-input"
                       rows="3"
-                      placeholder="Posez vos questions… (ex : propose 3 pièces de Molière du Off, fais un résumé du planning, etc.)"></textarea>
+                      placeholder="Posez vos questions… (ex : propose 3 pièces de Molière du Off, résume la sélection, etc.)"></textarea>
           </div>
           <div class="ai-reset-wrapper">
             <button id="btn-ai-reset"
