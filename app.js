@@ -2781,25 +2781,26 @@ function wireExpanderSplitters() {
 
     let dragging = false, startY = 0, hTop = 0, dyMin = 0, dyMax = 0;
     let prevTransition = '', prevAnimation = '';
-    let lastHFrame = null;  // previous frame paneTop height (px) during drag
+    let lastHFrame = null;        // previous frame paneTop height (px) during drag
 
     // 🆕 auto-grow state
     let autoGrowRaf = null;
     let autoGrowActive = false;
     let lastClientY = 0;
     let prevClientY = 0;
+    let nearBottomLatch = false;  // hystérésis
+    const LATCH_PX = 14;          // marge anti-flap (10–20px)
+
     let pinned = false;
-    let pinAtY = 0;      // Y doigt au moment où on pin (repère)
-    let pinDy0 = 0;      // dy au moment où on pin (repère)
-    let growAccum = 0;   // = max(0, clientY - pinAtY)
-    let autoGrowExtra = 0;   // px ajoutés par auto-grow (temps)
+    let pinAtY = 0;               // Y doigt au moment où on pin (repère)
+    let pinDy0 = 0;               // dy au moment où on pin (repère)
+    let autoGrowExtra = 0;        // px ajoutés par auto-grow (temps)
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
     // limite basse “visible” dans le même repère que getBoundingClientRect()
     function getBottomLimitPx() {
       const PAD = 8; // marge de confort
-      // dbg('getBottomLimitPx',  getSafeBottomPx() );
       return window.innerHeight - (getBottomBarH() + getSafeBottomPx() + PAD);
     }
 
@@ -2808,13 +2809,13 @@ function wireExpanderSplitters() {
       return bb ? Math.round(bb.offsetHeight || bb.getBoundingClientRect().height || 0) : 0;
     }
 
-function getFingerLimitPx() {
-  const PAD = 8;
-  const vv = window.visualViewport;
-  const vpH = vv ? vv.height : window.innerHeight;
-  // clientY est relatif au viewport visible (top=0), donc on compare avec vv.height
-  return vpH - (getBottomBarH() + getSafeBottomPx() + PAD);
-}
+    function getFingerLimitPx() {
+      const PAD = 8;
+      const vv = window.visualViewport;
+      const vpH = vv ? vv.height : window.innerHeight;
+      // clientY est relatif au viewport visible (top=0), donc on compare avec vv.height
+      return vpH - (getBottomBarH() + getSafeBottomPx() + PAD);
+    }
 
     function begin(clientY, e) {
       // const expTop = paneTop.closest('.st-expander');
@@ -2822,10 +2823,10 @@ function getFingerLimitPx() {
 
       dragging = true;
       startY = clientY;
-      lastClientY = clientY;           // 🆕
+      lastClientY = clientY;
       prevClientY = clientY;
-      growAccum = 0;                   // 🆕
       autoGrowExtra = 0;
+      nearBottomLatch = false;
 
       autoGrowActive = false;
       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
@@ -2854,7 +2855,6 @@ function getFingerLimitPx() {
       pinDy0 = 0;
       pinned = false;
       pinAtY = 0;
-      growAccum = 0;
     }
 
     function tickAutoGrow() {
@@ -2937,32 +2937,70 @@ function getFingerLimitPx() {
       //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
       //   }
       // }
-  const goingDown = clientY > prevClientY + 0.5;
-  prevClientY = clientY;
 
-  let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
+      // const goingDown = clientY > prevClientY + 0.5;
+      // prevClientY = clientY;
 
-  if (isLast && !pinned) {
-    // pré-apply pour que le layout soit cohérent (comme tu fais déjà)
-    setH(paneTop, hTop + dy);
+      // let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
 
-    const fingerLimit = getFingerLimitPx(); // si tu l’as gardée
-    const hitBottomByFinger = clientY >= fingerLimit;
-    const hitDyMax = dy >= (dyMax - 1);
+      // if (isLast && !pinned) {
+      //   // pré-apply pour que le layout soit cohérent (comme tu fais déjà)
+      //   setH(paneTop, hTop + dy);
 
-    // ✅ TRIGGER robuste Android :
-    // - soit on est au bas du viewport
-    // - soit on a atteint dyMax mais le doigt continue à descendre
-    if (hitBottomByFinger || (hitDyMax && goingDown)) {
-      pinned = true;
-      pinAtY = clientY;
-      pinDy0 = dy;
-      autoGrowExtra = 0;
+      //   const fingerLimit = getFingerLimitPx(); // si tu l’as gardée
+      //   const hitBottomByFinger = clientY >= fingerLimit;
+      //   const hitDyMax = dy >= (dyMax - 1);
 
-      autoGrowActive = true;
-      if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-    }
-  }
+      //   // ✅ TRIGGER robuste Android :
+      //   // - soit on est au bas du viewport
+      //   // - soit on a atteint dyMax mais le doigt continue à descendre
+      //   if (hitBottomByFinger || (hitDyMax && goingDown)) {
+      //     pinned = true;
+      //     pinAtY = clientY;
+      //     pinDy0 = dy;
+      //     autoGrowExtra = 0;
+
+      //     autoGrowActive = true;
+      //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+      //   }
+      // }
+      const goingDown = (clientY - prevClientY) > 0;
+      prevClientY = clientY;
+
+      let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
+
+      // --- Déclenchement robuste du pin ---
+      if (isLast && !pinned) {
+        // pré-apply pour que le rect soit cohérent (utile iOS/PWA)
+        setH(paneTop, hTop + dy);
+
+        const hr = handle.getBoundingClientRect();
+        const bottomLimit = getBottomLimitPx();
+        const fingerLimit = getFingerLimitPx();
+
+        // latch: une fois qu’on est "proche bas", on garde l’état tant qu’on ne remonte pas franchement
+        const closeEnough =
+          (hr.bottom >= (bottomLimit - LATCH_PX)) || (clientY >= (fingerLimit - LATCH_PX));
+
+        if (goingDown && closeEnough) nearBottomLatch = true;
+        if (!goingDown && clientY < (fingerLimit - 2 * LATCH_PX)) nearBottomLatch = false;
+
+        const shouldPin =
+          goingDown && (
+            hr.bottom >= bottomLimit ||          // A: géométrie
+            clientY >= fingerLimit ||            // B: doigt (fallback Android)
+            nearBottomLatch                      // C: hystérésis (anti raté)
+          );
+
+        if (shouldPin) {
+          pinned = true;
+          pinAtY = clientY;
+          pinDy0 = dy;
+          autoGrowExtra = 0;
+          autoGrowActive = true;
+          if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+        }
+      }
 
       // 2) Mode pinned : croissance/décroissance continue sans lever le doigt
       if (isLast && pinned) {
@@ -3023,7 +3061,6 @@ function getFingerLimitPx() {
       // 🆕 coupe l’auto-grow
       autoGrowActive = false;
       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
-      growAccum = 0;
 
       // restaurer anims
       paneTop.style.removeProperty('transition');
