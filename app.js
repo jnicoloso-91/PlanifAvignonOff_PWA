@@ -2707,6 +2707,22 @@ function wireExpanderSplitters() {
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
+    function getViewport() {
+      const vv = window.visualViewport;
+      // iOS PWA: vv peut exister mais pas être "la vérité"
+      const top = vv ? vv.offsetTop : 0;
+      const h   = vv ? vv.height   : window.innerHeight;
+      // fallback safety : certains cas vv.bottom > innerHeight
+      const bottom = Math.min(top + h, window.innerHeight);
+      return { top, h, bottom };
+    }
+
+    function getBottomLimitPx() {
+      const { bottom } = getViewport();
+      // + marge (poignée + respiration)
+      return bottom - (getSafeBottomPx() + getBottomBarH() + 6);
+    }
+
     function getBottomBarH() {
       const bb = document.getElementById("bottomBar");
       if (!bb) return 0;
@@ -2812,12 +2828,10 @@ function wireExpanderSplitters() {
 
     function maybeAutoGrow(clientY) {
       if (!isLast || !dragging) return;
-
-      const MARGIN = getBottomBarH() + getSafeBottomPx() + 6;
-      const vv = window.visualViewport;
-      const viewH = vv ? vv.height : window.innerHeight;
-
-      const nearBottom = clientY >= (viewH - MARGIN);
+      const bottomLimit = getBottomLimitPx();
+      // déclenche un poil AVANT la limite pour éviter le saut
+      const TRIGGER_PAD = 8;
+      const nearBottom = clientY >= (bottomLimit - TRIGGER_PAD);
 
       if (nearBottom) {
         activateAutoGrow(clientY);
@@ -2846,10 +2860,9 @@ function wireExpanderSplitters() {
       // ✅ si le splitter risque de passer sous la bottom bar, on “paye” en growAccum
       if (isLast) {
         const handleRect = handle.getBoundingClientRect();
-        const viewportBottom = getViewportBottomPx();
-        const bottomLimit = viewportBottom - (getSafeBottomPx() + getBottomBarH() + 6);
+        const bottomLimit = getBottomLimitPx();
 
-        if (handleRect.bottom > bottomLimit) {
+        if (handleRect.bottom >= bottomLimit) {
           const overflow = handleRect.bottom - bottomLimit;
 
           // 1) on peut aider le scroller à suivre (optionnel)
