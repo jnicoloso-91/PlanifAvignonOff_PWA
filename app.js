@@ -2833,7 +2833,7 @@ const fingerLimit = getViewportBottomPx() - (getBottomBarH() + getSafeBottomPx()
 // limite basse “visible” dans le même repère que getBoundingClientRect()
 function getBottomLimitPx() {
   const PAD = 8; // marge de confort
-  dbg('getBottomLimitPx',  getSafeBottomPx() );
+  // dbg('getBottomLimitPx',  getSafeBottomPx() );
   return window.innerHeight - (getBottomBarH() + getSafeBottomPx() + PAD);
 }
 
@@ -3027,8 +3027,53 @@ if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
 //   if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
 //   autoGrowRaf = requestAnimationFrame(tickAutoGrow);
 // }
+// function tickAutoGrow() {
+//   // si on a été coupé entre-temps
+//   if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
+
+//   // 🔒 garde-fou: si le doigt est remonté, on stoppe et on ne re-schedule PAS
+//   const fingerDelta = lastClientY - pinAtY;
+//   if (fingerDelta < 0) {
+//     autoGrowActive = false;
+//     autoGrowRaf = null;          // important: on laisse update() piloter la décroissance
+//     return;
+//   }
+
+//   const SPEED = 6;
+//   autoGrowExtra += SPEED;
+
+//   const fingerDelta2 = lastClientY - pinAtY; // >= 0 ici
+//   let dy = pinDy0 + autoGrowExtra + fingerDelta2;
+//   dy = Math.max(dyMin, Math.min(dy, dyMax));
+
+//   setH(paneTop, hTop + dy);
+
+//   scrollBottomIntoView(handle, scroller, {
+//     pad: 12,
+//     extraPad: getSafeBottomPx() + getBottomBarH(),
+//     behavior: "auto",
+//   });
+
+//   try {
+//     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+//     for (const g of (window.grids?.values?.() || [])) {
+//       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+//     }
+//   } catch {}
+
+//   if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
+
+//   autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+// }
 function tickAutoGrow() {
   if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
+  
+ // ✅ si le doigt remonte au-dessus du pin, on coupe net
+  if (lastClientY < pinAtY) {
+    autoGrowActive = false;
+    autoGrowRaf = null;
+    return;
+  }
 
   const SPEED = 6;
 
@@ -3060,7 +3105,6 @@ function tickAutoGrow() {
   if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
   autoGrowRaf = requestAnimationFrame(tickAutoGrow);
 }
-
     function activateAutoGrow(clientY) {
 // dbg("ACTIVATE", {
 //   clientY,
@@ -3342,27 +3386,135 @@ function update(clientY, e) {
   }
 
   // 2) Mode pinned : croissance/décroissance continue sans lever le doigt
-  if (isLast && pinned) {
-    const fingerDelta = clientY - pinAtY; // peut être négatif ✅
+//   if (isLast && pinned) {
+//     const fingerDelta = clientY - pinAtY; // peut être négatif ✅
 
-    // si on remonte, on coupe l’auto-grow (sinon ça “se bat” avec toi)
-    if (fingerDelta < 0 && autoGrowActive) {
+//     // si on remonte, on coupe l’auto-grow (sinon ça “se bat” avec toi)
+//     // if (fingerDelta < 0 && autoGrowActive) {
+//     //   autoGrowActive = false;
+//     //   if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+//     // }
+// if (fingerDelta < 0) {
+//   // 1) stop autogrow immédiatement
+//   if (autoGrowActive) {
+//     autoGrowActive = false;
+//     if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+//   }
+
+//   // 2) "consommer" l'extra en rebasant le pin
+//   // on transfère le fingerDelta négatif dans autoGrowExtra (qui diminue),
+//   // puis on recale pinAtY pour que fingerDelta reparte de 0.
+//   autoGrowExtra = Math.max(0, autoGrowExtra + fingerDelta); // fingerDelta < 0 => diminue extra
+//   pinAtY = clientY;                                         // rebase
+//   // fingerDelta devient 0 au prochain calcul
+// }
+
+//     // dy = pinDy0 + autoGrowExtra + fingerDelta;
+//     // dy = Math.max(dyMin, Math.min(dy, dyMax));
+// dy = pinDy0 + autoGrowExtra + (clientY - pinAtY);
+// dy = Math.max(dyMin, Math.min(dy, dyMax));
+
+//     // dé-pin quand on est revenu “au pin” et qu’il n’y a plus d’extra
+//     if (fingerDelta <= 0 && autoGrowExtra <= 0) {
+//       pinned = false;
+
+//       // rebase startY pour éviter un saut
+//       startY = clientY - dy;
+//     }
+//   }
+// if (isLast && pinned) {
+//   const fingerDelta = clientY - pinAtY; // peut être négatif
+
+//   // dy "instantané" AVANT toute modif (continuité)
+//   const dyNow = Math.max(dyMin, Math.min(pinDy0 + autoGrowExtra + fingerDelta, dyMax));
+
+//   if (fingerDelta < 0) {
+//     // stop autogrow net
+//     if (autoGrowActive) {
+//       autoGrowActive = false;
+//       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+//     }
+
+//     // ✅ bake l'état courant dans pinDy0 (anti saut), et rebase
+//     pinDy0 = dyNow;      // on fige dy à la valeur actuelle
+//     autoGrowExtra = 0;   // plus d'extra à consommer d'un coup
+//     pinAtY = clientY;    // le doigt devient le nouveau repère (fingerDelta repart à 0)
+//   }
+
+//   // dy en mode pinned (continu)
+//   dy = Math.max(dyMin, Math.min(pinDy0 + autoGrowExtra + (clientY - pinAtY), dyMax));
+
+//   // (optionnel) dé-pin quand on revient "au régime normal"
+//   if ((clientY - pinAtY) <= 0 && autoGrowExtra <= 0) {
+//     pinned = false;
+//     startY = clientY - dy; // rebase pour éviter saut
+//   }
+// }
+// if (isLast && pinned) {
+//   let fingerDelta = clientY - pinAtY; // peut être négatif ✅
+
+//   // Si on remonte, on consomme l'autoGrowExtra AU LIEU de sauter sur pinDy0
+//   if (fingerDelta < 0) {
+//     // stop autogrow tout de suite
+//     if (autoGrowActive) {
+//       autoGrowActive = false;
+//       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+//     }
+
+//     // ✅ absorbe la remontée du doigt dans autoGrowExtra (continuité parfaite)
+//     autoGrowExtra = Math.max(0, autoGrowExtra + fingerDelta); // fingerDelta est négatif -> diminue extra
+
+//     // ✅ rebase: le nouveau repère devient "ici"
+//     pinAtY = clientY;
+//     fingerDelta = 0; // maintenant, dy sera calculé sans saut
+//   }
+
+//   dy = pinDy0 + autoGrowExtra + fingerDelta;
+//   dy = Math.max(dyMin, Math.min(dy, dyMax));
+
+//   // Dé-pin quand l'extra est épuisé ET qu'on est revenu au pin
+//   if (autoGrowExtra === 0 && (clientY - pinAtY) <= 0) {
+//     pinned = false;
+//     startY = clientY - dy; // rebase pour transition douce
+//   }
+// }
+if (isLast && pinned) {
+  const fingerDelta = clientY - pinAtY; // peut être négatif
+
+  // dy courant (continu) AVANT de toucher aux états
+  let dyNow = pinDy0 + autoGrowExtra + fingerDelta;
+  dyNow = Math.max(dyMin, Math.min(dyNow, dyMax));
+
+  if (fingerDelta < 0) {
+    // 1) stop autogrow immédiatement
+    if (autoGrowActive) {
       autoGrowActive = false;
       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
     }
 
-    dy = pinDy0 + autoGrowExtra + fingerDelta;
-    dy = Math.max(dyMin, Math.min(dy, dyMax));
+    // 2) ✅ "bake" la hauteur courante comme nouvelle base
+    //    => évite le retour brutal à pinDy0 (4-5 lignes)
+    pinDy0 = dyNow;
+    autoGrowExtra = 0;
 
-    // dé-pin quand on est revenu “au pin” et qu’il n’y a plus d’extra
-    if (fingerDelta <= 0 && autoGrowExtra <= 0) {
-      pinned = false;
+    // 3) ✅ rebase le repère doigt (fingerDelta repart de 0)
+    pinAtY = clientY;
 
-      // rebase startY pour éviter un saut
-      startY = clientY - dy;
-    }
+    // dy devient exactement dyNow (continuité parfaite)
+    dy = pinDy0;
+  } else {
+    // mouvement vers le bas (ou stable) : calcul normal
+    dy = dyNow;
   }
 
+  // (optionnel) dé-pin quand on est revenu en “mode normal”
+  // Ici tu peux choisir un critère simple :
+  // si on n'a plus d'extra et qu'on est revenu sous le pin => on repasse non pinned
+  if (!autoGrowActive && autoGrowExtra === 0 && (clientY - pinAtY) <= 0) {
+    pinned = false;
+    startY = clientY - dy; // rebase pour transition douce
+  }
+}
   // 3) Appliquer la hauteur finale (une seule fois “logiquement”)
   setH(paneTop, hTop + dy);
 
