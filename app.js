@@ -2800,11 +2800,21 @@ function dbg(tag, obj) {
       return { top, h, bottom };
     }
 
-    function getBottomLimitPx() {
-      const { bottom } = getViewport();
-      // + marge (poignée + respiration)
-      return bottom - (getSafeBottomPx() + getBottomBarH() + 6);
-    }
+    // function getBottomLimitPx() {
+    //   const { bottom } = getViewport();
+    //   // + marge (poignée + respiration)
+    //   return bottom - (getSafeBottomPx() + getBottomBarH() + 6);
+    // }
+function getBottomLimitPx() {
+  const vv = window.visualViewport;
+  const vpBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
+
+  const safe = getSafeBottomPx();
+  const bbH  = getBottomBarH();
+
+  const CLAMP_PAD = 8; // augmente à 12/16 si iOS pin trop tard
+  return vpBottom - (safe + bbH + CLAMP_PAD);
+}
 
     function getBottomBarH() {
       const bb = document.getElementById("bottomBar");
@@ -2831,6 +2841,9 @@ function dbg(tag, obj) {
       lastClientY = clientY;           // 🆕
       growAccum = 0;                   // 🆕
 autoGrowExtra = 0;
+
+autoGrowActive = false;
+if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
 
       hTop = Math.round(paneTop.getBoundingClientRect().height);
       lastHFrame = hTop;
@@ -2892,22 +2905,53 @@ autoGrowExtra = 0;
 
     //   autoGrowRaf = requestAnimationFrame(tickAutoGrow);
     // }
+// function tickAutoGrow() {
+//   if (!dragging || !autoGrowActive || !pinned) { autoGrowRaf = null; return; }
+
+//   const SPEED = 6;
+//   autoGrowExtra = Math.min(dyMax - pinDy0, autoGrowExtra + SPEED);
+
+//   // on applique juste le +autoGrowExtra sur la base pinDy0
+//   const dy = Math.max(dyMin, Math.min(pinDy0 + autoGrowExtra, dyMax));
+//   setH(paneTop, hTop + dy);
+
+//   scrollBottomIntoView(handle, scroller, {
+//     pad: 12,
+//     extraPad: getSafeBottomPx() + getBottomBarH(),
+//     behavior: "auto",
+//   });
+
+//   try {
+//     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+//     for (const g of (window.grids?.values?.() || [])) {
+//       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+//     }
+//   } catch {}
+
+//   if (dy >= dyMax) { autoGrowActive = false; autoGrowRaf = null; return; }
+//   autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+// }
 function tickAutoGrow() {
-  if (!dragging || !autoGrowActive || !pinned) { autoGrowRaf = null; return; }
+  if (!dragging || !autoGrowActive) { autoGrowRaf = null; return; }
 
   const SPEED = 6;
-  autoGrowExtra = Math.min(dyMax - pinDy0, autoGrowExtra + SPEED);
+  autoGrowExtra += SPEED;
 
-  // on applique juste le +autoGrowExtra sur la base pinDy0
-  const dy = Math.max(dyMin, Math.min(pinDy0 + autoGrowExtra, dyMax));
+  // Recalcule dy avec le doigt (lastClientY)
+  const fingerDelta = lastClientY - pinAtY;
+  let dy = pinDy0 + autoGrowExtra + fingerDelta;
+  dy = Math.max(dyMin, Math.min(dy, dyMax));
+
   setH(paneTop, hTop + dy);
 
+  // garde la poignée visible
   scrollBottomIntoView(handle, scroller, {
-    pad: 12,
+    pad: 8,
     extraPad: getSafeBottomPx() + getBottomBarH(),
     behavior: "auto",
   });
 
+  // notify AG Grid (inchangé)
   try {
     const gridDiv = paneTop.querySelector('div[id^="grid"]');
     for (const g of (window.grids?.values?.() || [])) {
@@ -3057,59 +3101,118 @@ if (isLast) {
 //       // ... notify ag-grid + isGrowing + scrollBottomIntoView (si tu gardes)
 //       maybeAutoGrow(clientY);
 //     }
+// function update(clientY, e) {
+//   if (!dragging) return;
+
+//   // dy manuel "normal"
+//   let dyManual = Math.max(dyMin, Math.min(clientY - startY, dyMax));
+//   let dy = dyManual;
+
+//   // 1) Déclenchement pin (ton approche fingerLimit)
+//   if (isLast && !pinned && clientY >= fingerLimit) {
+//     pinned = true;
+//     pinAtY = clientY;
+//     pinDy0 = dyManual;
+
+//     autoGrowExtra = 0;
+//     autoGrowActive = true;
+
+//     // ✅ rebase startY pour éviter tout jump à l’activation
+//     startY = clientY - dyManual;
+
+//     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+//   }
+
+//   // 2) Si pinned : dy = base au pin + dépassement doigt + autoGrowExtra
+//   if (pinned) {
+//     const fingerExtra = Math.max(0, clientY - pinAtY);
+//     dy = Math.max(dy, Math.min(pinDy0 + fingerExtra + autoGrowExtra, dyMax));
+
+//     // ✅ si l’utilisateur remonte, on sort du mode pinned proprement
+//     if (clientY < pinAtY - 3) {
+//       pinned = false;
+//       autoGrowActive = false;
+//       if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+//       autoGrowExtra = 0;
+
+//       // rebase pour reprendre le mode normal sans saut
+//       startY = clientY - dy;
+//     }
+//   }
+
+//   setH(paneTop, hTop + dy);
+
+//   // notify AG Grid haut
+//   try {
+//     const gridDiv = paneTop.querySelector('div[id^="grid"]');
+//     for (const g of (window.grids?.values?.() || [])) {
+//       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
+//     }
+//   } catch {}
+
+//   // ⚠️ IMPORTANT : ne rappelle pas maybeAutoGrow pendant pinned (ça re-triture les états)
+//   if (!pinned) {
+//     maybeAutoGrow(clientY);
+//   }
+// }
 function update(clientY, e) {
   if (!dragging) return;
 
-  // dy manuel "normal"
-  let dyManual = Math.max(dyMin, Math.min(clientY - startY, dyMax));
-  let dy = dyManual;
+  lastClientY = clientY;
 
-  // 1) Déclenchement pin (ton approche fingerLimit)
-  if (isLast && !pinned && clientY >= fingerLimit) {
-    pinned = true;
-    pinAtY = clientY;
-    pinDy0 = dyManual;
+  // dy normal tant qu’on n’est pas pinned
+  let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
 
-    autoGrowExtra = 0;
-    autoGrowActive = true;
+  // 1) Déclenchement du pin AVANT que la poignée passe sous la bottom bar
+  if (isLast && !pinned) {
+    setH(paneTop, hTop + dy); // applique provisoirement pour mesurer la poignée
+    const hr = handle.getBoundingClientRect();
+    const bottomLimit = getBottomLimitPx();
 
-    // ✅ rebase startY pour éviter tout jump à l’activation
-    startY = clientY - dyManual;
-
-    if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-  }
-
-  // 2) Si pinned : dy = base au pin + dépassement doigt + autoGrowExtra
-  if (pinned) {
-    const fingerExtra = Math.max(0, clientY - pinAtY);
-    dy = Math.max(dy, Math.min(pinDy0 + fingerExtra + autoGrowExtra, dyMax));
-
-    // ✅ si l’utilisateur remonte, on sort du mode pinned proprement
-    if (clientY < pinAtY - 3) {
-      pinned = false;
-      autoGrowActive = false;
-      if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+    if (hr.bottom >= bottomLimit) {
+      pinned = true;
+      pinAtY = clientY;
+      pinDy0 = dy;
       autoGrowExtra = 0;
 
-      // rebase pour reprendre le mode normal sans saut
+      autoGrowActive = true;
+      if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+    }
+  }
+
+  // 2) Mode pinned : croissance/décroissance continue sans lever le doigt
+  if (isLast && pinned) {
+    const fingerDelta = clientY - pinAtY; // peut être négatif ✅
+
+    // si on remonte, on coupe l’auto-grow (sinon ça “se bat” avec toi)
+    if (fingerDelta < 0 && autoGrowActive) {
+      autoGrowActive = false;
+      if (autoGrowRaf) { cancelAnimationFrame(autoGrowRaf); autoGrowRaf = null; }
+    }
+
+    dy = pinDy0 + autoGrowExtra + fingerDelta;
+    dy = Math.max(dyMin, Math.min(dy, dyMax));
+
+    // dé-pin quand on est revenu “au pin” (plus d’extra)
+    if (fingerDelta <= 0 && autoGrowExtra <= 0) {
+      pinned = false;
+
+      // rebase startY pour éviter un saut
       startY = clientY - dy;
+
+      // on retombe en mode normal immédiatement
     }
   }
 
   setH(paneTop, hTop + dy);
 
-  // notify AG Grid haut
+  // notify AG Grid (inchangé)
   try {
     const gridDiv = paneTop.querySelector('div[id^="grid"]');
     for (const g of (window.grids?.values?.() || [])) {
       if (g.el === gridDiv) { g.api.onGridSizeChanged(); break; }
     }
   } catch {}
-
-  // ⚠️ IMPORTANT : ne rappelle pas maybeAutoGrow pendant pinned (ça re-triture les états)
-  if (!pinned) {
-    maybeAutoGrow(clientY);
-  }
 }
 
     function finish() {
