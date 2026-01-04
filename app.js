@@ -141,6 +141,80 @@ function getCaller(depth = 2) {
 }
 const log = (...a) => { if (DEBUG) console.debug(`[${getCaller(2)}]`, ...a); };
 
+function initPageLogger(){
+  if (window.__bbLog) return;
+
+  const MAX = 300;         // lignes conservées
+  const SHOW = 35;         // lignes visibles
+  const buf = [];
+  let seq = 0;
+
+  function ensureBox(){
+    let box = document.getElementById("bbLogBox");
+    if (box) return box;
+
+    box = document.createElement("pre");
+    box.id = "bbLogBox";
+    box.style.cssText = `
+      position: fixed; z-index: 999999;
+      left: 8px; right: 8px; bottom: 8px;
+      max-height: 42vh; overflow: auto;
+      background: rgba(0,0,0,.82);
+      color: #d7ffd7; font: 12px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 8px; border-radius: 8px;
+      white-space: pre-wrap; word-break: break-word;
+      pointer-events: none;
+    `;
+    document.body.appendChild(box);
+    return box;
+  }
+
+  function oneLine(o){
+    if (o == null) return "";
+    if (typeof o === "string") return o;
+    if (typeof o !== "object") return String(o);
+    // compacte: key=val, tronque les valeurs longues
+    const parts = [];
+    for (const k of Object.keys(o)) {
+      let v = o[k];
+      if (typeof v === "number") v = Math.round(v * 1000) / 1000;
+      else if (typeof v === "string" && v.length > 60) v = v.slice(0, 60) + "…";
+      else if (typeof v === "object") v = "[obj]";
+      parts.push(`${k}=${v}`);
+    }
+    return parts.join(" ");
+  }
+
+  function flush(){
+    const box = ensureBox();
+    const tail = buf.slice(-SHOW).join("\n");
+    box.textContent = tail;
+  }
+
+  window.__bbLog = function(tag, data){
+    seq++;
+    const line = `${seq.toString().padStart(4,"0")} ${tag} ${oneLine(data)}`;
+    buf.push(line);
+    if (buf.length > MAX) buf.splice(0, buf.length - MAX);
+    flush();
+  };
+
+  // helper: effacer
+  window.__bbLogClear = function(){
+    buf.length = 0;
+    seq = 0;
+    flush();
+  };
+}
+
+let __dbgT = 0;
+function dbg(tag, obj) {
+  const now = performance.now();
+  if (now - __dbgT < 80) return;  // ~12 logs/sec
+  __dbgT = now;
+  window.__bbLog?.(`${tag}`, obj);
+}
+
 // ------- Misc Helpers -------
 const ROW_H=32, HEADER_H=32, PAD=4;
 const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
@@ -2707,6 +2781,13 @@ function wireExpanderSplitters() {
 
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 
+function dbg(tag, obj) {
+  const now = performance.now();
+  if (now - __dbgT < 80) return;  // ~12 logs/sec
+  __dbgT = now;
+  window.__bbLog?.(`[split:${topId}->${bottomId}] ${tag}`, obj);
+}
+
     function getViewport() {
       const vv = window.visualViewport;
       // iOS PWA: vv peut exister mais pas être "la vérité"
@@ -2810,6 +2891,13 @@ function wireExpanderSplitters() {
     }
 
     function activateAutoGrow(clientY) {
+dbg("ACTIVATE", {
+  clientY,
+  pinned, pinDy,
+  startY,
+  growAccum
+});
+
       // calcule dy courant (avec accum)
       const dyNow = Math.max(dyMin, Math.min((clientY - startY) + (isLast ? growAccum : 0), dyMax));
 
@@ -2831,6 +2919,28 @@ function wireExpanderSplitters() {
       const bottomLimit = getBottomLimitPx();
       const handleRect = handle.getBoundingClientRect();
       const nearBottom = handleRect.bottom >= (bottomLimit - 8); // 8px marge
+if (isLast) {
+  const vv = window.visualViewport;
+  const vpTop = vv ? vv.offsetTop : 0;
+  const vpH   = vv ? vv.height : window.innerHeight;
+  const vpBottom = Math.min(vpTop + vpH, window.innerHeight);
+
+  const bottomLimit = vpBottom - (getSafeBottomPx() + getBottomBarH() + 6);
+  const hr = handle.getBoundingClientRect();
+
+  const nearBottom_byHandle = hr.bottom >= (bottomLimit - 8);
+  const nearBottom_byFinger = clientY >= (bottomLimit - 8);
+
+  dbg("MAYBE", {
+    clientY,
+    bottomLimit,
+    handleBottom: hr.bottom,
+    byHandle: nearBottom_byHandle,
+    byFinger: nearBottom_byFinger,
+    autoGrowActive
+  });
+}
+
       if (nearBottom) {
         activateAutoGrow(clientY);
       } else if (autoGrowActive) {
@@ -2853,6 +2963,28 @@ function wireExpanderSplitters() {
         dy = Math.max(dy, pinDy);
       }
 
+if (isLast) {
+  const vv = window.visualViewport;
+  const vpTop = vv ? vv.offsetTop : 0;
+  const vpH   = vv ? vv.height : window.innerHeight;
+  const vpBottom = Math.min(vpTop + vpH, window.innerHeight);
+
+  const bbH = getBottomBarH();
+  const safe = getSafeBottomPx();
+
+  const bottomLimit = vpBottom - (safe + bbH + 6);
+
+  const hr = handle.getBoundingClientRect();
+  dbg("pre", {
+    clientY,
+    vpTop, vpH, vpBottom,
+    innerH: window.innerHeight,
+    bbH, safe,
+    bottomLimit,
+    handleBottom: hr.bottom,
+    delta: hr.bottom - bottomLimit
+  });
+}
       setH(paneTop, hTop + dy);
 
       // ✅ si le splitter risque de passer sous la bottom bar, on “paye” en growAccum
@@ -11156,6 +11288,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   activitesAPI = creerActivitesAPI(ctx);
 
   // 2️⃣ Branchements UI
+  initPageLogger();
   wireContext();
   wireBottomBar();
   wireGrids();
