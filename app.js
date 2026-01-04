@@ -212,7 +212,7 @@ function dbg(tag, obj) {
   const now = performance.now();
   if (now - __dbgT < 80) return;  // ~12 logs/sec
   __dbgT = now;
-  window.__bbLog?.(`${tag}`, obj);
+  window.__bbLog?.(`${tag}: `, obj);
 }
 
 // ------- Misc Helpers -------
@@ -2783,12 +2783,12 @@ let autoGrowExtra = 0;   // px ajoutés par auto-grow (temps)
     const setH = (pane, px) => pane.style.setProperty('height', `${Math.max(0, Math.round(px))}px`, 'important');
 const fingerLimit = getViewportBottomPx() - (getBottomBarH() + getSafeBottomPx() + 6);
 
-function dbg(tag, obj) {
-  const now = performance.now();
-  if (now - __dbgT < 80) return;  // ~12 logs/sec
-  __dbgT = now;
-  // window.__bbLog?.(`[split:${topId}->${bottomId}] ${tag}`, obj);
-}
+// function dbg(tag, obj) {
+//   const now = performance.now();
+//   if (now - __dbgT < 80) return;  // ~12 logs/sec
+//   __dbgT = now;
+//   // window.__bbLog?.(`[split:${topId}->${bottomId}] ${tag}`, obj);
+// }
 
     function getViewport() {
       const vv = window.visualViewport;
@@ -2810,9 +2810,10 @@ function getBottomLimitPx() {
   const vpBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
 
   const safe = getSafeBottomPx();
+  dbg('getBottomLimitPx', safe);
   const bbH  = getBottomBarH();
 
-  const CLAMP_PAD = 8; // augmente à 12/16 si iOS pin trop tard
+  const CLAMP_PAD = 16; // augmente à 12/16 si iOS pin trop tard
   return vpBottom - (safe + bbH + CLAMP_PAD);
 }
 
@@ -2964,12 +2965,12 @@ function tickAutoGrow() {
 }
 
     function activateAutoGrow(clientY) {
-dbg("ACTIVATE", {
-  clientY,
-  pinned, pinDy,
-  startY,
-  growAccum
-});
+// dbg("ACTIVATE", {
+//   clientY,
+//   pinned, pinDy,
+//   startY,
+//   growAccum
+// });
 
       // calcule dy courant (avec accum)
       const dyNow = Math.max(dyMin, Math.min((clientY - startY) + (isLast ? growAccum : 0), dyMax));
@@ -3004,14 +3005,14 @@ if (isLast) {
   const nearBottom_byHandle = hr.bottom >= (bottomLimit - 8);
   const nearBottom_byFinger = clientY >= (bottomLimit - 8);
 
-  dbg("MAYBE", {
-    clientY,
-    bottomLimit,
-    handleBottom: hr.bottom,
-    byHandle: nearBottom_byHandle,
-    byFinger: nearBottom_byFinger,
-    autoGrowActive
-  });
+  // dbg("MAYBE", {
+  //   clientY,
+  //   bottomLimit,
+  //   handleBottom: hr.bottom,
+  //   byHandle: nearBottom_byHandle,
+  //   byFinger: nearBottom_byFinger,
+  //   autoGrowActive
+  // });
 }
 
       if (nearBottom) {
