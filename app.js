@@ -2787,7 +2787,7 @@ function wireExpanderSplitters() {
     let autoGrowRaf = null;
     let autoGrowActive = false;
     let lastClientY = 0;
-    let pinDy = null;      // dy minimal autorisé pendant auto-grow
+    let prevClientY = 0;
     let pinned = false;
     let pinAtY = 0;      // Y doigt au moment où on pin (repère)
     let pinDy0 = 0;      // dy au moment où on pin (repère)
@@ -2823,6 +2823,7 @@ function getFingerLimitPx() {
       dragging = true;
       startY = clientY;
       lastClientY = clientY;           // 🆕
+      prevClientY = clientY;
       growAccum = 0;                   // 🆕
       autoGrowExtra = 0;
 
@@ -2850,7 +2851,6 @@ function getFingerLimitPx() {
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
 
-      pinDy = null;
       pinDy0 = 0;
       pinned = false;
       pinAtY = 0;
@@ -2902,41 +2902,67 @@ function getFingerLimitPx() {
       if (!dragging) return;
       lastClientY = clientY;
 
-      // dy normal tant qu’on n’est pas pinned
-      let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
+      // // dy normal tant qu’on n’est pas pinned
+      // let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
 
-      // 1) Déclenchement du pin AVANT que la poignée passe sous la bottom bar
-      if (isLast && !pinned) {
-        // ⚠️ iOS/PWA: pour mesurer correctement hr.bottom, il faut que la hauteur reflète dy
-        // mais on évite le "double jump" : on fait cette pré-application uniquement ici.
-        setH(paneTop, hTop + dy);
+      // // 1) Déclenchement du pin AVANT que la poignée passe sous la bottom bar
+      // if (isLast && !pinned) {
+      //   // ⚠️ iOS/PWA: pour mesurer correctement hr.bottom, il faut que la hauteur reflète dy
+      //   // mais on évite le "double jump" : on fait cette pré-application uniquement ici.
+      //   setH(paneTop, hTop + dy);
 
-        // const hr = handle.getBoundingClientRect();
-        // const bottomLimit = getBottomLimitPx();
+      //   // const hr = handle.getBoundingClientRect();
+      //   // const bottomLimit = getBottomLimitPx();
 
-        // if (hr.bottom >= bottomLimit) {
-        //   pinned = true;
-        //   pinAtY = clientY;
-        //   pinDy0 = dy;
+      //   // if (hr.bottom >= bottomLimit) {
+      //   //   pinned = true;
+      //   //   pinAtY = clientY;
+      //   //   pinDy0 = dy;
 
-        //   // croissance synthétique injectée par tickAutoGrow()
-        //   autoGrowExtra = 0;
+      //   //   // croissance synthétique injectée par tickAutoGrow()
+      //   //   autoGrowExtra = 0;
 
-        //   autoGrowActive = true;
-        //   if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-        // }
-const fingerLimit = getFingerLimitPx();
+      //   //   autoGrowActive = true;
+      //   //   if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+      //   // }
+      //   const fingerLimit = getFingerLimitPx();
 
-if (clientY >= fingerLimit) {
-  pinned = true;
-  pinAtY = clientY;
-  pinDy0 = dy;
-  autoGrowExtra = 0;
+      //   if (clientY >= fingerLimit) {
+      //     pinned = true;
+      //     pinAtY = clientY;
+      //     pinDy0 = dy;
+      //     autoGrowExtra = 0;
 
-  autoGrowActive = true;
-  if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
-}
-      }
+      //     autoGrowActive = true;
+      //     if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+      //   }
+      // }
+  const goingDown = clientY > prevClientY + 0.5;
+  prevClientY = clientY;
+
+  let dy = Math.max(dyMin, Math.min(clientY - startY, dyMax));
+
+  if (isLast && !pinned) {
+    // pré-apply pour que le layout soit cohérent (comme tu fais déjà)
+    setH(paneTop, hTop + dy);
+
+    const fingerLimit = getFingerLimitPx(); // si tu l’as gardée
+    const hitBottomByFinger = clientY >= fingerLimit;
+    const hitDyMax = dy >= (dyMax - 1);
+
+    // ✅ TRIGGER robuste Android :
+    // - soit on est au bas du viewport
+    // - soit on a atteint dyMax mais le doigt continue à descendre
+    if (hitBottomByFinger || (hitDyMax && goingDown)) {
+      pinned = true;
+      pinAtY = clientY;
+      pinDy0 = dy;
+      autoGrowExtra = 0;
+
+      autoGrowActive = true;
+      if (!autoGrowRaf) autoGrowRaf = requestAnimationFrame(tickAutoGrow);
+    }
+  }
 
       // 2) Mode pinned : croissance/décroissance continue sans lever le doigt
       if (isLast && pinned) {
