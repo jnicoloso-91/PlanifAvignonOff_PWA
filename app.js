@@ -2829,10 +2829,8 @@ function wireExpanderSplitters() {
     function maybeAutoGrow(clientY) {
       if (!isLast || !dragging) return;
       const bottomLimit = getBottomLimitPx();
-      // déclenche un poil AVANT la limite pour éviter le saut
-      const TRIGGER_PAD = 8;
-      const nearBottom = clientY >= (bottomLimit - TRIGGER_PAD);
-
+      const handleRect = handle.getBoundingClientRect();
+      const nearBottom = handleRect.bottom >= (bottomLimit - 8); // 8px marge
       if (nearBottom) {
         activateAutoGrow(clientY);
       } else if (autoGrowActive) {
