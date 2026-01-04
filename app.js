@@ -2875,7 +2875,7 @@ fingerLimit = getFingerLimitPx(); // calc une fois au début du drag
         return;
       }
 
-      const SPEED = 6;
+      const SPEED = 8;
 
       // ✅ pousse uniquement l’extra, pas le fingerDelta
       autoGrowExtra += SPEED;
