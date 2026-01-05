@@ -478,6 +478,11 @@ main, .page-wrap {
   padding-right: 8px !important;
 }
 
+.ag-theme-quartz .col-padding-tight {
+  padding-left: 2px !important;
+  padding-right: 2px !important;
+}
+
 @media (max-width: 812px) {
   /* Font Height */
   .ag-theme-quartz.compact { 
@@ -619,8 +624,6 @@ main, .page-wrap {
 }
 .v-splitter__handle:active { background: rgba(60,60,60,.6); }
 
-/* Le splitter ne capte rien, seule la poignée capte */
-/* Le splitter ne capte rien, seule la poignée capte */
 /* Le splitter ne capte rien, seule la poignée capte */
 .v-splitter {
   position: relative;

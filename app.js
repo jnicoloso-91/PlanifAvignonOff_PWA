@@ -2016,7 +2016,7 @@ function buildColumnsActivitesCommon(){
       }
     },
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer },
-    { field:'__desc_summary', headerName: '', width, minWidth:40, filter: false, sortable: false ,  editable: false, cellRenderer: infosPlusPopoverCellRenderer },
+    { field:'__desc_summary', headerName: '', width, minWidth:30, filter: false, sortable: false ,  editable: false, cellClass: "col-padding-tight", cellRenderer: infosPlusPopoverCellRenderer },
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width },
