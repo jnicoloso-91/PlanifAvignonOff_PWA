@@ -6643,7 +6643,7 @@ function openSheetAide() {
             nécessitant de rechercher des activités dans un catalogue et de les programmer.</p>
             
             <p style="margin-bottom: 0.2em"><u><i>In & Off</u></i> vous permettra notamment :</p>
-            <ul style="margin-top: 0em; margin-bottom: 2em">
+            <ul style="margin-top: 0em; margin-bottom: 1em">
               <li>de <u><i>charger</u></i> des spectacles et des activités à programmer à partir d'un fichier Excel, ou par collage depuis des catalogues en ligne,</li>
               <li>de <u><i>programmer</u></i> des spectacles et activités, en évitant chevauchements et doublons,</li>
               <li>d'identifier les <u><i>plages libres</u></i> de votre programme de spectacles, ainsi que les <u><i>activités programmables</u></i> sur ces plages,</li>
@@ -6652,7 +6652,6 @@ function openSheetAide() {
               <li>de <u><i>sauvegarder</u></i> votre programme vers Excel ou votre application calendrier,</li>
               <li>de <u><i>vérifier la cohérence</u></i> de vos données (chevauchements d'activités, respect des marges entre activités, format des données).</li>
             </ul>            
-          </div>
 
           <p>Un <u><i>Assistant de programmation automatique</u></i> est là pour vous proposer des solutions instantannées de programmation répondant 
           à vos critères de dates et vos préférences stylistiques.</p> 
@@ -6662,8 +6661,14 @@ function openSheetAide() {
           <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
           choisissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
           La période de programmation peut être modifiée en allant dans le menu <u><i>.../Paramètres</u></i>.</p>
-          <p>Pour installer l'application sur mobile : sur Android, allez dans le menu Chrome (en haut à droite) et choisissez <u><i>Ajouter à l'écran d'accueil</u></i>. 
-          Sur Iphone ou Ipad allez dans le menu Partager de Safari et choisissez <u><i>Sur l'écran d'accueil</u></i>.</p>
+
+          <p style="margin-bottom: 0.2em">Pour installer l'application :</p> 
+          <ul style="margin-top: 0em; margin-bottom: 1em">
+            <li>sur Android, item <u><i>Ajouter à l'écran d'accueil</u></i> dans menu Chrome (en haut à droite de l'écran),</li> 
+            <li>sur Iphone ou Ipad item <u><i>Sur l'écran d'accueil</u></i> dans menu <u><i>Partager</u></i> de Safari,</li> 
+            <li>sur macOS ou Windows icône <u><i>Installer...</u></i> depuis la barre d'adresse de Chrome ou <u><i>Installer ce site comme application</u></i> depuis menu <u><i>.../Apps</u></i> de Edge.</li> 
+          </ul>            
+          <p>Dans tous les cas vous pouvez utiliser <u><i>In & Off</u></i> dans votre navigateur depuis la <a href="https://jnicoloso-91.github.io/PlanifAvignonOff_PWA/" target="_blank" rel="noopener noreferrer">page github</a> de l'application.</p>
         </div>
             
         <div id="help-regles-programmation" class="help-chapter">
