@@ -2662,14 +2662,14 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 /* Empêche le “scroll chaining” vers la page */
-#programme-panel #calA .cal-days-scroll{
+/* #programme-panel #calA .cal-days-scroll{
   overscroll-behavior-x: contain;
-  overscroll-behavior-y: contain; /* ok même si overflow-y hidden */
-  touch-action: pan-x;            /* on annonce “horizontal only” */
-}
+  overscroll-behavior-y: contain;  ok même si overflow-y hidden 
+  touch-action: pan-x;             on annonce “horizontal only” 
+} */
 
 /* Bonus : sur iOS, éviter les à-coups */
-#programme-panel #calA .cal-days-scroll{
+/* #programme-panel #calA .cal-days-scroll{
   -webkit-overflow-scrolling: touch;
-}
+} */
 

@@ -2333,9 +2333,9 @@ async function showProgrammeCalendar() {
   // 4) render -> on remplit calADays, on ne reconstruit plus les wrappers
   renderProgrammeCalendarInto(daysEl, rows, pp, selD);
 
-  const scroller = document.querySelector("#calA .cal-days-scroll");
-  window._calScrollUnlock?.();                 // si déjà installé
-  window._calScrollUnlock = lockPageScrollInCalendar(scroller); 
+  // const scroller = document.querySelector("#calA .cal-days-scroll");
+  // window._calScrollUnlock?.();                 // si déjà installé
+  // window._calScrollUnlock = lockPageScrollInCalendar(scroller); 
 
   // 5) scroll to selected day + event
   queueMicrotask(() => {
