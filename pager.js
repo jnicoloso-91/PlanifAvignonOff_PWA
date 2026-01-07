@@ -86,7 +86,8 @@ import {
 		'.ag-header-cell-resize', '.ag-column-resize', // poignées de resize colonnes
 		'.sheet-panel', '.sheet-header',               // si tu as des sheets
 		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
-		'.st-expander-header'                          // si tu veux aussi ignorer ces headers
+		'.st-expander-header',                         // headers
+		'"#programme-panel #calA"',                    // calendrier
 	].join(',');
 
 	function isInNoSwipeZone(evTarget){
