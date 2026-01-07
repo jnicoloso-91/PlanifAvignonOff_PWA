@@ -2673,3 +2673,14 @@ input[type="range"]:focus::-moz-range-thumb {
   -webkit-overflow-scrolling: touch;
 } */
 
+/* Zone de scroll horizontal : autoriser explicitement le pan-x */
+#programme-panel #calA .cal-days-scroll {
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+}
+
+/* Zone de scroll vertical par jour : autoriser pan-y */
+#programme-panel #calA .cal-day__body {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
