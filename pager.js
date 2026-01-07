@@ -87,7 +87,7 @@ import {
 		'.sheet-panel', '.sheet-header',               // si tu as des sheets
 		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
 		'.st-expander-header',                         // headers
-		'"#programme-panel #calA"',                    // calendrier
+		'#programme-panel #calA',                      // calendrier
 	].join(',');
 
 	function isInNoSwipeZone(evTarget){
@@ -95,6 +95,9 @@ import {
 	}
 
   function onStart(ev){
+    if (ev.target.closest?.("#programme-panel #calA")) {
+      console.log("[DBG] touchmove inside calA", ev.cancelable);
+    }
     const t = ev.touches ? ev.touches[0] : ev;
 
 		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
@@ -107,6 +110,9 @@ import {
     track.style.transition = 'none';
   }
   function onMove(ev){
+    if (ev.target.closest?.("#programme-panel #calA")) {
+      console.log("[DBG] touchmove inside calA", ev.cancelable);
+    }
     if (!dragging) return;
     const t  = ev.touches ? ev.touches[0] : ev;
     curX     = t.clientX;

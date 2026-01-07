@@ -63,37 +63,11 @@ html, body {
   }
 }
 
-/* ---------------------------------
-   (Optionnel) Header d’app si présent
-   - cache le header sur certaines pages via .hidden
-   --------------------------------- */
-/* .app-header {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  padding: 0 12px;
-  border-bottom: 1px solid #eef0f2;
-  backdrop-filter: saturate(180%) blur(8px);
-  z-index: 10;
-  transition: transform .2s ease, opacity .2s ease;
-} */
 .app-header.hidden {
   transform: translateY(-100%);
   opacity: 0;
   pointer-events: none;
 }
-
-/* Si tu utilises un header, pense à compenser son espace dans la page */
-/* .has-header #pager .pager-track > .page {
-  padding-top: var(--header-h); 
-} */
-
-/* #pager { position: relative; width: 100%; height: 100%; overflow: hidden; } */
-/* #pager .pager-track { display: flex; height: 100%; will-change: transform; } */
-/* #pager .page { flex: 0 0 100%; height: 100%; overflow: auto; } */
 
 #pager.is-dragging .page { pointer-events: none; } /* désactive clics pendant drag */
 
@@ -107,11 +81,6 @@ html, body {
   display: flex;
   flex-direction: column;
   width: 100%;
-  /* height: calc(100vh - env(safe-area-inset-bottom) - var(--header-h, 0px)); */
-  /* height: calc(100vh - env(safe-area-inset-bottom));  */
-  /* height: calc(100svh - env(safe-area-inset-bottom) -var(--safe-gap));  */
-  /* height: calc(100vh - env(safe-area-inset-bottom) - var(--header-h));  */
-  /* height: var(--pager-h, 100vh);  */
   overflow: hidden;
 }
 
@@ -119,13 +88,6 @@ html, body {
 #pager {
   height: 100svh; /* small vh (small viewport height) = zone visible quand barres affichées */
 }
-
-/* Si le navigateur supporte 100dvh (dynamic viewport height) → on l'utilise */
-/* @supports (height: 100dvh) {
-  #pager {
-    height: calc(100dvh - env(safe-area-inset-bottom));
-  }
-} */
 
 /* Le rail horizontal */
 #pager .pager-track {
@@ -144,36 +106,10 @@ html, body {
   overflow-y: auto;
 
   padding-top: var(--header-h, 48px); /* espace auto sous header */
-  /* height: calc(100vh - var(--header-h, 3.5rem)); */
-  /* height: calc(100vh - env(safe-area-inset-bottom) - var(--header-h, 0px)); */
   height: 100%;
 
-  /*padding-top: var(--app-header-height, 3.0rem); /* espace auto sous header */
-  /* height: calc(100vh - var(--app-header-height, 3.5rem)); */
-
-  /* height: calc(var(--vh, 100vh) - var(--header-h, 0px));
-  overflow: hidden;       pas de scroll de la page elle-même */
   scroll-padding-top: calc(var(--header-h, 48px));
 }
-
-/* Le header fixe et sa hauteur déclarée */
-/* header.app-header {
-  --app-header-height: 3.5rem; 
-  height: var(--app-header-height);
-  line-height: var(--app-header-height);
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 1000;
-} */
-
-/* La page Welcome (pas de header) */
-/* #pager .page--welcome { --header-h: 0px; } */
-
-/* Quand on est sur le welcome, le header reste masqué */
-/* body.hide-app-header #pager .page {
-  padding-top: 0;
-  height: 100vh;
-} */
 
 /*=================================
   Welcome
@@ -185,12 +121,6 @@ html, body {
   inset: 0;
   background: linear-gradient(180deg, #3d3f42 0%, #000000 100%);
   color: white;
-
-  /* display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center; */
 
   display: grid;
   place-items: center;
