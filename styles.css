@@ -2681,6 +2681,6 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* Zone de scroll vertical par jour : autoriser pan-y */
 #programme-panel #calA .cal-day__body {
-  touch-action: pan-x pan-y;
+  touch-action: pan-y;
   overscroll-behavior: contain;
 }
