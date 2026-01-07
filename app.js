@@ -1928,28 +1928,6 @@ function centerDayInViewport(dateInt, { smooth = true } = {}) {
   return true;
 }
 
-// function centerSelectedEventInDay(uuid, { smooth = true } = {}) {
-//   const ev = getEventNodeByUuid(uuid);
-//   if (!ev) return false;
-
-//   const dateInt = ev.dataset.dateint;
-//   const body = getDayBody(dateInt);
-//   if (!body) return false;
-
-//   // centre l'event dans le viewport vertical du jour
-//   const bRect = body.getBoundingClientRect();
-//   const eRect = ev.getBoundingClientRect();
-
-//   const evCenter = (eRect.top - bRect.top) + (eRect.height / 2);
-//   const targetTop = body.scrollTop + evCenter - (bRect.height / 2);
-
-//   body.scrollTo({
-//     top: Math.max(0, targetTop),
-//     behavior: smooth ? "smooth" : "auto"
-//   });
-
-//   return true;
-// }
 function centerSelectedEventInDay(selectedUuid, { smooth = true } = {}) {
   if (!selectedUuid) return false;
 
@@ -1984,22 +1962,6 @@ function centerSelectedEventInDay(selectedUuid, { smooth = true } = {}) {
   return true;
 }
 
-// function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
-//   const day = getDayNode(dateInt);
-//   const body = day?.querySelector(".cal-day__body");
-//   const tl = day?.querySelector(".cal-timeline");
-//   if (!body || !tl) return false;
-
-//   const pxPerMin = parseFloat(tl.dataset.pxPerMin || "1.1");
-//   const top = Math.round(hour * 60 * pxPerMin);
-
-//   body.scrollTo({
-//     top,
-//     behavior: smooth ? "smooth" : "auto"
-//   });
-
-//   return true;
-// }
 function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
   const dayBody = getDayBody(dateInt);
   if (!dayBody) return false;
@@ -2017,24 +1979,6 @@ function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
   return true;
 }
 
-// function snapProgrammeCalendar({
-//   dateInt,
-//   selectedUuid = null,
-//   fallbackHour = 9,
-//   smooth = true
-// } = {}) {
-//   if (!dateInt) return;
-
-//   // 1) centre la colonne jour (scroll horizontal)
-//   centerDayInViewport(dateInt, { smooth });
-
-//   // 2) centre verticalement : event sélectionné sinon 9h
-//   //    (petit timeout pour laisser le scroll horizontal + layout se stabiliser)
-//   setTimeout(() => {
-//     const ok = selectedUuid ? centerSelectedEventInDay(selectedUuid, { smooth }) : false;
-//     if (!ok) scrollDayToHour(dateInt, fallbackHour, { smooth });
-//   }, smooth ? 60 : 0);
-// }
 function snapProgrammeCalendar({
   dateInt,
   selectedUuid = null,
@@ -2389,6 +2333,10 @@ async function showProgrammeCalendar() {
   // 4) render -> on remplit calADays, on ne reconstruit plus les wrappers
   renderProgrammeCalendarInto(daysEl, rows, pp, selD);
 
+  const scroller = document.querySelector("#calA .cal-days-scroll");
+  window._calScrollUnlock?.();                 // si déjà installé
+  window._calScrollUnlock = lockPageScrollInCalendar(scroller); 
+
   // 5) scroll to selected day + event
   queueMicrotask(() => {
     const selected = getSelectedRowUuid('grid-programmees'); 
@@ -2537,6 +2485,52 @@ function onProgrammeSelectionChanged() {
 
   const sel = getSelectedProgrammeDateInt();
   if (sel) scrollCalendarToDay(dom.calEl, sel);
+}
+
+// Empêche le scroll de la page quand on scroll horizontalement dans le calendrier
+function lockPageScrollInCalendar(scrollerEl) {
+  if (!scrollerEl) return () => {};
+
+  // iOS Safari: passive listeners par défaut => il faut {passive:false}
+  let active = false;
+  let startX = 0, startY = 0;
+  const THRESH = 6; // px avant de décider l’axe
+
+  const onTouchStart = (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    active = true;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  };
+
+  const onTouchMove = (e) => {
+    if (!active || !e.touches || e.touches.length !== 1) return;
+
+    const x = e.touches[0].clientX;
+    const y = e.touches[0].clientY;
+    const dx = x - startX;
+    const dy = y - startY;
+
+    // Dès qu’on détecte un geste plutôt horizontal => on bloque le scroll page
+    if (Math.abs(dx) > THRESH && Math.abs(dx) > Math.abs(dy)) {
+      e.preventDefault(); // stop scroll page
+    }
+  };
+
+  const onTouchEnd = () => { active = false; };
+
+  scrollerEl.addEventListener("touchstart", onTouchStart, { passive: true });
+  scrollerEl.addEventListener("touchmove",  onTouchMove,  { passive: false }); // IMPORTANT
+  scrollerEl.addEventListener("touchend",   onTouchEnd,   { passive: true });
+  scrollerEl.addEventListener("touchcancel",onTouchEnd,   { passive: true });
+
+  // cleanup
+  return () => {
+    scrollerEl.removeEventListener("touchstart", onTouchStart);
+    scrollerEl.removeEventListener("touchmove",  onTouchMove);
+    scrollerEl.removeEventListener("touchend",   onTouchEnd);
+    scrollerEl.removeEventListener("touchcancel",onTouchEnd);
+  };
 }
 
 // ===== Builders de colonnes de grilles =====
