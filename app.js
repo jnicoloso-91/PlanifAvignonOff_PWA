@@ -2400,26 +2400,106 @@ function attachProgrammeCalendarHeightSync() {
 }
 
 // Empêche le scroll vertical quand le geste est horizontal dans le calendrier
-function enableCalAxisLock({
-  rootSel = "#programme-panel #calA",
-  bodySel = ".cal-day__body",
-  threshold = 10,     // px avant décision
-} = {}) {
-  const root = document.querySelector(rootSel);
-  if (!root) return;
+// function enableCalAxisLock({
+//   rootSel = "#programme-panel #calA",
+//   bodySel = ".cal-day__body",
+//   threshold = 10,     // px avant décision
+// } = {}) {
+//   const root = document.querySelector(rootSel);
+//   if (!root) return;
 
+//   let activeBody = null;
+//   let startX = 0, startY = 0;
+//   let decided = null; // "x" | "y" | null
+
+//   function getPoint(e) {
+//     return (e.touches && e.touches[0]) ? e.touches[0] : e;
+//   }
+
+//   function onStart(e) {
+//     const t = e.target;
+//     const body = t?.closest?.(bodySel);
+//     if (!body || !root.contains(body)) return;
+
+//     activeBody = body;
+//     decided = null;
+
+//     const p = getPoint(e);
+//     startX = p.clientX;
+//     startY = p.clientY;
+//   }
+
+//   function onMove(e) {
+//     if (!activeBody) return;
+
+//     const p = getPoint(e);
+//     const dx = p.clientX - startX;
+//     const dy = p.clientY - startY;
+
+//     if (!decided) {
+//       if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+//       decided = (Math.abs(dx) > Math.abs(dy)) ? "x" : "y";
+//     }
+
+//     if (decided === "x") {
+//       // Geste horizontal : on empêche le scroll vertical de prendre la main
+//       if (e.cancelable) e.preventDefault();
+
+//       // Astuce : couper temporairement le Y du body améliore iOS/Android
+//       activeBody.style.overflowY = "hidden";
+//     } else {
+//       // Geste vertical : rendre le Y au body
+//       if (activeBody.style.overflowY === "hidden") activeBody.style.overflowY = "auto";
+//     }
+//   }
+
+//   function onEnd() {
+//     if (activeBody && activeBody.style.overflowY === "hidden") {
+//       activeBody.style.overflowY = "auto";
+//     }
+//     activeBody = null;
+//     decided = null;
+//   }
+
+//   // IMPORTANT: move en passive:false pour que preventDefault marche
+//   root.addEventListener("touchstart", onStart, { passive: true });
+//   root.addEventListener("touchmove", onMove, { passive: false });
+//   root.addEventListener("touchend", onEnd, { passive: true });
+//   root.addEventListener("touchcancel", onEnd, { passive: true });
+
+//   // Pointer Events (utile sur Android/Chrome, iOS récents)
+//   root.addEventListener("pointerdown", onStart, { passive: true });
+//   root.addEventListener("pointermove", onMove, { passive: false });
+//   root.addEventListener("pointerup", onEnd, { passive: true });
+//   root.addEventListener("pointercancel", onEnd, { passive: true });
+// }
+function enableCalAxisLock({
+  calRootSelector = "#programme-panel #calA",
+  bodySelector = ".cal-day__body",
+  threshold = 10,
+} = {}) {
   let activeBody = null;
   let startX = 0, startY = 0;
   let decided = null; // "x" | "y" | null
 
-  function getPoint(e) {
-    return (e.touches && e.touches[0]) ? e.touches[0] : e;
+  const getPoint = (e) => (e.touches && e.touches[0]) ? e.touches[0] : e;
+
+  function inCalendar(target) {
+    const cal = target?.closest?.(calRootSelector);
+    return !!cal;
+  }
+
+  function findBody(target) {
+    // target peut être un TextNode sur certains cas => remonter au parent
+    const el = (target && target.nodeType === 3) ? target.parentElement : target;
+    return el?.closest?.(bodySelector) || null;
   }
 
   function onStart(e) {
-    const t = e.target;
-    const body = t?.closest?.(bodySel);
-    if (!body || !root.contains(body)) return;
+    if (!inCalendar(e.target)) return;
+
+    const body = findBody(e.target);
+    if (!body) return;
 
     activeBody = body;
     decided = null;
@@ -2442,13 +2522,14 @@ function enableCalAxisLock({
     }
 
     if (decided === "x") {
-      // Geste horizontal : on empêche le scroll vertical de prendre la main
+      // IMPORTANT : on gagne contre le pager
       if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
 
-      // Astuce : couper temporairement le Y du body améliore iOS/Android
-      activeBody.style.overflowY = "hidden";
+      // coupe le Y pendant le drag horizontal (iOS/Android)
+      if (activeBody.style.overflowY !== "hidden") activeBody.style.overflowY = "hidden";
     } else {
-      // Geste vertical : rendre le Y au body
+      // rend le Y
       if (activeBody.style.overflowY === "hidden") activeBody.style.overflowY = "auto";
     }
   }
@@ -2461,17 +2542,16 @@ function enableCalAxisLock({
     decided = null;
   }
 
-  // IMPORTANT: move en passive:false pour que preventDefault marche
-  root.addEventListener("touchstart", onStart, { passive: true });
-  root.addEventListener("touchmove", onMove, { passive: false });
-  root.addEventListener("touchend", onEnd, { passive: true });
-  root.addEventListener("touchcancel", onEnd, { passive: true });
+  // CAPTURE + passive:false sur move => preventDefault effectif
+  document.addEventListener("touchstart", onStart, { capture: true, passive: true });
+  document.addEventListener("touchmove",  onMove,  { capture: true, passive: false });
+  document.addEventListener("touchend",   onEnd,   { capture: true, passive: true });
+  document.addEventListener("touchcancel",onEnd,   { capture: true, passive: true });
 
-  // Pointer Events (utile sur Android/Chrome, iOS récents)
-  root.addEventListener("pointerdown", onStart, { passive: true });
-  root.addEventListener("pointermove", onMove, { passive: false });
-  root.addEventListener("pointerup", onEnd, { passive: true });
-  root.addEventListener("pointercancel", onEnd, { passive: true });
+  document.addEventListener("pointerdown", onStart, { capture: true, passive: true });
+  document.addEventListener("pointermove", onMove,  { capture: true, passive: false });
+  document.addEventListener("pointerup",   onEnd,   { capture: true, passive: true });
+  document.addEventListener("pointercancel",onEnd,  { capture: true, passive: true });
 }
 
 // public: à appeler après init grid + wireExpanderButtons
@@ -2540,9 +2620,6 @@ function wireProgrammeCalendarToggle() {
       else showProgrammeGrid();
     }
   });
-
-  attachProgrammeCalendarHeightSync();
-  enableCalAxisLock();
 
   // apply saved mode at startup
   queueMicrotask(async () => {
@@ -11809,11 +11886,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireExpanders();
   wireExpanderSplitters();
   wireExpanderButtons();
+  attachProgrammeCalendarHeightSync();
+  enableCalAxisLock();
   wireAppKebab();
   initSheetGrids();
   wireInfosPlusPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
+
+document.addEventListener("touchmove", (e) => {
+  if (e.target?.closest?.("#programme-panel #calA")) {
+    console.log("[CAL] touchmove target=", e.target);
+  }
+}, { capture:true, passive:true });
 
   console.log('✅ Application initialisée');
 
