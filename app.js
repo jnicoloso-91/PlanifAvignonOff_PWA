@@ -224,6 +224,12 @@ const waitAF = () => new Promise(r => requestAnimationFrame(() => requestAnimati
 
 const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 
+// Appel d'une fonction après n frames
+function afterFrames(n, fn) {
+  if (n <= 0) return fn();
+  requestAnimationFrame(() => afterFrames(n - 1, fn));
+}
+
 // Récupère l'API d'une grille par son id (selon ta structure window.grids)
 function getGridApiById(gridId) {
   return window.grids?.get(gridId)?.api || null;
@@ -2090,7 +2096,24 @@ function isProgrammeCalendarVisible() {
   return !!calA && !calA.hidden && calA.style.display !== "none";
 }
 
-function rerenderProgrammeCalendar({ snapDay = true, snapEventUuid = null, defaultHour = 9 } = {}) {
+function selectEventByUuid(uuid) {
+  if (!uuid) return;
+  const daysEl  = document.getElementById("calADays"); // ✅ conteneur des colonnes
+  daysEl.querySelectorAll(".cal-ev.is-selected").forEach(x => x.classList.remove("is-selected"));
+  const ev = getEventNodeByUuid(uuid);
+  if (ev) ev.classList.add('is-selected');
+}
+
+function snapToCurrentSelectedEvent() {
+  const calA = document.getElementById("calA");
+  const selD = getSelectedProgrammeDateInt();
+  const selUuid = getSelectedRowUuid('grid-programmees');
+  scrollCalendarToDay?.(calA, selD); 
+  scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
+  selectEventByUuid(selUuid);
+}
+
+function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = {}) {
   const calA = document.getElementById("calA");
   const calADays = document.getElementById("calADays");
   if (!calA || !calADays) return;
@@ -2104,13 +2127,18 @@ function rerenderProgrammeCalendar({ snapDay = true, snapEventUuid = null, defau
   pp = normalizePeriodeFromRowsIfNeeded(pp, rows);
 
   const selD = getSelectedProgrammeDateInt();
+  const selUuid = getSelectedRowUuid('grid-programmees'); 
+
   renderProgrammeCalendarInto(calADays, rows, pp, selD);
 
   // post-render snapping
   requestAnimationFrame(() => {
-    if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour
-    if (snapEventUuid) scrollCalendarToEvent?.(calA, snapEventUuid); // scroll vertical vers l'event (si tu l’as)
-    else scrollAllDaysToHour?.(calADays, defaultHour);              // sinon 9h partout
+    scrollAllDaysToHour?.(calADays, defaultHour);                   // 9h partout par defaut
+    if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour de l’event sélectionné
+    if (selUuid) {
+      scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
+      selectEventByUuid(selUuid);                                   // sélection visuelle de l’event  
+    }
   });
 }
 
@@ -2268,7 +2296,7 @@ function renderProgrammeCalendarInto(daysEl, rows, pp, selectedDateInt) {
           selectedUuid: r.__uuid,
           fallbackHour: 9,
           smooth: true
-        });        
+        });     
 
         try {
           selectRowByUuid?.("grid-programmees", r.__uuid);
@@ -2283,6 +2311,7 @@ function renderProgrammeCalendarInto(daysEl, rows, pp, selectedDateInt) {
 
   queueMicrotask(() => {
     scrollAllDaysToHour(daysEl, 9);
+    selectEventByUuid(getSelectedRowUuid('grid-programmees'));
   });
   
   // option: recentrer sur le jour sélectionné (si tu veux)
@@ -2332,10 +2361,6 @@ async function showProgrammeCalendar() {
 
   // 4) render -> on remplit calADays, on ne reconstruit plus les wrappers
   renderProgrammeCalendarInto(daysEl, rows, pp, selD);
-
-  // const scroller = document.querySelector("#calA .cal-days-scroll");
-  // window._calScrollUnlock?.();                 // si déjà installé
-  // window._calScrollUnlock = lockPageScrollInCalendar(scroller); 
 
   // 5) scroll to selected day + event
   queueMicrotask(() => {
@@ -2399,162 +2424,9 @@ function attachProgrammeCalendarHeightSync() {
   window.__applyProgrammeCalHeight = apply;
 }
 
-// Empêche le scroll vertical quand le geste est horizontal dans le calendrier
-// function enableCalAxisLock({
-//   rootSel = "#programme-panel #calA",
-//   bodySel = ".cal-day__body",
-//   threshold = 10,     // px avant décision
-// } = {}) {
-//   const root = document.querySelector(rootSel);
-//   if (!root) return;
-
-//   let activeBody = null;
-//   let startX = 0, startY = 0;
-//   let decided = null; // "x" | "y" | null
-
-//   function getPoint(e) {
-//     return (e.touches && e.touches[0]) ? e.touches[0] : e;
-//   }
-
-//   function onStart(e) {
-//     const t = e.target;
-//     const body = t?.closest?.(bodySel);
-//     if (!body || !root.contains(body)) return;
-
-//     activeBody = body;
-//     decided = null;
-
-//     const p = getPoint(e);
-//     startX = p.clientX;
-//     startY = p.clientY;
-//   }
-
-//   function onMove(e) {
-//     if (!activeBody) return;
-
-//     const p = getPoint(e);
-//     const dx = p.clientX - startX;
-//     const dy = p.clientY - startY;
-
-//     if (!decided) {
-//       if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
-//       decided = (Math.abs(dx) > Math.abs(dy)) ? "x" : "y";
-//     }
-
-//     if (decided === "x") {
-//       // Geste horizontal : on empêche le scroll vertical de prendre la main
-//       if (e.cancelable) e.preventDefault();
-
-//       // Astuce : couper temporairement le Y du body améliore iOS/Android
-//       activeBody.style.overflowY = "hidden";
-//     } else {
-//       // Geste vertical : rendre le Y au body
-//       if (activeBody.style.overflowY === "hidden") activeBody.style.overflowY = "auto";
-//     }
-//   }
-
-//   function onEnd() {
-//     if (activeBody && activeBody.style.overflowY === "hidden") {
-//       activeBody.style.overflowY = "auto";
-//     }
-//     activeBody = null;
-//     decided = null;
-//   }
-
-//   // IMPORTANT: move en passive:false pour que preventDefault marche
-//   root.addEventListener("touchstart", onStart, { passive: true });
-//   root.addEventListener("touchmove", onMove, { passive: false });
-//   root.addEventListener("touchend", onEnd, { passive: true });
-//   root.addEventListener("touchcancel", onEnd, { passive: true });
-
-//   // Pointer Events (utile sur Android/Chrome, iOS récents)
-//   root.addEventListener("pointerdown", onStart, { passive: true });
-//   root.addEventListener("pointermove", onMove, { passive: false });
-//   root.addEventListener("pointerup", onEnd, { passive: true });
-//   root.addEventListener("pointercancel", onEnd, { passive: true });
-// }
-// function enableCalAxisLock({
-//   calRootSelector = "#programme-panel #calA",
-//   bodySelector = ".cal-day__body",
-//   threshold = 10,
-// } = {}) {
-//   let activeBody = null;
-//   let startX = 0, startY = 0;
-//   let decided = null; // "x" | "y" | null
-
-//   const getPoint = (e) => (e.touches && e.touches[0]) ? e.touches[0] : e;
-
-//   function inCalendar(target) {
-//     const cal = target?.closest?.(calRootSelector);
-//     return !!cal;
-//   }
-
-//   function findBody(target) {
-//     // target peut être un TextNode sur certains cas => remonter au parent
-//     const el = (target && target.nodeType === 3) ? target.parentElement : target;
-//     return el?.closest?.(bodySelector) || null;
-//   }
-
-//   function onStart(e) {
-//     if (!inCalendar(e.target)) return;
-
-//     const body = findBody(e.target);
-//     if (!body) return;
-
-//     activeBody = body;
-//     decided = null;
-
-//     const p = getPoint(e);
-//     startX = p.clientX;
-//     startY = p.clientY;
-//   }
-
-//   function onMove(e) {
-//     if (!activeBody) return;
-
-//     const p = getPoint(e);
-//     const dx = p.clientX - startX;
-//     const dy = p.clientY - startY;
-
-//     if (!decided) {
-//       if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
-//       decided = (Math.abs(dx) > Math.abs(dy)) ? "x" : "y";
-//     }
-
-//     if (decided === "x") {
-//       // IMPORTANT : on gagne contre le pager
-//       if (e.cancelable) e.preventDefault();
-//       e.stopPropagation();
-
-//       // coupe le Y pendant le drag horizontal (iOS/Android)
-//       if (activeBody.style.overflowY !== "hidden") activeBody.style.overflowY = "hidden";
-//     } else {
-//       // rend le Y
-//       if (activeBody.style.overflowY === "hidden") activeBody.style.overflowY = "auto";
-//     }
-//   }
-
-//   function onEnd() {
-//     if (activeBody && activeBody.style.overflowY === "hidden") {
-//       activeBody.style.overflowY = "auto";
-//     }
-//     activeBody = null;
-//     decided = null;
-//   }
-
-//   // CAPTURE + passive:false sur move => preventDefault effectif
-//   document.addEventListener("touchstart", onStart, { capture: true, passive: true });
-//   document.addEventListener("touchmove",  onMove,  { capture: true, passive: false });
-//   document.addEventListener("touchend",   onEnd,   { capture: true, passive: true });
-//   document.addEventListener("touchcancel",onEnd,   { capture: true, passive: true });
-
-//   document.addEventListener("pointerdown", onStart, { capture: true, passive: true });
-//   document.addEventListener("pointermove", onMove,  { capture: true, passive: false });
-//   document.addEventListener("pointerup",   onEnd,   { capture: true, passive: true });
-//   document.addEventListener("pointercancel",onEnd,  { capture: true, passive: true });
-// }
 let _calAxisLockInstalled = false;
 
+// Empêche le scroll vertical quand le geste est horizontal dans le calendrier
 function enableCalAxisLock() {
   if (_calAxisLockInstalled) return;
   _calAxisLockInstalled = true;
@@ -3669,6 +3541,11 @@ async function refreshActivitesGrids() {
   refreshGrid('grid-creneaux');
   refreshGrid('grid-non-programmees');
   // refreshGrid('grid-programmables'); => Pas celle-là car elle se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
+
+  // ✅ si on est en calendrier : re-render
+  if (isProgrammeCalendarVisible()) {
+    afterFrames(3, () => rerenderProgrammeCalendar({ defaultHour: 9 }));
+  }
 }
 
 // Coalessance évitant les rafraîchissements multiples dans la même frame dus à des mutations multiples de contexte dans une fonction 
@@ -5694,11 +5571,6 @@ async function doDeprogrammerActivite() {
   });
 
   dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, scroll=false);
-
-  // ✅ si on est en calendrier : re-render
-  if (isProgrammeCalendarVisible()) {
-    requestAnimationFrame(() => rerenderProgrammeCalendar({ snapEventUuid: uuid, defaultHour: 9 }));
-  }
 }
 
 // Programmation de l'activité sélectionnée dans la grille des activités programmables
@@ -5761,11 +5633,6 @@ async function doProgrammerActivite() {
 
   // doPhantomFlight('grid-programmables', 'grid-programmees', 'exp-programmees');
   dropRowFromSrcGridToDstGrid('grid-programmables', 'grid-programmees', 'exp-programmees', uuidVoisin, uuid, scroll=true);
-
-  // ✅ si on est en calendrier : re-render
-  if (isProgrammeCalendarVisible()) {
-    requestAnimationFrame(() => rerenderProgrammeCalendar({ snapEventUuid: uuid, defaultHour: 9 }));
-  }
 }
 
 // Rechargement des grilles depuis contexte
@@ -11783,7 +11650,7 @@ function wireContext() {
   if (!ctx.df || ctx.df?.length == 0) activitesAPI.initPeriodeProgrammation();
 
   ctx.on('df:changed',        () => {
-    refreshActivitesGrids(); // scheduleGlobalRefresh());
+    refreshActivitesGrids(); 
   });
 
   // ctx.on('carnet:changed',    () => {
