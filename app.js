@@ -2473,85 +2473,156 @@ function attachProgrammeCalendarHeightSync() {
 //   root.addEventListener("pointerup", onEnd, { passive: true });
 //   root.addEventListener("pointercancel", onEnd, { passive: true });
 // }
-function enableCalAxisLock({
-  calRootSelector = "#programme-panel #calA",
-  bodySelector = ".cal-day__body",
-  threshold = 10,
-} = {}) {
-  let activeBody = null;
+// function enableCalAxisLock({
+//   calRootSelector = "#programme-panel #calA",
+//   bodySelector = ".cal-day__body",
+//   threshold = 10,
+// } = {}) {
+//   let activeBody = null;
+//   let startX = 0, startY = 0;
+//   let decided = null; // "x" | "y" | null
+
+//   const getPoint = (e) => (e.touches && e.touches[0]) ? e.touches[0] : e;
+
+//   function inCalendar(target) {
+//     const cal = target?.closest?.(calRootSelector);
+//     return !!cal;
+//   }
+
+//   function findBody(target) {
+//     // target peut être un TextNode sur certains cas => remonter au parent
+//     const el = (target && target.nodeType === 3) ? target.parentElement : target;
+//     return el?.closest?.(bodySelector) || null;
+//   }
+
+//   function onStart(e) {
+//     if (!inCalendar(e.target)) return;
+
+//     const body = findBody(e.target);
+//     if (!body) return;
+
+//     activeBody = body;
+//     decided = null;
+
+//     const p = getPoint(e);
+//     startX = p.clientX;
+//     startY = p.clientY;
+//   }
+
+//   function onMove(e) {
+//     if (!activeBody) return;
+
+//     const p = getPoint(e);
+//     const dx = p.clientX - startX;
+//     const dy = p.clientY - startY;
+
+//     if (!decided) {
+//       if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+//       decided = (Math.abs(dx) > Math.abs(dy)) ? "x" : "y";
+//     }
+
+//     if (decided === "x") {
+//       // IMPORTANT : on gagne contre le pager
+//       if (e.cancelable) e.preventDefault();
+//       e.stopPropagation();
+
+//       // coupe le Y pendant le drag horizontal (iOS/Android)
+//       if (activeBody.style.overflowY !== "hidden") activeBody.style.overflowY = "hidden";
+//     } else {
+//       // rend le Y
+//       if (activeBody.style.overflowY === "hidden") activeBody.style.overflowY = "auto";
+//     }
+//   }
+
+//   function onEnd() {
+//     if (activeBody && activeBody.style.overflowY === "hidden") {
+//       activeBody.style.overflowY = "auto";
+//     }
+//     activeBody = null;
+//     decided = null;
+//   }
+
+//   // CAPTURE + passive:false sur move => preventDefault effectif
+//   document.addEventListener("touchstart", onStart, { capture: true, passive: true });
+//   document.addEventListener("touchmove",  onMove,  { capture: true, passive: false });
+//   document.addEventListener("touchend",   onEnd,   { capture: true, passive: true });
+//   document.addEventListener("touchcancel",onEnd,   { capture: true, passive: true });
+
+//   document.addEventListener("pointerdown", onStart, { capture: true, passive: true });
+//   document.addEventListener("pointermove", onMove,  { capture: true, passive: false });
+//   document.addEventListener("pointerup",   onEnd,   { capture: true, passive: true });
+//   document.addEventListener("pointercancel",onEnd,  { capture: true, passive: true });
+// }
+let _calAxisLockInstalled = false;
+
+function enableCalAxisLock() {
+  if (_calAxisLockInstalled) return;
+  _calAxisLockInstalled = true;
+
+  const root = document.querySelector("#programme-panel");
+  if (!root) return;
+
+  const getDaysScroll = () => document.querySelector("#programme-panel #calA .cal-days-scroll");
+
+  const isInDayBody = (t) => !!t && !!t.closest?.("#programme-panel #calA .cal-day__body");
+  const isInCal = (t) => !!t && !!t.closest?.("#programme-panel #calA");
+
+  let mode = null;       // null | "x" | "y"
   let startX = 0, startY = 0;
-  let decided = null; // "x" | "y" | null
+  let lastX = 0;
+  const THRESH = 7;
 
-  const getPoint = (e) => (e.touches && e.touches[0]) ? e.touches[0] : e;
+  // Important: capture pour passer avant ton pager
+  document.addEventListener("touchstart", (e) => {
+    if (!isInCal(e.target)) return;
 
-  function inCalendar(target) {
-    const cal = target?.closest?.(calRootSelector);
-    return !!cal;
-  }
+    const t = e.touches?.[0];
+    if (!t) return;
 
-  function findBody(target) {
-    // target peut être un TextNode sur certains cas => remonter au parent
-    const el = (target && target.nodeType === 3) ? target.parentElement : target;
-    return el?.closest?.(bodySelector) || null;
-  }
+    mode = null;
+    startX = lastX = t.clientX;
+    startY = t.clientY;
+  }, { capture: true, passive: true });
 
-  function onStart(e) {
-    if (!inCalendar(e.target)) return;
+  document.addEventListener("touchmove", (e) => {
+    // On ne s’occupe QUE des gestes démarrés dans le body (zone verticale)
+    if (!isInDayBody(e.target)) return;
 
-    const body = findBody(e.target);
-    if (!body) return;
+    const t = e.touches?.[0];
+    if (!t) return;
 
-    activeBody = body;
-    decided = null;
+    const dx0 = t.clientX - startX;
+    const dy0 = t.clientY - startY;
 
-    const p = getPoint(e);
-    startX = p.clientX;
-    startY = p.clientY;
-  }
-
-  function onMove(e) {
-    if (!activeBody) return;
-
-    const p = getPoint(e);
-    const dx = p.clientX - startX;
-    const dy = p.clientY - startY;
-
-    if (!decided) {
-      if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
-      decided = (Math.abs(dx) > Math.abs(dy)) ? "x" : "y";
+    if (!mode) {
+      if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
+      mode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
     }
 
-    if (decided === "x") {
-      // IMPORTANT : on gagne contre le pager
-      if (e.cancelable) e.preventDefault();
+    if (mode === "x") {
+      // 🔥 on stoppe le scroll natif (vertical) pour pouvoir scroller horizontalement le parent
+      e.preventDefault();
       e.stopPropagation();
 
-      // coupe le Y pendant le drag horizontal (iOS/Android)
-      if (activeBody.style.overflowY !== "hidden") activeBody.style.overflowY = "hidden";
-    } else {
-      // rend le Y
-      if (activeBody.style.overflowY === "hidden") activeBody.style.overflowY = "auto";
+      const daysScroll = getDaysScroll();
+      if (!daysScroll) return;
+
+      // delta depuis le dernier move (plus fluide)
+      const dx = t.clientX - lastX;
+      lastX = t.clientX;
+
+      daysScroll.scrollLeft -= dx;
     }
-  }
+    // mode === "y" -> ne rien faire : le scroll vertical natif continue
+  }, { capture: true, passive: false });
 
-  function onEnd() {
-    if (activeBody && activeBody.style.overflowY === "hidden") {
-      activeBody.style.overflowY = "auto";
-    }
-    activeBody = null;
-    decided = null;
-  }
+  const reset = (e) => {
+    if (!isInCal(e.target)) return;
+    mode = null;
+  };
 
-  // CAPTURE + passive:false sur move => preventDefault effectif
-  document.addEventListener("touchstart", onStart, { capture: true, passive: true });
-  document.addEventListener("touchmove",  onMove,  { capture: true, passive: false });
-  document.addEventListener("touchend",   onEnd,   { capture: true, passive: true });
-  document.addEventListener("touchcancel",onEnd,   { capture: true, passive: true });
-
-  document.addEventListener("pointerdown", onStart, { capture: true, passive: true });
-  document.addEventListener("pointermove", onMove,  { capture: true, passive: false });
-  document.addEventListener("pointerup",   onEnd,   { capture: true, passive: true });
-  document.addEventListener("pointercancel",onEnd,  { capture: true, passive: true });
+  document.addEventListener("touchend", reset, { capture: true, passive: true });
+  document.addEventListener("touchcancel", reset, { capture: true, passive: true });
 }
 
 // public: à appeler après init grid + wireExpanderButtons
@@ -11894,11 +11965,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
 
-document.addEventListener("touchmove", (e) => {
-  if (e.target?.closest?.("#programme-panel #calA")) {
-    console.log("[CAL] touchmove target=", e.target);
-  }
-}, { capture:true, passive:true });
+// document.addEventListener("touchmove", (e) => {
+//   if (e.target?.closest?.("#programme-panel #calA")) {
+//     console.log("[CAL] touchmove target=", e.target);
+//   }
+// }, { capture:true, passive:true });
 
   console.log('✅ Application initialisée');
 
