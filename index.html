@@ -184,17 +184,30 @@
         <!-- Page 1 : PLANNING -->
         <section class="page page--planning" data-page="1">
           <div id="planningRoot">
-            <!-- EXPANDER Activités programmées -->
-            <div class="st-expander" id="exp-programmees">
-              <div class="st-expander-header">
-                <span class="chevron"></span>
-                <span class="title" id="titleA">Programme</span>
-                <span class="exp-badge" id="badge-prog">0</span>
-              </div>
-              <div class="st-expander-body">
-                <div id="gridA" class="ag-theme-quartz compact grid-host"></div>
-              </div>
-            </div>
+            
+<!-- EXPANDER Activités programmées -->
+<section id="programme-panel">
+  <div class="st-expander" id="exp-programmees">
+    <div class="st-expander-header">
+      <span class="chevron"></span>
+      <span class="title" id="titleA">Programme</span>
+      <span class="exp-badge" id="badge-prog">0</span>
+      <!-- ton toggle grid / calendar vient ici -->
+    </div>
+
+    <div class="st-expander-body">
+      <!-- === MODE GRID === -->
+      <div id="gridA" class="ag-theme-quartz compact grid-host"></div>
+
+      <!-- === MODE CALENDRIER === -->
+      <div id="calA" class="programme-cal" hidden>
+        <div class="cal-days-scroll">
+          <div class="cal-days" id="calADays"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
             <!-- Séparateur -->
             <div class="v-splitter" data-top="exp-programmees" data-bottom="exp-creneaux">

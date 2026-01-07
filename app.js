@@ -790,6 +790,11 @@ function getSelectedRow(gridId) {
   return sel?.[0];
 }
 
+// Renvoie l'uuid de la ligne séléectionnée dans une grille donnée par son gridId
+function getSelectedRowUuid(gridId) {
+  return getSelectedRow(gridId)?.__uuid || null;
+}
+
 // Renvoie les rows d'une grille à partir de son gridId
 function getRowsFromGridId(gridId) {
   const h = grids.get(gridId);             // handle de la grille
@@ -1578,6 +1583,9 @@ function wireExpanderButtons() {
     onClick: async () => {await doDeprogrammerActivite();},
   });
   
+  // Toggle Vue Programme (Grid <-> Calendrier Jour) sur exp-programmees
+  wireProgrammeCalendarToggle();
+
   // Bouton Filtres sur Activités Programmables
   if (agGridHasHeaderFilters('grid-programmables')) addExpanderButton({
     expanderId: 'exp-programmables',
@@ -1648,32 +1656,6 @@ function wireExpanderButtons() {
       });
     },
   });
-
-  // Choix de svg pour le Bouton Colonnes
-  // <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
-  //     stroke-linecap="round" stroke-linejoin="round">
-  //   <circle cx="12" cy="12" r="3"></circle>
-  //   <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.82-.33
-  //           1.7 1.7 0 0 0-1 1.54V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.54 1.7 1.7 0 0 0-1.82.33l-.06.06
-  //           a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .33-1.82 1.7 1.7 0 0 0-1.54-1H3a2 2 0 1 1 0-4h.09
-  //           a1.7 1.7 0 0 0 1.54-1 1.7 1.7 0 0 0-.33-1.82l-.06-.06A2 2 0 0 1 7.07 3.4l.06.06a1.7 1.7 0 0 0 1.82.33
-  //           1.7 1.7 0 0 0 1-1.54V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.54 1.7 1.7 0 0 0 1.82-.33l.06-.06
-  //           a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.33 1.82 1.7 1.7 0 0 0 1.54 1H21a2 2 0 1 1 0 4h-.09
-  //           a1.7 1.7 0 0 0-1.54 1Z"/>
-  // </svg>
-
-  // <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-  //   <rect x="3"  y="5" width="4" height="14" rx="1"></rect>
-  //   <rect x="10" y="5" width="4" height="14" rx="1"></rect>
-  //   <rect x="17" y="5" width="4" height="14" rx="1"></rect>
-  // </svg>
-
-  // <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-  //   <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-  //   <line x1="9" y1="5" x2="9" y2="19"></line>
-  //   <line x1="15" y1="5" x2="15" y2="19"></line>
-  //   <circle cx="12" cy="12" r="2"></circle>
-  // </svg>
 
   // Bouton Filtres sur Activités Non Programmées
   if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
@@ -1811,7 +1793,6 @@ function wireExpanderButtons() {
     // 🔁 sync immédiat (au cas où l’innerHTML a bougé après insertion)
     queueMicrotask(() => syncAvecPausesButtonFromStorage(id));
   })();
-
 }
 
 function traiterPauses() {
@@ -1833,6 +1814,729 @@ function agGridHasHeaderFilters(gridId) {
   const gridApi = window.grids?.get(gridId).api;
   const defs = gridApi.getColumnDefs?.() || [];
   return defs.some(col => !!col.filter);
+}
+
+// ===============================
+// Calendar View
+// ===============================
+
+// --- helpers temps (fallback) ---
+function parseHHMM(s) {
+  if (!s) return null;
+  const str = String(s).trim();
+
+  // "11:05"
+  let m = /^(\d{1,2}):(\d{2})$/.exec(str);
+  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
+
+  // "11h05"
+  m = /^(\d{1,2})h(\d{2})$/.exec(str);
+  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
+
+  // "1105" (rare)
+  m = /^(\d{1,2})(\d{2})$/.exec(str);
+  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
+
+  return null;
+}
+
+function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+// --- build days range (inclusif) ---
+function startOfDay(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function addDays(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function dateToDateInt(d){
+  // tu as déjà dateToInt() ; j’utilise un nom local pour éviter confusion
+  return (d.getFullYear()*10000) + ((d.getMonth()+1)*100) + d.getDate();
+}
+
+// Récupère le jour sélectionné (dateint) depuis grid-programmees
+function getSelectedProgrammeDateInt() {
+  try {
+    const row = getSelectedRow?.("grid-programmees");
+    const d = row?.Date ?? row?.date ?? row?.DATE;
+    // tu as dateToDateint(x) déjà
+    return (typeof dateToDateint === "function") ? dateToDateint(d) : (d|0);
+  } catch {
+    return null;
+  }
+}
+
+function buildDaysRange(pp) {
+  if (!pp?.debut || !pp?.fin) return [];
+  const start = startOfDay(pp.debut);
+  const end = startOfDay(pp.fin);
+  if (end < start) return [];
+  const out = [];
+  let cur = start;
+  while (cur <= end) {
+    out.push(dateToDateInt(cur));
+    cur = addDays(cur, 1);
+  }
+  return out;
+}
+
+function getCalRoot() {
+  return document.getElementById("calA");
+}
+
+function getDaysScroll() {
+  return document.querySelector("#calA .cal-days-scroll");
+}
+
+function getDayNode(dateInt) {
+  return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
+}
+
+function getDayColumn(dateInt) {
+  return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
+}
+
+function getDayBody(dateInt) {
+  const col = getDayColumn(dateInt);
+  return col?.querySelector(".cal-day__body") || null;
+}
+
+function getEventNodeByUuid(uuid) {
+  if (!uuid) return null;
+  return document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+}
+
+function centerDayInViewport(dateInt, { smooth = true } = {}) {
+  const scroller = getDaysScroll();
+  const day = getDayNode(dateInt);
+  if (!scroller || !day) return false;
+
+  const scRect = scroller.getBoundingClientRect();
+  const dRect  = day.getBoundingClientRect();
+
+  // centre de la colonne jour par rapport au viewport scroll horizontal
+  const dayCenter = (dRect.left - scRect.left) + (dRect.width / 2);
+  const targetLeft = scroller.scrollLeft + dayCenter - (scRect.width / 2);
+
+  scroller.scrollTo({
+    left: Math.max(0, targetLeft),
+    behavior: smooth ? "smooth" : "auto"
+  });
+
+  return true;
+}
+
+// function centerSelectedEventInDay(uuid, { smooth = true } = {}) {
+//   const ev = getEventNodeByUuid(uuid);
+//   if (!ev) return false;
+
+//   const dateInt = ev.dataset.dateint;
+//   const body = getDayBody(dateInt);
+//   if (!body) return false;
+
+//   // centre l'event dans le viewport vertical du jour
+//   const bRect = body.getBoundingClientRect();
+//   const eRect = ev.getBoundingClientRect();
+
+//   const evCenter = (eRect.top - bRect.top) + (eRect.height / 2);
+//   const targetTop = body.scrollTop + evCenter - (bRect.height / 2);
+
+//   body.scrollTo({
+//     top: Math.max(0, targetTop),
+//     behavior: smooth ? "smooth" : "auto"
+//   });
+
+//   return true;
+// }
+function centerSelectedEventInDay(selectedUuid, { smooth = true } = {}) {
+  if (!selectedUuid) return false;
+
+  const ev = document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(selectedUuid)}"]`);
+  if (!ev) return false;
+
+  const dayBody = ev.closest(".cal-day")?.querySelector(".cal-day__body");
+  if (!dayBody) return false;
+
+  // header sticky (optionnel)
+  const header = ev.closest(".cal-day")?.querySelector(".cal-day__header");
+  const headerH = header?.getBoundingClientRect().height || 0;
+
+  // 🎯 ancre = centre du TITRE (sinon haut de l’event)
+  const titleEl = ev.querySelector(".cal-ev__title");
+  const anchorY = titleEl
+    ? ev.offsetTop + titleEl.offsetTop + titleEl.offsetHeight / 2
+    : ev.offsetTop;
+
+  const viewportH = dayBody.clientHeight;
+  let target = anchorY - (viewportH - headerH) / 2;
+
+  const maxScroll = dayBody.scrollHeight - viewportH;
+  target = Math.max(0, Math.min(target, maxScroll));
+
+  if (smooth && "scrollTo" in dayBody) {
+    dayBody.scrollTo({ top: target, behavior: "smooth" });
+  } else {
+    dayBody.scrollTop = target;
+  }
+
+  return true;
+}
+
+// function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
+//   const day = getDayNode(dateInt);
+//   const body = day?.querySelector(".cal-day__body");
+//   const tl = day?.querySelector(".cal-timeline");
+//   if (!body || !tl) return false;
+
+//   const pxPerMin = parseFloat(tl.dataset.pxPerMin || "1.1");
+//   const top = Math.round(hour * 60 * pxPerMin);
+
+//   body.scrollTo({
+//     top,
+//     behavior: smooth ? "smooth" : "auto"
+//   });
+
+//   return true;
+// }
+function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
+  const dayBody = getDayBody(dateInt);
+  if (!dayBody) return false;
+
+  // même PX_PER_MIN que ton rendu (doit être identique)
+  const PX_PER_MIN = 1.1;
+  const minutes = Math.max(0, Math.min(24 * 60, hour * 60));
+  const y = Math.round(minutes * PX_PER_MIN);
+
+  if (smooth && "scrollTo" in dayBody) {
+    dayBody.scrollTo({ top: y, behavior: "smooth" });
+  } else {
+    dayBody.scrollTop = y;
+  }
+  return true;
+}
+
+// function snapProgrammeCalendar({
+//   dateInt,
+//   selectedUuid = null,
+//   fallbackHour = 9,
+//   smooth = true
+// } = {}) {
+//   if (!dateInt) return;
+
+//   // 1) centre la colonne jour (scroll horizontal)
+//   centerDayInViewport(dateInt, { smooth });
+
+//   // 2) centre verticalement : event sélectionné sinon 9h
+//   //    (petit timeout pour laisser le scroll horizontal + layout se stabiliser)
+//   setTimeout(() => {
+//     const ok = selectedUuid ? centerSelectedEventInDay(selectedUuid, { smooth }) : false;
+//     if (!ok) scrollDayToHour(dateInt, fallbackHour, { smooth });
+//   }, smooth ? 60 : 0);
+// }
+function snapProgrammeCalendar({
+  dateInt,
+  selectedUuid = null,
+  fallbackHour = 9,
+  smooth = true
+} = {}) {
+  if (!dateInt) return;
+
+  // 1) centre la colonne jour (scroll horizontal)
+  centerDayInViewport(dateInt, { smooth });
+
+  // 2) attendre layout stable (meilleur que setTimeout)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const ok = selectedUuid ? centerSelectedEventInDay(selectedUuid, { smooth }) : false;
+      if (!ok) scrollDayToHour(dateInt, fallbackHour, { smooth });
+    });
+  });
+}
+
+function normalizePeriodeFromRowsIfNeeded(pp, rows) {
+  // rows dates
+  const dints = (rows || [])
+    .map(r => (typeof dateToDateint === "function" ? dateToDateint(r.Date) : r.Date))
+    .filter(n => typeof n === "number" && n > 10000101);
+
+  if (!dints.length) return pp; // rien à faire
+
+  const minD = Math.min(...dints);
+  const maxD = Math.max(...dints);
+
+  const ppStart = pp?.debut ? (typeof dateToDateint === "function" ? dateToDateint(pp.debut) : null) : null;
+  const ppEnd   = pp?.fin   ? (typeof dateToDateint === "function" ? dateToDateint(pp.fin)   : null) : null;
+
+  // si pp absent ou ne recouvre rien du tout, on reconstruit
+  const ppInvalid =
+    !ppStart || !ppEnd ||
+    (ppEnd < minD) ||
+    (ppStart > maxD);
+
+  if (!ppInvalid) return pp;
+
+  // construit debut/fin en Date locale (00:00)
+  const toDate = (dint) => {
+    const s = String(dint);
+    const y = +s.slice(0, 4), m = +s.slice(4, 6), d = +s.slice(6, 8);
+    return new Date(y, m - 1, d);
+  };
+
+  return { debut: toDate(minD), fin: toDate(maxD) };
+}
+
+function setCalHeightFromGrid() {
+  const gridA = document.getElementById("gridA");
+  const calA  = document.getElementById("calA");
+  if (!gridA || !calA) return;
+
+  const h = Math.max(320, Math.round(gridA.getBoundingClientRect().height));
+  calA.style.height = h + "px";
+}
+
+function scrollCalendarToDay(calSlot, dateInt) {
+  const scroller = calSlot.querySelector(".cal-days-scroll");
+  const dayEl = calSlot.querySelector(`.cal-day[data-dateint="${dateInt}"]`);
+  if (!scroller || !dayEl) return;
+
+  const sRect = scroller.getBoundingClientRect();
+  const dRect = dayEl.getBoundingClientRect();
+  const curLeft = scroller.scrollLeft;
+
+  // center in view
+  const delta = (dRect.left - sRect.left) - (sRect.width/2 - dRect.width/2);
+  scroller.scrollTo({ left: curLeft + delta, behavior: "smooth" });
+}
+
+function scrollCalendarToEvent(calA, uuid) {
+  if (!calA || !uuid) return;
+
+  const ev = calA.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+  if (!ev) return;
+
+  const dayBody = ev.closest(".cal-day__body");
+  if (!dayBody) return;
+
+  // centre l’event dans son scroller vertical
+  const top = ev.offsetTop - Math.max(0, (dayBody.clientHeight - ev.clientHeight) / 2);
+  dayBody.scrollTop = Math.max(0, top);
+} 
+
+function scrollAllDaysToHour(daysEl, hour = 9) {
+  const dayNodes = daysEl.querySelectorAll(".cal-day");
+  if (!dayNodes.length) return;
+
+  for (const day of dayNodes) {
+    const body = day.querySelector(".cal-day__body");
+    const tl   = day.querySelector(".cal-timeline");
+    if (!body || !tl) continue;
+
+    const pxPerMin = parseFloat(tl.dataset.pxPerMin || "1.1");
+    const top = Math.round(hour * 60 * pxPerMin);
+
+    body.scrollTop = top;
+  }
+}
+
+function isProgrammeCalendarVisible() {
+  const calA = document.getElementById("calA");
+  // hidden prend le dessus si tu l’utilises
+  return !!calA && !calA.hidden && calA.style.display !== "none";
+}
+
+function rerenderProgrammeCalendar({ snapDay = true, snapEventUuid = null, defaultHour = 9 } = {}) {
+  const calA = document.getElementById("calA");
+  const calADays = document.getElementById("calADays");
+  if (!calA || !calADays) return;
+
+  const activites = ctx.df;
+  const rows = activitesAPI.getActivitesProgrammees(activites).map(r => ({ ...r }));
+
+  let pp =
+    activitesAPI.getPeriodeProgrammation?.(activites) ||
+    activitesAPI.getPeriodeProgrammation?.();
+  pp = normalizePeriodeFromRowsIfNeeded(pp, rows);
+
+  const selD = getSelectedProgrammeDateInt();
+  renderProgrammeCalendarInto(calADays, rows, pp, selD);
+
+  // post-render snapping
+  requestAnimationFrame(() => {
+    if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour
+    if (snapEventUuid) scrollCalendarToEvent?.(calA, snapEventUuid); // scroll vertical vers l'event (si tu l’as)
+    else scrollAllDaysToHour?.(calADays, defaultHour);              // sinon 9h partout
+  });
+}
+
+// DOM mount
+function ensureProgrammeCalendarDOM() {
+  const host = document.getElementById("gridA");
+  if (!host) return null;
+
+  const body = host.closest(".st-expander-body");
+  if (!body) return null;
+
+  // Déjà monté ?
+  let wrap = body.querySelector(".programme-host-wrap");
+  if (wrap) {
+    return {
+      wrap,
+      gridEl: wrap.querySelector(".programme-grid-slot"),
+      calEl: wrap.querySelector(".programme-cal-slot"),
+    };
+  }
+
+  // Wrapper principal
+  wrap = document.createElement("div");
+  wrap.className = "programme-host-wrap";
+
+  // Slot grille
+  const gridSlot = document.createElement("div");
+  gridSlot.className = "programme-grid-slot";
+
+  // Slot calendrier
+  const calSlot = document.createElement("div");
+  calSlot.className = "programme-cal-slot is-hidden";
+
+  // Montage DOM
+  body.insertBefore(wrap, host);
+  gridSlot.appendChild(host);     // on déplace #gridA dedans
+  wrap.appendChild(gridSlot);
+  wrap.appendChild(calSlot);
+
+  return { wrap, gridEl: gridSlot, calEl: calSlot };
+}
+
+// Render calendar
+function renderProgrammeCalendarInto(daysEl, rows, pp, selectedDateInt) {
+  if (!daysEl) return;
+
+  const days = buildDaysRange(pp) || [];
+
+  // ---------- byDay ----------
+  const byDay = new Map();
+  for (const d of days) byDay.set(d, []);
+
+  for (const r of (rows || [])) {
+    const d = (typeof dateToDateint === "function") ? dateToDateint(r.Date) : r.Date;
+    if (!d || !byDay.has(d)) continue;
+    byDay.get(d).push(r);
+  }
+
+  // tri par heure de début dans chaque jour
+  for (const [d, list] of byDay) {
+    list.sort((a, b) => (parseHHMM(a.Debut) ?? 0) - (parseHHMM(b.Debut) ?? 0));
+  }
+
+  // ---------- constants ----------
+  const PX_PER_MIN = 1.1;         // 1.0..1.4
+  const DAY_MINUTES = 24 * 60;
+  const timelineH = Math.round(DAY_MINUTES * PX_PER_MIN);
+
+  const fmtDay = (dint) => {
+    const s = String(dint);
+    const y = s.slice(0, 4), m = s.slice(4, 6), d = s.slice(6, 8);
+    return `${d}/${m}/${y}`;
+  };
+
+  // ---------- reset + build ----------
+  daysEl.innerHTML = "";
+
+  for (const dint of days) {
+    const list = byDay.get(dint) || [];
+
+    const dayNode = document.createElement("div");
+    dayNode.className = "cal-day";
+    dayNode.dataset.dateint = String(dint);
+
+    dayNode.innerHTML = `
+      <div class="cal-day__header">
+        <div class="cal-day__title">${fmtDay(dint)}</div>
+        <div class="cal-day__meta">${list.length} év.</div>
+      </div>
+      <div class="cal-day__body">
+        <div class="cal-timeline"></div>
+      </div>
+    `;
+
+    const tl = dayNode.querySelector(".cal-timeline");
+    // IMPORTANT : height pilotée par JS (pas par CSS)
+    tl.style.height = `${timelineH}px`;
+    tl.style.minHeight = `${timelineH}px`;
+    tl.dataset.pxPerMin = String(PX_PER_MIN);
+
+    // hour lines + labels (0..24)
+    for (let h = 0; h <= 24; h++) {
+      const y = Math.round(h * 60 * PX_PER_MIN);
+
+      const hr = document.createElement("div");
+      hr.className = "cal-hour";
+      hr.style.top = `${y}px`;
+
+      const lab = document.createElement("div");
+      lab.className = "cal-hour__label";
+      lab.style.top = `${y}px`;
+      lab.textContent = `${String(h).padStart(2, "0")}:00`;
+
+      tl.appendChild(hr);
+      tl.appendChild(lab);
+    }
+
+    // events blocks
+    for (const r of list) {
+      const startMin = parseHHMM(r.Debut) ?? 0;
+
+      const durMin =
+        (typeof prettyToMinutes === "function")
+          ? prettyToMinutes(r.Duree)
+          : (parseHHMM(r.Duree) ?? 0);
+
+      const endMin = clamp(startMin + (durMin || 0), 0, DAY_MINUTES);
+
+      const top = Math.round(startMin * PX_PER_MIN);
+      const height = Math.max(18, Math.round((endMin - startMin) * PX_PER_MIN));
+
+      const ev = document.createElement("div");
+      ev.className = "cal-ev";
+      ev.style.top = `${top}px`;
+      ev.style.height = `${height}px`;
+      ev.dataset.uuid = r.__uuid || "";
+      ev.dataset.dateint = String(dint);
+      ev.dataset.startMin = String(startMin);
+      ev.dataset.endMin   = String(endMin);
+
+      const timeLabel = `${r.Debut || ""} → ${r.Fin || ""}`.trim();
+      ev.innerHTML = `
+        <div class="cal-ev__time">${timeLabel}</div>
+        <div class="cal-ev__title">${r.Activite ?? ""}</div>
+        <div class="cal-ev__place">${r.Lieu ?? ""}</div>
+      `;
+
+      ev.addEventListener("click", (e) => {
+        e.stopPropagation();
+        daysEl.querySelectorAll(".cal-ev.is-selected").forEach(x => x.classList.remove("is-selected"));
+        ev.classList.add("is-selected");
+
+        snapProgrammeCalendar({
+          dateInt: dint,
+          selectedUuid: r.__uuid,
+          fallbackHour: 9,
+          smooth: true
+        });        
+
+        try {
+          selectRowByUuid?.("grid-programmees", r.__uuid);
+        } catch {}
+      });
+
+      tl.appendChild(ev);
+    }
+
+    daysEl.appendChild(dayNode);
+  }
+
+  queueMicrotask(() => {
+    scrollAllDaysToHour(daysEl, 9);
+  });
+  
+  // option: recentrer sur le jour sélectionné (si tu veux)
+  // -> à faire en scrollant .cal-days-scroll (pas daysEl)
+}
+
+// Toggle: grid <-> calendar
+const KEY_PROG_VIEW = "exp-programmees:view"; // "grid" | "calendar"
+function getProgrammeViewMode(){
+  try { return localStorage.getItem(KEY_PROG_VIEW) || "grid"; } catch { return "grid"; }
+}
+function setProgrammeViewMode(v){
+  try { localStorage.setItem(KEY_PROG_VIEW, v); } catch {}
+}
+
+// Affiche le calendrier
+async function showProgrammeCalendar() {
+  const gridA   = document.getElementById("gridA");
+  const calA    = document.getElementById("calA");
+  const daysEl  = document.getElementById("calADays"); // ✅ conteneur des colonnes
+
+  if (!calA || !daysEl) {
+    console.error("[CAL] missing calA or calADays", { calA, daysEl });
+    return;
+  }
+
+  // 1) cal = même hauteur que la grille (expander slider-friendly)
+  setCalHeightFromGrid();
+
+  // 2) toggle (ne dépend que de hidden)
+  if (gridA) gridA.style.display = "none";
+  calA.hidden = false;
+
+  window.__applyProgrammeCalHeight?.();
+
+  // 3) data
+  const activites = ctx.df;
+  const rows = activitesAPI.getActivitesProgrammees(activites).map(r => ({ ...r }));
+
+  let pp =
+    activitesAPI.getPeriodeProgrammation?.(activites) ||
+    activitesAPI.getPeriodeProgrammation?.();
+
+  pp = normalizePeriodeFromRowsIfNeeded(pp, rows);
+
+  const selD = getSelectedProgrammeDateInt();
+
+  // 4) render -> on remplit calADays, on ne reconstruit plus les wrappers
+  renderProgrammeCalendarInto(daysEl, rows, pp, selD);
+
+  // 5) scroll to selected day + event
+  queueMicrotask(() => {
+    const selected = getSelectedRowUuid('grid-programmees'); 
+    snapProgrammeCalendar({
+      dateInt: selD || (buildDaysRange(activitesAPI.getPeriodeProgrammation())?.[0]),
+      selectedUuid: selected || null,
+      fallbackHour: 9,
+      smooth: false  // au premier affichage, souvent mieux en auto
+    });
+  })
+;}
+
+// Affiche la grille
+function showProgrammeGrid() {
+  const gridA = document.getElementById("gridA");
+  const calA  = document.getElementById("calA");
+
+  if (calA) calA.hidden = true;
+  if (gridA) gridA.style.display = "";
+
+  try {
+    for (const g of (window.grids?.values?.() || [])) {
+      if (g.el === gridA) { g.api.onGridSizeChanged(); break; }
+    }
+  } catch {}
+}
+
+function attachProgrammeCalendarHeightSync() {
+  const panel = document.getElementById("programme-panel");
+  if (!panel) return;
+
+  const body = panel.querySelector(".st-expander-body");
+  const calA = panel.querySelector("#calA");
+  if (!body || !calA) return;
+
+  const apply = () => {
+    // hauteur du viewport réel (celle du slider)
+    const h = body.clientHeight;
+
+    // garde-fous (évite 0 pendant un collapse / animation)
+    if (h && h > 0) {
+      calA.style.height = `${h}px`;
+    }
+  };
+
+  // initial
+  apply();
+
+  // suit le slider / resize
+  const ro = new ResizeObserver(() => apply());
+  ro.observe(body);
+
+  // si ton expander anime sa height via transition, un petit "rappel"
+  body.addEventListener("transitionend", (e) => {
+    if (e.propertyName === "height") apply();
+  });
+
+  // expose pour debug si tu veux
+  window.__applyProgrammeCalHeight = apply;
+}
+
+// public: à appeler après init grid + wireExpanderButtons
+function wireProgrammeCalendarToggle() {
+  const id = "btn-prog-view";
+
+  // const ICON_GRID = `
+  //   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+  //     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  //     <rect x="3" y="3" width="7" height="7"></rect>
+  //     <rect x="14" y="3" width="7" height="7"></rect>
+  //     <rect x="3" y="14" width="7" height="7"></rect>
+  //     <rect x="14" y="14" width="7" height="7"></rect>
+  //   </svg>`;
+
+  // const ICON_CAL = `
+  //   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+  //     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  //     <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+  //     <line x1="16" y1="2" x2="16" y2="6"></line>
+  //     <line x1="8" y1="2" x2="8" y2="6"></line>
+  //     <line x1="3" y1="10" x2="21" y2="10"></line>
+  //   </svg>`;
+
+  const ICON_GRID = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+      <path d="M8 12l3 3 5-5"/>
+    </svg>`;
+
+  const ICON_CAL = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+    </svg>`;
+    
+  function renderBtn(mode) {
+    const isCal = mode === "calendar";
+    const icon = isCal ? ICON_CAL : ICON_GRID;
+    const label = isCal ? "Grille" : "Grille";
+    return `<span class="exp-icon">${icon}</span><span class="exp-label">${label}</span>`;
+  }
+
+  addExpanderButton({
+    expanderId: "exp-programmees",
+    id,
+    title: "Basculer grille/calendrier",
+    innerHTML: renderBtn(getProgrammeViewMode()),
+    onClick: async () => {
+      const cur = getProgrammeViewMode();
+      const next = (cur === "grid") ? "calendar" : "grid";
+      setProgrammeViewMode(next);
+
+      // sync label
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.innerHTML = renderBtn(next);
+        btn.classList.toggle("is-on", next === "calendar");
+        btn.setAttribute("aria-pressed", String(next === "calendar"));
+      }
+
+      if (next === "calendar") await showProgrammeCalendar();
+      else showProgrammeGrid();
+    }
+  });
+
+  attachProgrammeCalendarHeightSync();
+
+  // apply saved mode at startup
+  queueMicrotask(async () => {
+    const mode = getProgrammeViewMode();
+    const btn = document.getElementById(id);
+    if (btn) btn.innerHTML = renderBtn(mode);
+    if (mode === "calendar") await showProgrammeCalendar();
+    else showProgrammeGrid();
+  });
+}
+
+// Optionnel: si la sélection change dans la grille, recentrer le calendrier si visible
+function onProgrammeSelectionChanged() {
+  if (getProgrammeViewMode() !== "calendar") return;
+  const dom = ensureProgrammeCalendarDOM();
+  if (!dom || dom.calEl.classList.contains("is-hidden")) return;
+
+  const sel = getSelectedProgrammeDateInt();
+  if (sel) scrollCalendarToDay(dom.calEl, sel);
 }
 
 // ===== Builders de colonnes de grilles =====
@@ -2451,7 +3155,7 @@ async function loadGridAtivitesNonProgrammees(){
 async function loadGridCreneaux() {
   const activites = ctx.df;                      
   const activitesProgrammees = activitesAPI.getActivitesProgrammees(activites);
-  const periodeProgrammation = activitesAPI.getPeriodeProgrammation(activites)
+  const periodeProgrammation = activitesAPI.getPeriodeProgrammation();
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
   return activitesAPI.getCreneaux(activites, activitesProgrammees, traiterPauses(), periodeProgrammation).map(r => ({...r}));
 }
@@ -4771,6 +5475,11 @@ async function doDeprogrammerActivite() {
   });
 
   dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, scroll=false);
+
+  // ✅ si on est en calendrier : re-render
+  if (isProgrammeCalendarVisible()) {
+    requestAnimationFrame(() => rerenderProgrammeCalendar({ snapEventUuid: uuid, defaultHour: 9 }));
+  }
 }
 
 // Programmation de l'activité sélectionnée dans la grille des activités programmables
@@ -4809,7 +5518,7 @@ async function doProgrammerActivite() {
       next.push(payload);
     }
 
-    // trie final (inchangé par rapport à ton flux)
+    // trie final 
     return sortDf(next);
   });
   
@@ -4833,6 +5542,11 @@ async function doProgrammerActivite() {
 
   // doPhantomFlight('grid-programmables', 'grid-programmees', 'exp-programmees');
   dropRowFromSrcGridToDstGrid('grid-programmables', 'grid-programmees', 'exp-programmees', uuidVoisin, uuid, scroll=true);
+
+  // ✅ si on est en calendrier : re-render
+  if (isProgrammeCalendarVisible()) {
+    requestAnimationFrame(() => rerenderProgrammeCalendar({ snapEventUuid: uuid, defaultHour: 9 }));
+  }
 }
 
 // Rechargement des grilles depuis contexte

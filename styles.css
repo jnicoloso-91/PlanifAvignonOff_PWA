@@ -2404,138 +2404,10 @@ input[type="range"]:focus::-moz-range-thumb {
 .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
 .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
 
-/* ==========================*/
-/*  Pb de scroll dans grid   */
-/* ==========================*/
+/* =========================================================*/
+/* Gestion du scroll horizontal / vertical dans les grids   */
+/* =========================================================*/
 
-/* SOLUTION 1 */
-/* Evite les scrollers concurrents */
-/* .ag-root-wrapper-body {
-  overflow: hidden !important;
-} */
-
-/* Laisse un seul viewport gérer les 2 directions */
-/* .ag-body-viewport { */
-  /*overflow: auto !important;                 /* <= auto dans les 2 axes */
-  /* -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;
-  overscroll-behavior: contain;
-} */
-
-/* Les autres viewports ne doivent pas voler le scroll */
-/* .ag-center-cols-viewport { */
-  /*overflow: visible !important;              /* ou hidden selon ton thème */
-  /* touch-action: auto !important;
-} */
-
-
-/* SOLUTION 2 */
-/* 1) Le conteneur vertical principal */
-/* .ag-theme-quartz .ag-body-viewport{
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important; */
-  /*touch-action: pan-y !important;           /* vertical autorisé */
-/* } */
-
-/* 2) Le conteneur horizontal (sous le doigt) :
-      IMPORTANT: on autorise AUSSI pan-y ici, sinon Y est bloqué */
-/* .ag-theme-quartz .ag-center-cols-viewport{
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important; */
-  /* touch-action: pan-x pan-y !important;     ✅ clé : PAS pan-x seul */
-/* } */
-
-/* 3) Le header ne doit pas scroller “tout seul” */
-/* .ag-theme-quartz .ag-header-viewport{
-  overflow: hidden !important;
-} */
-
-/* 4) Eviter les scrollers concurrents */
-/* .ag-theme-quartz .ag-root-wrapper-body{
-  overflow: hidden !important;
-} */
-
-/* SOLUTION 3 */
-/* 1) On évite les scrollers concurrents */
-/* .ag-root-wrapper-body,
-.ag-center-cols-viewport {
-  overflow: hidden !important;
-} */
-
-/* 2) Un seul scroller tactile pour X + Y */
-/* .ag-body-viewport { */
-  /*overflow: auto !important;                 /* X + Y */
-  /* -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-x pan-y !important;
-  overscroll-behavior: contain;
-} */
-
-/* 3) Header : ne pas scroller tout seul (on le sync en JS) */
-/* .ag-header-viewport {
-  overflow: hidden !important;
-} */
-
-/* 4) IMPORTANT : ne crée pas un autre scroller au niveau host */
-/* .grid-host { */
-  /*overflow: hidden !important;               /* laisse AG Grid gérer */
-/* } */
-
-/* SOLUTION 4 */
-/* pas de scroller au niveau host : AG Grid gère */
-/* .grid-host { overflow: hidden !important; } */
-
-/* wrapper body : ne doit pas scroller */
-/* .ag-root-wrapper-body { overflow: hidden !important; } */
-
-/* ✅ Y = scroller vertical principal */
-/* .ag-body-viewport{
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important; /* priorité au vertical *
-  overscroll-behavior: contain;
-} */
-
-/* ✅ X = scroller horizontal (celui qui drive header) */
-/* .ag-center-cols-viewport{
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: auto !important; /* on laisse JS router *
-} */
-
-/* header : pas de scroll direct */
-/* .ag-header-viewport{ overflow: hidden !important; } */
-
-/* SOLUTION 5 */
-/* Empêche les scrollers concurrents */
-/* .ag-root-wrapper-body { overflow: hidden !important; }
-.grid-host { overflow: hidden !important; }
-
-/* ✅ Scroll vertical = body viewport *
-.ag-body-viewport{
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important;
-  overscroll-behavior: contain;
-}
-
-/* ✅ Scroll horizontal = center viewport
-   IMPORTANT: autorise pan-y pour que le Y "bulle" vers ag-body-viewport *
-.ag-center-cols-viewport{
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important;      /* <- LA clé Android *
-}
-
-/* Header piloté par la synchro *
-.ag-header-viewport { overflow: hidden !important; } */
-
-/* SOLUTION 6 */
 /* 1) évite les scrollers concurrents */
 .ag-root-wrapper-body { overflow: hidden !important; }
 .grid-host { overflow: hidden !important; }
@@ -2567,3 +2439,224 @@ input[type="range"]:focus::-moz-range-thumb {
 /* 5) header pas scrollable directement (piloté par AG) */
 .ag-header-viewport { overflow: hidden !important; }
 
+
+
+/* =================*/
+/*  Calendar View   */
+/* =================*/
+
+/* Wrapper scroll horizontal des jours */
+.cal-days-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Ligne de jours */
+.cal-days {
+  display: flex;
+  gap: 10px;
+  padding: 8px 8px 10px 8px;
+  align-items: stretch;
+}
+
+/* Une colonne “jour” */
+.cal-day {
+  flex: 0 0 320px;           /* largeur par jour (ajuste) */
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* En-tête du jour */
+.cal-day__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 10px;
+  background: #f3f4f6;       /* proche quartz header */
+  border-bottom: 1px solid rgba(0,0,0,.08);
+
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cal-day__title {
+  font-weight: 650;
+  font-size: 13px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-day__meta {
+  font-size: 12px;
+  color: rgba(17,24,39,.65);
+  white-space: nowrap;
+}
+
+/* Zone “timeline” (scroll vertical interne au jour) */
+.cal-day__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+
+  position: relative;
+  background: #fff;
+}
+
+/* Grille horaire */
+.cal-timeline {
+  position: relative;
+  padding: 8px 10px 12px 54px; /* marge à gauche pour les heures */
+  min-height: 1440px;          /* 24h * 60px si 1px=1min ? ici on le calcule en JS */
+}
+
+/* Traits + labels des heures */
+.cal-hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid rgba(0,0,0,.06);
+}
+
+.cal-hour__label {
+  position: absolute;
+  left: 10px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: rgba(17,24,39,.55);
+}
+
+/* Un bloc “évènement” */
+.cal-ev {
+  position: absolute;
+  left: 54px;
+  right: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(0,120,215,.10); /* accent doux */
+  box-shadow: 0 1px 10px rgba(0,0,0,.06);
+
+  padding: 6px 8px;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.cal-ev.is-selected {
+  outline: 2px solid rgba(0,120,215,.45);
+}
+
+.cal-ev__time {
+  font-size: 11px;
+  color: rgba(17,24,39,.75);
+  margin-bottom: 2px;
+}
+
+.cal-ev__title {
+  font-size: 12px;
+  font-weight: 650;
+  color: #111827;
+  line-height: 1.15;
+  margin-bottom: 3px;
+}
+
+.cal-ev__place {
+  font-size: 11px;
+  color: rgba(17,24,39,.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Responsive */
+@media (max-width: 812px) {
+  .cal-day { flex-basis: 280px; }
+  .cal-ev__title { font-size: 11px; }
+}
+
+/* =========================
+   Programme – Calendrier 
+   ========================= */
+
+/* calA doit remplir la hauteur du body (qui est déjà gérée par ton expander/slider) */
+#programme-panel #calA{
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* pas de scroll global */
+}
+
+/* scroller horizontal */
+#programme-panel #calA .cal-days-scroll{
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;              /* IMPORTANT */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* la ligne des jours DOIT avoir une hauteur pour que les colonnes puissent “stretch” */
+#programme-panel #calA .cal-days{
+  height: 100%;              /* IMPORTANT */
+  min-height: 0;
+
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  align-items: stretch;
+
+  width: max-content;        /* OK pour le scroll horizontal */
+}
+
+/* colonnes */
+#programme-panel #calA .cal-day{
+  flex: 0 0 320px;           /* largeur fixe => X scroll */
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* header “fixe” par construction (il est hors du body scroll) */
+#programme-panel #calA .cal-day__header{
+  flex: 0 0 auto;
+  /* enlève sticky ici : inutile et parfois source d’effets bizarres */
+  position: relative;
+  z-index: 1;
+  background: #f3f4f6;
+}
+
+/* body = scroll vertical */
+#programme-panel #calA .cal-day__body{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* timeline: la hauteur est pilotée par le JS */
+#programme-panel #calA .cal-timeline{
+  position: relative;
+  padding: 8px 10px 12px 54px;
+}
