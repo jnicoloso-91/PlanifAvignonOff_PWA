@@ -29,18 +29,12 @@ export class LieuRenderer {
     title.style.overflow = 'hidden';
     title.style.textOverflow = 'ellipsis';
 
-    // sous-texte (adresse)
-    // const sub = document.createElement('span');
-    // sub.className = 'lieu-sub';
-    // sub.style.opacity = '.7';
-
     e.append(a, title); //, sub);
 
     // mémos
     this.el = e;
     this.$icon = a;
     this.$title = title;
-    // this.$sub = sub;
 
     // config plateforme (détermine la façon d’ouvrir)
     const ua = navigator.userAgent || '';
@@ -115,7 +109,6 @@ export class LieuRenderer {
   }
 }
 
-
 export default LieuRenderer;
 
 function normalizeText(s) {
@@ -126,7 +119,7 @@ function normalizeText(s) {
     .toLowerCase();
 }
 
-function resolveAddress(lieu) {
+export function resolveAddress(lieu) {
   if (!lieu) return '';
   const carnet = window.ctx?.carnet;
   const cityDefault = window.ctx?.meta?.city_default || 'Avignon';
@@ -152,7 +145,7 @@ function resolveAddress(lieu) {
   return addr ?? `${lieu} (${cityDefault})`;
 }
 
-function buildDirectionsUrl(address) {
+export function buildDirectionsUrl(address) {
   const q = encodeURIComponent(address);
   const ua = navigator.userAgent || '';
   const onApple = /iPhone|iPad|Macintosh/.test(ua);
@@ -166,7 +159,7 @@ function buildDirectionsUrl(address) {
     : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`;
 }
 
-function openExternalSmart(url) {
+export function openExternalSmart(url) {
   if (!url) return;
   const ua = navigator.userAgent || '';
   const isIOS = /iPad|iPhone|iPod/.test(ua); 

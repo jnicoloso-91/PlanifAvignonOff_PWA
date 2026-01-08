@@ -34,12 +34,17 @@ import { creerActivitesAPI, sortDf } from './activites.js';
 import { sortCarnet } from './carnet.js'; 
 import { AppContext } from './AppContext.js';
 import { ActiviteRenderer } from './ActiviteRenderer.js';
-import { LieuRenderer } from './LieuRenderer.js';
 import { HyperlienRenderer } from './HyperlienRenderer.js';
 import { HyperlienBRRenderer } from './HyperlienBRRenderer.js';
 import { AvisRenderer } from './AvisRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
+
+import { 
+  LieuRenderer, 
+  resolveAddress, 
+  buildDirectionsUrl, 
+} from './LieuRenderer.js';
 
 import {
   PARSED_DEFAULT, 
@@ -2215,6 +2220,66 @@ function snapToCurrentSelectedEvent() {
   selectEventByUuid(selUuid);
 }
 
+function openDirectionsExternal(url) {
+  if (!url) return;
+
+  const ua = navigator.userAgent || '';
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+
+  // iOS PWA : _blank est souvent mauvais => on navigue DANS la webview (comportement voulu)
+  if (isIOS && isStandalone) {
+    window.location.assign(url);
+    return;
+  }
+
+  // Sinon : ouvrir en nouvel onglet. Pas de fallback assign.
+  const w = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!w) {
+    // popup bloqué : ne pas casser l'app
+    console.warn("[CAL] popup blocked for directions");
+    // option : toast / hint user
+  }
+}
+
+// Branchement sur la recherche d'itinéraire par double click/tap sur event
+function bindItineraryGesture(el, lieu) {
+  if (!lieu) return;
+
+  const addr = resolveAddress(lieu) || '';              // string
+  const url  = addr ? buildDirectionsUrl(addr) : '';    // string ou ''
+
+  const isTouch = matchMedia('(pointer: coarse)').matches;
+  const isMouse = matchMedia('(pointer: fine)').matches;
+
+  // Desktop : double click
+  if (isMouse) {
+    el.addEventListener('dblclick', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      openDirectionsExternal(url);
+    });
+  }
+
+  // Mobile : double tap
+  if (isTouch) {
+    let last = 0;
+    el.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - last < 280) {
+        e.preventDefault();
+        openDirectionsExternal(url);
+      }
+      last = now;
+    });
+  }
+}
+
 // DOM mount
 function ensureProgrammeCalendarDOM() {
   const host = document.getElementById("gridA");
@@ -2352,28 +2417,23 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       ev.dataset.endMin   = String(endMin);
 
       const timeLabel = `${r.Debut || ""} → ${r.Fin || ""}`.trim();
-      // ev.innerHTML = `
-      //   <div class="cal-ev__time">${timeLabel}</div>
-      //   <div class="cal-ev__title">${r.Activite ?? ""}</div>
-      //   <div class="cal-ev__place">${r.Lieu ?? ""}</div>
-      // `;
 
-const raw = r.Hyperlien || '';
-const href = raw || (
-  "https://www.festivaloffavignon.com/resultats-recherche?recherche=" +
-  encodeURIComponent(r.Activite || '')
-);
+      const raw = r.Hyperlien || '';
+      const href = raw || (
+        "https://www.festivaloffavignon.com/resultats-recherche?recherche=" +
+        encodeURIComponent(r.Activite || '')
+      );
 
-ev.innerHTML = `
-  <div class="cal-ev__time">${timeLabel}</div>
-  <a class="cal-ev__title"
-     href="${href}"
-     target="_blank"
-     rel="noopener">
-     ${r.Activite ?? ""}
-  </a>
-  <div class="cal-ev__place">${r.Lieu ?? ""}</div>
-`;
+      ev.innerHTML = `
+        <div class="cal-ev__time">${timeLabel}</div>
+        <a class="cal-ev__title"
+          href="${href}"
+          target="_blank"
+          rel="noopener">
+          ${r.Activite ?? ""}
+        </a>
+        <div class="cal-ev__place">${r.Lieu ?? ""}</div>
+      `;
 
       ev.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -2391,6 +2451,8 @@ ev.innerHTML = `
           selectRowByUuid?.("grid-programmees", r.__uuid);
         } catch {}
       });
+
+      bindItineraryGesture(ev, r.Lieu);
 
       tl.appendChild(ev);
     }
