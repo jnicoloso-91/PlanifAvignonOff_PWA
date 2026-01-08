@@ -159,7 +159,7 @@ export function buildDirectionsUrl(address) {
     : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`;
 }
 
-export function openExternalSmart(url) {
+function openExternalSmart(url) {
   if (!url) return;
   const ua = navigator.userAgent || '';
   const isIOS = /iPad|iPhone|iPod/.test(ua); 

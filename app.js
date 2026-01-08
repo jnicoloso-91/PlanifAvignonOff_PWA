@@ -2424,8 +2424,26 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
         encodeURIComponent(r.Activite || '')
       );
 
+      const hasInfo = !!(r.__desc_summary || r.__avis_summary);
+      const infoBtnHtml = hasInfo
+        ? `<button type="button" class="cal-ev__info" aria-label="Infos" title="Infos">ℹ︎+</button>`
+        : "";
+
+      // ev.innerHTML = `
+      //   <div class="cal-ev__time">${timeLabel}</div>
+      //   <a class="cal-ev__title"
+      //     href="${href}"
+      //     target="_blank"
+      //     rel="noopener">
+      //     ${r.Activite ?? ""}
+      //   </a>
+      //   <div class="cal-ev__place">${r.Lieu ?? ""}</div>
+      // `;
       ev.innerHTML = `
-        <div class="cal-ev__time">${timeLabel}</div>
+        <div class="cal-ev__time">
+          <span class="cal-ev__timeText">${timeLabel}</span>
+          ${infoBtnHtml}
+        </div>
         <a class="cal-ev__title"
           href="${href}"
           target="_blank"
@@ -2452,6 +2470,24 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
         } catch {}
       });
 
+      if (hasInfo) {
+        const btn = ev.querySelector(".cal-ev__info");
+        if (btn) {
+          btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // ne pas déclencher la sélection / double tap / lien
+
+            openPopoverNear(btn, {
+              title: r.Activite || r.activite || "Détails",
+              style: r.Style,
+              desc: r.__desc_summary,
+              avis: r.__avis_summary,
+              mood: r.Mood
+            });
+          }, { passive: false });
+        }
+      }
+      
       bindItineraryGesture(ev, r.Lieu);
 
       tl.appendChild(ev);
