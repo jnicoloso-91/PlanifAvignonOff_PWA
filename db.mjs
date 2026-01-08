@@ -106,7 +106,6 @@ export async function df_putMany(rows) {
   await tx.done;
 }
 
-
 export async function df_clear() {
   const db = await dbp;
   return db.clear(STORES.df);

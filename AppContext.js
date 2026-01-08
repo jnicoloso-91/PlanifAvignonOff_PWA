@@ -81,8 +81,8 @@ export class AppContext {
         df_getAllOrdered().catch(() => []),
         carnet_getAll?.().catch?.(() => []) || Promise.resolve([]),
       ]);
-      this.#df = Array.isArray(df) ? df : [];
-      this.#carnet = Array.isArray(carnet) ? carnet : [];
+      this.#df = Array.isArray(df) ? sortDf(df) : [];
+      this.#carnet = Array.isArray(carnet) ? sortCarnet(carnet) : [];
 
       // --- Meta depuis IndexedDB
       let meta = await meta_get();            // null si absent
