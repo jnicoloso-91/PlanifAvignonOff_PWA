@@ -1956,7 +1956,7 @@ function vhToPx(vh) {
 // Hauteur par défaut du calendrier (px)
 function programmeCalDefaultHeightPx() {
   const defCalPx = programmeCalMaxHeightPxForHours(5); // 5h visibles (9->14)
-  const fiftyVhPx = vhToPx(40);
+  const fiftyVhPx = vhToPx(35);
 
   return Math.min(defCalPx, fiftyVhPx);
 }
@@ -1967,12 +1967,18 @@ function programmeCalAbsoluteMaxHeightPx() {
   return programmeCalMaxHeightPxForHours(24);
 }
 
+// Cache de la hauteur calculée du calendrier (px)
+let _cachedCalHeightPx = null;
+
 // Applique la hauteur par défaut du calendrier (px)
 function applyProgrammeCalendarDefaultHeight() {
-  const body = getProgrammePaneBody();
-  if (!body) return;
-  const px = programmeCalDefaultHeightPx();
-  body.style.setProperty("height", `${px}px`, "important");
+  if (_cachedCalHeightPx === null) {
+    const body = getProgrammePaneBody();
+    if (!body) return;
+    const px = programmeCalDefaultHeightPx();
+    body.style.setProperty("height", `${px}px`, "important");
+    _cachedCalHeightPx = px;
+  } 
 }
 
 // Récupère le jour sélectionné (dateint) depuis grid-programmees
@@ -2649,6 +2655,7 @@ function wireProgrammeCalendarToggle() {
         applyProgrammeCalendarDefaultHeight();        
         await showProgrammeCalendar();
       } else {
+        _cachedCalHeightPx = null;
         showProgrammeGrid();
         restoreProgrammeGridHeight();
       }
