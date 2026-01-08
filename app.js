@@ -2352,11 +2352,28 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       ev.dataset.endMin   = String(endMin);
 
       const timeLabel = `${r.Debut || ""} → ${r.Fin || ""}`.trim();
-      ev.innerHTML = `
-        <div class="cal-ev__time">${timeLabel}</div>
-        <div class="cal-ev__title">${r.Activite ?? ""}</div>
-        <div class="cal-ev__place">${r.Lieu ?? ""}</div>
-      `;
+      // ev.innerHTML = `
+      //   <div class="cal-ev__time">${timeLabel}</div>
+      //   <div class="cal-ev__title">${r.Activite ?? ""}</div>
+      //   <div class="cal-ev__place">${r.Lieu ?? ""}</div>
+      // `;
+
+const raw = r.Hyperlien || '';
+const href = raw || (
+  "https://www.festivaloffavignon.com/resultats-recherche?recherche=" +
+  encodeURIComponent(r.Activite || '')
+);
+
+ev.innerHTML = `
+  <div class="cal-ev__time">${timeLabel}</div>
+  <a class="cal-ev__title"
+     href="${href}"
+     target="_blank"
+     rel="noopener">
+     ${r.Activite ?? ""}
+  </a>
+  <div class="cal-ev__place">${r.Lieu ?? ""}</div>
+`;
 
       ev.addEventListener("click", (e) => {
         e.stopPropagation();
