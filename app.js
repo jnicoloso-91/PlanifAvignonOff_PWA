@@ -1948,10 +1948,17 @@ function programmeCalMaxHeightPxForHours(hours) {
   return timelinePx + overhead;
 }
 
+// Convertit vh -> px
+function vhToPx(vh) {
+  return Math.round(window.innerHeight * (vh / 100));
+}
+
 // Hauteur par défaut du calendrier (px)
 function programmeCalDefaultHeightPx() {
-  // 5h visibles (9->14)
-  return programmeCalMaxHeightPxForHours(5);
+  const defCalPx = programmeCalMaxHeightPxForHours(5); // 5h visibles (9->14)
+  const fiftyVhPx = vhToPx(40);
+
+  return Math.min(defCalPx, fiftyVhPx);
 }
 
 // Hauteur max absolue du calendrier (px)
