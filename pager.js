@@ -4,6 +4,10 @@ import {
   openUrl, 
 } from './utils.js';
 
+import {
+  selectCurrentEventInCalendar, 
+} from './app.js';
+
 (function initTwoPagePager(){
   const pager = document.getElementById('pager');
   const track = pager?.querySelector('.pager-track');
@@ -95,9 +99,6 @@ import {
 	}
 
   function onStart(ev){
-    if (ev.target.closest?.("#programme-panel #calA")) {
-      console.log("[DBG] touchmove inside calA", ev.cancelable);
-    }
     const t = ev.touches ? ev.touches[0] : ev;
 
 		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
@@ -110,9 +111,6 @@ import {
     track.style.transition = 'none';
   }
   function onMove(ev){
-    if (ev.target.closest?.("#programme-panel #calA")) {
-      console.log("[DBG] touchmove inside calA", ev.cancelable);
-    }
     if (!dragging) return;
     const t  = ev.touches ? ev.touches[0] : ev;
     curX     = t.clientX;
@@ -225,6 +223,7 @@ import {
 		});
 		const btnMonProgramme = document.querySelector('#mon-programme.catalog-btn')
 		btnMonProgramme.addEventListener('click', (e) => {
+			selectCurrentEventInCalendar();
 			goto(getPageIndexByClass('page--planning'));
 		});	
 	}

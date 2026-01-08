@@ -2201,6 +2201,11 @@ function selectEventByUuid(uuid) {
   if (ev) ev.classList.add('is-selected');
 }
 
+export function selectCurrentEventInCalendar() {
+  const selUuid = getSelectedRowUuid('grid-programmees');
+  selectEventByUuid(selUuid);
+}
+
 function snapToCurrentSelectedEvent() {
   const calA = document.getElementById("calA");
   const selD = getSelectedProgrammeDateInt();
@@ -2378,11 +2383,9 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
 
   queueMicrotask(() => {
     scrollAllDaysToHour(daysEl, 9);
-    selectEventByUuid(getSelectedRowUuid('grid-programmees'));
+    selectCurrentEventInCalendar();
   });
   
-  // option: recentrer sur le jour sélectionné (si tu veux)
-  // -> à faire en scrollant .cal-days-scroll (pas daysEl)
 }
 
 // Re-render calendar (data + sélection + scroll)
@@ -11944,12 +11947,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireInfosPlusPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
-
-// document.addEventListener("touchmove", (e) => {
-//   if (e.target?.closest?.("#programme-panel #calA")) {
-//     console.log("[CAL] touchmove target=", e.target);
-//   }
-// }, { capture:true, passive:true });
 
   console.log('✅ Application initialisée');
 
