@@ -1755,7 +1755,7 @@ function wireExpanderButtons() {
     const id = 'btn-avec-pauses';
 
     const ICON_PAUSE_ON = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
           xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
@@ -1763,7 +1763,7 @@ function wireExpanderButtons() {
       </svg>`;
 
     const ICON_PAUSE_OFF = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
           xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
@@ -2487,7 +2487,7 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
           }, { passive: false });
         }
       }
-      
+
       bindItineraryGesture(ev, r.Lieu);
 
       tl.appendChild(ev);
@@ -2734,16 +2734,16 @@ function wireProgrammeCalendarToggle() {
   //     <line x1="3" y1="10" x2="21" y2="10"></line>
   //   </svg>`;
 
-  const ICON_GRID = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+  const ICON_CAL = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
         xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
       <path d="M8 12l3 3 5-5"/>
     </svg>`;
 
-  const ICON_CAL = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+  const ICON_GRID = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
         xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
@@ -2752,7 +2752,7 @@ function wireProgrammeCalendarToggle() {
   function renderBtn(mode) {
     const isCal = mode === "calendar";
     const icon = isCal ? ICON_CAL : ICON_GRID;
-    const label = isCal ? "Grille" : "Grille";
+    const label = isCal ? "Calendrier" : "Calendrier";
     return `<span class="exp-icon">${icon}</span><span class="exp-label">${label}</span>`;
   }
 
