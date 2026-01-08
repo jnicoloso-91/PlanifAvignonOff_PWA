@@ -725,6 +725,8 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   return Math.max(desired, hHeader + 8);
 }
 
+// Reajuste la taille du expander-body en fonction du nbre de lignes jusqu'à 5 lignes max
+// Appelé par onModelUpdated et onFirstDataRendered
 function autosizeFromGridSafe(handle, pane) {
   if (!handle?.api || !pane) return;
 
@@ -743,21 +745,22 @@ function autosizeFromGridSafe(handle, pane) {
   // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
   const cur = parseFloat(getComputedStyle(pane).height) || 0;
   if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
-  // if (hTarget > cur) setPaneHeightSmooth(pane, hTarget, false);
 
   pane.dataset.maxContentHeight = String(hMax);
   try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
 
-  // S'il s'agit de grid-programmees et que l'on est en mode calendar pas de resize auto
+  // S'il s'agit de grid-programmees et que l'on est en mode calendar,
+  // on enregistre la hauteur calculée de la grille et on applique la hauteur par défaut du calendrier
   const gridId = handle.api.getGridOption('context')?.gridId;
   if (gridId === 'grid-programmees' && isProgrammeCalendarVisible()) {
-    saveProgrammeGridHeightOnce();
+    saveProgrammeGridHeight(hTarget);
     applyProgrammeCalendarDefaultHeight();
     return;
   };
 }
 
-// Retaille en fonction du row count
+// Retaille le expander-bodyen fonction du row count
+// Appelé en fin de refreshGrid
 function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!pane || !gridEl) return;
 
@@ -1919,7 +1922,13 @@ function getProgrammePaneHeightPx() {
   return body ? Math.round(body.getBoundingClientRect().height) : null;
 }
 
-// Sauvegarde la hauteur actuelle de l’expander du calendrier (px)
+// Sauvegarde la hauteur de l’expander de grid-programmees pour le mode grille (px)
+function saveProgrammeGridHeight(h=null) {
+  if (h == null) h = getProgrammePaneHeightPx();
+  if (h != null && h > 0) _progGridHeightPx = h;
+}
+
+// Sauvegarde la hauteur actuelle de l’expander du calendrier si pas déjà suavegardée (px)
 function saveProgrammeGridHeightOnce() {
   if (_progGridHeightPx != null) return;
   const h = getProgrammePaneHeightPx();
@@ -1972,13 +1981,10 @@ let _cachedCalHeightPx = null;
 
 // Applique la hauteur par défaut du calendrier (px)
 function applyProgrammeCalendarDefaultHeight() {
-  if (_cachedCalHeightPx === null) {
-    const body = getProgrammePaneBody();
-    if (!body) return;
-    const px = programmeCalDefaultHeightPx();
-    body.style.setProperty("height", `${px}px`, "important");
-    _cachedCalHeightPx = px;
-  } 
+  const body = getProgrammePaneBody();
+  if (!body) return;
+  if (_cachedCalHeightPx === null) _cachedCalHeightPx = programmeCalDefaultHeightPx();
+  body.style.setProperty("height", `${_cachedCalHeightPx}px`, "important");
 }
 
 // Récupère le jour sélectionné (dateint) depuis grid-programmees
@@ -2651,7 +2657,7 @@ function wireProgrammeCalendarToggle() {
       }
 
       if (next === "calendar") {
-        saveProgrammeGridHeightOnce();
+        saveProgrammeGridHeight();
         applyProgrammeCalendarDefaultHeight();        
         await showProgrammeCalendar();
       } else {
