@@ -90,7 +90,7 @@ const MANDATORY_COLS = new Set([
   'Priorite',
   'Note',
   'Hyperlien',
-  'HyperlienAvis',
+  'HyperlienGoogle',
   'HyperlienBR',
   '__desc_summary',
   '__avis_summary',
@@ -354,8 +354,10 @@ const CANON = {
   'activite': 'Activite',
   'lieu': 'Lieu',
   'page web': 'Hyperlien',
-  'avis web': 'HyperlienAvis',
+  'google': 'HyperlienGoogle',
+  'hyperliengoogle': 'HyperlienGoogle',
   'billet reduc': 'HyperlienBR',
+  'hyperlienbr': 'HyperlienBR',
   'validite': 'Session',
   'session': 'Session',
   'sessions': 'Session',
@@ -2948,10 +2950,10 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
   let hyperlinkBRCol = null;
   let avisCol = null;
 
-  // a) Construire toutes les colonnes sauf "Hyperlien" "HyperlienAvis" "HyperlienBR" 
+  // a) Construire toutes les colonnes sauf "Hyperlien" "HyperlienGoogle" "HyperlienBR" 
   for (const field of knownFields) {
     if (field === 'Hyperlien') continue;  // on la traitera ensuite
-    if (field === 'HyperlienAvis') continue;  // on la traitera ensuite
+    if (field === 'HyperlienGoogle') continue;  // on la traitera ensuite
     if (field === 'HyperlienBR') continue;  // on la traitera ensuite
 
     const base = baseMap.get(field);
@@ -2969,8 +2971,8 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
     }
   }
 
-  // b) Ajouter les colonnes "Hyperlien" "HyperlienAvis" et "HyperlienBR" en dernier 
-  if (knownFields.has('Hyperlien') || knownFields.has('HyperlienAvis') || knownFields.has('HyperlienBR')) {
+  // b) Ajouter les colonnes "Hyperlien" "HyperlienGoogle" et "HyperlienBR" en dernier 
+  if (knownFields.has('Hyperlien') || knownFields.has('HyperlienGoogle') || knownFields.has('HyperlienBR')) {
     const base = baseMap.get('Hyperlien');
     hyperlinkCol = base || {
       field: 'Hyperlien',
@@ -2982,10 +2984,10 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
     };
     newColDefs.push(hyperlinkCol);
 
-    const baseAvis = baseMap.get('HyperlienAvis');
+    const baseAvis = baseMap.get('HyperlienGoogle');
     avisCol = baseAvis || {
-      field: 'HyperlienAvis',
-      headerName: 'Avis',
+      field: 'HyperlienGoogle',
+      headerName: 'Google',
       minWidth: 100,
       flex: 1,
       sortable: true,
@@ -3050,7 +3052,7 @@ function buildColumnsActivitesCommon(){
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
-    { field:'HyperlienAvis', headerName: 'Avis Web', minWidth:120, flex:1, cellRenderer: AvisRenderer },
+    { field:'HyperlienGoogle', headerName: 'Google', minWidth:120, flex:1, cellRenderer: AvisRenderer },
     { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
   ];
 }
@@ -4579,14 +4581,12 @@ async function doImportExcel() {
 
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
-  // importFromUrlOrTxt('https://festival-avignon.com/fr/edition-2025/programmation/par-categorie', 'parseAvignonInProgPage');
   const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=112249550');
   importFromXlsxFile(f, {add:true});
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
-  // importFromUrlOrTxt('https://www.festivaloffavignon.com/programme', 'parseAvignonOffProgPage');
   const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=1588321450');
   importFromXlsxFile(f, {add:true});
 }
@@ -4670,8 +4670,8 @@ async function doExportExcel() {
     
     cleanData = cleanRows(cleanData, 
       ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances", "__desc_summary", "__avis_summary"],
-      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Priorité", HyperlienAvis: "Avis Web", HyperlienBR: "Billet Réduc" },
-      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Priorité", "Avis Web", "Billet Réduc" ],
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienGoogle: "Google" },
+      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Priorité", "Billet Réduc", "Google" ],
       false
     );
 
@@ -5252,7 +5252,7 @@ function buildAiExportFromDf(df, sectionLabel, editionYear = null) {
       Session: cleanField(r.Session),
       Relache: cleanField(r.Relache),
       Hyperlien: cleanField(r.Hyperlien),
-      HyperlienAvis: cleanField(r.HyperlienAvis),
+      HyperlienGoogle: cleanField(r.HyperlienGoogle),
       HyperlienBR: cleanField(r.HyperlienBR),
       Section: section,      // 🔹 nouveau champ : "off" ou "in"
       Seances: seances,      // 🔹 nouveau champ : tableau ISO
@@ -5281,7 +5281,7 @@ async function exportJsonForAi(orga, editionYear = 2025) {
 }
 
 /**
- * Ouvre un sélecteur de fichier JSON (in_2025.json / off_2025.json)
+ * Ouvre un catalogue JSON (in_2025.json / off_2025.json)
  * et met à jour df.Note à partir du champ Avis du JSON,
  * en faisant le matching via makeFullKey(row).
  *
@@ -5696,7 +5696,7 @@ async function importFromUrlOrTxt(raw, parser=null) {
       `https://www.billetreduc.com/search.htm?se=${nom.trim().replace(/\s+/g, '+')}` :
       null;
 
-    const avisDefault = (nom) ? 
+    const hyperlienGoogleDefault = (nom) ? 
       `https://www.google.com/search?q=spectacle+${nom.trim().replace(/\s+/g, '+')}` :
       null;
 
@@ -5722,7 +5722,7 @@ async function importFromUrlOrTxt(raw, parser=null) {
         Priorite: null, 
         Note: note,
         Hyperlien: row.Hyperlien || hyperlienDefault,
-        HyperlienAvis: row.HyperlienAvis || avisDefault,
+        HyperlienGoogle: row.HyperlienGoogle || hyperlienGoogleDefault,
         HyperlienBR: row.HyperlienBR || hyperlienBRDefault,
       }
       nouvellesActivites.push(nouvelleActivite);
@@ -6333,10 +6333,10 @@ async function importFromXlsxFile(f, {add=false} = {}) {
           dfRows[i].Hyperlien = link;
         }
 
-        // S’il y a déjà une colonne "HyperlienAvis" dans Excel, on la garde prioritaire,
+        // S’il y a déjà une colonne "HyperlienGoogle" dans Excel, on la garde prioritaire,
         // sinon on remplit depuis le lien de la cellule Activité.
-        if (!dfRows[i].HyperlienAvis) {
-          dfRows[i].HyperlienAvis = `https://www.google.com/search?q=spectacle+${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
+        if (!dfRows[i].HyperlienGoogle) {
+          dfRows[i].HyperlienGoogle = `https://www.google.com/search?q=spectacle+${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
         }
 
         // S’il y a déjà une colonne "HyperlienBR" dans Excel, on la garde prioritaire,
@@ -7684,22 +7684,23 @@ function openSheetAide() {
               <li>de <u><i>vérifier la cohérence</u></i> de vos données (chevauchements d'activités, respect des marges entre activités, format des données).</li>
             </ul>            
 
-          <p>Un <u><i>Assistant de programmation automatique</u></i> est là pour vous proposer des solutions instantannées de programmation répondant 
-          à vos critères de dates et vos préférences stylistiques.</p> 
-          
-          <p>Vous pouvez également poser des questions à un <u><i>chatbot</u></i> sur les spectacles des catalogues.</p>
+            <p>Un <u><i>Assistant de programmation automatique</u></i> est là pour vous proposer des solutions instantannées de programmation répondant 
+            à vos critères de dates et vos préférences stylistiques.</p> 
+            
+            <p>Vous pouvez également poser des questions à un <u><i>chatbot</u></i> sur les spectacles des catalogues.</p>
 
-          <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
-          choisissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
-          La période de programmation peut être modifiée en allant dans le menu <u><i>.../Paramètres</u></i>.</p>
+            <p>Pour démarrer : allez dans la page <u><i>Mon programme</u></i>, importez un catalogue (menu <u><i>Fichier/Importer...</u></i>), 
+            choisissez une plage libre et appuyez sur le bouton <u><i>Programmer</u></i> ! 
+            La période de programmation peut être modifiée en allant dans le menu <u><i>.../Paramètres</u></i>.</p>
 
-          <p style="margin-bottom: 0.2em">Pour installer l'application :</p> 
-          <ul style="margin-top: 0em; margin-bottom: 1em">
-            <li>sur Android, item <u><i>Ajouter à l'écran d'accueil</u></i> dans menu Chrome (en haut à droite de l'écran),</li> 
-            <li>sur Iphone ou Ipad item <u><i>Sur l'écran d'accueil</u></i> dans menu <u><i>Partager</u></i> de Safari,</li> 
-            <li>sur macOS ou Windows icône <u><i>Installer...</u></i> depuis la barre d'adresse de Chrome ou <u><i>Installer ce site comme application</u></i> depuis menu <u><i>.../Apps</u></i> de Edge.</li> 
-          </ul>            
-          <p>Dans tous les cas vous pouvez utiliser <u><i>In & Off</u></i> dans votre navigateur depuis la <a href="https://jnicoloso-91.github.io/PlanifAvignonOff_PWA/" target="_blank" rel="noopener noreferrer">page github</a> de l'application.</p>
+            <p style="margin-bottom: 0.2em">Pour installer l'application :</p> 
+            <ul style="margin-top: 0em; margin-bottom: 1em">
+              <li>sur Android, item <u><i>Ajouter à l'écran d'accueil</u></i> dans menu Chrome (en haut à droite de l'écran),</li> 
+              <li>sur Iphone ou Ipad item <u><i>Sur l'écran d'accueil</u></i> dans menu <u><i>Partager</u></i> de Safari,</li> 
+              <li>sur macOS ou Windows icône <u><i>Installer...</u></i> depuis la barre d'adresse de Chrome ou <u><i>Installer ce site comme application</u></i> depuis menu <u><i>.../Apps</u></i> de Edge.</li> 
+            </ul>            
+            <p>Dans tous les cas vous pouvez utiliser <u><i>In & Off</u></i> dans votre navigateur depuis la <a href="https://jnicoloso-91.github.io/PlanifAvignonOff_PWA/" target="_blank" rel="noopener noreferrer">page github</a> de l'application.</p>
+          </div>
         </div>
             
         <div id="help-regles-programmation" class="help-chapter">
@@ -7720,96 +7721,123 @@ function openSheetAide() {
 
         <div id="help-ui" class="help-chapter">
           <div class="help-back" data-back>
-            <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
             Retour
           </div>
+
           <div class="help-block">
-            <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click sur les icônes gauche et centrale de l'entête.</p>
 
-            <p>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon et le site Billet Réduc, la deuxième 
-            <u><i>Mon programme</u></i> permet de construire un programme personnalisé de spectacles ou autres activités.</p>
-                         
-            <p style="margin-bottom: 0.2em">La page <u><i>Mon programme</u></i>, comprend quatre tableaux:</p>
-            <ul style="margin-top: 0em">
-                <li><u><i>Programme</u></i>: tableau des activités programmées (i.e. activités avec date de programmation)
-                <li><u><i>Plages libres</u></i>: tableau des plages libres entre activités programmées (seules les plages dans lesquelles existent des activités programmables sont listées)
-                <li><u><i>Programmer...</u></i>: tableau des activités programmables dans la plage libre sélectionnée
-                <li><u><i>Stock</u></i>: tableau des activités non programmées (i.e. activités sans date de programmation).
+            <h4>Page Catalogue</h3>
+            <p>La page <u><i>Catalogue</u></i> propose un accès direct aux principales sources de spectacles :</p>
+            <ul>
+              <li>le catalogue du <u><i>In</u></i> du festival d’Avignon,</li>
+              <li>le catalogue du <u><i>Off</u></i>,</li>
+              <li>le site <u><i>Billet Réduc</u></i>.</li>
             </ul>
-      
-            </p>Dans les tableaux <u><i>Programme</u></i>, <u><i>Plages libres</u></i> et <u><i>Programmer...</u></i> les lignes sont colorisées en fonction de leur Date et dans le tableau
-            <u><i>Stock</u></i> les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe. 
-            Dans le tableau <u><i>Programme</u></i> les activités <u><i>réservées</u></i> sont libellées en rouge (une activité <u><i>réservée</u></i> ne peut être ni déprogrammée
-            ni reprogrammée). 
+            <p>Ces liens permettent de consulter les spectacles et, le cas échéant, de copier leur contenu ou leur adresse afin de les importer dans l’application (fonction <u><i>Coller</u></i>).</p>
 
-            <p style="margin-bottom: 0.2em">Une activité peut être programmée (i.e. insérée dans le tableau <u><i>Programme</u></i> à une date donnée)
-            de deux manières différentes:
-            <ul style="margin-top: 0em">
-                <li>Soit en sélectionnant une plage libre, puis dans cette plage une activité programmable, puis en appuyant sur le bouton <u><i>Programmer</u></i> 
-                (situé en haut à droite du tableau <u><i>Programmer...</u></i>)</i> 
-                <li>Soit en sélectionnant une activité programmable (activités colorisées en vert menthe) dans le stock et en dépliant le menu de la 
-                colonne <u><i>Date</u></i>, lequel liste les jours de programmation possible.</i> 
+            <h4>Page Mon programme</h3>
+            <p>La page <u><i>Mon programme</u></i> permet de construire et gérer un programme personnalisé de spectacles et d’activités.</p>
+
+            <p>Elle est organisée autour de quatre tableaux :</p>
+            <ul>
+              <li><u><i>Programme</i></u> : tableau des activités <u><i>programmées</u></i> (activités avec une date de programmation).</li>
+              <li><u><i>Plages libres</i></u> : tableau des plages libres entre les activités programmées (seules les plages pour lesquelles il existe des activités programmables sont affichées).</li>
+              <li><u><i>Programmer…</i></u> : tableau des activités <u><i>programmables</u></i> dans la plage libre sélectionnée.</li>
+              <li><u><i>Stock</i></u> : tableau des activités <u><i>non programmées</u></i> (activités sans date de programmation).</li>
             </ul>
 
-            </p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau <u><i>Programme</u></i> et d'appuyer sur le bouton <u><i>Supprimer</u></i> 
-            (situé en haut à droite de ce même tableau). Une fois déprogrammée, l'activité bascule dans le tableau <u><i>Stock</u></i>.</p>
-            
-            </p>Pour la reprogrammer, déplier le menu de la colonne <u><i>Date</u></i> et sélectionner une autre date possible.</p>
+            <p>Le bouton <u><i>Calendrier</u></i> du tableau <u><i>Programme</u></i> permet de choisir entre une présentation <u><i>calendrier</u></i> ou <u><i>grille</u></i>.</p>
 
-            </p>Le bouton <u><i>Supprimer</u></i> du tableau <u><i>Stock</u></i> permet de supprimer l'activité sélectionnée et le bouton <u><i>Colonnes</u></i> permet 
-            d'ajouter ou supprimer des colonnes sur les activités.</p>
+            <p>Dans les tableaux <u><i>Programme</u></i>, <u><i>Plages libres</u></i> et <u><i>Programmer…</u></i>, les lignes sont colorisées en fonction de leur <u><i>Date</u></i>.</p>
+            <p>Dans le tableau <u><i>Stock</u></i>, les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe.</p>
+            <p>Dans le tableau <u><i>Programme</u></i>, les activités <u><i>réservées</u></i> sont libellées en rouge (une activité réservée ne peut être ni déprogrammée ni reprogrammée).</p>
 
-            <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i> toutes les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
-            et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne <u><i>Réservé</u></i> est à Oui).</p>
-            
-            <p>Elles sont également triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur le bouton <u><i>Filtrer</u></i> des entêtes de grilles ou 
-            directement dans les entêtes de colonnes si la dimension de l'écran le permet). Vous pouvez également modifier l'ordre des colonnes en sélectionnant une entête 
-            et en la déplaçant.</p>
+            <p>Les tableaux sont :</p>
+            <ul>
+              <li><u><i>triables</u></i> (clic sur les entêtes de colonnes),</li>
+              <li><u><i>filtrables</u></i> (bouton <u><i>Filtrer</u></i> ou champs dans les entêtes selon la taille de l’écran),</li>
+              <li><u><i>réordonnables</u></i> (déplacement des colonnes par glisser-déposer),</li>
+            </ul>
 
-            <p>L'icône des colonnes <u><i>Activité</u></i> et <u><i>Page Web</u></i> permet d'afficher la page Web donnée par la colonne <u><i>Page Web</u></i>, 
-            l'icône de la colonne <u><i>Billet Réduc</u></i> permet de lancer une recherche de l'activité concernée sur le site Billet Réduc et 
-            l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité, via l'application choisie 
-            dans les paramètres et l'adresse du lieu d'activité renseignée dans le carnet d'adresse, ou à défaut le nom du lieu et un nom de ville défini dans les paramètres.</p>
+            <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i>, toutes les informations sont éditables, <sauf :</p>
+            <ul>
+              <li>les heures de fin (calculées automatiquement),</li>
+              <li>les dates, heures de début et durées des activités réservées (colonne <u><i>Réservé</u></i> = Oui).</li>
+            </ul>
+
+            <h4>Navigation</h4>
+            <p>Dans les tableaux d'activités, des icônes associées à certaines colonnes permettent de naviguer vers des informations complémentaires:
+            <ul>
+              <li>L'icône <span class="help-icon" role="img" aria-label="Lien Web">🔗</span> des colonnes <u><i>Activité</u></i> et <u><i>Page Web</u></i> 
+              permet d'afficher la page Web de l'activité,</li>
+              <li>L'icône <span class="help-icon" role="img" aria-label="Itineraire">🧭</span> de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire 
+              sur le lieu de l'activité,</li>
+              <li>L'icône <span class="help-icon" role="img" aria-label="Lien Web">🔗</span> des colonnes <u><i>Google</u></i> et <u><i>Billet Réduc</u></i> permet de lancer une recherche de l'activité sur Google et le site Billet Réduc.
+              <li>L'icône <span class="help-icon" role="img" aria-label="Lien Web">i+</span> affiche des informations complémentaires sur les activités des catalogues : description, style, ton, avis.
+            </ul>
+
+            <p>La recherche d'itinéraire utilise l'application de recherche d'itinéraire choisie dans les paramètres de l'application (voir menu <u><i>Paramètres</u></i>) 
+            et l'adresse du lieu d'activité renseignée dans le carnet d'adresse, ou à défaut le nom du lieu et un nom de ville défini dans les paramètres de l'application .</p>
                         
-            <p style="margin-bottom: 0.2em">Deux menus permettent d'accéder des fonctionnalités complémentaires:</p>
-            <ul style="margin-top: 0em">
-              <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
-                <ul style="margin-top: 0em">
-                    <li><u><i>Fichier</u></i>: permet de créer un nouveau programme / stock d'activités, charger un programme d'activités depuis un fichier 
-                    Excel, importer des activités depuis les catalogues en ligne du In et du Off ou le site Billet Réduc, exporter le programme d'activités 
-                    vers Excel ou vers le calendrier, obtenir un rapport de cohérence des données.</li>
-                    <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i>: permettent de défaire, refaire une opération.</li>
-                    <li><u><i>Coller</u></i>: collage d'activités depuis le presse-papier. Pour utiliser cette fonctionnalité, copier préalablement 
-                    soit l'adresse d'une page du catalogue du In ou du Off (via Partager/Copier ou par copie du champ adresse), soit son contenu. 
-                    Il peut s'agir soit d'une page programme listant plusieurs spectacles, soit de la page de détail d'un spectacle.</li>
-                    <li><u><i>Ajouter</u></i>: ajout d'une activité.</li>
+            <p>Dans l'affichage du <u><i>Programme</u></i> en mode <u><i>calendrier</u></i>, cliquez / tapez sur le nom de l'activité pour aller vers la page Web de l'activité et 
+            double-cliquez / tapez pour lancer la recherche d'itinéraire.</p>
+                        
+            <h4>Programmation</h4>
+            <p>Une activité peut être programmée (i.e. insérée dans le tableau <u><i>Programme</u></i> à une date donnée) de trois manières :</p>
+            <ul>
+              <li>
+                en sélectionnant une <u><i>plage libre</u></i>, puis une activité dans le tableau <u><i>Programmer…</u></i>, puis en appuyant sur le bouton <u><i>Programmer</u></i> ;
+              </li>
+              <li>
+                en sélectionnant une activité programmable dans le <u><i>Stock</u></i> puis en dépliant le menu de la colonne <u><i>Date</u></i> pour choisir une date possible ;
+              </li>
+              <li>
+                en utilisant l’<u><i>Assistant programmation</u></i>, qui génère automatiquement un planning d’activités (voir menu “...”).
+              </li>
+            </ul>
+
+            <p>Pour <u><i>déprogrammer</u></i> une activité, il suffit de la sélectionner dans le tableau <u><i>Programme</u></i> ou le <u><i>Calendrier</u></i> et d’appuyer sur le bouton <u><i>Supprimer</u></i>.
+            Une fois déprogrammée, l’activité bascule dans le tableau <u><i>Stock</u></i>.</p>
+
+            <p>Pour la <u><i>reprogrammer</u></i>, allez dans le <u><i>Stock</u></i>, double-cliquez sur la cellule <u><i>Date</u></i> de l'activité concernée et sélectionnez une autre date possible.</p>
+
+            <h4>Barre d'outils</h4>
+            <p>La barre d'outils en bas de la page <u><i>Mon programme</u></i> permet d’accéder aux fonctionnalités suivantes :</p>
+
+            <ul>
+              <li><u><i>Fichier</u></i> : nouveau programme ou stock, import Excel, import depuis catalogues en ligne, export vers Excel ou le calendrier, rapport de cohérence.</li>
+              <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i> : annuler ou rétablir une opération.</li>
+              <li><u><i>Coller</u></i> : collage d’activités depuis le presse-papier (via URL ou copie du contenu d’une page catalogue ou d'une page de détail d'une activité).</li>
+              <li><u><i>Ajouter</u></i> : ajout d’une nouvelle activité.</li>
+            </ul>
+
+            <h4>Menu “...”</h4>
+            <p>Le menu “...” situé à droite de l'entête permet d’accéder aux fonctions complémentaires suivantes :</p>
+            <ul>
+              <li><u><i>Carnet d'adresses</u></i> : présente le carnet d'adresses des lieux d'activités / théâtres. Les champs <u><i>Nom</u></i> / <u><i>Adresse</i></u> / 
+              <u><i>Téléphone</u></i> /<u><i>Web</u></i> de chaque entrée peuvent être édités et des boutons permettent d'ajouter / supprimer 
+              des entrées, défaire / refaire ces opérations. Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent 
+              d'appeler le numéro de téléphone ou aller sur le site Web correspondant. Les adresses ainsi renseignées sont utilisées pour la recherche d'itinéraire.</li>
+              <li><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
+              et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
+              courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
+              Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web. Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie.</li>
+              <li><u><i>Assistant chat</u></i> : permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
+              mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
+              <li><u><i>Paramètres</u></i> : permet d'éditer les paramètres de l'application comprenant:
+                <ul>
+                  <li>la <u><i>période de programmation</u></i></li>
+                  <li>la <u><i>marge</u></i> entre activités</li>
+                  <li>la <u><i>durée</u></i> des pauses repas</li>
+                  <li>le nom de <u><i>l'application d'itinéraire</u></i> (Google Maps, Apple, etc.)</li>
+                  <li>la <u><i>ville</u></i> de recherche par défaut pour la recherche d'itinéraire.</li>
                 </ul>
               </li>
-              <li>Menu "..." comprenant les items suivants:
-                <ul style="margin-top: 0em">
-                    <li><u><i>Carnet d'adresses</u></i>: présente le carnet d'adresses. Les champs <u><i></u>Nom</i> / <u><i></u>Adresse</i> / 
-                    <u><i></u>Téléphone</i> / <u><i></u>Web</i> de chaque entrée peuvent être édités et des boutons permettent d'ajouter / supprimer 
-                    des entrées, défaire / refaire ces opérations. Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent 
-                    d'appeler le numéro de téléphone ou aller sur le site Web correspondant.</li>
-                    <li><u><i>Assistant programmation</u></i>: permet de générer automatiquement un programme de spectacles en donnant vous préférences par texte libre 
-                    et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
-                    courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions et pour 
-                    chaque spectacle proposé l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web.</li>
-                    <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
-                    mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
-                    <li><u><i>Paramètres</u></i>: permet d'éditer les paramètres de l'application comprenant:
-                      <ul>
-                        <li>la <u><i>période de programmation</u></i></li>
-                        <li>la <u><i>marge</u></i> entre activités</li>
-                        <li>la <u><i>durée</u></i> des pauses repas</li>
-                        <li>le nom de <u><i>l'application d'itinéraire</u></i> (Google Maps, Apple, etc.)</li>
-                        <li>la <u><i>ville</u></i> de recherche par défaut pour la recherche d'itinéraire.</li>
-                      </ul>
-                    </li>
-                    <li><u><i>Aide</u></i>: la présente aide</li>
-                </ul>
-              </li>
-            </ul>                        
+              <li><u><i>Aide</u></i> : la présente aide</li>
+            </ul>
           </div>
         </div>
 
@@ -7821,10 +7849,10 @@ function openSheetAide() {
           <div class="help-block">
             <p>Le menu "..." en haut à droite de l'application vous donne accès à deux assistants IA:</p>
             <ul style="margin-top: 0em">
-              <li><u><i>Assistant programmation</u></i>: permet de générer automatiquement un programme de spectacles en donnant vous préférences par texte libre 
+              <li><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
-              courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions et pour 
-              chaque spectacle proposé l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web.</li>
+              courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
+              Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web. Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie.</li>
               <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
               mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
             </ul>                        
@@ -7877,6 +7905,108 @@ function openSheetAide() {
           </div>
         </div>
       `;
+
+        // <div id="help-ui" class="help-chapter">
+        //   <div class="help-back" data-back>
+        //     <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        //     Retour
+        //   </div>
+        //   <div class="help-block">
+        //     <p>L'application comprend deux pages sélectionnables par balayage gauche / droite ou click sur les icônes gauche et centrale de l'entête.</p>
+
+        //     <p>La première page <u><i>Catalogue</u></i> propose des liens ves les catalogues du In et du Off du festival d'Avignon et le site Billet Réduc, la deuxième 
+        //     <u><i>Mon programme</u></i> permet de construire un programme personnalisé de spectacles ou autres activités.</p>
+                         
+        //     <p style="margin-bottom: 0.2em">La page <u><i>Mon programme</u></i>, comprend quatre tableaux:</p>
+        //     <ul style="margin-top: 0em">
+        //         <li><u><i>Programme</u></i>: tableau des activités programmées (i.e. activités avec date de programmation)
+        //         <li><u><i>Plages libres</u></i>: tableau des plages libres entre activités programmées (seules les plages dans lesquelles existent des activités programmables sont listées)
+        //         <li><u><i>Programmer...</u></i>: tableau des activités programmables dans la plage libre sélectionnée
+        //         <li><u><i>Stock</u></i>: tableau des activités non programmées (i.e. activités sans date de programmation).
+        //     </ul>
+
+        //     <p>Le bouton <u><i>Calendrier</u></i> du tableau <u><i>Programme</u></i> permet de choisir entre une présentation de type calendrier ou grille
+        //     du programme d'activités.</p>
+
+        //     <p>Dans les tableaux <u><i>Programme</u></i>, <u><i>Plages libres</u></i> et <u><i>Programmer...</u></i> les lignes sont colorisées en fonction de leur Date et dans le tableau
+        //     <u><i>Stock</u></i> les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe. 
+        //     Dans le tableau <u><i>Programme</u></i> les activités <u><i>réservées</u></i> sont libellées en rouge (une activité <u><i>réservée</u></i> ne peut être ni déprogrammée
+        //     ni reprogrammée).</p>
+
+        //     <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i> toutes les informations sont éditables, sauf les heures de fin (qui sont calculées automatiquement) 
+        //     et les dates de programmation, heures de début et durées des activités réservées (celles dont la colonne <u><i>Réservé</u></i> est à Oui).</p>
+            
+        //     <p>Elles sont également triables (par clic sur les entêtes de colonnes) et filtrables (par clic sur le bouton <u><i>Filtrer</u></i> des entêtes de grilles ou 
+        //     directement dans les entêtes de colonnes si la dimension de l'écran le permet). Vous pouvez également modifier l'ordre des colonnes en sélectionnant une entête 
+        //     et en la déplaçant.</p>
+
+        //     <p>L'icône des colonnes <u><i>Activité</u></i> et <u><i>Page Web</u></i> permet d'afficher la page Web de l'activité, 
+        //     l'icône de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire sur le lieu de l'activité et 
+        //     l'icône des colonnes <u><i>Google</u></i> <u><i>Billet Réduc</u></i> permet de lancer une recherche de l'activité sur Google et le site Billet Réduc.
+        //     La recherche d'itinéraire utilise l'application choisie dans les paramètres et l'adresse du lieu d'activité renseignée dans le carnet d'adresse, 
+        //     ou à défaut le nom du lieu et un nom de ville défini dans les paramètres.</p>
+                        
+        //     <p style="margin-bottom: 0.2em">Une activité peut être programmée (i.e. insérée dans le tableau <u><i>Programme</u></i> à une date donnée)
+        //     de trois manières différentes:</p>
+        //     <ul style="margin-top: 0em">
+        //         <li>Soit en sélectionnant une plage libre, puis dans cette plage une activité programmable, puis en appuyant sur le bouton <u><i>Programmer</u></i> 
+        //         (situé en haut à droite du tableau <u><i>Programmer...</u></i>)</li> 
+        //         <li>Soit en sélectionnant une activité programmable (activités colorisées en vert menthe) dans le stock et en dépliant le menu de la 
+        //         colonne <u><i>Date</u></i>, lequel liste les jours de programmation possible.</li> 
+        //         <li>Soit en utilisant l'<u><i>Assistant programmation</u></i>, lequel permet de générer automatiquement un planning d'activités
+        //         (voir plus bas).</li>
+        //     </ul>
+
+        //     <p>Pour déprogrammer une activité il suffit de la sélectioner dans le tableau <u><i>Programme</u></i> et d'appuyer sur le bouton <u><i>Supprimer</u></i> 
+        //     (situé en haut à droite de ce même tableau). Une fois déprogrammée, l'activité bascule dans le tableau <u><i>Stock</u></i>.</p>
+            
+        //     <p>Pour la reprogrammer, déplier le menu de la colonne <u><i>Date</u></i> et sélectionner une autre date possible.</p>
+
+        //     <p>Le bouton <u><i>Supprimer</u></i> du tableau <u><i>Stock</u></i> permet de supprimer l'activité sélectionnée et le bouton <u><i>Colonnes</u></i> permet 
+        //     d'ajouter ou supprimer des colonnes sur les activités.</p>
+
+        //     <p style="margin-bottom: 0.2em">Deux menus permettent d'accéder des fonctionnalités complémentaires:</p>
+        //     <ul style="margin-top: 0em">
+        //       <li>Barre de menu en bas de la page "Mon Programme" comprenant les boutons suivants:
+        //         <ul style="margin-top: 0em">
+        //             <li><u><i>Fichier</u></i>: permet de créer un nouveau programme / stock d'activités, charger un programme d'activités depuis un fichier 
+        //             Excel, importer des activités depuis les catalogues en ligne du In et du Off ou le site Billet Réduc, exporter le programme d'activités 
+        //             vers Excel ou vers le calendrier, obtenir un rapport de cohérence des données.</li>
+        //             <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i>: permettent de défaire, refaire une opération.</li>
+        //             <li><u><i>Coller</u></i>: collage d'activités depuis le presse-papier. Pour utiliser cette fonctionnalité, copier préalablement 
+        //             soit l'adresse d'une page du catalogue du In ou du Off (via Partager/Copier ou par copie du champ adresse), soit son contenu. 
+        //             Il peut s'agir soit d'une page programme listant plusieurs spectacles, soit de la page de détail d'un spectacle.</li>
+        //             <li><u><i>Ajouter</u></i>: ajout d'une activité.</li>
+        //         </ul>
+        //       </li>
+        //       <li>Menu "..." comprenant les items suivants:
+        //         <ul style="margin-top: 0em">
+        //             <li><u><i>Carnet d'adresses</u></i>: présente le carnet d'adresses. Les champs <u><i></u>Nom</i> / <u><i></u>Adresse</i> / 
+        //             <u><i></u>Téléphone</i> / <u><i></u>Web</i> de chaque entrée peuvent être édités et des boutons permettent d'ajouter / supprimer 
+        //             des entrées, défaire / refaire ces opérations. Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent 
+        //             d'appeler le numéro de téléphone ou aller sur le site Web correspondant.</li>
+        //             <li><u><i>Assistant programmation</u></i>: permet de générer automatiquement un programme de spectacles en donnant vous préférences par texte libre 
+        //             et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
+        //             courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions et pour 
+        //             chaque spectacle proposé l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web.</li>
+        //             <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
+        //             mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
+        //             <li><u><i>Paramètres</u></i>: permet d'éditer les paramètres de l'application comprenant:
+        //               <ul>
+        //                 <li>la <u><i>période de programmation</u></i></li>
+        //                 <li>la <u><i>marge</u></i> entre activités</li>
+        //                 <li>la <u><i>durée</u></i> des pauses repas</li>
+        //                 <li>le nom de <u><i>l'application d'itinéraire</u></i> (Google Maps, Apple, etc.)</li>
+        //                 <li>la <u><i>ville</u></i> de recherche par défaut pour la recherche d'itinéraire.</li>
+        //               </ul>
+        //             </li>
+        //             <li><u><i>Aide</u></i>: la présente aide</li>
+        //         </ul>
+        //       </li>
+        //     </ul>                        
+        //   </div>
+        // </div>
+
 
       // — Logiciel simple de navigation
       const toc = body.querySelector('.help-toc');
