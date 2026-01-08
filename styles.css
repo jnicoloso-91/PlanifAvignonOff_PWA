@@ -2661,18 +2661,6 @@ input[type="range"]:focus::-moz-range-thumb {
   padding: 8px 10px 12px 54px;
 }
 
-/* Empêche le “scroll chaining” vers la page */
-/* #programme-panel #calA .cal-days-scroll{
-  overscroll-behavior-x: contain;
-  overscroll-behavior-y: contain;  ok même si overflow-y hidden 
-  touch-action: pan-x;             on annonce “horizontal only” 
-} */
-
-/* Bonus : sur iOS, éviter les à-coups */
-/* #programme-panel #calA .cal-days-scroll{
-  -webkit-overflow-scrolling: touch;
-} */
-
 /* Zone de scroll horizontal : autoriser explicitement le pan-x */
 #programme-panel #calA .cal-days-scroll {
   touch-action: pan-x;

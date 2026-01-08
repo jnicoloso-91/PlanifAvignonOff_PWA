@@ -656,29 +656,6 @@ function calcMaxHForPane(pane) {
   return headerH + rowsWanted * rowH;
 }
 
-function autosizeFromGridSafe(handle, pane) {
-  if (!handle?.api || !pane) return;
-  const cnt = handle.api.getDisplayedRowCount?.();
-  // ⚠️ Ignore les états transitoires
-  if (cnt == null || cnt <= 0) return;
-
-  const rowH = handle.api.getSizesForCurrentTheme?.().rowHeight || 32;
-  const headerH = handle.api.getHeaderHeight?.() || 32;
-  const chrome = 4;
-
-  const targetRows = Math.min(cnt, 5);
-  const hTarget = headerH + rowH * targetRows + chrome;
-  const hMax    = headerH + rowH * cnt      + chrome;
-
-  // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
-  const cur = parseFloat(getComputedStyle(pane).height) || 0;
-  if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
-  // if (hTarget > cur) setPaneHeightSmooth(pane, hTarget, false);
-
-  pane.dataset.maxContentHeight = String(hMax);
-  try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
-}
-
 function measureRowAndHeader(gridEl){
   // valeurs par défaut / variables CSS
   const cs = getComputedStyle(gridEl);
@@ -748,9 +725,44 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   return Math.max(desired, hHeader + 8);
 }
 
+function autosizeFromGridSafe(handle, pane) {
+  if (!handle?.api || !pane) return;
+
+  const cnt = handle.api.getDisplayedRowCount?.();
+  // ⚠️ Ignore les états transitoires
+  if (cnt == null || cnt <= 0) return;
+
+  const rowH = handle.api.getSizesForCurrentTheme?.().rowHeight || 32;
+  const headerH = handle.api.getHeaderHeight?.() || 32;
+  const chrome = 4;
+
+  const targetRows = Math.min(cnt, 5);
+  const hTarget = headerH + rowH * targetRows + chrome;
+  const hMax    = headerH + rowH * cnt      + chrome;
+
+  // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
+  const cur = parseFloat(getComputedStyle(pane).height) || 0;
+  if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
+  // if (hTarget > cur) setPaneHeightSmooth(pane, hTarget, false);
+
+  pane.dataset.maxContentHeight = String(hMax);
+  try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
+
+  // S'il s'agit de grid-programmees et que l'on est en mode calendar pas de resize auto
+  const gridId = handle.api.getGridOption('context')?.gridId;
+  if (gridId === 'grid-programmees' && isProgrammeCalendarVisible()) {
+    saveProgrammeGridHeightOnce();
+    applyProgrammeCalendarDefaultHeight();
+    return;
+  };
+}
+
 // Retaille en fonction du row count
 function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!pane || !gridEl) return;
+
+  // S'il s'agit de grid-programmees et que l'on est en mode calendar pas de resize auto
+  if (gridId === 'grid-programmees' && isProgrammeCalendarVisible()) return;
 
   const exp = pane.closest('.st-expander');
   const isOpen = exp?.classList?.contains?.('open');
@@ -1826,6 +1838,9 @@ function agGridHasHeaderFilters(gridId) {
 // Calendar View
 // ===============================
 
+let _progGridHeightPx = null;
+const PX_PER_MIN = 1.1;         // 1.0..1.4
+
 // --- helpers temps (fallback) ---
 function parseHHMM(s) {
   if (!s) return null;
@@ -1845,10 +1860,9 @@ function parseHHMM(s) {
 
   return null;
 }
-
 function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
 
-// --- build days range (inclusif) ---
+// --- helpers days range ---
 function startOfDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
@@ -1860,6 +1874,98 @@ function addDays(d, n) {
 function dateToDateInt(d){
   // tu as déjà dateToInt() ; j’utilise un nom local pour éviter confusion
   return (d.getFullYear()*10000) + ((d.getMonth()+1)*100) + d.getDate();
+}
+
+// Renvoie la racine du calendrier
+function getCalRoot() {
+  return document.getElementById("calA");
+}
+
+// Renvoie le conteneur scroll du calendrier
+function getDaysScroll() {
+  return document.querySelector("#calA .cal-days-scroll");
+}
+
+// Renvoie le noeud jour du calendrier pour une dateint donnée
+function getDayNode(dateInt) {
+  return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
+}
+
+// Renvoie la colonne jour du calendrier pour une dateint donnée
+function getDayColumn(dateInt) {
+  return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
+}
+
+// Renvoie le body jour du calendrier pour une dateint donnée
+function getDayBody(dateInt) {
+  const col = getDayColumn(dateInt);
+  return col?.querySelector(".cal-day__body") || null;
+}
+
+// Renvoie l’élément event du calendrier pour un uuid donné
+function getEventNodeByUuid(uuid) {
+  if (!uuid) return null;
+  return document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+}
+
+// Renvoie le body de l’expander du calendrier
+function getProgrammePaneBody() {
+  return document.querySelector("#exp-programmees .st-expander-body");
+}
+
+// Renvoie la hauteur actuelle de l’expander du calendrier (px)
+function getProgrammePaneHeightPx() {
+  const body = getProgrammePaneBody();
+  return body ? Math.round(body.getBoundingClientRect().height) : null;
+}
+
+// Sauvegarde la hauteur actuelle de l’expander du calendrier (px)
+function saveProgrammeGridHeightOnce() {
+  if (_progGridHeightPx != null) return;
+  const h = getProgrammePaneHeightPx();
+  if (h != null && h > 0) _progGridHeightPx = h;
+}
+
+// Restaure la hauteur de l’expander du calendrier sauvegardée pour le mode grille (px)
+function restoreProgrammeGridHeight() {
+  const body = getProgrammePaneBody();
+  if (!body) return;
+  if (_progGridHeightPx != null) {
+    body.style.setProperty("height", `${_progGridHeightPx}px`, "important");
+  }
+  _progGridHeightPx = null;
+}
+
+// Convertit "heures visibles" -> hauteur max expander (px)
+function programmeCalMaxHeightPxForHours(hours) {
+  // viewport timeline px (minutes * px/min)
+  const timelinePx = Math.round(hours * 60 * PX_PER_MIN);
+
+  // overhead : header expander + paddings internes + header jour + gap
+  // On met une marge safe ; si tu veux, on le mesurera dynamiquement.
+  const overhead = 110;
+
+  return timelinePx + overhead;
+}
+
+// Hauteur par défaut du calendrier (px)
+function programmeCalDefaultHeightPx() {
+  // 5h visibles (9->14)
+  return programmeCalMaxHeightPxForHours(5);
+}
+
+// Hauteur max absolue du calendrier (px)
+function programmeCalAbsoluteMaxHeightPx() {
+  // 24h visibles max
+  return programmeCalMaxHeightPxForHours(24);
+}
+
+// Applique la hauteur par défaut du calendrier (px)
+function applyProgrammeCalendarDefaultHeight() {
+  const body = getProgrammePaneBody();
+  if (!body) return;
+  const px = programmeCalDefaultHeightPx();
+  body.style.setProperty("height", `${px}px`, "important");
 }
 
 // Récupère le jour sélectionné (dateint) depuis grid-programmees
@@ -1886,32 +1992,6 @@ function buildDaysRange(pp) {
     cur = addDays(cur, 1);
   }
   return out;
-}
-
-function getCalRoot() {
-  return document.getElementById("calA");
-}
-
-function getDaysScroll() {
-  return document.querySelector("#calA .cal-days-scroll");
-}
-
-function getDayNode(dateInt) {
-  return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
-}
-
-function getDayColumn(dateInt) {
-  return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
-}
-
-function getDayBody(dateInt) {
-  const col = getDayColumn(dateInt);
-  return col?.querySelector(".cal-day__body") || null;
-}
-
-function getEventNodeByUuid(uuid) {
-  if (!uuid) return null;
-  return document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
 }
 
 function centerDayInViewport(dateInt, { smooth = true } = {}) {
@@ -1972,8 +2052,6 @@ function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
   const dayBody = getDayBody(dateInt);
   if (!dayBody) return false;
 
-  // même PX_PER_MIN que ton rendu (doit être identique)
-  const PX_PER_MIN = 1.1;
   const minutes = Math.max(0, Math.min(24 * 60, hour * 60));
   const y = Math.round(minutes * PX_PER_MIN);
 
@@ -2113,35 +2191,6 @@ function snapToCurrentSelectedEvent() {
   selectEventByUuid(selUuid);
 }
 
-function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = {}) {
-  const calA = document.getElementById("calA");
-  const calADays = document.getElementById("calADays");
-  if (!calA || !calADays) return;
-
-  const activites = ctx.df;
-  const rows = activitesAPI.getActivitesProgrammees(activites).map(r => ({ ...r }));
-
-  let pp =
-    activitesAPI.getPeriodeProgrammation?.(activites) ||
-    activitesAPI.getPeriodeProgrammation?.();
-  pp = normalizePeriodeFromRowsIfNeeded(pp, rows);
-
-  const selD = getSelectedProgrammeDateInt();
-  const selUuid = getSelectedRowUuid('grid-programmees'); 
-
-  renderProgrammeCalendarInto(calADays, rows, pp, selD);
-
-  // post-render snapping
-  requestAnimationFrame(() => {
-    scrollAllDaysToHour?.(calADays, defaultHour);                   // 9h partout par defaut
-    if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour de l’event sélectionné
-    if (selUuid) {
-      scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
-      selectEventByUuid(selUuid);                                   // sélection visuelle de l’event  
-    }
-  });
-}
-
 // DOM mount
 function ensureProgrammeCalendarDOM() {
   const host = document.getElementById("gridA");
@@ -2182,7 +2231,7 @@ function ensureProgrammeCalendarDOM() {
 }
 
 // Render calendar
-function renderProgrammeCalendarInto(daysEl, rows, pp, selectedDateInt) {
+function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
   if (!daysEl) return;
 
   const days = buildDaysRange(pp) || [];
@@ -2203,7 +2252,6 @@ function renderProgrammeCalendarInto(daysEl, rows, pp, selectedDateInt) {
   }
 
   // ---------- constants ----------
-  const PX_PER_MIN = 1.1;         // 1.0..1.4
   const DAY_MINUTES = 24 * 60;
   const timelineH = Math.round(DAY_MINUTES * PX_PER_MIN);
 
@@ -2318,6 +2366,36 @@ function renderProgrammeCalendarInto(daysEl, rows, pp, selectedDateInt) {
   // -> à faire en scrollant .cal-days-scroll (pas daysEl)
 }
 
+// Re-render calendar (data + sélection + scroll)
+function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = {}) {
+  const calA = document.getElementById("calA");
+  const calADays = document.getElementById("calADays");
+  if (!calA || !calADays) return;
+
+  const activites = ctx.df;
+  const rows = activitesAPI.getActivitesProgrammees(activites).map(r => ({ ...r }));
+
+  let pp =
+    activitesAPI.getPeriodeProgrammation?.(activites) ||
+    activitesAPI.getPeriodeProgrammation?.();
+  pp = normalizePeriodeFromRowsIfNeeded(pp, rows);
+
+  const selD = getSelectedProgrammeDateInt();
+  const selUuid = getSelectedRowUuid('grid-programmees'); 
+
+  renderProgrammeCalendar(calADays, rows, pp, selD);
+
+  // post-render snapping
+  requestAnimationFrame(() => {
+    scrollAllDaysToHour?.(calADays, defaultHour);                   // 9h partout par defaut
+    if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour de l’event sélectionné
+    if (selUuid) {
+      scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
+      selectEventByUuid(selUuid);                                   // sélection visuelle de l’event  
+    }
+  });
+}
+
 // Toggle: grid <-> calendar
 const KEY_PROG_VIEW = "exp-programmees:view"; // "grid" | "calendar"
 function getProgrammeViewMode(){
@@ -2339,7 +2417,7 @@ async function showProgrammeCalendar() {
   }
 
   // 1) cal = même hauteur que la grille (expander slider-friendly)
-  setCalHeightFromGrid();
+  // setCalHeightFromGrid();
 
   // 2) toggle (ne dépend que de hidden)
   if (gridA) gridA.style.display = "none";
@@ -2360,7 +2438,7 @@ async function showProgrammeCalendar() {
   const selD = getSelectedProgrammeDateInt();
 
   // 4) render -> on remplit calADays, on ne reconstruit plus les wrappers
-  renderProgrammeCalendarInto(daysEl, rows, pp, selD);
+  renderProgrammeCalendar(daysEl, rows, pp, selD);
 
   // 5) scroll to selected day + event
   queueMicrotask(() => {
@@ -2559,8 +2637,14 @@ function wireProgrammeCalendarToggle() {
         btn.setAttribute("aria-pressed", String(next === "calendar"));
       }
 
-      if (next === "calendar") await showProgrammeCalendar();
-      else showProgrammeGrid();
+      if (next === "calendar") {
+        saveProgrammeGridHeightOnce();
+        applyProgrammeCalendarDefaultHeight();        
+        await showProgrammeCalendar();
+      } else {
+        showProgrammeGrid();
+        restoreProgrammeGridHeight();
+      }
     }
   });
 
@@ -2569,8 +2653,12 @@ function wireProgrammeCalendarToggle() {
     const mode = getProgrammeViewMode();
     const btn = document.getElementById(id);
     if (btn) btn.innerHTML = renderBtn(mode);
-    if (mode === "calendar") await showProgrammeCalendar();
-    else showProgrammeGrid();
+    if (mode === "calendar") {
+      applyProgrammeCalendarDefaultHeight();        
+      await showProgrammeCalendar();
+    } else {
+      showProgrammeGrid();
+    }
   });
 }
 
@@ -3496,7 +3584,6 @@ async function refreshGrid(gridId) {
 
     // autosize pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
-    // autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:api.getGridOption('rowData').length, nbRowsPred:nbRowsPred });
     autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:nbRows, nbRowsPred:nbRowsPred });
   };
 
@@ -3520,7 +3607,6 @@ async function refreshGrid(gridId) {
 
     // (select, clearOther)
     node?.setSelected?.(true, true);
-    // selectRowSilently (api, node);
 
     finish();
   };
@@ -3536,13 +3622,15 @@ async function refreshAllGrids() {
 }
 
 // Rafraichit toutes les grilles d'activités (utilisé par la callback de modification de contexte ctx.onChange sur df)
+// Sauf 'grid-programmables' qui se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
 async function refreshActivitesGrids() {
   refreshGrid('grid-programmees');
   refreshGrid('grid-creneaux');
   refreshGrid('grid-non-programmees');
-  // refreshGrid('grid-programmables'); => Pas celle-là car elle se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
 
-  // ✅ si on est en calendrier : re-render
+  // ✅ si on est en mode calendrier : re-render du calendrier
+  // (après 3 frames pour laisser le temps à grid-programmees de finir de se redessiner 
+  // et notamment à la sélection courante d'être appliquée)
   if (isProgrammeCalendarVisible()) {
     afterFrames(3, () => rerenderProgrammeCalendar({ defaultHour: 9 }));
   }
@@ -3654,8 +3742,13 @@ function wireExpanderSplitters() {
       // limite haute : on peut tout cacher (header compris)
       dyMin = -hTop;
 
-      // limite basse : borne “contenu max” (nb de lignes)
-      const maxH = calcMaxHForPane(paneTop); // ← ta fonction existante
+      // limite basse : borne “contenu max”
+      let maxH = calcMaxHForPane(paneTop); // default (grid & autres panes)
+      const isProgrammePane = (expTop && expTop.id === "exp-programmees");
+      if (isProgrammePane && isProgrammeCalendarVisible()) {
+        maxH = programmeCalAbsoluteMaxHeightPx();  // cap à 24h visibles en mode calendrier
+      }
+
       dyMax = Math.max(0, Math.round(maxH - hTop));
 
       // couper les anims pendant le drag
