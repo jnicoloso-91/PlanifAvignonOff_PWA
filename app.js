@@ -221,8 +221,8 @@ function dbg(tag, obj) {
 }
 
 // ------- Misc Helpers -------
-const ROW_H=32, HEADER_H=32, PAD=4;
-const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;
+const ROW_H=32, HEADER_H=32, PAD=4;                            // valeurs en pixels
+const hFor = n => HEADER_H + ROW_H * Math.max(0,n) + PAD;      // calcule hauteur totale de grid pour n lignes
 
 const $ = id => document.getElementById(id);
 const waitAF = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -746,22 +746,22 @@ function autosizeFromGridSafe(handle, pane) {
   const chrome = 4;
 
   const targetRows = Math.min(cnt, 5);
-  const hTarget = headerH + rowH * targetRows + chrome;
-  const hMax    = headerH + rowH * cnt      + chrome;
+  const hTarget    = headerH + rowH * targetRows + chrome;
+  const hMaxCur    = headerH + rowH * cnt      + chrome;
+  const hMaxPred   = Number(pane.dataset.maxContentHeight) || 0;
 
   // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
   const cur = parseFloat(getComputedStyle(pane).height) || 0;
-  if (hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
+  if (hTarget > hMaxPred && hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
 
-  pane.dataset.maxContentHeight = String(hMax);
+  pane.dataset.maxContentHeight = String(hMaxCur);
   try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
 
   // S'il s'agit de grid-programmees et que l'on est en mode calendar,
-  // on enregistre la hauteur calculée de la grille et on applique la hauteur par défaut du calendrier
+  // on enregistre la hauteur calculée de la grille 
   const gridId = handle.api.getGridOption('context')?.gridId;
   if (gridId === 'grid-programmees' && isProgrammeCalendarVisible()) {
     saveProgrammeGridHeight(hTarget);
-    applyProgrammeCalendarDefaultHeight();
     return;
   };
 }
