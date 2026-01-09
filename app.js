@@ -6070,7 +6070,7 @@ const fileMenuSheetInnerHtml = () => {
       <li class="file-sheet__item" data-action="initProg">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         <div class="file-sheet__text">
-          <span class="file-sheet__titleText">Réinitialiser programme</span>
+          <span class="file-sheet__titleText">Nouveau programme</span>
           <span class="file-sheet__subtitle">Réinitialise le programme d'activités</span>
         </div>
       </li>
@@ -6149,7 +6149,7 @@ function openFileMenu(anchorBtn) {
   // items
   const items = [
     { id:'new',  label:'Nouveau contexte'     },
-    { id:'initProg',  label:'Réinitialiser programme'     },
+    { id:'initProg',  label:'hMaxCurprogramme'     },
     { id:'open', label:'Importer depuis Excel'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
     { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
@@ -8647,7 +8647,7 @@ function openSheetFiltres(gridId) {
       });
 
 
-      // ===== Appliquer / Réinitialiser =====
+      // ===== Appliquer / hMaxCur=====
       const applyBtn = body.querySelector('#btn-apply');
       const clearBtn = body.querySelector('#btn-clear');
       applyBtn.addEventListener('click', () => {
