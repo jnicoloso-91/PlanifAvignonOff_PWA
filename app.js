@@ -2206,7 +2206,13 @@ function scrollAllDaysToHour(daysEl, hour = 9) {
 }
 
 // Scroll tous les jours du calendrier au premier event ou à une heure fallback
-function scrollAllDaysToFirstEventOrHour(daysEl, fallbackHour = 9) {
+function scrollAllDaysToFirstEventOrHour(
+  daysEl,
+  fallbackHour = 9,
+  {
+    gapPx = 12   // 👈 espace visuel sous le header
+  } = {}
+) {
   if (!daysEl) return;
 
   const dayNodes = daysEl.querySelectorAll(".cal-day");
@@ -2217,22 +2223,22 @@ function scrollAllDaysToFirstEventOrHour(daysEl, fallbackHour = 9) {
     const tl   = day.querySelector(".cal-timeline");
     if (!body || !tl) continue;
 
-    // 1️⃣ chercher le premier event du jour
-    const firstEv = tl.querySelector(".cal-ev");
-
     let targetTop;
 
+    // 1️⃣ premier event du jour
+    const firstEv = tl.querySelector(".cal-ev");
+
     if (firstEv) {
-      // position absolue de l'event dans la timeline
-      targetTop = firstEv.offsetTop;
+      // position de l'event dans la timeline
+      targetTop = firstEv.offsetTop - gapPx;
     } else {
-      // 2️⃣ fallback → 9h
+      // 2️⃣ fallback → heure par défaut
       const pxPerMin =
         parseFloat(tl.dataset.pxPerMin) ||
         parseFloat(getComputedStyle(tl).getPropertyValue("--px-per-min")) ||
         1.1;
 
-      targetTop = Math.round(fallbackHour * 60 * pxPerMin);
+      targetTop = Math.round(fallbackHour * 60 * pxPerMin) - gapPx;
     }
 
     // 3️⃣ clamp de sécurité
