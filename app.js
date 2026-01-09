@@ -1959,7 +1959,7 @@ function restoreProgrammeGridHeight() {
 }
 
 // Convertit "heures visibles" -> hauteur max expander (px)
-function programmeCalMaxHeightPxForHours(hours) {
+function hoursToCalMaxHeightPx(hours) {
   // viewport timeline px (minutes * px/min)
   const timelinePx = Math.round(hours * 60 * PX_PER_MIN);
 
@@ -1977,8 +1977,8 @@ function vhToPx(vh) {
 
 // Hauteur par défaut du calendrier (px)
 function programmeCalDefaultHeightPx() {
-  const defCalPx = programmeCalMaxHeightPxForHours(5); // 5h visibles (9->14)
-  const fiftyVhPx = vhToPx(35);
+  const defCalPx = hoursToCalMaxHeightPx(5); // 5h visibles (9->14)
+  const fiftyVhPx = vhToPx(32);
 
   return Math.min(defCalPx, fiftyVhPx);
 }
@@ -1986,7 +1986,7 @@ function programmeCalDefaultHeightPx() {
 // Hauteur max absolue du calendrier (px)
 function programmeCalAbsoluteMaxHeightPx() {
   // 24h visibles max
-  return programmeCalMaxHeightPxForHours(24);
+  return hoursToCalMaxHeightPx(24);
 }
 
 // Applique la hauteur par défaut du calendrier (px)
