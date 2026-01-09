@@ -11854,7 +11854,7 @@ function openSheetAssistantProgrammation() {
                       data-desc="${escapeAttr(desc)}"
                       data-avis="${escapeAttr(avis)}"
                       data-mood="${escapeAttr(mood)}"
-                    >ℹ︎+</button>`
+                    >ℹ︎</button>`
                 : "";
 
             const key     = slotKey(dayInt, slot);
