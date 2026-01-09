@@ -987,6 +987,7 @@ function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {}) {
   const h = grids.get(gridId);
   if (!h || !uuid) return false;
   const api = h.api;
+  const gridEl = h.el;
   let node = null;
 
   api.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
@@ -2006,6 +2007,7 @@ function getSelectedProgrammeDateInt() {
   }
 }
 
+// Construit un tableau de dateints couvrant la période donnée
 function buildDaysRange(pp) {
   if (!pp?.debut || !pp?.fin) return [];
   const start = startOfDay(pp.debut);
@@ -2020,6 +2022,7 @@ function buildDaysRange(pp) {
   return out;
 }
 
+// Centre un jour donné dans le viewport du calendrier (scroll horizontal)
 function centerDayInViewport(dateInt, { smooth = true } = {}) {
   const scroller = getDaysScroll();
   const day = getDayNode(dateInt);
@@ -2040,6 +2043,7 @@ function centerDayInViewport(dateInt, { smooth = true } = {}) {
   return true;
 }
 
+// Centre un event sélectionné dans le jour
 function centerSelectedEventInDay(selectedUuid, { smooth = true } = {}) {
   if (!selectedUuid) return false;
 
@@ -2074,6 +2078,7 @@ function centerSelectedEventInDay(selectedUuid, { smooth = true } = {}) {
   return true;
 }
 
+// Scroll un jour à une heure donnée
 function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
   const dayBody = getDayBody(dateInt);
   if (!dayBody) return false;
@@ -2089,6 +2094,7 @@ function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
   return true;
 }
 
+// Centre le calendrier sur un jour + event sélectionné ou heure fallback
 function snapProgrammeCalendar({
   dateInt,
   selectedUuid = null,
@@ -2109,6 +2115,7 @@ function snapProgrammeCalendar({
   });
 }
 
+// Normalise la période pour qu’elle recouvre les dates des rows
 function normalizePeriodeFromRowsIfNeeded(pp, rows) {
   // rows dates
   const dints = (rows || [])
@@ -2141,6 +2148,7 @@ function normalizePeriodeFromRowsIfNeeded(pp, rows) {
   return { debut: toDate(minD), fin: toDate(maxD) };
 }
 
+// Ajuste la hauteur du calendrier en fonction de la grille
 function setCalHeightFromGrid() {
   const gridA = document.getElementById("gridA");
   const calA  = document.getElementById("calA");
@@ -2150,6 +2158,7 @@ function setCalHeightFromGrid() {
   calA.style.height = h + "px";
 }
 
+// Scroll le calendrier horizontalement pour afficher un jour donné
 function scrollCalendarToDay(calSlot, dateInt) {
   const scroller = calSlot.querySelector(".cal-days-scroll");
   const dayEl = calSlot.querySelector(`.cal-day[data-dateint="${dateInt}"]`);
@@ -2164,6 +2173,7 @@ function scrollCalendarToDay(calSlot, dateInt) {
   scroller.scrollTo({ left: curLeft + delta, behavior: "smooth" });
 }
 
+// Scroll le calendrier verticalement pour afficher un event donné
 function scrollCalendarToEvent(calA, uuid) {
   if (!calA || !uuid) return;
 
@@ -2178,6 +2188,7 @@ function scrollCalendarToEvent(calA, uuid) {
   dayBody.scrollTop = Math.max(0, top);
 } 
 
+// Scroll tous les jours du calendrier à une heure donnée
 function scrollAllDaysToHour(daysEl, hour = 9) {
   const dayNodes = daysEl.querySelectorAll(".cal-day");
   if (!dayNodes.length) return;
@@ -2194,12 +2205,50 @@ function scrollAllDaysToHour(daysEl, hour = 9) {
   }
 }
 
+// Scroll tous les jours du calendrier au premier event ou à une heure fallback
+function scrollAllDaysToFirstEventOrHour(daysEl, fallbackHour = 9) {
+  if (!daysEl) return;
+
+  const dayNodes = daysEl.querySelectorAll(".cal-day");
+  if (!dayNodes.length) return;
+
+  for (const day of dayNodes) {
+    const body = day.querySelector(".cal-day__body");
+    const tl   = day.querySelector(".cal-timeline");
+    if (!body || !tl) continue;
+
+    // 1️⃣ chercher le premier event du jour
+    const firstEv = tl.querySelector(".cal-ev");
+
+    let targetTop;
+
+    if (firstEv) {
+      // position absolue de l'event dans la timeline
+      targetTop = firstEv.offsetTop;
+    } else {
+      // 2️⃣ fallback → 9h
+      const pxPerMin =
+        parseFloat(tl.dataset.pxPerMin) ||
+        parseFloat(getComputedStyle(tl).getPropertyValue("--px-per-min")) ||
+        1.1;
+
+      targetTop = Math.round(fallbackHour * 60 * pxPerMin);
+    }
+
+    // 3️⃣ clamp de sécurité
+    const maxScroll = body.scrollHeight - body.clientHeight;
+    body.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
+  }
+}
+
+// Indique si le calendrier est visible
 function isProgrammeCalendarVisible() {
   const calA = document.getElementById("calA");
   // hidden prend le dessus si tu l’utilises
   return !!calA && !calA.hidden && calA.style.display !== "none";
 }
 
+// Sélectionne un event dans le calendrier par son uuid
 function selectEventByUuid(uuid) {
   if (!uuid) return;
   const daysEl  = document.getElementById("calADays"); // ✅ conteneur des colonnes
@@ -2208,11 +2257,13 @@ function selectEventByUuid(uuid) {
   if (ev) ev.classList.add('is-selected');
 }
 
+// Sélectionne l’event courant dans le calendrier
 export function selectCurrentEventInCalendar() {
   const selUuid = getSelectedRowUuid('grid-programmees');
   selectEventByUuid(selUuid);
 }
 
+// Scroll et sélectionne l’event courant dans le calendrier
 function snapToCurrentSelectedEvent() {
   const calA = document.getElementById("calA");
   const selD = getSelectedProgrammeDateInt();
@@ -2222,6 +2273,7 @@ function snapToCurrentSelectedEvent() {
   selectEventByUuid(selUuid);
 }
 
+// Construire l’URL externe de recherche d’itinéraire vers une adresse
 function openDirectionsExternal(url) {
   if (!url) return;
 
@@ -2431,16 +2483,6 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
         ? `<button type="button" class="cal-ev__info" aria-label="Infos" title="Infos">ℹ︎+</button>`
         : "";
 
-      // ev.innerHTML = `
-      //   <div class="cal-ev__time">${timeLabel}</div>
-      //   <a class="cal-ev__title"
-      //     href="${href}"
-      //     target="_blank"
-      //     rel="noopener">
-      //     ${r.Activite ?? ""}
-      //   </a>
-      //   <div class="cal-ev__place">${r.Lieu ?? ""}</div>
-      // `;
       ev.innerHTML = `
         <div class="cal-ev__time">
           <span class="cal-ev__timeText">${timeLabel}</span>
@@ -2499,7 +2541,7 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
   }
 
   queueMicrotask(() => {
-    scrollAllDaysToHour(daysEl, 9);
+    scrollAllDaysToFirstEventOrHour(daysEl, 9);
     selectCurrentEventInCalendar();
   });
   
@@ -2511,12 +2553,9 @@ function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = {}) {
   const calADays = document.getElementById("calADays");
   if (!calA || !calADays) return;
 
-  const activites = ctx.df;
-  const rows = activitesAPI.getActivitesProgrammees(activites).map(r => ({ ...r }));
+  const rows = getProgrammeCalendarDataSource();
 
-  let pp =
-    activitesAPI.getPeriodeProgrammation?.(activites) ||
-    activitesAPI.getPeriodeProgrammation?.();
+  let pp = activitesAPI.getPeriodeProgrammation?.();
   pp = normalizePeriodeFromRowsIfNeeded(pp, rows);
 
   const selD = getSelectedProgrammeDateInt();
@@ -2526,7 +2565,7 @@ function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = {}) {
 
   // post-render snapping
   requestAnimationFrame(() => {
-    scrollAllDaysToHour?.(calADays, defaultHour);                   // 9h partout par defaut
+    scrollAllDaysToFirstEventOrHour(calADays, defaultHour);         // scroll jusqu'aupremier event ou defaultHour par défaut
     if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour de l’event sélectionné
     if (selUuid) {
       scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
@@ -2544,6 +2583,60 @@ function setProgrammeViewMode(v){
   try { localStorage.setItem(KEY_PROG_VIEW, v); } catch {}
 }
 
+// Récupère les lignes filtrées de la grille programmees
+function getFilteredProgrammeRows() {
+  const g = grids.get("grid-programmees");
+  if (!g) return [];
+
+  const rows = [];
+  g.api.forEachNodeAfterFilterAndSort(node => {
+    if (node.data) rows.push(node.data);
+  });
+  return rows;
+}
+
+// Attend que la grille programmees soit prête (firstDataRendered)
+function waitForProgrammeGridReadyOnce(timeoutMs = 1200) {
+  return new Promise((resolve) => {
+    const g = window.grids?.get?.("grid-programmees");
+    if (!g?.api) return resolve(false);
+
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      try { g.api.removeEventListener("firstDataRendered", onFirst); } catch {}
+      resolve(ok);
+    };
+
+    const onFirst = () => finish(true);
+
+    // Si déjà rendu (parfois true selon version / timing)
+    try {
+      const rowCount = g.api.getDisplayedRowCount?.() ?? 0;
+      if (rowCount > 0) return finish(true);
+    } catch {}
+
+    try { g.api.addEventListener("firstDataRendered", onFirst); } catch {}
+
+    setTimeout(() => finish(false), timeoutMs);
+  });
+}
+
+// Récupère le data source du calendrier 
+// les lignes de la grille programmees filtrées si possible
+function getProgrammeCalendarDataSource() {
+  const activites = ctx.df;
+  let rows = getFilteredProgrammeRows?.() || [];
+
+  // fallback : au boot getFilteredProgrammeRows peut être vide alors que ctx.df est ok
+  if ((!rows || rows.length === 0) && Array.isArray(activites) && activites.length) {
+    rows = activitesAPI.getActivitesProgrammees(activites).map(r => ({...r}));
+  }
+
+  return rows;
+}
+
 // Affiche le calendrier
 async function showProgrammeCalendar() {
   const gridA   = document.getElementById("gridA");
@@ -2555,31 +2648,29 @@ async function showProgrammeCalendar() {
     return;
   }
 
-  // 1) cal = même hauteur que la grille (expander slider-friendly)
-  // setCalHeightFromGrid();
-
-  // 2) toggle (ne dépend que de hidden)
+  // toggle (ne dépend que de hidden)
   if (gridA) gridA.style.display = "none";
   calA.hidden = false;
 
   window.__applyProgrammeCalHeight?.();
 
-  // 3) data
-  const activites = ctx.df;
-  const rows = activitesAPI.getActivitesProgrammees(activites).map(r => ({ ...r }));
+  // ✅ attendre que la grille programme ait réellement un modèle (sinon filteredRows = [])
+  await waitForProgrammeGridReadyOnce();
 
-  let pp =
-    activitesAPI.getPeriodeProgrammation?.(activites) ||
-    activitesAPI.getPeriodeProgrammation?.();
+  // Data source
+  const rows = getProgrammeCalendarDataSource()
 
+  // periode programmation
+  let pp = activitesAPI.getPeriodeProgrammation?.();
   pp = normalizePeriodeFromRowsIfNeeded(pp, rows);
 
+  // Dateint de l'activité sélectionnée
   const selD = getSelectedProgrammeDateInt();
 
-  // 4) render -> on remplit calADays, on ne reconstruit plus les wrappers
+  // render -> on remplit calADays, on ne reconstruit plus les wrappers
   renderProgrammeCalendar(daysEl, rows, pp, selD);
 
-  // 5) scroll to selected day + event
+  // scroll to selected day + event
   queueMicrotask(() => {
     const selected = getSelectedRowUuid('grid-programmees'); 
     snapProgrammeCalendar({
@@ -2588,8 +2679,8 @@ async function showProgrammeCalendar() {
       fallbackHour: 9,
       smooth: false  // au premier affichage, souvent mieux en auto
     });
-  })
-;}
+  });
+}
 
 // Affiche la grille
 function showProgrammeGrid() {
@@ -2604,6 +2695,7 @@ function showProgrammeGrid() {
       if (g.el === gridA) { g.api.onGridSizeChanged(); break; }
     }
   } catch {}
+
 }
 
 // Synchronise la hauteur du calendrier avec le panel
@@ -2784,6 +2876,8 @@ function wireProgrammeCalendarToggle() {
         _cachedCalHeightPx = null;
         showProgrammeGrid();
         restoreProgrammeGridHeight();
+        // scroll vers la ligne sélectionnée une fois la grille visible (deferred)
+        afterFrames(2, () => {selectRowByUuid("grid-programmees", getSelectedRowUuid("grid-programmees"), { align: "middle", scroll: true });});
       }
     }
   });
@@ -8592,6 +8686,7 @@ function openSheetFiltres(gridId) {
 
         gridApi.setFilterModel(newModel);
         gridApi.onFilterChanged?.();
+        if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
         close();
       });
 
