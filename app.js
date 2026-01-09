@@ -2585,7 +2585,8 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
               style: r.Style,
               desc: r.__desc_summary,
               avis: r.__avis_summary,
-              mood: r.Mood
+              mood: r.Mood,
+              note: r?.Note || null,
             });
           }, { passive: false });
         }
@@ -11853,7 +11854,7 @@ function openSheetAssistantProgrammation() {
                       data-desc="${escapeAttr(desc)}"
                       data-avis="${escapeAttr(avis)}"
                       data-mood="${escapeAttr(mood)}"
-                    >ℹ︎</button>`
+                    >ℹ︎+</button>`
                 : "";
 
             const key     = slotKey(dayInt, slot);
@@ -12029,7 +12030,8 @@ function infosPlusPopoverCellRenderer(params) {
         style: row.Style,
         desc: row.__desc_summary,
         avis: row.__avis_summary,
-        mood: row.Mood
+        mood: row.Mood,
+        note: row?.Note || null,
       });
     });
   }
@@ -12059,7 +12061,7 @@ function _onDocKeyDown(e) {
 }
 
 // Handler de click sur les boutons InfosPlus
-function openPopoverNear(anchorEl, { title = "Détails", style, desc, avis, mood }) {
+function openPopoverNear(anchorEl, { title = "Détails", style, desc, avis, mood, note=null } = {}) {
   closePopover();
 
   const pop = document.createElement("div");
@@ -12067,11 +12069,7 @@ function openPopoverNear(anchorEl, { title = "Détails", style, desc, avis, mood
 
   const safe = (v) => (v == null || String(v).trim() === "" ? "—" : String(v));
 
-    // <div class="bb-popover-header">
-    //   <button class="bb-popover-close" type="button" aria-label="Fermer">×</button>
-    // </div>
-
-  pop.innerHTML = `
+   pop.innerHTML = `
     <div class="bb-popover-body">
       <div>
         <span class="bb-k">${escapeHtml(safe(title))}</span>
@@ -12089,16 +12087,16 @@ function openPopoverNear(anchorEl, { title = "Détails", style, desc, avis, mood
         <span class="bb-k">Ton:</span>
         <span class="bb-v">${escapeHtml(safe(mood))}</span>
       </div>
+      ${note == null ? `` : `
+        <div>
+          <span class="bb-k">Note:</span>
+          <span class="bb-v">${escapeHtml(safe(note))}</span>
+        </div>
+      `}
     </div>
   `;
 
   document.body.appendChild(pop);
-
-  // Close button
-  // pop.querySelector(".bb-popover-close").addEventListener("click", (e) => {
-  //   e.preventDefault();
-  //   closePopover();
-  // });
 
   // Positionnement (fixed) à droite du bouton si possible sinon à gauche, en restant dans l’écran
   const r = anchorEl.getBoundingClientRect();
@@ -12143,7 +12141,8 @@ function wireInfosPlusPopup(btn) {
         style: btn.dataset.style || "",
         desc:  btn.dataset.desc || "",
         avis:  btn.dataset.avis || "",
-        mood:  btn.dataset.mood || ""
+        mood:  btn.dataset.mood || "",
+        note:  btn.dataset?.note || null,
       });
     });
 
