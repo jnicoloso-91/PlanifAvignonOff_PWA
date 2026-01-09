@@ -100,12 +100,12 @@ import {
 	}
 
   function onStart(ev){
-    const t = ev.touches ? ev.touches[0] : ev;
 
 		// Ne pas démarrer le pager-drag depuis une zone “interactive” (grilles, etc.)
 		const target = ev.target;
-		if (isInNoSwipeZone(target)) return;
+		if (isInNoSwipeZone(ev.target)) return;
 
+    const t = ev.touches ? ev.touches[0] : ev;
 		startX = curX = t.clientX;
     startY = t.clientY;
     dragging = true; engaged = false;
@@ -129,6 +129,7 @@ import {
       }
     }
 
+    console.log('[pager] drag dx=', dx);
     ev.preventDefault?.(); // bloque le scroll pendant le drag
     applyTransform((-index * pageW) + dx, false);
   }
