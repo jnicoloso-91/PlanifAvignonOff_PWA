@@ -129,7 +129,6 @@ import {
       }
     }
 
-    console.log('[pager] drag dx=', dx);
     ev.preventDefault?.(); // bloque le scroll pendant le drag
     applyTransform((-index * pageW) + dx, false);
   }
