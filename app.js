@@ -1849,8 +1849,13 @@ function agGridHasHeaderFilters(gridId) {
 // Calendar View
 // ===============================
 
-let _progGridHeightPx = null;
 const PX_PER_MIN = 1.1;         // 1.0..1.4
+
+// Cache de la hauteur de la grille grid-programmees (px)
+let _cachedGridHeightPx = null;
+
+// Cache de la hauteur calculée du calendrier (px)
+let _cachedCalHeightPx = null;
 
 // --- helpers temps (fallback) ---
 function parseHHMM(s) {
@@ -1933,24 +1938,24 @@ function getProgrammePaneHeightPx() {
 // Sauvegarde la hauteur de l’expander de grid-programmees pour le mode grille (px)
 function saveProgrammeGridHeight(h=null) {
   if (h == null) h = getProgrammePaneHeightPx();
-  if (h != null && h > 0) _progGridHeightPx = h;
+  if (h != null && h > 0) _cachedGridHeightPx = h;
 }
 
 // Sauvegarde la hauteur actuelle de l’expander du calendrier si pas déjà suavegardée (px)
 function saveProgrammeGridHeightOnce() {
-  if (_progGridHeightPx != null) return;
+  if (_cachedGridHeightPx != null) return;
   const h = getProgrammePaneHeightPx();
-  if (h != null && h > 0) _progGridHeightPx = h;
+  if (h != null && h > 0) _cachedGridHeightPx = h;
 }
 
 // Restaure la hauteur de l’expander du calendrier sauvegardée pour le mode grille (px)
 function restoreProgrammeGridHeight() {
   const body = getProgrammePaneBody();
   if (!body) return;
-  if (_progGridHeightPx != null) {
-    body.style.setProperty("height", `${_progGridHeightPx}px`, "important");
+  if (_cachedGridHeightPx != null) {
+    body.style.setProperty("height", `${_cachedGridHeightPx}px`, "important");
   }
-  _progGridHeightPx = null;
+  _cachedGridHeightPx = null;
 }
 
 // Convertit "heures visibles" -> hauteur max expander (px)
@@ -1983,9 +1988,6 @@ function programmeCalAbsoluteMaxHeightPx() {
   // 24h visibles max
   return programmeCalMaxHeightPxForHours(24);
 }
-
-// Cache de la hauteur calculée du calendrier (px)
-let _cachedCalHeightPx = null;
 
 // Applique la hauteur par défaut du calendrier (px)
 function applyProgrammeCalendarDefaultHeight() {
@@ -2894,7 +2896,7 @@ function wireProgrammeCalendarToggle() {
     const btn = document.getElementById(id);
     if (btn) btn.innerHTML = renderBtn(mode);
     if (mode === "calendar") {
-      applyProgrammeCalendarDefaultHeight();        
+      afterFrames(2, () => applyProgrammeCalendarDefaultHeight());        
       await showProgrammeCalendar();
     } else {
       showProgrammeGrid();
