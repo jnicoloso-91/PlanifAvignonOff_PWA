@@ -2176,19 +2176,70 @@ function scrollCalendarToDay(calSlot, dateInt) {
 }
 
 // Scroll le calendrier verticalement pour afficher un event donné
-function scrollCalendarToEvent(calA, uuid) {
-  if (!calA || !uuid) return;
+function scrollCalendarToEvent(calA, uuid, {
+  gapTopPx = 12,
+  gapBottomPx = 16,
+  smooth = false,
+  preferBottom = true,
+  bottomBias = 0.75, // 0.5=center, 0.75=plutôt bas, 0.9=très bas
+} = {}) {
+  if (!calA || !uuid) return false;
 
   const ev = calA.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
-  if (!ev) return;
+  if (!ev) return false;
 
   const dayBody = ev.closest(".cal-day__body");
-  if (!dayBody) return;
+  if (!dayBody) return false;
 
-  // centre l’event dans son scroller vertical
-  const top = ev.offsetTop - Math.max(0, (dayBody.clientHeight - ev.clientHeight) / 2);
-  dayBody.scrollTop = Math.max(0, top);
-} 
+  const viewportH = dayBody.clientHeight;
+
+  // ✅ Position réelle de l’event DANS le scroller
+  const bodyRect = dayBody.getBoundingClientRect();
+  const evRect = ev.getBoundingClientRect();
+  const evTop = (evRect.top - bodyRect.top) + dayBody.scrollTop;
+  const evH = evRect.height;
+  const evBottom = evTop + evH;
+
+  const maxScroll = Math.max(0, dayBody.scrollHeight - viewportH);
+
+  // Intervalle de scroll qui garantit que l’event est entièrement visible
+  // (avec gaps) : scrollTop ∈ [minForBottom, maxForTop]
+  const minForBottom = Math.max(0, (evBottom + gapBottomPx) - viewportH);
+  const maxForTop = Math.max(0, evTop - gapTopPx);
+
+  let targetTop;
+
+  const usableViewport = Math.max(0, viewportH - gapTopPx - gapBottomPx);
+
+  // 1) Event trop grand pour tenir entièrement -> on privilégie le haut visible
+  // (tu ne peux pas avoir haut+bas visibles si evH > usableViewport)
+  if (evH >= usableViewport) {
+    targetTop = maxForTop;
+  }
+  // 2) Event normal : vise une position plutôt basse, puis force visibilité complète
+  else if (preferBottom) {
+    const desiredEvTopInViewport = gapTopPx + usableViewport * bottomBias;
+    targetTop = evTop - desiredEvTopInViewport;
+
+    // ✅ Forcer l’event entièrement visible
+    targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
+  }
+  // 3) Fallback centrage + visibilité complète
+  else {
+    targetTop = evTop - (viewportH - evH) / 2;
+    targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
+  }
+
+  // Clamp final absolu
+  targetTop = Math.max(0, Math.min(targetTop, maxScroll));
+
+  dayBody.scrollTo({
+    top: targetTop,
+    behavior: smooth ? "smooth" : "auto",
+  });
+
+  return true;
+}
 
 // Scroll tous les jours du calendrier à une heure donnée
 function scrollAllDaysToHour(daysEl, hour = 9) {
