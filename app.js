@@ -4350,26 +4350,79 @@ function wireSingleScrollerHeaderSync(gridId) {
   }, { passive: true });
 }
 
+// function wireAgTouchScrollRouter(gridId) {
+//   const h = grids.get(gridId);
+//   if (!h) return;
+//   const gridEl = h.el;
+//   const bodyVp = gridEl.querySelector(".ag-body-viewport");
+//   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
+//   if (!bodyVp || !xVp) return;
+//   if (gridEl.__bbTouchRouter) return;
+//   gridEl.__bbTouchRouter = true;
+
+//   let sx=0, sy=0, sl=0, engaged=false, horiz=false;
+//   const DEADZONE = 10;     // px
+//   const RATIO = 1.15;      // plus petit = plus facile de prendre X
+
+//   bodyVp.addEventListener("touchstart", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
+//     sx = t.clientX; sy = t.clientY;
+//     sl = xVp.scrollLeft;
+//     engaged = false; horiz = false;
+//   }, { passive: true });
+
+//   bodyVp.addEventListener("touchmove", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
+//     const dx = t.clientX - sx;
+//     const dy = t.clientY - sy;
+
+//     if (!engaged) {
+//       if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+//       engaged = true;
+//       horiz = Math.abs(dx) > Math.abs(dy) * RATIO;
+//       if (!horiz) return; // vertical => on laisse le Y naturel (bodyVp)
+//     }
+
+//     if (horiz) {
+//       // geste horizontal => on route vers le scroller X officiel
+//       e.preventDefault();
+//       xVp.scrollLeft = sl - dx;
+//     }
+//   }, { passive: false });
+// }
 function wireAgTouchScrollRouter(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
+
   const gridEl = h.el;
   const bodyVp = gridEl.querySelector(".ag-body-viewport");
   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
   if (!bodyVp || !xVp) return;
+
   if (gridEl.__bbTouchRouter) return;
   gridEl.__bbTouchRouter = true;
 
-  let sx=0, sy=0, sl=0, engaged=false, horiz=false;
-  const DEADZONE = 10;     // px
-  const RATIO = 1.15;      // plus petit = plus facile de prendre X
+  let sx = 0, sy = 0, engaged = false, horiz = false;
+  const DEADZONE = 10; // px
+  const RATIO = 1.15;
+
+  // helper : bloque/débloque le scroll vertical du body viewport
+  function setVerticalLock(lock) {
+    // Le but : empêcher bodyVp de “prendre” le scroll quand on veut X
+    // sans casser le scroll natif de xVp.
+    bodyVp.style.overflowY = lock ? "hidden" : "";
+    // Bonus iOS : évite parfois le scroll chain
+    bodyVp.style.touchAction = lock ? "none" : "";
+  }
 
   bodyVp.addEventListener("touchstart", (e) => {
     if (!e.touches || e.touches.length !== 1) return;
     const t = e.touches[0];
     sx = t.clientX; sy = t.clientY;
-    sl = xVp.scrollLeft;
     engaged = false; horiz = false;
+    setVerticalLock(false);
   }, { passive: true });
 
   bodyVp.addEventListener("touchmove", (e) => {
@@ -4382,15 +4435,35 @@ function wireAgTouchScrollRouter(gridId) {
       if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
       engaged = true;
       horiz = Math.abs(dx) > Math.abs(dy) * RATIO;
-      if (!horiz) return; // vertical => on laisse le Y naturel (bodyVp)
+
+      if (horiz) {
+        // ✅ On veut un geste horizontal :
+        // on bloque le Y (sinon bodyVp “mange” le geste),
+        // et on laisse xVp faire son scroll NATIF.
+        setVerticalLock(true);
+
+        // Important : ne pas preventDefault ici “tout le temps”.
+        // On le fait juste pour empêcher le scroll vertical de la page/body.
+        e.preventDefault();
+      }
+      return;
     }
 
     if (horiz) {
-      // geste horizontal => on route vers le scroller X officiel
+      // ✅ Ne PAS piloter scrollLeft => inertie préservée
+      // On empêche juste les comportements parasites.
       e.preventDefault();
-      xVp.scrollLeft = sl - dx;
     }
   }, { passive: false });
+
+  function end() {
+    setVerticalLock(false);
+    engaged = false;
+    horiz = false;
+  }
+
+  bodyVp.addEventListener("touchend", end, { passive: true });
+  bodyVp.addEventListener("touchcancel", end, { passive: true });
 }
 
 // ===== Actions =====
