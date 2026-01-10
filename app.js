@@ -8753,6 +8753,7 @@ function openSheetFiltres(gridId) {
       clearBtn.addEventListener('click', () => {
         gridApi.setFilterModel({});
         gridApi.onFilterChanged?.();
+        if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
         close();
       });
 
