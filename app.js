@@ -4605,48 +4605,6 @@ function wireSingleScrollerHeaderSync(gridId) {
   }, { passive: true });
 }
 
-// function wireAgTouchScrollRouter(gridId) {
-//   const h = grids.get(gridId);
-//   if (!h) return;
-//   const gridEl = h.el;
-//   const bodyVp = gridEl.querySelector(".ag-body-viewport");
-//   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
-//   if (!bodyVp || !xVp) return;
-//   if (gridEl.__bbTouchRouter) return;
-//   gridEl.__bbTouchRouter = true;
-
-//   let sx=0, sy=0, sl=0, engaged=false, horiz=false;
-//   const DEADZONE = 10;     // px
-//   const RATIO = 1.15;      // plus petit = plus facile de prendre X
-
-//   bodyVp.addEventListener("touchstart", (e) => {
-//     if (!e.touches || e.touches.length !== 1) return;
-//     const t = e.touches[0];
-//     sx = t.clientX; sy = t.clientY;
-//     sl = xVp.scrollLeft;
-//     engaged = false; horiz = false;
-//   }, { passive: true });
-
-//   bodyVp.addEventListener("touchmove", (e) => {
-//     if (!e.touches || e.touches.length !== 1) return;
-//     const t = e.touches[0];
-//     const dx = t.clientX - sx;
-//     const dy = t.clientY - sy;
-
-//     if (!engaged) {
-//       if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
-//       engaged = true;
-//       horiz = Math.abs(dx) > Math.abs(dy) * RATIO;
-//       if (!horiz) return; // vertical => on laisse le Y naturel (bodyVp)
-//     }
-
-//     if (horiz) {
-//       // geste horizontal => on route vers le scroller X officiel
-//       e.preventDefault();
-//       xVp.scrollLeft = sl - dx;
-//     }
-//   }, { passive: false });
-// }
 function wireAgTouchScrollRouter(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
