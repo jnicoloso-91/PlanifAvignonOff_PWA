@@ -779,13 +779,6 @@ main, .page-wrap {
   z-index: 9999; /* au besoin */
 }
 
-/* Normal : overflow masqué pour un scroll performant */
-/* .ag-center-cols-viewport,
-.ag-body-viewport,
-.ag-root-wrapper-body {
-  overflow: auto; /* ou hidden 
-} */
-
 /* BUG IPad : assure que les popup menus soient au dessus de la colo (début) */
 /* Colo de ligne en dessous de tout */
 .ag-row::before,
@@ -2443,7 +2436,6 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* =========================
    Programme – Calendrier (#calA)
-   Version SCOPÉE (mêmes valeurs, sans doublons/contradictions)
    ========================= */
 
 /* calA doit remplir la hauteur du body */
