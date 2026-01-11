@@ -2657,6 +2657,7 @@ input[type="range"]:focus::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  touch-action: pan-x pan-y !important
 }
 
 /* header “fixe” par construction (il est hors du body scroll) */
