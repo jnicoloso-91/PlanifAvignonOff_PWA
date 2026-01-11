@@ -2795,76 +2795,7 @@ function attachProgrammeCalendarHeightSync() {
 
 let _calAxisLockInstalled = false;
 
-// Empêche le scroll vertical quand le geste est horizontal dans le calendrier
-// function enableCalAxisLock() {
-//   if (_calAxisLockInstalled) return;
-//   _calAxisLockInstalled = true;
-
-//   const root = document.querySelector("#programme-panel");
-//   if (!root) return;
-
-//   const getDaysScroll = () => document.querySelector("#programme-panel #calA .cal-days-scroll");
-
-//   const isInDayBody = (t) => !!t && !!t.closest?.("#programme-panel #calA .cal-day__body");
-//   const isInCal = (t) => !!t && !!t.closest?.("#programme-panel #calA");
-
-//   let mode = null;       // null | "x" | "y"
-//   let startX = 0, startY = 0;
-//   let lastX = 0;
-//   const THRESH = 7;
-
-//   // Important: capture pour passer avant ton pager
-//   document.addEventListener("touchstart", (e) => {
-//     if (!isInCal(e.target)) return;
-
-//     const t = e.touches?.[0];
-//     if (!t) return;
-
-//     mode = null;
-//     startX = lastX = t.clientX;
-//     startY = t.clientY;
-//   }, { capture: true, passive: true });
-
-//   document.addEventListener("touchmove", (e) => {
-//     // On ne s’occupe QUE des gestes démarrés dans le body (zone verticale)
-//     if (!isInDayBody(e.target)) return;
-
-//     const t = e.touches?.[0];
-//     if (!t) return;
-
-//     const dx0 = t.clientX - startX;
-//     const dy0 = t.clientY - startY;
-
-//     if (!mode) {
-//       if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
-//       mode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
-//     }
-
-//     if (mode === "x") {
-//       // 🔥 on stoppe le scroll natif (vertical) pour pouvoir scroller horizontalement le parent
-//       e.preventDefault();
-//       e.stopPropagation();
-
-//       const daysScroll = getDaysScroll();
-//       if (!daysScroll) return;
-
-//       // delta depuis le dernier move (plus fluide)
-//       const dx = t.clientX - lastX;
-//       lastX = t.clientX;
-
-//       daysScroll.scrollLeft -= dx;
-//     }
-//     // mode === "y" -> ne rien faire : le scroll vertical natif continue
-//   }, { capture: true, passive: false });
-
-//   const reset = (e) => {
-//     if (!isInCal(e.target)) return;
-//     mode = null;
-//   };
-
-//   document.addEventListener("touchend", reset, { capture: true, passive: true });
-//   document.addEventListener("touchcancel", reset, { capture: true, passive: true });
-// }
+// Scroll X mobile avec inertie (fling) - ne pas simplifier et revenir au scroll natif
 function enableCalAxisLock() {
   if (_calAxisLockInstalled) return;
   _calAxisLockInstalled = true;
@@ -4605,6 +4536,7 @@ function wireSingleScrollerHeaderSync(gridId) {
   }, { passive: true });
 }
 
+// Scroll X mobile avec inertie (fling) - ne pas simplifier et revenir au scroll natif
 function wireAgTouchScrollRouter(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
