@@ -12346,6 +12346,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireInfosPlusPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
+  
+(function traceCalendarPreventDefault() {
+  if (window.__bbCalPD) return;
+  window.__bbCalPD = true;
+
+  const orig = Event.prototype.preventDefault;
+  Event.prototype.preventDefault = function () {
+    try {
+      if ((this.type === "touchmove" || this.type === "pointermove") &&
+          this.target?.closest?.("#calA .cal-day")) {
+        console.debug("[CAL PD]", this.type, this.target);
+        console.debug(new Error("stack").stack);
+      }
+    } catch (_) {}
+    return orig.call(this);
+  };
+})();
+
 
   console.log('✅ Application initialisée');
 
