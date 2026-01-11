@@ -2443,10 +2443,10 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* =========================
    Programme – Calendrier (#calA)
-   (sans doublons / sans contradictions)
+   Version SCOPÉE (mêmes valeurs, sans doublons/contradictions)
    ========================= */
 
-/* calA remplit la hauteur dispo dans le panel */
+/* calA doit remplir la hauteur du body */
 #programme-panel #calA{
   height: 100%;
   min-height: 0;
@@ -2455,22 +2455,23 @@ input[type="range"]:focus::-moz-range-thumb {
   overflow: hidden; /* pas de scroll global */
 }
 
-/* Wrapper scroll horizontal des jours (source unique) */
+/* Wrapper scroll horizontal des jours */
 #programme-panel #calA .cal-days-scroll{
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;              /* IMPORTANT (comme dans ton CSS) */
+  height: 100%;              /* IMPORTANT (comme chez toi) */
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
 
-  /* cohérent + utile */
+  overscroll-behavior: contain;
+
+  /* zone X */
   touch-action: pan-x;
   overscroll-behavior-x: contain;
-  overscroll-behavior-y: none;
 }
 
-/* Ligne de jours (source unique) */
+/* Ligne de jours */
 #programme-panel #calA .cal-days{
   height: 100%;              /* IMPORTANT */
   min-height: 0;
@@ -2488,7 +2489,6 @@ input[type="range"]:focus::-moz-range-thumb {
   flex: 0 0 320px;           /* largeur par jour */
   height: 100%;
   min-height: 0;
-
   display: flex;
   flex-direction: column;
 
@@ -2497,13 +2497,14 @@ input[type="range"]:focus::-moz-range-thumb {
   background: #fff;
   overflow: hidden;
 
-  /* OK de laisser permissif, l’axis-lock JS gère le X depuis le body */
-  touch-action: pan-x pan-y;
+  touch-action: pan-x pan-y !important;
 }
 
-/* En-tête du jour (on garde ton look) */
+/* En-tête du jour */
 #programme-panel #calA .cal-day__header{
+  position: sticky;
   top: 0;
+  z-index: 2;
   padding: 8px 10px;
   background: #f3f4f6;
   border-bottom: 1px solid rgba(0,0,0,.08);
@@ -2512,10 +2513,6 @@ input[type="range"]:focus::-moz-range-thumb {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 2;
 }
 
 #programme-panel #calA .cal-day__title{
@@ -2533,18 +2530,21 @@ input[type="range"]:focus::-moz-range-thumb {
   white-space: nowrap;
 }
 
-/* Zone “timeline” (scroll vertical interne au jour) — source unique */
+/* Zone “timeline” (scroll vertical interne au jour)
+   ⚠️ Nettoyage: suppression de la contradiction overflow-x:auto !important
+*/
 #programme-panel #calA .cal-day__body{
-  position: relative;
-  background: #fff;
   flex: 1 1 auto;
   min-height: 0;
 
   overflow-y: auto;
-  overflow-x: hidden;                 /* IMPORTANT: pas de X ici */
+  overflow-x: hidden;                 /* cohérent + pas de double scroll X */
   -webkit-overflow-scrolling: touch;
 
-  touch-action: pan-y;                /* zone verticale */
+  position: relative;
+  background: #fff;
+
+  touch-action: pan-x pan-y !important;
   overscroll-behavior-y: contain;
   overscroll-behavior-x: auto;
 }
@@ -2552,8 +2552,8 @@ input[type="range"]:focus::-moz-range-thumb {
 /* Grille horaire */
 #programme-panel #calA .cal-timeline{
   position: relative;
-  padding: 8px 10px 12px 54px; /* marge à gauche pour les heures */
-  /* min-height pilotée par le JS chez toi */
+  padding: 8px 10px 12px 54px;
+  min-height: 1440px; /* comme dans ton CSS d'origine */
 }
 
 /* Traits + labels des heures */
@@ -2570,7 +2570,7 @@ input[type="range"]:focus::-moz-range-thumb {
   left: 10px;
   transform: translateY(-50%);
   font-size: 11px;
-  color: rgba(0,0,0,.55);
+  color: rgba(17,24,39,.55);
 }
 
 /* Un bloc “évènement” */
@@ -2600,7 +2600,7 @@ input[type="range"]:focus::-moz-range-thumb {
 
   display: flex;
   align-items: center;
-  justify-content: space-between; /* i+ à droite */
+  justify-content: space-between;
   gap: 8px;
 }
 

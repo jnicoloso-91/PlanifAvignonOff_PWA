@@ -2918,99 +2918,61 @@ function enableCalAxisLock() {
     return dx / dt; // px/ms (note: dx positif = doigt vers la droite)
   }
 
-  // function startFling(daysScroll) {
-  //   // clamp vitesse
-  //   const MAX_V = 2.2; // px/ms ~ 2200px/s (ajuste au goût)
-  //   vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
+  function startFling(daysScroll) {
+    const MAX_V = 2.2;      // px/ms
+    vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
+    if (Math.abs(vx) < 0.05) return;
 
-  //   // seuil : si trop faible, pas de fling
-  //   if (Math.abs(vx) < 0.05) return;
+    let prevT = performance.now();
+    const BASE_FRICTION = 0.0038; // friction “normale”
+    const EDGE_ZONE = 80;         // px : zone proche bord où on freine plus
+    const EDGE_BOOST = 0.010;     // friction ajoutée quand on est très proche
 
-  //   let prevT = performance.now();
-  //   const FRICTION = 0.0042; // plus grand = s'arrête plus vite
+    const step = (now) => {
+      const dt = now - prevT;
+      prevT = now;
 
-  //   const step = (now) => {
-  //     const dt = now - prevT;
-  //     prevT = now;
+      const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
+      const cur = daysScroll.scrollLeft;
 
-  //     // intégration
-  //     const dx = vx * dt; // px
-  //     // ton mapping: daysScroll.scrollLeft -= dxDoigt ; ici vx est vitesse du doigt,
-  //     // donc on conserve la même convention:
-  //     daysScroll.scrollLeft -= dx;
+      // vx > 0 => doigt va à droite => scrollLeft veut diminuer => bord concerné = gauche (0)
+      // vx < 0 => doigt va à gauche  => scrollLeft veut augmenter => bord concerné = droite (maxScroll)
+      const distToEdge = (vx > 0) ? cur : (maxScroll - cur);
 
-  //     // décélération (exponentielle approx)
-  //     const decay = Math.exp(-FRICTION * dt);
-  //     vx *= decay;
+      // friction augmentée progressivement à l’approche du bord
+      const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
+      const friction = BASE_FRICTION + EDGE_BOOST * edgeFactor * edgeFactor;
 
-  //     // stop conditions: vitesse faible ou bords atteints
-  //     const atLeft = daysScroll.scrollLeft <= 0;
-  //     const atRight = daysScroll.scrollLeft >= (daysScroll.scrollWidth - daysScroll.clientWidth - 1);
-  //     if (Math.abs(vx) < 0.02 || atLeft || atRight) {
-  //       stopFling();
-  //       return;
-  //     }
+      // déplacement
+      const dx = vx * dt;
+      let next = cur - dx;
 
-  //     flingRaf = requestAnimationFrame(step);
-  //   };
+      // clamp
+      if (next < 0) next = 0;
+      if (next > maxScroll) next = maxScroll;
 
-  //   flingRaf = requestAnimationFrame(step);
-  // }
-function startFling(daysScroll) {
-  const MAX_V = 2.2;      // px/ms
-  vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
-  if (Math.abs(vx) < 0.05) return;
+      daysScroll.scrollLeft = next;
 
-  let prevT = performance.now();
-  const BASE_FRICTION = 0.0038; // friction “normale”
-  const EDGE_ZONE = 80;         // px : zone proche bord où on freine plus
-  const EDGE_BOOST = 0.010;     // friction ajoutée quand on est très proche
+      // décélération
+      const decay = Math.exp(-friction * dt);
+      vx *= decay;
 
-  const step = (now) => {
-    const dt = now - prevT;
-    prevT = now;
+      const atLeft = next <= 0.5;
+      const atRight = next >= (maxScroll - 0.5);
 
-    const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
-    const cur = daysScroll.scrollLeft;
+      // stop : vitesse faible, ou on est à la butée DANS le sens du mouvement
+      if (Math.abs(vx) < 0.02 ||
+          (vx > 0 && atLeft) ||
+          (vx < 0 && atRight)) {
+        stopFling();
+        return;
+      }
 
-    // vx > 0 => doigt va à droite => scrollLeft veut diminuer => bord concerné = gauche (0)
-    // vx < 0 => doigt va à gauche  => scrollLeft veut augmenter => bord concerné = droite (maxScroll)
-    const distToEdge = (vx > 0) ? cur : (maxScroll - cur);
-
-    // friction augmentée progressivement à l’approche du bord
-    const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
-    const friction = BASE_FRICTION + EDGE_BOOST * edgeFactor * edgeFactor;
-
-    // déplacement
-    const dx = vx * dt;
-    let next = cur - dx;
-
-    // clamp
-    if (next < 0) next = 0;
-    if (next > maxScroll) next = maxScroll;
-
-    daysScroll.scrollLeft = next;
-
-    // décélération
-    const decay = Math.exp(-friction * dt);
-    vx *= decay;
-
-    const atLeft = next <= 0.5;
-    const atRight = next >= (maxScroll - 0.5);
-
-    // stop : vitesse faible, ou on est à la butée DANS le sens du mouvement
-    if (Math.abs(vx) < 0.02 ||
-        (vx > 0 && atLeft) ||
-        (vx < 0 && atRight)) {
-      stopFling();
-      return;
-    }
+      flingRaf = requestAnimationFrame(step);
+    };
 
     flingRaf = requestAnimationFrame(step);
-  };
-
-  flingRaf = requestAnimationFrame(step);
-}
+  }
 
   // Important: capture pour passer avant ton pager
   document.addEventListener("touchstart", (e) => {
@@ -3039,58 +3001,35 @@ function startFling(daysScroll) {
     const dx0 = t.clientX - startX;
     const dy0 = t.clientY - startY;
 
-    // if (!mode) {
-    //   if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
-    //   mode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
-    // }
-if (!mode) {
-  if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
+    if (!mode) {
+      if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
 
-  let nextMode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
+      let nextMode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
 
-  // ✅ si on s'apprête à prendre l'axe X, vérifie qu'on peut scroller dans ce sens
-  if (nextMode === "x") {
-    const daysScroll = getDaysScroll();
-    if (daysScroll) {
-      const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
-      const cur = daysScroll.scrollLeft;
+      // ✅ si on s'apprête à prendre l'axe X, vérifie qu'on peut scroller dans ce sens
+      if (nextMode === "x") {
+        const daysScroll = getDaysScroll();
+        if (daysScroll) {
+          const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
+          const cur = daysScroll.scrollLeft;
 
-      // dx0 > 0 => doigt vers la droite => scrollLeft diminue (vers 0)
-      // dx0 < 0 => doigt vers la gauche  => scrollLeft augmente (vers max)
-      const blockedAtStart =
-        (dx0 > 0 && cur <= 0.5) ||
-        (dx0 < 0 && cur >= maxScroll - 0.5);
+          // dx0 > 0 => doigt vers la droite => scrollLeft diminue (vers 0)
+          // dx0 < 0 => doigt vers la gauche  => scrollLeft augmente (vers max)
+          const blockedAtStart =
+            (dx0 > 0 && cur <= 0.5) ||
+            (dx0 < 0 && cur >= maxScroll - 0.5);
 
-      if (blockedAtStart) {
-        nextMode = "y"; // on refuse de capturer en X
-        startX = lastX = t.clientX;
-        startY = t.clientY;
+          if (blockedAtStart) {
+            nextMode = "y"; // on refuse de capturer en X
+            startX = lastX = t.clientX;
+            startY = t.clientY;
+          }
+        }
       }
+
+      mode = nextMode;
     }
-  }
 
-  mode = nextMode;
-}
-
-    // if (mode === "x") {
-    //   e.preventDefault();
-    //   e.stopPropagation();
-
-    //   const daysScroll = getDaysScroll();
-    //   if (!daysScroll) return;
-
-    //   const now = performance.now();
-
-    //   // delta depuis le dernier move
-    //   const dx = t.clientX - lastX;
-    //   lastX = t.clientX;
-
-    //   daysScroll.scrollLeft -= dx;
-
-    //   // samples pour vitesse
-    //   pushSample(now, t.clientX);
-    //   lastMoveT = now;
-    // }
     if (mode === "x") {
       const daysScroll = getDaysScroll();
       if (!daysScroll) return;
@@ -3104,29 +3043,29 @@ if (!mode) {
       const prev = daysScroll.scrollLeft;
       const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
 
-const cur = daysScroll.scrollLeft;
+      const cur = daysScroll.scrollLeft;
 
-// dx > 0 => doigt va à droite => scrollLeft veut diminuer => si cur ~ 0, bloqué
-// dx < 0 => doigt va à gauche  => scrollLeft veut augmenter => si cur ~ max, bloqué
-const blocked =
-  (dx > 0 && cur <= 0.5) ||
-  (dx < 0 && cur >= maxScroll - 0.5);
+      // dx > 0 => doigt va à droite => scrollLeft veut diminuer => si cur ~ 0, bloqué
+      // dx < 0 => doigt va à gauche  => scrollLeft veut augmenter => si cur ~ max, bloqué
+      const blocked =
+        (dx > 0 && cur <= 0.5) ||
+        (dx < 0 && cur >= maxScroll - 0.5);
 
-if (blocked) {
-  // ✅ on est en butée dans ce sens : on abandonne le mode X
-  // et on laisse le scroll vertical natif reprendre immédiatement
-  mode = "y";
+      if (blocked) {
+        // ✅ on est en butée dans ce sens : on abandonne le mode X
+        // et on laisse le scroll vertical natif reprendre immédiatement
+        mode = "y";
 
-  // reset de référence pour éviter les gros dx au prochain move
-  startX = lastX = t.clientX;
-  startY = t.clientY;
+        // reset de référence pour éviter les gros dx au prochain move
+        startX = lastX = t.clientX;
+        startY = t.clientY;
 
-  // on coupe l'inertie X en cours (sinon on peut relancer un fling “inutile”)
-  samples.length = 0;
-  vx = 0;
+        // on coupe l'inertie X en cours (sinon on peut relancer un fling “inutile”)
+        samples.length = 0;
+        vx = 0;
 
-  return;
-}
+        return;
+      }
       // mapping identique: scrollLeft -= dx
       const next = Math.max(0, Math.min(maxScroll, prev - dx));
 
@@ -3156,19 +3095,20 @@ if (blocked) {
       const daysScroll = getDaysScroll();
       if (daysScroll) {
         vx = computeVelocity(); // px/ms (doigt)
-const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
-const cur = daysScroll.scrollLeft;
 
-// vx > 0 => fling vers la droite => scrollLeft diminue => si cur ~ 0, inutile
-// vx < 0 => fling vers la gauche  => scrollLeft augmente => si cur ~ max, inutile
-const blocked =
-  (vx > 0 && cur <= 0.5) ||
-  (vx < 0 && cur >= maxScroll - 0.5);
+      const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
+      const cur = daysScroll.scrollLeft;
 
-if (blocked) {
-  stopFling();
-  return;
-}
+      // vx > 0 => fling vers la droite => scrollLeft diminue => si cur ~ 0, inutile
+      // vx < 0 => fling vers la gauche  => scrollLeft augmente => si cur ~ max, inutile
+      const blocked =
+        (vx > 0 && cur <= 0.5) ||
+        (vx < 0 && cur >= maxScroll - 0.5);
+
+      if (blocked) {
+        stopFling();
+        return;
+      }
         startFling(daysScroll);
       }
     }
@@ -3180,6 +3120,7 @@ if (blocked) {
   document.addEventListener("touchend", reset, { capture: true, passive: true });
   document.addEventListener("touchcancel", reset, { capture: true, passive: true });
 }
+
 // public: à appeler après init grid + wireExpanderButtons
 function wireProgrammeCalendarToggle() {
   const id = "btn-prog-view";
