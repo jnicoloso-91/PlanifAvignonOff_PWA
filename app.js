@@ -12346,7 +12346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireInfosPlusPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
-  
+
 (function traceCalendarPreventDefault() {
   if (window.__bbCalPD) return;
   window.__bbCalPD = true;
@@ -12364,6 +12364,73 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 })();
 
+function wireCalendarXProxy(calRoot) {
+  if (!calRoot || calRoot.__bbCalXProxy) return;
+  calRoot.__bbCalXProxy = true;
+
+  const dayBodies = Array.from(calRoot.querySelectorAll(".cal-day__body"));
+  if (!dayBodies.length) return;
+
+  // Trouve le scroller horizontal "réel" : le plus proche ancêtre scrollable en X
+  function findXScroller(fromEl) {
+    let el = fromEl;
+    while (el && el !== calRoot && el !== document.body) {
+      const cs = getComputedStyle(el);
+      const ox = cs.overflowX;
+      if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    // fallback: cherche un descendant large
+    const candidates = Array.from(calRoot.querySelectorAll("*"));
+    for (const c of candidates) {
+      const cs = getComputedStyle(c);
+      const ox = cs.overflowX;
+      if ((ox === "auto" || ox === "scroll") && c.scrollWidth > c.clientWidth + 1) {
+        return c;
+      }
+    }
+    return null;
+  }
+
+  const xScroller = findXScroller(dayBodies[0]);
+  if (!xScroller) return;
+
+  let lock = false;
+
+  function setAllProxyLeft(v) {
+    for (const b of dayBodies) b.scrollLeft = v;
+  }
+
+  // Init: aligne les proxies sur le scroller réel
+  setAllProxyLeft(xScroller.scrollLeft);
+
+  // Quand le user scroll en X dans un day body => on pousse vers le scroller réel
+  for (const b of dayBodies) {
+    b.addEventListener("scroll", () => {
+      if (lock) return;
+      // si c'est un scroll vertical, scrollLeft ne bouge pas, donc aucun effet
+      lock = true;
+      const v = b.scrollLeft;
+      xScroller.scrollLeft = v;
+      // garde tous les day bodies alignés (important quand tu changes de jour)
+      setAllProxyLeft(v);
+      lock = false;
+    }, { passive: true });
+  }
+
+  // Si le scroller réel bouge (trackpad, scrollbar, etc.), répercute aux proxies
+  xScroller.addEventListener("scroll", () => {
+    if (lock) return;
+    lock = true;
+    setAllProxyLeft(xScroller.scrollLeft);
+    lock = false;
+  }, { passive: true });
+}
+
+const calA = document.querySelector("#programme-panel #calA");
+wireCalendarXProxy(calA);
 
   console.log('✅ Application initialisée');
 
