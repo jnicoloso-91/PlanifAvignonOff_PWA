@@ -3039,10 +3039,38 @@ function startFling(daysScroll) {
     const dx0 = t.clientX - startX;
     const dy0 = t.clientY - startY;
 
-    if (!mode) {
-      if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
-      mode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
+    // if (!mode) {
+    //   if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
+    //   mode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
+    // }
+if (!mode) {
+  if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
+
+  let nextMode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
+
+  // ✅ si on s'apprête à prendre l'axe X, vérifie qu'on peut scroller dans ce sens
+  if (nextMode === "x") {
+    const daysScroll = getDaysScroll();
+    if (daysScroll) {
+      const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
+      const cur = daysScroll.scrollLeft;
+
+      // dx0 > 0 => doigt vers la droite => scrollLeft diminue (vers 0)
+      // dx0 < 0 => doigt vers la gauche  => scrollLeft augmente (vers max)
+      const blockedAtStart =
+        (dx0 > 0 && cur <= 0.5) ||
+        (dx0 < 0 && cur >= maxScroll - 0.5);
+
+      if (blockedAtStart) {
+        nextMode = "y"; // on refuse de capturer en X
+        startX = lastX = t.clientX;
+        startY = t.clientY;
+      }
     }
+  }
+
+  mode = nextMode;
+}
 
     // if (mode === "x") {
     //   e.preventDefault();
