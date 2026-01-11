@@ -2989,25 +2989,58 @@ function enableCalAxisLock() {
       mode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
     }
 
-    if (mode === "x") {
-      e.preventDefault();
-      e.stopPropagation();
+    // if (mode === "x") {
+    //   e.preventDefault();
+    //   e.stopPropagation();
 
-      const daysScroll = getDaysScroll();
-      if (!daysScroll) return;
+    //   const daysScroll = getDaysScroll();
+    //   if (!daysScroll) return;
 
-      const now = performance.now();
+    //   const now = performance.now();
 
-      // delta depuis le dernier move
-      const dx = t.clientX - lastX;
-      lastX = t.clientX;
+    //   // delta depuis le dernier move
+    //   const dx = t.clientX - lastX;
+    //   lastX = t.clientX;
 
-      daysScroll.scrollLeft -= dx;
+    //   daysScroll.scrollLeft -= dx;
 
-      // samples pour vitesse
-      pushSample(now, t.clientX);
-      lastMoveT = now;
-    }
+    //   // samples pour vitesse
+    //   pushSample(now, t.clientX);
+    //   lastMoveT = now;
+    // }
+if (mode === "x") {
+  const daysScroll = getDaysScroll();
+  if (!daysScroll) return;
+
+  const now = performance.now();
+
+  // delta depuis le dernier move
+  const dx = t.clientX - lastX;
+  lastX = t.clientX;
+
+  const prev = daysScroll.scrollLeft;
+  const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
+
+  // mapping identique: scrollLeft -= dx
+  const next = Math.max(0, Math.min(maxScroll, prev - dx));
+
+  // ✅ si on est en butée (aucun déplacement possible), ne pas capturer
+  // sinon tu provoques le “quelques pixels puis retour”
+  if (next === prev) {
+    // important: ne pas enregistrer de samples sinon tu fling vers une direction impossible
+    return;
+  }
+
+  // ✅ on ne capture le geste que si on bouge réellement
+  e.preventDefault();
+  e.stopPropagation();
+
+  daysScroll.scrollLeft = next;
+
+  // samples pour vitesse (ok car il y a eu du mouvement réel)
+  pushSample(now, t.clientX);
+  lastMoveT = now;
+}  
   }, { capture: true, passive: false });
 
   const reset = (e) => {
