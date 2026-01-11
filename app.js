@@ -84,7 +84,7 @@ const MANDATORY_COLS = new Set([
   'Session',
   'Relache',
   'Style',
-  'Ton',
+  'Mood',
   'Orga',
   'Reserve',
   'Priorite',
