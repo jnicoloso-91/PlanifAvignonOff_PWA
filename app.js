@@ -2894,8 +2894,6 @@ function enableCalAxisLock() {
     flingRaf = 0;
     vx = 0;
     samples.length = 0;
-    console.debug("STOP FLING scrollLeft=", getDaysScroll()?.scrollLeft);
-
   }
 
   function pushSample(t, x) {
@@ -3087,7 +3085,18 @@ const blocked =
   (dx < 0 && cur >= maxScroll - 0.5);
 
 if (blocked) {
-  // ne pas preventDefault, ne pas enregistrer de samples => on évite états bizarres
+  // ✅ on est en butée dans ce sens : on abandonne le mode X
+  // et on laisse le scroll vertical natif reprendre immédiatement
+  mode = "y";
+
+  // reset de référence pour éviter les gros dx au prochain move
+  startX = lastX = t.clientX;
+  startY = t.clientY;
+
+  // on coupe l'inertie X en cours (sinon on peut relancer un fling “inutile”)
+  samples.length = 0;
+  vx = 0;
+
   return;
 }
       // mapping identique: scrollLeft -= dx
