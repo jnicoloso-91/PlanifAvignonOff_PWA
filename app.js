@@ -2894,6 +2894,8 @@ function enableCalAxisLock() {
     flingRaf = 0;
     vx = 0;
     samples.length = 0;
+    console.debug("STOP FLING scrollLeft=", getDaysScroll()?.scrollLeft);
+
   }
 
   function pushSample(t, x) {
@@ -2918,44 +2920,99 @@ function enableCalAxisLock() {
     return dx / dt; // px/ms (note: dx positif = doigt vers la droite)
   }
 
-  function startFling(daysScroll) {
-    // clamp vitesse
-    const MAX_V = 2.2; // px/ms ~ 2200px/s (ajuste au goût)
-    vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
+  // function startFling(daysScroll) {
+  //   // clamp vitesse
+  //   const MAX_V = 2.2; // px/ms ~ 2200px/s (ajuste au goût)
+  //   vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
 
-    // seuil : si trop faible, pas de fling
-    if (Math.abs(vx) < 0.05) return;
+  //   // seuil : si trop faible, pas de fling
+  //   if (Math.abs(vx) < 0.05) return;
 
-    let prevT = performance.now();
-    const FRICTION = 0.0042; // plus grand = s'arrête plus vite
+  //   let prevT = performance.now();
+  //   const FRICTION = 0.0042; // plus grand = s'arrête plus vite
 
-    const step = (now) => {
-      const dt = now - prevT;
-      prevT = now;
+  //   const step = (now) => {
+  //     const dt = now - prevT;
+  //     prevT = now;
 
-      // intégration
-      const dx = vx * dt; // px
-      // ton mapping: daysScroll.scrollLeft -= dxDoigt ; ici vx est vitesse du doigt,
-      // donc on conserve la même convention:
-      daysScroll.scrollLeft -= dx;
+  //     // intégration
+  //     const dx = vx * dt; // px
+  //     // ton mapping: daysScroll.scrollLeft -= dxDoigt ; ici vx est vitesse du doigt,
+  //     // donc on conserve la même convention:
+  //     daysScroll.scrollLeft -= dx;
 
-      // décélération (exponentielle approx)
-      const decay = Math.exp(-FRICTION * dt);
-      vx *= decay;
+  //     // décélération (exponentielle approx)
+  //     const decay = Math.exp(-FRICTION * dt);
+  //     vx *= decay;
 
-      // stop conditions: vitesse faible ou bords atteints
-      const atLeft = daysScroll.scrollLeft <= 0;
-      const atRight = daysScroll.scrollLeft >= (daysScroll.scrollWidth - daysScroll.clientWidth - 1);
-      if (Math.abs(vx) < 0.02 || atLeft || atRight) {
-        stopFling();
-        return;
-      }
+  //     // stop conditions: vitesse faible ou bords atteints
+  //     const atLeft = daysScroll.scrollLeft <= 0;
+  //     const atRight = daysScroll.scrollLeft >= (daysScroll.scrollWidth - daysScroll.clientWidth - 1);
+  //     if (Math.abs(vx) < 0.02 || atLeft || atRight) {
+  //       stopFling();
+  //       return;
+  //     }
 
-      flingRaf = requestAnimationFrame(step);
-    };
+  //     flingRaf = requestAnimationFrame(step);
+  //   };
+
+  //   flingRaf = requestAnimationFrame(step);
+  // }
+function startFling(daysScroll) {
+  const MAX_V = 2.2;      // px/ms
+  vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
+  if (Math.abs(vx) < 0.05) return;
+
+  let prevT = performance.now();
+  const BASE_FRICTION = 0.0038; // friction “normale”
+  const EDGE_ZONE = 80;         // px : zone proche bord où on freine plus
+  const EDGE_BOOST = 0.010;     // friction ajoutée quand on est très proche
+
+  const step = (now) => {
+    const dt = now - prevT;
+    prevT = now;
+
+    const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
+    const cur = daysScroll.scrollLeft;
+
+    // vx > 0 => doigt va à droite => scrollLeft veut diminuer => bord concerné = gauche (0)
+    // vx < 0 => doigt va à gauche  => scrollLeft veut augmenter => bord concerné = droite (maxScroll)
+    const distToEdge = (vx > 0) ? cur : (maxScroll - cur);
+
+    // friction augmentée progressivement à l’approche du bord
+    const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
+    const friction = BASE_FRICTION + EDGE_BOOST * edgeFactor * edgeFactor;
+
+    // déplacement
+    const dx = vx * dt;
+    let next = cur - dx;
+
+    // clamp
+    if (next < 0) next = 0;
+    if (next > maxScroll) next = maxScroll;
+
+    daysScroll.scrollLeft = next;
+
+    // décélération
+    const decay = Math.exp(-friction * dt);
+    vx *= decay;
+
+    const atLeft = next <= 0.5;
+    const atRight = next >= (maxScroll - 0.5);
+
+    // stop : vitesse faible, ou on est à la butée DANS le sens du mouvement
+    if (Math.abs(vx) < 0.02 ||
+        (vx > 0 && atLeft) ||
+        (vx < 0 && atRight)) {
+      stopFling();
+      return;
+    }
 
     flingRaf = requestAnimationFrame(step);
-  }
+  };
+
+  flingRaf = requestAnimationFrame(step);
+}
 
   // Important: capture pour passer avant ton pager
   document.addEventListener("touchstart", (e) => {
@@ -3008,39 +3065,51 @@ function enableCalAxisLock() {
     //   pushSample(now, t.clientX);
     //   lastMoveT = now;
     // }
-if (mode === "x") {
-  const daysScroll = getDaysScroll();
-  if (!daysScroll) return;
+    if (mode === "x") {
+      const daysScroll = getDaysScroll();
+      if (!daysScroll) return;
 
-  const now = performance.now();
+      const now = performance.now();
 
-  // delta depuis le dernier move
-  const dx = t.clientX - lastX;
-  lastX = t.clientX;
+      // delta depuis le dernier move
+      const dx = t.clientX - lastX;
+      lastX = t.clientX;
 
-  const prev = daysScroll.scrollLeft;
-  const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
+      const prev = daysScroll.scrollLeft;
+      const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
 
-  // mapping identique: scrollLeft -= dx
-  const next = Math.max(0, Math.min(maxScroll, prev - dx));
+const cur = daysScroll.scrollLeft;
 
-  // ✅ si on est en butée (aucun déplacement possible), ne pas capturer
-  // sinon tu provoques le “quelques pixels puis retour”
-  if (next === prev) {
-    // important: ne pas enregistrer de samples sinon tu fling vers une direction impossible
-    return;
-  }
+// dx > 0 => doigt va à droite => scrollLeft veut diminuer => si cur ~ 0, bloqué
+// dx < 0 => doigt va à gauche  => scrollLeft veut augmenter => si cur ~ max, bloqué
+const blocked =
+  (dx > 0 && cur <= 0.5) ||
+  (dx < 0 && cur >= maxScroll - 0.5);
 
-  // ✅ on ne capture le geste que si on bouge réellement
-  e.preventDefault();
-  e.stopPropagation();
+if (blocked) {
+  // ne pas preventDefault, ne pas enregistrer de samples => on évite états bizarres
+  return;
+}
+      // mapping identique: scrollLeft -= dx
+      const next = Math.max(0, Math.min(maxScroll, prev - dx));
 
-  daysScroll.scrollLeft = next;
+      // ✅ si on est en butée (aucun déplacement possible), ne pas capturer
+      // sinon tu provoques le “quelques pixels puis retour”
+      if (next === prev) {
+        // important: ne pas enregistrer de samples sinon tu fling vers une direction impossible
+        return;
+      }
 
-  // samples pour vitesse (ok car il y a eu du mouvement réel)
-  pushSample(now, t.clientX);
-  lastMoveT = now;
-}  
+      // ✅ on ne capture le geste que si on bouge réellement
+      e.preventDefault();
+      e.stopPropagation();
+
+      daysScroll.scrollLeft = next;
+
+      // samples pour vitesse (ok car il y a eu du mouvement réel)
+      pushSample(now, t.clientX);
+      lastMoveT = now;
+    }  
   }, { capture: true, passive: false });
 
   const reset = (e) => {
@@ -3050,6 +3119,19 @@ if (mode === "x") {
       const daysScroll = getDaysScroll();
       if (daysScroll) {
         vx = computeVelocity(); // px/ms (doigt)
+const maxScroll = Math.max(0, daysScroll.scrollWidth - daysScroll.clientWidth);
+const cur = daysScroll.scrollLeft;
+
+// vx > 0 => fling vers la droite => scrollLeft diminue => si cur ~ 0, inutile
+// vx < 0 => fling vers la gauche  => scrollLeft augmente => si cur ~ max, inutile
+const blocked =
+  (vx > 0 && cur <= 0.5) ||
+  (vx < 0 && cur >= maxScroll - 0.5);
+
+if (blocked) {
+  stopFling();
+  return;
+}
         startFling(daysScroll);
       }
     }
