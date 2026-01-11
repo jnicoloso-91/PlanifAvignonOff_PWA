@@ -2796,6 +2796,75 @@ function attachProgrammeCalendarHeightSync() {
 let _calAxisLockInstalled = false;
 
 // Empêche le scroll vertical quand le geste est horizontal dans le calendrier
+// function enableCalAxisLock() {
+//   if (_calAxisLockInstalled) return;
+//   _calAxisLockInstalled = true;
+
+//   const root = document.querySelector("#programme-panel");
+//   if (!root) return;
+
+//   const getDaysScroll = () => document.querySelector("#programme-panel #calA .cal-days-scroll");
+
+//   const isInDayBody = (t) => !!t && !!t.closest?.("#programme-panel #calA .cal-day__body");
+//   const isInCal = (t) => !!t && !!t.closest?.("#programme-panel #calA");
+
+//   let mode = null;       // null | "x" | "y"
+//   let startX = 0, startY = 0;
+//   let lastX = 0;
+//   const THRESH = 7;
+
+//   // Important: capture pour passer avant ton pager
+//   document.addEventListener("touchstart", (e) => {
+//     if (!isInCal(e.target)) return;
+
+//     const t = e.touches?.[0];
+//     if (!t) return;
+
+//     mode = null;
+//     startX = lastX = t.clientX;
+//     startY = t.clientY;
+//   }, { capture: true, passive: true });
+
+//   document.addEventListener("touchmove", (e) => {
+//     // On ne s’occupe QUE des gestes démarrés dans le body (zone verticale)
+//     if (!isInDayBody(e.target)) return;
+
+//     const t = e.touches?.[0];
+//     if (!t) return;
+
+//     const dx0 = t.clientX - startX;
+//     const dy0 = t.clientY - startY;
+
+//     if (!mode) {
+//       if (Math.abs(dx0) + Math.abs(dy0) < THRESH) return;
+//       mode = (Math.abs(dx0) > Math.abs(dy0)) ? "x" : "y";
+//     }
+
+//     if (mode === "x") {
+//       // 🔥 on stoppe le scroll natif (vertical) pour pouvoir scroller horizontalement le parent
+//       e.preventDefault();
+//       e.stopPropagation();
+
+//       const daysScroll = getDaysScroll();
+//       if (!daysScroll) return;
+
+//       // delta depuis le dernier move (plus fluide)
+//       const dx = t.clientX - lastX;
+//       lastX = t.clientX;
+
+//       daysScroll.scrollLeft -= dx;
+//     }
+//     // mode === "y" -> ne rien faire : le scroll vertical natif continue
+//   }, { capture: true, passive: false });
+
+//   const reset = (e) => {
+//     if (!isInCal(e.target)) return;
+//     mode = null;
+//   };
+
+//   document.addEventListener("touchend", reset, { capture: true, passive: true });
+//   document.addEventListener("touchcancel", reset, { capture: true, passive: true });
+// }
 function enableCalAxisLock() {
   if (_calAxisLockInstalled) return;
   _calAxisLockInstalled = true;
@@ -2813,9 +2882,86 @@ function enableCalAxisLock() {
   let lastX = 0;
   const THRESH = 7;
 
+  // ── inertie
+  let flingRaf = 0;
+  let vx = 0;               // px/ms
+  let lastMoveT = 0;
+  const samples = [];       // {t, x}
+  const MAX_SAMPLES = 6;
+
+  function stopFling() {
+    if (flingRaf) cancelAnimationFrame(flingRaf);
+    flingRaf = 0;
+    vx = 0;
+    samples.length = 0;
+  }
+
+  function pushSample(t, x) {
+    samples.push({ t, x });
+    while (samples.length > MAX_SAMPLES) samples.shift();
+  }
+
+  function computeVelocity() {
+    // vitesse moyenne sur les ~80-120ms derniers
+    if (samples.length < 2) return 0;
+
+    const last = samples[samples.length - 1];
+    // cherche un point pas trop proche pour éviter le bruit
+    let i = samples.length - 2;
+    while (i > 0 && (last.t - samples[i].t) < 40) i--;
+
+    const a = samples[i];
+    const dt = (last.t - a.t);
+    if (dt <= 0) return 0;
+
+    const dx = (last.x - a.x);
+    return dx / dt; // px/ms (note: dx positif = doigt vers la droite)
+  }
+
+  function startFling(daysScroll) {
+    // clamp vitesse
+    const MAX_V = 2.2; // px/ms ~ 2200px/s (ajuste au goût)
+    vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
+
+    // seuil : si trop faible, pas de fling
+    if (Math.abs(vx) < 0.05) return;
+
+    let prevT = performance.now();
+    const FRICTION = 0.0042; // plus grand = s'arrête plus vite
+
+    const step = (now) => {
+      const dt = now - prevT;
+      prevT = now;
+
+      // intégration
+      const dx = vx * dt; // px
+      // ton mapping: daysScroll.scrollLeft -= dxDoigt ; ici vx est vitesse du doigt,
+      // donc on conserve la même convention:
+      daysScroll.scrollLeft -= dx;
+
+      // décélération (exponentielle approx)
+      const decay = Math.exp(-FRICTION * dt);
+      vx *= decay;
+
+      // stop conditions: vitesse faible ou bords atteints
+      const atLeft = daysScroll.scrollLeft <= 0;
+      const atRight = daysScroll.scrollLeft >= (daysScroll.scrollWidth - daysScroll.clientWidth - 1);
+      if (Math.abs(vx) < 0.02 || atLeft || atRight) {
+        stopFling();
+        return;
+      }
+
+      flingRaf = requestAnimationFrame(step);
+    };
+
+    flingRaf = requestAnimationFrame(step);
+  }
+
   // Important: capture pour passer avant ton pager
   document.addEventListener("touchstart", (e) => {
     if (!isInCal(e.target)) return;
+
+    stopFling();
 
     const t = e.touches?.[0];
     if (!t) return;
@@ -2823,6 +2969,9 @@ function enableCalAxisLock() {
     mode = null;
     startX = lastX = t.clientX;
     startY = t.clientY;
+
+    lastMoveT = performance.now();
+    pushSample(lastMoveT, lastX);
   }, { capture: true, passive: true });
 
   document.addEventListener("touchmove", (e) => {
@@ -2841,31 +2990,44 @@ function enableCalAxisLock() {
     }
 
     if (mode === "x") {
-      // 🔥 on stoppe le scroll natif (vertical) pour pouvoir scroller horizontalement le parent
       e.preventDefault();
       e.stopPropagation();
 
       const daysScroll = getDaysScroll();
       if (!daysScroll) return;
 
-      // delta depuis le dernier move (plus fluide)
+      const now = performance.now();
+
+      // delta depuis le dernier move
       const dx = t.clientX - lastX;
       lastX = t.clientX;
 
       daysScroll.scrollLeft -= dx;
+
+      // samples pour vitesse
+      pushSample(now, t.clientX);
+      lastMoveT = now;
     }
-    // mode === "y" -> ne rien faire : le scroll vertical natif continue
   }, { capture: true, passive: false });
 
   const reset = (e) => {
     if (!isInCal(e.target)) return;
+
+    if (mode === "x") {
+      const daysScroll = getDaysScroll();
+      if (daysScroll) {
+        vx = computeVelocity(); // px/ms (doigt)
+        startFling(daysScroll);
+      }
+    }
+
     mode = null;
+    samples.length = 0;
   };
 
   document.addEventListener("touchend", reset, { capture: true, passive: true });
   document.addEventListener("touchcancel", reset, { capture: true, passive: true });
 }
-
 // public: à appeler après init grid + wireExpanderButtons
 function wireProgrammeCalendarToggle() {
   const id = "btn-prog-view";
@@ -12364,73 +12526,73 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 })();
 
-function wireCalendarXProxy(calRoot) {
-  if (!calRoot || calRoot.__bbCalXProxy) return;
-  calRoot.__bbCalXProxy = true;
+// function wireCalendarXProxy(calRoot) {
+//   if (!calRoot || calRoot.__bbCalXProxy) return;
+//   calRoot.__bbCalXProxy = true;
 
-  const dayBodies = Array.from(calRoot.querySelectorAll(".cal-day__body"));
-  if (!dayBodies.length) return;
+//   const dayBodies = Array.from(calRoot.querySelectorAll(".cal-day__body"));
+//   if (!dayBodies.length) return;
 
-  // Trouve le scroller horizontal "réel" : le plus proche ancêtre scrollable en X
-  function findXScroller(fromEl) {
-    let el = fromEl;
-    while (el && el !== calRoot && el !== document.body) {
-      const cs = getComputedStyle(el);
-      const ox = cs.overflowX;
-      if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1) {
-        return el;
-      }
-      el = el.parentElement;
-    }
-    // fallback: cherche un descendant large
-    const candidates = Array.from(calRoot.querySelectorAll("*"));
-    for (const c of candidates) {
-      const cs = getComputedStyle(c);
-      const ox = cs.overflowX;
-      if ((ox === "auto" || ox === "scroll") && c.scrollWidth > c.clientWidth + 1) {
-        return c;
-      }
-    }
-    return null;
-  }
+//   // Trouve le scroller horizontal "réel" : le plus proche ancêtre scrollable en X
+//   function findXScroller(fromEl) {
+//     let el = fromEl;
+//     while (el && el !== calRoot && el !== document.body) {
+//       const cs = getComputedStyle(el);
+//       const ox = cs.overflowX;
+//       if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth + 1) {
+//         return el;
+//       }
+//       el = el.parentElement;
+//     }
+//     // fallback: cherche un descendant large
+//     const candidates = Array.from(calRoot.querySelectorAll("*"));
+//     for (const c of candidates) {
+//       const cs = getComputedStyle(c);
+//       const ox = cs.overflowX;
+//       if ((ox === "auto" || ox === "scroll") && c.scrollWidth > c.clientWidth + 1) {
+//         return c;
+//       }
+//     }
+//     return null;
+//   }
 
-  const xScroller = findXScroller(dayBodies[0]);
-  if (!xScroller) return;
+//   const xScroller = findXScroller(dayBodies[0]);
+//   if (!xScroller) return;
 
-  let lock = false;
+//   let lock = false;
 
-  function setAllProxyLeft(v) {
-    for (const b of dayBodies) b.scrollLeft = v;
-  }
+//   function setAllProxyLeft(v) {
+//     for (const b of dayBodies) b.scrollLeft = v;
+//   }
 
-  // Init: aligne les proxies sur le scroller réel
-  setAllProxyLeft(xScroller.scrollLeft);
+//   // Init: aligne les proxies sur le scroller réel
+//   setAllProxyLeft(xScroller.scrollLeft);
 
-  // Quand le user scroll en X dans un day body => on pousse vers le scroller réel
-  for (const b of dayBodies) {
-    b.addEventListener("scroll", () => {
-      if (lock) return;
-      // si c'est un scroll vertical, scrollLeft ne bouge pas, donc aucun effet
-      lock = true;
-      const v = b.scrollLeft;
-      xScroller.scrollLeft = v;
-      // garde tous les day bodies alignés (important quand tu changes de jour)
-      setAllProxyLeft(v);
-      lock = false;
-    }, { passive: true });
-  }
+//   // Quand le user scroll en X dans un day body => on pousse vers le scroller réel
+//   for (const b of dayBodies) {
+//     b.addEventListener("scroll", () => {
+//       if (lock) return;
+//       // si c'est un scroll vertical, scrollLeft ne bouge pas, donc aucun effet
+//       lock = true;
+//       const v = b.scrollLeft;
+//       xScroller.scrollLeft = v;
+//       // garde tous les day bodies alignés (important quand tu changes de jour)
+//       setAllProxyLeft(v);
+//       lock = false;
+//     }, { passive: true });
+//   }
 
-  // Si le scroller réel bouge (trackpad, scrollbar, etc.), répercute aux proxies
-  xScroller.addEventListener("scroll", () => {
-    if (lock) return;
-    lock = true;
-    setAllProxyLeft(xScroller.scrollLeft);
-    lock = false;
-  }, { passive: true });
-}
+//   // Si le scroller réel bouge (trackpad, scrollbar, etc.), répercute aux proxies
+//   xScroller.addEventListener("scroll", () => {
+//     if (lock) return;
+//     lock = true;
+//     setAllProxyLeft(xScroller.scrollLeft);
+//     lock = false;
+//   }, { passive: true });
+// }
 
-const calA = document.querySelector("#programme-panel #calA");
-wireCalendarXProxy(calA);
+// const calA = document.querySelector("#programme-panel #calA");
+// wireCalendarXProxy(calA);
 
   console.log('✅ Application initialisée');
 
