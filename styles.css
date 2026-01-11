@@ -2441,33 +2441,65 @@ input[type="range"]:focus::-moz-range-thumb {
 
 
 
-/* =================*/
-/*  Calendar View   */
-/* =================*/
+/* =========================
+   Programme panel : layout
+   ========================= */
 
-/* Wrapper scroll horizontal des jours */
-.cal-days-scroll {
+/* le body de l’expander doit pouvoir donner une hauteur à calA */
+#programme-panel .st-expander-body{
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* calA prend toute la place dispo quand il est visible */
+#programme-panel #calA{
   flex: 1 1 auto;
   min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* =========================
+   Calendrier (#calA)
+   ========================= */
+
+/* scroller horizontal des jours */
+#programme-panel #calA .cal-days-scroll{
+  flex: 1 1 auto;
+  min-height: 0;
+
   overflow-x: auto;
   overflow-y: hidden;
+
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
+
+  touch-action: pan-x;
 }
 
-/* Ligne de jours */
-.cal-days {
+/* ligne des jours */
+#programme-panel #calA .cal-days{
   display: flex;
-  gap: 10px;
-  padding: 8px 8px 10px 8px;
   align-items: stretch;
-}
 
-/* Une colonne “jour” */
-.cal-day {
-  flex: 0 0 320px;           /* largeur par jour (ajuste) */
+  gap: 10px;
+  padding: 8px;
+
   height: 100%;
   min-height: 0;
+  width: max-content; /* permet le scroll X */
+}
+
+/* une colonne jour */
+#programme-panel #calA .cal-day{
+  flex: 0 0 320px;
+  height: 100%;
+  min-height: 0;
+
   display: flex;
   flex-direction: column;
 
@@ -2477,13 +2509,14 @@ input[type="range"]:focus::-moz-range-thumb {
   overflow: hidden;
 }
 
-/* En-tête du jour */
-.cal-day__header {
-  position: sticky;
-  top: 0;
+/* header */
+#programme-panel #calA .cal-day__header{
+  flex: 0 0 auto;
+  position: relative;
   z-index: 2;
+
   padding: 8px 10px;
-  background: #f3f4f6;       /* proche quartz header */
+  background: #f3f4f6;
   border-bottom: 1px solid rgba(0,0,0,.08);
 
   display: flex;
@@ -2492,43 +2525,32 @@ input[type="range"]:focus::-moz-range-thumb {
   gap: 8px;
 }
 
-.cal-day__title {
-  font-weight: 650;
-  font-size: 13px;
-  color: #111827;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cal-day__meta {
-  font-size: 12px;
-  color: rgba(17,24,39,.65);
-  white-space: nowrap;
-}
-
-/* Zone “timeline” (scroll vertical interne au jour) */
-.cal-day__body {
+/* body scroll vertical */
+#programme-panel #calA .cal-day__body{
   flex: 1 1 auto;
   min-height: 0;
+
   overflow-y: auto;
   overflow-x: hidden;
+
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
+
+  touch-action: pan-y;
 
   position: relative;
   background: #fff;
 }
 
-/* Grille horaire */
-.cal-timeline {
+/* timeline */
+#programme-panel #calA .cal-timeline{
   position: relative;
-  padding: 8px 10px 12px 54px; /* marge à gauche pour les heures */
-  min-height: 1440px;          /* 24h * 60px si 1px=1min ? ici on le calcule en JS */
+  padding: 8px 10px 12px 54px;
 }
 
-/* Traits + labels des heures */
-.cal-hour {
+/* hours */
+#programme-panel #calA .cal-hour{
   position: absolute;
   left: 0;
   right: 0;
@@ -2536,7 +2558,7 @@ input[type="range"]:focus::-moz-range-thumb {
   border-top: 1px solid rgba(0,0,0,.06);
 }
 
-.cal-hour__label {
+#programme-panel #calA .cal-hour__label{
   position: absolute;
   left: 10px;
   transform: translateY(-50%);
@@ -2544,157 +2566,24 @@ input[type="range"]:focus::-moz-range-thumb {
   color: rgba(17,24,39,.55);
 }
 
-/* Un bloc “évènement” */
-.cal-ev {
+/* events */
+#programme-panel #calA .cal-ev{
   position: absolute;
   left: 54px;
   right: 10px;
+
   border-radius: 10px;
   border: 1px solid rgba(0,0,0,.10);
-  background: rgba(0,120,215,.10); /* accent doux */
+  background: rgba(0,120,215,.10);
   box-shadow: 0 1px 10px rgba(0,0,0,.06);
 
   padding: 6px 8px;
   overflow: hidden;
+
   touch-action: manipulation;
 }
 
-.cal-ev.is-selected {
-  outline: 2px solid rgba(0,120,215,.45);
-}
-
-.cal-ev__time {
-  font-size: 11px;
-  color: rgba(17,24,39,.75);
-  margin-bottom: 2px;
-  
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-/* bouton ℹ︎+ dans le calendrier */
-.cal-ev__info {
-  flex: 0 0 auto;
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  opacity: .9;
-}
-
-.cal-ev__info:active {
-  transform: translateY(0.5px);
-}
-
-.cal-ev__title {
-  font-size: 12px;
-  font-weight: 650;
-  color: #111827;
-  line-height: 1.15;
-  margin-bottom: 3px;
-}
-
-.cal-ev__place {
-  font-size: 11px;
-  color: rgba(17,24,39,.7);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Responsive */
-@media (max-width: 812px) {
-  .cal-day { flex-basis: 280px; }
-  .cal-ev__title { font-size: 11px; }
-}
-
-/* =========================
-   Programme – Calendrier 
-   ========================= */
-
-/* calA doit remplir la hauteur du body (qui est déjà gérée par ton expander/slider) */
-#programme-panel #calA{
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* pas de scroll global */
-}
-
-/* scroller horizontal */
-#programme-panel #calA .cal-days-scroll{
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;              /* IMPORTANT */
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* la ligne des jours DOIT avoir une hauteur pour que les colonnes puissent “stretch” */
-#programme-panel #calA .cal-days{
-  height: 100%;              /* IMPORTANT */
-  min-height: 0;
-
-  display: flex;
-  gap: 10px;
-  padding: 8px;
-  align-items: stretch;
-
-  width: max-content;        /* OK pour le scroll horizontal */
-}
-
-/* colonnes */
-#programme-panel #calA .cal-day{
-  flex: 0 0 320px;           /* largeur fixe => X scroll */
-  min-height: 0;
-
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  touch-action: pan-x pan-y !important;
-}
-
-/* header “fixe” par construction (il est hors du body scroll) */
-#programme-panel #calA .cal-day__header{
-  flex: 0 0 auto;
-  /* enlève sticky ici : inutile et parfois source d’effets bizarres */
-  position: relative;
-  z-index: 1;
-  background: #f3f4f6;
-}
-
-/* body = scroll vertical */
-#programme-panel #calA .cal-day__body{
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* timeline: la hauteur est pilotée par le JS */
-#programme-panel #calA .cal-timeline{
-  position: relative;
-  padding: 8px 10px 12px 54px;
-}
-
-/* Zone de scroll horizontal : autoriser explicitement le pan-x */
-#programme-panel #calA .cal-days-scroll {
-  touch-action: pan-x;
-  overscroll-behavior-x: contain;
-}
-
-/* Zone de scroll vertical par jour : autoriser pan-y */
-#programme-panel #calA .cal-day__body {
-  /* touch-action: pan-x pan-y !important; */
-  touch-action: pan-x pan-y !important; 
-  overscroll-behavior-y: contain;
-  overscroll-behavior-x: auto;
-  overflow-x: auto !important;
+/* responsive */
+@media (max-width: 812px){
+  #programme-panel #calA .cal-day{ flex-basis: 280px; }
 }
