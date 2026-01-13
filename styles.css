@@ -553,36 +553,54 @@ main, .page-wrap {
 
 .v-splitter {
   position: relative;
-  height: 10px;
+  height: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   touch-action: none;
-}
-.v-splitter__handle {
-  width: 120px;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(130,130,130,.35);
-  cursor: row-resize;
-}
-.v-splitter:active .v-splitter__handle {
-  background: rgba(60,60,60,.6);
+  pointer-events: none;       /* Le splitter ne capte rien, seule la poignée capte */
+  z-index: 10;                /* au-dessus des grilles */
 }
 
-/* Les conteneurs de grilles doivent scroller en inertiel sur iOS */
-#gridA, #gridB, #gridC, #gridD {
-  /* overflow: auto; */
-  -webkit-overflow-scrolling: touch; /* inertie iOS */
-  overscroll-behavior: contain;       /* évite le rebond qui “fait bouger” la page */
-  /*touch-action: pan-y;                /* gèle le pan horizontal, laisse le vertical */
+/* Poignée : zone tactile large et au centre */
+.v-splitter__handle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 10px;                /* visible */
+  border-radius: 5px;
+  background: rgba(130,130,130,.35);
+  cursor: row-resize;
+  pointer-events: auto;        /* capte les events */
+  touch-action: none;          /* indispensable pour le drag tactile */
+  -webkit-user-select: none;
+  user-select: none;
 }
+
+/* Feedback visuel au drag/focus */
+.v-splitter__handle:active { background: rgba(60,60,60,.6); }
 
 /* Poignée “pinnée” pendant le drag : reste au-dessus de la bottom bar */
 .v-splitter__handle.is-pinned {
   position: fixed !important;
   z-index: 999999 !important;
   /* left/top/width seront set en JS */
+}
+
+/* Hit area élargie sans visuel (meilleure prise au doigt) */
+.v-splitter__handle::before {
+  content: "";
+  position: absolute;
+  left: -20px; right: -20px;
+  top: -10px; bottom: -10px;   /* x2 la surface tactile */
+  /* invisible mais cliquable */
+}
+
+/* Les conteneurs de grilles doivent scroller en inertiel sur iOS */
+#gridA, #gridB, #gridC, #gridD {
+  -webkit-overflow-scrolling: touch;    /* inertie iOS */
+  overscroll-behavior: contain;         /* évite le rebond qui “fait bouger” la page */
 }
 
 /* Couches internes d'AG Grid qui gèrent le scroll */
@@ -596,77 +614,6 @@ main, .page-wrap {
 
 /* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
-
-/* Le splitter ne capte rien, seule la poignée capte */
-/* Le splitter ne capte rien, seule la poignée capte */
-.v-splitter {
-  position: relative;
-  height: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Ne capte AUCUN événement, sauf la poignée */
-  pointer-events: none;
-}
-
-.v-splitter__handle {
-  width: 120px;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(130,130,130,.35);
-  cursor: row-resize;
-
-  /* La poignée, elle, capte les events */
-  pointer-events: auto;
-
-  /* Indispensable pour iOS Safari + Pointer Events */
-  touch-action: none;
-}
-.v-splitter__handle:active { background: rgba(60,60,60,.6); }
-
-/* Le splitter ne capte rien, seule la poignée capte */
-.v-splitter {
-  position: relative;
-  height: 12px;               /* espace entre grilles */
-  pointer-events: none;        /* important */
-  z-index: 5;                  /* au-dessus des grilles */
-}
-
-/* Poignée : zone tactile large et au centre */
-.v-splitter__handle {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 160px;
-  height: 10px;                /* visible */
-  border-radius: 5px;
-  background: rgba(130,130,130,.35);
-  cursor: row-resize;
-  pointer-events: auto;        /* capte les events */
-  touch-action: none;          /* indispensable pour le drag tactile */
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-/* Hit area élargie sans visuel (meilleure prise au doigt) */
-.v-splitter__handle::before {
-  content: "";
-  position: absolute;
-  left: -20px; right: -20px;
-  top: -10px; bottom: -10px;   /* x2 la surface tactile */
-  /* invisible mais cliquable */
-}
-
-.v-splitter { position: relative; height: 12px; pointer-events: none; z-index: 10; }
-.v-splitter__handle {
-  position: absolute; left: 50%; transform: translateX(-50%);
-  width: 100px; height: 10px; border-radius: 5px;
-  background: rgba(130,130,130,.35);
-  cursor: row-resize; pointer-events: auto; touch-action: none;
-  -webkit-user-select: none; user-select: none;
-}
-/* focus/drag feedback */
-.v-splitter__handle:active { background: rgba(60,60,60,.6); }
 
 
 /*=======================*/
@@ -1239,14 +1186,6 @@ main, .page-wrap {
 }
 .kebab-menu__item:hover  { background:#f3f4f6; }
 .kebab-menu__item:active { background:#e9eaec; }
-
-/* VRAI séparateur DOM */
-.kebab-sep {
-  height: 1px;
-  margin: 6px 8px;            /* respire un peu */
-  background: rgba(0,0,0,.08);
-  border-radius: 1px;
-}
 
 /* Séparateurs */
 .kebab-sep {

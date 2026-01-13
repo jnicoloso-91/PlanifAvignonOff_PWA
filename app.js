@@ -752,7 +752,11 @@ function autosizeFromGridSafe(handle, pane) {
 
   // 👉 Ne JAMAIS réduire automatiquement : on n’augmente que si nécessaire
   const cur = parseFloat(getComputedStyle(pane).height) || 0;
-  if (hTarget > hMaxPred && hTarget > cur) pane.style.setProperty('height', `${hTarget}px`, 'important');
+  if (hTarget > hMaxPred && hTarget > cur) {
+    pane.style.setProperty('height', `${hTarget}px`, 'important');
+    const exp = pane.closest('.st-expander');
+    if (exp?.id) localStorage.setItem(`paneHeight:${exp.id}`, String(hTarget)); // sauvegarde pour openExp()
+  }
 
   pane.dataset.maxContentHeight = String(hMaxCur);
   try { handle.api.onGridSizeChanged(); handle.api.sizeColumnsToFit(); } catch {}
@@ -926,18 +930,31 @@ export function openExp(exp) {
   setTimeout(cleanup, ANIM_TIMEOUT_OPEN); // fallback Safari/iOS
 
   // lance l’anim
-  requestAnimationFrame(() => { pane.style.height = `${target}px`; });
+  requestAnimationFrame(() => { 
+    pane.style.height = `${target}px`; 
+  });
+
+  // La code ci-dessous est désactivé car le contenu n'est pas nécessairement rendu à temps
+  // et dans ce cas l'ouverture se fait à une hauteur trop petite. C'est autoresizeFromGridSafe()
+  // qui se charge de réajuster après coup si besoin.
 
   // 2 frames plus tard, on re-mesure (AG Grid a pu peindre) et on corrige si besoin
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (exp.dataset.animating !== '1') return;           // déjà fini
-    if (pane.dataset.userSized === '1') return;          // l’utilisateur contrôle
-    const contentH = pane.scrollHeight|0;
-    if (contentH >= MIN_OPEN_PX && Math.abs(contentH - target) > 2) {
-      pane.style.height = `${contentH}px`;
-      localStorage.setItem(`paneHeight:${exp.id}`, String(contentH));
-    }
-  }));
+  // requestAnimationFrame(() => requestAnimationFrame(() => {
+  //   if (exp.dataset.animating !== '1') {
+  //     console.log('anim open already ended');
+  //     return;           // déjà fini
+  //   }
+  //   if (pane.dataset.userSized === '1') {
+  //     console.log('anim open user sized, skip adjust');
+  //     return;          // l’utilisateur contrôle
+  //   }
+  //   const contentH = pane.scrollHeight|0;
+  //   if (contentH >= MIN_OPEN_PX && Math.abs(contentH - target) > 2) {
+  //     pane.style.height = `${contentH}px`;
+  //     localStorage.setItem(`paneHeight:${exp.id}`, String(contentH));
+  //     console.log('anim open adjust to content height', contentH);
+  //   }
+  // }));
 }
 
 // Fermeture Expander 
