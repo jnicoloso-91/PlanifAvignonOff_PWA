@@ -27,7 +27,7 @@ export const PARSED_DEFAULT = {
 
 /**
  * Parser d'une page programme du catalogue Avignon In donnée par son URL
- * @param {*} doc 
+ * @param {*} url 
  * @returns 
  */
 export async function parseAvignonInProgPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
@@ -316,7 +316,7 @@ export function parseAvignonInProgPageText(text) {
 
 /**
  * Parser d'une page spectacle du catalogue Avignon In donnée par son URL
- * @param {*} doc 
+ * @param {*} url 
  * @returns 
  */
 export async function parseAvignonInSpecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
@@ -393,7 +393,7 @@ export function parseAvignonInSpecPageDom(doc, pageUrl = null) {
 
 /**
  * Parser d'une page spectacle du catalogue Avignon In donnée par son texte
- * @param {*} doc 
+ * @param {*} text 
  * @returns 
  */
 export function parseAvignonInSpecPageText(text) {
@@ -752,7 +752,7 @@ export function parseAvignonOffProgPageText(text) {
 
 /**
  * Parser d'une page spectacle du catalogue Avignon Off donnée par son URL
- * @param {*} doc 
+ * @param {*} url 
  * @returns 
  */
 export async function parseAvignonOffSpecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
@@ -768,7 +768,7 @@ export async function parseAvignonOffSpecPageUrl(url, { fetcher = _fetchViaCloud
 /**
  * Parser d'une page spectacle du catalogue Avignon Off donnée par son Dom
  * parseListingHtml(html, { url })
- * @param {string} html
+ * @param {Document} doc
  * @param {{url?: string}} opts
  * @return {{Activite:string|null, Lieu:string|null, Relache:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
  */
@@ -1171,6 +1171,9 @@ export async function parseBilletReducProgPageUrl(
  * Retourne une liste d’activités "explosées" par horaire :
  *   - même Activite/Lieu/Hyperlien
  *   - une ligne par horaire (Debut) avec Session propre.
+ * 
+ * @param {*} doc 
+ * @returns 
  */
 function parseBilletReducProgPageDom(doc) {
   const items = [];
@@ -1322,7 +1325,7 @@ function parseBilletReducProgPageDom(doc) {
 
 /**
  * Parser d'une page spectacle du site Billet réduc donnée par son URL
- * @param {*} doc 
+ * @param {*} url 
  * @returns 
  */
 export async function parseBilletReducSpecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
@@ -1330,7 +1333,7 @@ export async function parseBilletReducSpecPageUrl(url, { fetcher = _fetchViaClou
   if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
-  const parsed = parseBilletReducSpecPageDom(doc, url);
+  const parsed = parseBilletReducSpecPageDom(doc);
   if (parsed) parsed[0].Hyperlien = url;
   return parsed;
 }
@@ -1432,7 +1435,7 @@ function parseBilletReducSpecPageDom(doc) {
 
 /**
  * Parser d'une page collection du site Billet réduc donnée par son URL
- * @param {*} doc 
+ * @param {*} url 
  * @returns 
  */
 export async function parseBilletReducCollecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
@@ -2023,23 +2026,6 @@ async function _fetchViaAllOriginsRaw(urlToFetch) {
 // Fetcher perso via worker CloudFlare 
 const PROXY = 'https://off-proxy.joel-nicoloso.workers.dev';
 
-// export async function _fetchViaCloudFlareWorker(url, options = {}) {
-//   const hasLocation = (typeof location !== "undefined");
-
-//   // En Node: hasLocation = false → on ne teste pas location.host
-//   const isExternal =
-//     /^https?:\/\//i.test(url) &&
-//     (!hasLocation || !url.includes(location.host));
-
-//   const finalUrl = isExternal
-//     ? `${PROXY}/?url=${encodeURIComponent(url)}`
-//     : url;
-
-//   const res = await fetch(finalUrl, options);
-//   if (!res.ok) throw new Error(`_fetchViaCloudFlareWorker failed ${res.status}`);
-//   return res;
-// }
-
 export async function _fetchViaCloudFlareWorker(url, options = {}) {
   const isExternal = /^https?:\/\//i.test(url) && !url.includes(location.host);
   const finalUrl = isExternal ? `${PROXY}/?url=${encodeURIComponent(url)}` : url;
@@ -2500,47 +2486,6 @@ function _parseBilletReducDetailDuree(dureeTxt) {
 // ==== Helpers getAvisBilletReduc ====
 
 // Trouve une URL de page de détail à partir d'une page de recherche BilletReduc
-// function _findBilletReducDetailUrlFromSearchDoc(searchDoc, searchUrl, activite) {
-//   const base = new URL(searchUrl);
-
-//   const targetNorm = _normalizeTitle(activite);
-//   if (!targetNorm) return null;
-
-//   // Tous les liens de résultats de recherche
-//   const anchors = Array.from(
-//     searchDoc.querySelectorAll('a.gtm-select-event, a.head.gtm-select-event')
-//   );
-
-//   let bestHref = null;
-//   let bestScore = 0;
-
-//   for (const a of anchors) {
-//     const href = a.getAttribute("href");
-//     const txt = a.textContent || "";
-//     if (!href || !txt) continue;
-
-//     const tNorm = _normalizeTitle(txt);
-//     if (!tNorm) continue;
-
-//     // Score très simple : 1.0 si égalité stricte, sinon 0
-//     if (tNorm === targetNorm) {
-//       bestHref = href;
-//       bestScore = 1.0;
-//       break; // on veut le premier exact
-//     }
-//   }
-
-//   // Pas d'exact match → on peut éventuellement prendre le premier résultat
-//   if (!bestHref && anchors.length) {
-//     bestHref = anchors[0].getAttribute("href");
-//   }
-
-//   if (!bestHref) return null;
-
-//   // URL absolue
-//   const detailUrl = new URL(bestHref, base.origin).toString();
-//   return detailUrl;
-// }
 function _findBilletReducDetailUrlFromSearchDoc(searchDoc, searchUrl, activite) {
   if (!searchDoc || !searchUrl || !activite) return null;
 
