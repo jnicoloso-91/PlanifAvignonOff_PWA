@@ -1,4 +1,7 @@
-// activites.js
+// ===============================
+// Utilitaires activités
+// ===============================
+
 import {
   MIN_DAY, 
   MAX_DAY, 
@@ -13,7 +16,6 @@ import {
 } from './utils-date.js';
 
 import {
-  logToPage,
   richValueGetValue,
 } from './utils.js';
 
@@ -306,9 +308,9 @@ export function creerActivitesAPI(ctx) {
      * @param {object} activite - activité
      * @param {number} dateRef - date au format dateint (AAAAMMJJ)
      * @param {Array<Object>} activitesProgrammees - tableau des activités programmées (optionnel)
-     * @param {number} marge - marge entre activités en minutes (optionnel)
      * @returns {boolean}
      */
+    // @ts-ignore
     estActiviteProgrammableADate(activite, dateRef, {activitesProgrammees=null, marge=null}={}) {
       if (!_estActiviteValideADate(activite, dateRef)) return false;
 
@@ -388,6 +390,7 @@ export function creerActivitesAPI(ctx) {
      * @param {number} marge - marge entre activités en minutes (optionnel)
      * @returns 
      */
+    // @ts-ignore
     getPausePlageDebut(dateRef, typePause, {activitesProgrammees=null, marge=null}={}) {
 
       const meta = (window.ctx?.meta) || {};
@@ -504,18 +507,7 @@ export function creerActivitesAPI(ctx) {
      * ───────────────────────────────────────────────────────────
      */
     estSessionValide(val, { default_year = null, default_month = null } = {}) {
-      const s = String(val ?? '').trim();
-      if (s === '') return true;               // vide = OK (pas de relâche)
-      
-      const tokens = _tokenizeSpecs(s);
-      if (!tokens.length) return false;
-
-      const now = new Date();
-      const defaultYear = now.getFullYear();
-      const defaultMonth = now.getMonth() + 1;
-
-      // Tous les tokens doivent être valides
-      return tokens.every(tok => _parseOneToken(tok, { defaultMonth, defaultYear }));
+      return _estSessionValide(val, { default_year, default_month } );
     },
 
     /**
@@ -535,18 +527,7 @@ export function creerActivitesAPI(ctx) {
      * ───────────────────────────────────────────────────────────
      */
     estRelacheValide(val) {
-      const s = String(val ?? '').trim();
-      if (s === '') return true;               // vide = OK (pas de relâche)
-      
-      const tokens = _tokenizeSpecs(s);
-      if (!tokens.length) return false;
-
-      const now = new Date();
-      const defaultYear = now.getFullYear();
-      const defaultMonth = now.getMonth() + 1;
-
-      // Tous les tokens doivent être valides
-      return tokens.every(tok => _parseOneToken(tok, { defaultMonth, defaultYear }));
+      return _estRelacheValide(val);
     },
 
     /**
@@ -562,10 +543,9 @@ export function creerActivitesAPI(ctx) {
     /**
      * Rapport de vérification de cohérence d'un tableau d'activités
      * @param {*} rows 
-     * @param {*} param1 
      * @returns 
      */
-    getLogVerifierCoherenceJS(rows, { estRelacheValideFn, estSessionValideFn, estDateProgrammableFn }) {
+    getLogVerifierCoherenceJS(rows) {
       if (!Array.isArray(rows) || rows.length === 0) return '';
 
       const erreurs = [];
@@ -689,10 +669,10 @@ export function creerActivitesAPI(ctx) {
           }
 
           // Session/Relache 
-          if (!estSessionValideFn(row?.Session)) {
+          if (!_estSessionValide(row?.Session)) {
             bloc.push(`Période de validité invalide à la ligne ${idx + 2} : ${row?.Session}`);
           }
-          if (!estRelacheValideFn(row?.Relaches ?? row?.Relache)) {
+          if (!_estRelacheValide(row?.Relaches ?? row?.Relache)) {
             const v = row?.Relaches ?? row?.Relache;
             bloc.push(`Relâches invalides à la ligne ${idx + 2} : ${v}`);
           }
@@ -709,8 +689,8 @@ export function creerActivitesAPI(ctx) {
           const sessionVal = row?.Session ?? row?.Session ?? '';
           const RelacheVal = row?.Relaches ?? row?.Relache ?? '';
 
-          // On signale si la date n'est PAS programmable
-          const ok = estDateProgrammableFn(dateInt, sessionVal, RelacheVal);
+          // On signale si la date n'est PAS valide (i.e. en relâche ou hors session)
+          const ok = _estDateValide(dateInt, sessionVal, RelacheVal);
           if (!ok && String(row?.Activite ?? '').trim() !== '') {
             bloc.push(`${row.Activite} non programmable le ${dateInt} selon Validité/Relâches (ligne ${idx + 2})`);
           }
@@ -772,8 +752,321 @@ export function creerActivitesAPI(ctx) {
       return contenu;
     },
 
-  };
+    /**
+     * Construit la liste des séances (dates "YYYY-MM-DD") à partir de Session / Relache.
+     *
+     * Grammaire gérée (côté Session) :
+     *  - Intervalles :
+     *      [d1-d2]
+     *      [d1-d2]/mm
+     *      [d1-d2]/mm/yyyy
+     *      [d1/mm1-d2/mm2]/yyyy
+     *
+     *  - Listes :
+     *      (d1, d2, ...)
+     *      (d1, d2, ...)/mm
+     *      (d1, d2, ...)/mm/yyyy
+     *      (d1/mm, d2/mm2, ...)
+     *
+     *  - Dates isolées :
+     *      d
+     *      d/mm
+     *      d/mm/yyyy
+     *
+     * Règles de complétion :
+     *  - année par défaut : editionYearFallback si fourni, sinon année courante
+     *  - mois par défaut : mois courant
+     *
+     * On construit un ensemble de dates candidates (AAAAMMJJ), puis on les filtre
+     * avec activitesAPI.estDateValide(dateInt, sessionVal, relacheVal).
+     *
+     * @param {string|null} sessionVal
+     * @param {string|null} relacheVal
+     * @param {number|null} editionYearFallback - année par défaut si souhaité
+     * @returns {string[]} tableau de dates "YYYY-MM-DD"
+     */
+    buildSeancesFromSessionRelache(sessionVal, relacheVal, editionYearFallback = null) {
+      const sessionTxt = String(sessionVal || "").trim();
+      if (!sessionTxt) return [];
+
+      const now = new Date();
+      const baseYear  = Number.isFinite(editionYearFallback) ? editionYearFallback : now.getFullYear();
+      const baseMonth = now.getMonth() + 1; // 1..12
+
+      // 🔴 IMPORTANT : une seule Set pour TOUTE la chaîne
+      const candidateDates = new Set();
+
+      // ---------- Helpers ----------
+
+      function dateIntToIso(di) {
+        const y  = Math.floor(di / 10000);
+        const m  = Math.floor((di / 100) % 100);
+        const d  = di % 100;
+        const mm = String(m).padStart(2, "0");
+        const dd = String(d).padStart(2, "0");
+        return `${y}-${mm}-${dd}`;
+      }
+
+      function parseDateFragment(raw) {
+        if (!raw) return { d: null, m: null, y: null };
+        const parts = String(raw).trim().split("/").map(s => s.trim()).filter(Boolean);
+        let d = null, m = null, y = null;
+
+        if (parts.length === 3) {
+          d = Number(parts[0]);
+          m = Number(parts[1]);
+          y = Number(parts[2]);
+        } else if (parts.length === 2) {
+          d = Number(parts[0]);
+          m = Number(parts[1]);
+        } else if (parts.length === 1) {
+          d = Number(parts[0]);
+        }
+
+        if (!Number.isFinite(d)) d = null;
+        if (!Number.isFinite(m)) m = null;
+        if (!Number.isFinite(y)) y = null;
+
+        return { d, m, y };
+      }
+
+      function normalizeYear(y, defaultYear) {
+        if (!Number.isFinite(y)) y = defaultYear;
+        if (y < 100) {
+          y = (y < 50) ? (2000 + y) : (1900 + y);
+        }
+        return y;
+      }
+
+      function fragmentToDateInt(frag, mmSuffix, yySuffix) {
+        const d = frag.d;
+        if (!Number.isFinite(d)) return null;
+
+        let m = frag.m;
+        let y = frag.y;
+
+        // mois
+        if (mmSuffix != null && !Number.isFinite(m)) {
+          m = Number(mmSuffix);
+        }
+        if (!Number.isFinite(m)) {
+          m = baseMonth;
+        }
+
+        // année
+        if (yySuffix != null && !Number.isFinite(y)) {
+          y = Number(yySuffix);
+        }
+        y = normalizeYear(y, baseYear);
+
+        if (!Number.isFinite(m) || m < 1 || m > 12) return null;
+
+        const js = new Date(y, m - 1, d);
+        if (
+          js.getFullYear() !== y ||
+          js.getMonth() + 1 !== m ||
+          js.getDate() !== d
+        ) {
+          return null;
+        }
+
+        return y * 10000 + m * 100 + d;
+      }
+
+      function splitTopLevelByComma(text) {
+        const parts = [];
+        let buf = "";
+        let depthSquare = 0;
+        let depthParen = 0;
+
+        for (let i = 0; i < text.length; i++) {
+          const c = text[i];
+
+          if (c === "[") depthSquare++;
+          else if (c === "]" && depthSquare > 0) depthSquare--;
+          else if (c === "(") depthParen++;
+          else if (c === ")" && depthParen > 0) depthParen--;
+
+          if (c === "," && depthSquare === 0 && depthParen === 0) {
+            const segment = buf.trim();
+            if (segment) parts.push(segment);
+            buf = "";
+            continue;
+          }
+
+          buf += c;
+        }
+
+        const last = buf.trim();
+        if (last) parts.push(last);
+        return parts;
+      }
+
+      function parseSuffix(rawSuffix) {
+        const s = String(rawSuffix || "").trim();
+        if (!s.startsWith("/")) {
+          return { mmSuffix: null, yySuffix: null };
+        }
+
+        const body = s.slice(1).trim();
+        if (!body) {
+          return { mmSuffix: null, yySuffix: null };
+        }
+
+        const parts = body.split("/").map(x => x.trim()).filter(Boolean);
+
+        if (parts.length === 1) {
+          const token = parts[0];
+          if (token.length === 2) {
+            return { mmSuffix: token, yySuffix: null };    // /mm
+          }
+          if (token.length === 4) {
+            return { mmSuffix: null, yySuffix: token };    // /yyyy
+          }
+          return { mmSuffix: null, yySuffix: null };
+        }
+
+        if (parts.length === 2) {
+          const mm = parts[0] || null;
+          const yy = parts[1] || null;
+          return { mmSuffix: mm, yySuffix: yy };           // /mm/yyyy
+        }
+
+        return { mmSuffix: null, yySuffix: null };
+      }
+
+      // ---------- 1) Découpage en segments ----------
+
+      const segments = splitTopLevelByComma(sessionTxt);
+      // DEBUG : à commenter ensuite
+      // console.log("Segments:", segments);
+
+      for (const segRaw of segments) {
+        const seg = segRaw.trim();
+        if (!seg) continue;
+
+        // DEBUG : à commenter ensuite
+        // console.log("Segment:", seg);
+
+        // CAS 1 : Intervalle [a-b](/mm[/yyyy]?)
+        if (/^\s*\[/.test(seg)) {
+          const m = seg.match(/\[\s*([^\]]+)\s*\]\s*(.*)$/);
+          if (!m) continue;
+
+          const inside     = m[1];          // "04-25" ou "28/07-04/08"
+          const suffixPart = m[2] || "";    // "/07", "/2025", "/07/2025" ou ""
+
+          const { mmSuffix, yySuffix } = parseSuffix(suffixPart);
+
+          const dashIdx = inside.indexOf("-");
+          if (dashIdx < 0) continue;
+
+          const left  = inside.slice(0, dashIdx).trim();
+          const right = inside.slice(dashIdx + 1).trim();
+
+          const fragA = parseDateFragment(left);
+          const fragB = parseDateFragment(right);
+
+          const diA = fragmentToDateInt(fragA, mmSuffix, yySuffix);
+          const diB = fragmentToDateInt(fragB, mmSuffix, yySuffix);
+          if (!diA || !diB) continue;
+
+          let di = Math.min(diA, diB);
+          const hi = Math.max(diA, diB);
+
+          while (di <= hi) {
+            candidateDates.add(di);
+            const y  = Math.floor(di / 10000);
+            const m2 = Math.floor((di / 100) % 100);
+            const d2 = di % 100;
+            const next = new Date(y, m2 - 1, d2 + 1);
+            di = next.getFullYear() * 10000 + (next.getMonth() + 1) * 100 + next.getDate();
+          }
+
+          continue;
+        }
+
+        // CAS 2 : Liste (d1, d2, ...) (/mm[/yyyy]?)
+        if (/^\s*\(/.test(seg)) {
+          const m = seg.match(/\(\s*([^)]+)\s*\)\s*(.*)$/);
+          if (!m) continue;
+
+          const inside     = m[1];          // "10, 11" ou "10/08, 11/08"
+          const suffixPart = m[2] || "";    // "/08", "/08/2025", ...
+
+          const { mmSuffix, yySuffix } = parseSuffix(suffixPart);
+
+          const tokens = inside.split(",").map(s => s.trim()).filter(Boolean);
+          for (const tok of tokens) {
+            const frag = parseDateFragment(tok);
+            const di   = fragmentToDateInt(frag, mmSuffix, yySuffix);
+            if (di) candidateDates.add(di);
+          }
+
+          continue;
+        }
+
+        // CAS 3 : dates isolées dans le segment
+        const reSingle = /\b(\d{1,2}(?:\/\d{1,2}(?:\/\d{2,4})?)?)\b/g;
+        let mSingle;
+        while ((mSingle = reSingle.exec(seg)) !== null) {
+          const tok  = mSingle[1];
+          const frag = parseDateFragment(tok);
+          const di   = fragmentToDateInt(frag, null, null);
+          if (di) candidateDates.add(di);
+        }
+      }
+
+      // ---------- 2) Filtrage via estDateValide ----------
+
+      const sorted = Array.from(candidateDates).sort((a, b) => a - b);
+      const seances = [];
+
+      for (const di of sorted) {
+        if (_estDateValide(di, sessionVal, relacheVal)) {
+          seances.push(dateIntToIso(di));
+        }
+      }
+
+      return seances;
+    },
+
+  }
 }
+
+/**
+ * Construit une clef de spectacle à partir des colonnes Activite, Lieu, Debut et Session/Relache transformé en seances
+ * Cette définition de clef est partagée avec le worker CloudFlare et permet de lui demander de filtrer des entrées de 
+ * l'index global utilisé pour les fonctions de scoring par similarité (embeddings).
+ * @param {*} row 
+ * @returns 
+ */
+export function makeFullKey(row) {
+  function norm(v) {
+    return v == null ? "" : String(v).trim().toLowerCase();
+  }
+
+  function normHour(v) {
+    if (v == null) return "";
+
+    const s = String(v).trim().toLowerCase();
+
+    // gère : 09h00, 9h00, 9:00, 09:00
+    const m = s.match(/^(\d{1,2})[:h](\d{2})$/);
+    if (!m) return s; // fallback brut si format exotique
+
+    const h = String(Number(m[1])); // supprime les zéros
+    const min = m[2];
+
+    return `${h}h${min}`; // ✅ format canonique : "9h00", "14h30"
+  }
+
+  const activite = norm(row.Activite || row.activite);
+  const lieu     = norm(row.Lieu || row.lieu);
+  const debut    = normHour(row.Debut || row.debut);
+
+  return `${activite}||${lieu}||${debut}`;
+}      
 
 /**
  * Tri par Date (YYYYMMDD) puis Début ("HHhMM") d'un tableau d'activités.
@@ -1531,6 +1824,68 @@ function _estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
 
   // Sinon, aucune contrainte de Session -> true (programmable par défaut)
   return true;
+}
+
+/**
+ * Indique si une valeur est valide pour le champ Relache d'une activité
+ * - vide => true
+ * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
+ * ───────────────────────────────────────────────────────────
+ * Format(s) acceptés, séparés par des virgules :
+ *  - "9", "09" (mois courant et année courante implicites), 
+ *  - "9/7", "09/07" (année courante implicite) , 
+ *  - "09/07/25" ou "09/07/2025"
+ *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
+ *  - "[9-12]/07", "[30/07-01/08]" pour une période
+ *  - "jours pairs" | "jours impairs"
+ *  - chaîne vide => pas de jours de relâche
+ * On valide que *tous* les tokens sont valides.
+ * ───────────────────────────────────────────────────────────
+ */
+function _estRelacheValide(val) {
+  const s = String(val ?? '').trim();
+  if (s === '') return true;               // vide = OK (pas de relâche)
+  
+  const tokens = _tokenizeSpecs(s);
+  if (!tokens.length) return false;
+
+  const now = new Date();
+  const defaultYear = now.getFullYear();
+  const defaultMonth = now.getMonth() + 1;
+
+  // Tous les tokens doivent être valides
+  return tokens.every(tok => _parseOneToken(tok, { defaultMonth, defaultYear }));
+}
+
+/**
+ * Indique si une valeur est valide pour le champ Session d'une activité
+ * - vide => true
+ * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
+ * ───────────────────────────────────────────────────────────
+ * Format(s) acceptés, séparés par des virgules :
+ *  - "9", "09" (mois courant et année courante implicites), 
+ *  - "9/7", "09/07" (année courante implicite) , 
+ *  - "09/07/25" ou "09/07/2025"
+ *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
+ *  - "[9-12]/07", "[30/07-01/08]" pour une période
+ *  - "jours pairs" | "jours impairs"
+ *  - chaîne vide => tous les jours de la période programmation
+ * On valide que *tous* les tokens sont valides.
+ * ───────────────────────────────────────────────────────────
+ */
+function _estSessionValide(val, { default_year = null, default_month = null } = {}) {
+  const s = String(val ?? '').trim();
+  if (s === '') return true;               // vide = OK (pas de relâche)
+  
+  const tokens = _tokenizeSpecs(s);
+  if (!tokens.length) return false;
+
+  const now = new Date();
+  const defaultYear = now.getFullYear();
+  const defaultMonth = now.getMonth() + 1;
+
+  // Tous les tokens doivent être valides
+  return tokens.every(tok => _parseOneToken(tok, { defaultMonth, defaultYear }));
 }
 
 // Renvoie la 1ère activité programmée du jour (par heure)

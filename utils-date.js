@@ -1,4 +1,6 @@
-// utils-date.js — helpers communs "date/heure" pour app.js et activites.js
+// ===============================
+// Utilitaires dayes
+// ===============================
 
 import { 
   richValueSet,
@@ -213,16 +215,7 @@ export function toDateint(v) {
   if (typeof v === 'number') return v;
   const s = String(v).trim();
   if (/^\d{8}$/.test(s)) return parseInt(s, 10);
-  // si tu as déjà prettyToDateint, utilise-la :
-  if (typeof window.prettyToDateint === 'function') return window.prettyToDateint(s);
-  // fallback "jj/mm[/aa|aaaa]"
-  const p = s.split(/[\/.-]/).map(x => x.trim());
-  if (!p.length) return null;
-  const d = +p[0], m = +(p[1] || (new Date().getMonth()+1));
-  let y = +(p[2] || new Date().getFullYear());
-  if (y < 100) y += 2000;
-  if (!d || !m || !y) return null;
-  return y*10000 + m*100 + d;
+  return prettyToDateint(s);
 }
 
 export const parseHHhMM = (s) => {
@@ -325,12 +318,14 @@ export function dateToDateint(x, defaultYear, defaultMonth) {
     let y = yStr ? parseInt(yStr, 10) : defY;
     if (y < 100) y += (y >= 70 ? 1900 : 2000);
     const dte = new Date(y, mo - 1, d);
+    // @ts-ignore
     if (!isNaN(dte)) return dateToInt(y, mo, d);
   }
 
   // parsing souple
   try {
     const parsed = new Date(Date.parse(s));
+    // @ts-ignore
     if (!isNaN(parsed))
       return dateToInt(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
   } catch {}
@@ -412,7 +407,7 @@ export function recalcFin(row) {
 
 /**
  * Recalcule la colonne Fin d'un tableau d'activités en fonction des colonnes Debut et Duree
- * @param {*} df 
+ * @param {*} rows 
  * @returns 
  */
 export function recalcFinForAll(rows) {

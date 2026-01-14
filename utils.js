@@ -1,29 +1,33 @@
-// Crée une mini-console dans la page pour afficher les logs sur iPhone
-export function logToPage(...args) {
-  let el = document.getElementById('debug-console');
-  if (!el) {
-    el = document.createElement('pre');
-    el.id = 'debug-console';
-    el.style.position = 'fixed';
-    el.style.bottom = '0';
-    el.style.left = '0';
-    el.style.width = '100%';
-    el.style.maxHeight = '40vh';
-    el.style.overflowY = 'auto';
-    el.style.background = 'rgba(0,0,0,0.75)';
-    el.style.color = '#0f0';
-    el.style.fontSize = '11px';
-    el.style.fontFamily = 'monospace';
-    el.style.padding = '4px 6px';
-    el.style.zIndex = '9999';
-    el.style.whiteSpace = 'pre-wrap';
-    el.style.pointerEvents = 'none';
-    document.body.appendChild(el);
-  }
-  el.textContent += args.map(a => 
-    typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)
-  ).join(' ') + '\n';
+// ===============================
+// Utilitaires divers
+// ===============================
+
+// Appel d'une fonction après n frames
+export function afterFrames(n, fn) {
+  if (n <= 0) return fn();
+  requestAnimationFrame(() => afterFrames(n - 1, fn));
 }
+
+// helper pour éviter les surprises dans les innerHTML
+export function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function escapeAttr(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Attend la fin de deux frames
+export const waitAF = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
 // Ouvre une URL
 export function openUrl(u, IosPwaMode=true){
@@ -34,6 +38,7 @@ export function openUrl(u, IosPwaMode=true){
     // Vérifie si on est dans une PWA iOS
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
       || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// @ts-ignore
     const isStandalone = window.navigator.standalone === true
       || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 
@@ -168,6 +173,7 @@ export function isIOS() {
 
 export function isStandalonePWA() {
   return window.matchMedia('(display-mode: standalone)').matches
+// @ts-ignore
       || window.navigator.standalone === true; // iOS Safari
 }
 

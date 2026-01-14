@@ -6,13 +6,12 @@ import {
 
 import {
   selectCurrentEventInCalendar, 
-} from './app.js';
+} from './calendar.js';
 
 (function initTwoPagePager(){
   const pager = document.getElementById('pager');
-  const track = pager?.querySelector('.pager-track');
+  const track = /** @type {HTMLElement} */ (pager?.querySelector('.pager-track'));
   const pages = track ? Array.from(track.querySelectorAll('.page')) : [];
-  // const btnPrev = document.getElementById('pg-prev');
   const btnNext = document.getElementById('pg-next');
   const btnAppLogo = document.getElementById('btn-app-logo');
 
@@ -22,15 +21,12 @@ import {
   }
 
   let index = Number(pager.dataset.page || 0) || 0;
-	// const hasDF = window.ctx?.df && window.ctx.df.length > 0;
-	// let index = hasDF ? 0 : 1; // 1 = planning, 0 = catalogues
-
   let dragging = false, engaged = false;
   let startX = 0, startY = 0, curX = 0;
-  let pageW = computePageW() ; //pager.clientWidth || window.innerWidth || 1;
+  let pageW = computePageW() ; 
 
   function measure(){
-    pageW = computePageW() ; //pager.clientWidth || window.innerWidth || 1;
+    pageW = computePageW() ; 
   }
 
   function computePageW() {
@@ -204,20 +200,20 @@ import {
 	function wireCatalogButtons(){
 		document.querySelectorAll('.catalog-btn[data-url]').forEach(btn => {
 			// Est-ce bien un “button” cliquable
-			btn.type = 'button';
+			(/** @type {HTMLButtonElement} */ (btn)).type = 'button';
 			btn.addEventListener('click', (e) => {
 				e.stopPropagation(); // évite d’interférer avec le swipe
-				const raw = (btn.dataset.url || '').trim();
+				const raw = ((/** @type {HTMLButtonElement} */ (btn)).dataset.url || '').trim();
 				if (!raw) return;
 				openUrl(raw);
 			});
 		});
 		document.querySelectorAll('.mini-corner-btn[data-url]').forEach(btn => {
 			// Est-ce bien un “button” cliquable
-			btn.type = 'button';
+			(/** @type {HTMLButtonElement} */ (btn)).type = 'button';
 			btn.addEventListener('click', (e) => {
 				e.stopPropagation(); // évite d’interférer avec le swipe
-				const raw = (btn.dataset.url || '').trim();
+				const raw = ((/** @type {HTMLButtonElement} */ (btn)).dataset.url || '').trim();
 				if (!raw) return;
 				openUrl(raw);
 			});

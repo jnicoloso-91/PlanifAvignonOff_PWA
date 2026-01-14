@@ -1,9 +1,16 @@
+/// <reference lib="webworker" />
 const CACHE = "avignon-cache-v2";
 const OFFLINE_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./grids.js",
+  "./calendar.js",
+  "./menus.js",
+  "./expanders.js",
+  "./sheets.js",
+  "./infos-plus.js",
   "./AppContext.js",
   "./ActiviteRenderer.js",
   "./LieuRenderer.js",
@@ -19,6 +26,7 @@ const OFFLINE_ASSETS = [
   "./utils-date.js",
   "./utils.js",
   "./parsers.js",
+  "./debug.js",
   "./ag-grid-community.min.js",
   "./ag-grid.css",
   "./lib/idb.mjs",
@@ -32,7 +40,7 @@ const OFFLINE_ASSETS = [
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(OFFLINE_ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then((c) => c.addAll(OFFLINE_ASSETS)).then(() => (/** @type {any} */ (self)).skipWaiting())
   );
 });
 
@@ -40,7 +48,7 @@ self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+      .then(() => (/** @type {any} */ (self)).clients.claim())
   );
 });
 
