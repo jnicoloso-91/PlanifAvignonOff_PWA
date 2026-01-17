@@ -470,7 +470,10 @@ export function parseAvignonInSpecPageText(text) {
  * @param {boolean} opts.verbose    - logs console
  * @returns {Promise<Array>}        - liste d’objets parsés (Activite, Lieu, Session, Debut, Duree, Style, Hyperlien)
  */
-export async function parseAvignonOffProgPageUrl(url, { maxPages = 1000, delayMs = 150, verbose = false } = {}) {
+export async function parseAvignonOffProgPageUrl(
+  url, 
+  { maxPages = 1000, delayMs = 150, verbose = false } = { maxPages: 1000, delayMs: 150, verbose: false }
+) {
 
   const seen = new Set();
   const all  = [];
@@ -766,13 +769,18 @@ export async function parseAvignonOffSpecPageUrl(url, { fetcher = _fetchViaCloud
 }
 
 /**
+ * @typedef {typeof PARSED_DEFAULT & { Description?: any, Distribution?: any }} ParsedSpec
+ */
+
+/**
  * Parser d'une page spectacle du catalogue Avignon Off donnée par son Dom
  * parseListingHtml(html, { url })
  * @param {Document} doc
  * @param {{url?: string}} opts
- * @return {{Activite:string|null, Lieu:string|null, Relache:string|null, Debut:string|null, Duree:string|null, Hyperlien:string|null}}
- */
+ * @return {ParsedSpec[]}
+ */ 
 export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
+  /** @type {ParsedSpec} */
   const res = {...PARSED_DEFAULT};
 
   // Activité
@@ -1407,7 +1415,7 @@ function parseBilletReducSpecPageDom(doc) {
     const reviewNodes = doc.querySelectorAll(
       '.review_card.customer_review_card .review_card_content_desc'
     );
-    for (const node of reviewNodes) {
+    for (const node of Array.from(reviewNodes)) {
       const txt = _text(node.textContent || '');
       if (!txt) continue;
       avisComments.push(txt);
@@ -1443,8 +1451,8 @@ export async function parseBilletReducCollecPageUrl(url, { fetcher = _fetchViaCl
   if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
-  const parsed = parseBilletReducCollecPageDom(doc, url);
-  if (parsed) parsed.Hyperlien = url;
+  const parsed = parseBilletReducCollecPageDom(doc);
+  if (parsed) /** @type {any} */ (parsed).Hyperlien = url;
   return parsed;
 }
 
@@ -2045,7 +2053,7 @@ function _formToParams(formEl) {
   // FormData gère inputs/checkbox/radios/select multiples
   const fd = new FormData(formEl);
   const params = new URLSearchParams();
-  for (const [k, v] of fd.entries()) params.append(k, v);
+  for (const [k, v] of /** @type {any} */ (fd).entries()) params.append(k, v);
   return params;
 }
 
@@ -2315,6 +2323,7 @@ function _abbrDay(j) {
 
 function _moisToNum(m) {
   if (!m) return '??';
+  
   const map = {
     '1':'01','01':'01','janvier':'01',
     '2':'02','02':'02','fevrier':'02','février':'02',
@@ -2325,9 +2334,9 @@ function _moisToNum(m) {
     '7':'07','07':'07','juillet':'07',
     '8':'08','08':'08','aout':'08','août':'08',
     '9':'09','09':'09','septembre':'09',
-    '10':'10','10':'10','octobre':'10',
-    '11':'11','11':'11','novembre':'11',
-    '12':'12','12':'12','decembre':'12','décembre':'12'
+    '10':'10','octobre':'10',
+    '11':'11','novembre':'11',
+    '12':'12','decembre':'12','décembre':'12'
   };
   return map[m] || '??';
 }
