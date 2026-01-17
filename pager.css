@@ -19,13 +19,19 @@ html, body {
 
 /* Le conteneur pager : couvre tout l’écran */
 #pager {
-  position: fixed;
-  inset: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  height: 100%;
-  overflow: hidden;              /* masque le débordement horizontal */
-  touch-action: pan-y;           /* on gère le pan-x en JS */
-  background: #fff;              /* fond par défaut */
+  height: 100svh;            /* Utilisation de small viewport height par défaut */
+  overflow: hidden;          /* masque le débordement horizontal */
+  touch-action: pan-y;       /* on gère le pan-x en JS */
+  overscroll-behavior-x: contain;   /* pas d’élastique horizontal */
+  inset: 0;
+  background: #fff;        /* fond par défaut */
+  opacity: 0;
+  transform: translateX(30%);
+  transition: opacity .45s ease, transform .45s ease;
 }
 /* iOS/modern: contrairement à 100vh permet à la page de s'ajuster en fonction de la barre/clavier */
 @supports (height: 100dvh) {
@@ -35,9 +41,13 @@ html, body {
 /* Rail horizontal des pages */
 #pager .pager-track {
   display: flex;
+  width: 100%;
   height: 100%;
   will-change: transform;
   transform: translate3d(0,0,0);
+  will-change: transform;
+  transition: transform .4s ease;
+  overscroll-behavior: contain;     /* évite propagation du scroll */
 }
 
 /* Chaque page : 100vw x 100vh, pas de grow/shrink */
@@ -48,19 +58,21 @@ html, body {
   overflow: auto;                /* scroll vertical interne par page */
   -webkit-overflow-scrolling: touch;
 }
+@supports(padding: env(safe-area-inset-bottom)) {
+  #pager .pager-track > .page {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
 
 /* Empêche d’interagir avec les pages non actives (claviers, focus, etc.) */
 #pager .pager-track > .page:not(.is-active) {
   pointer-events: none;
 }
 
-/* ---------------------------------
-   Safe areas iOS (optionnel)
-   --------------------------------- */
-@supports(padding: env(safe-area-inset-bottom)) {
-  #pager .pager-track > .page {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+/* --- Entrée du pager --- */
+#pager.is-entering {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .app-header.hidden {
@@ -69,34 +81,9 @@ html, body {
   pointer-events: none;
 }
 
-#pager.is-dragging .page { pointer-events: none; } /* désactive clics pendant drag */
-
 /* ===============================
    Ajustement de la hauteur des pages
    =============================== */
-
-/* Le conteneur global du pager */
-#pager {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  overflow: hidden;
-}
-
-/* Valeur par défaut (iOS anciens & fallback) */
-#pager {
-  height: 100svh; /* small vh (small viewport height) = zone visible quand barres affichées */
-}
-
-/* Le rail horizontal */
-#pager .pager-track {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  will-change: transform;
-  transition: transform .4s ease;
-}
 
 /* Chaque page = toute la zone sous le header */
 #pager .page {
@@ -145,6 +132,7 @@ html, body {
 /* Petit effet d’apparition */
 #welcome .welcome-inner {
   width: min(92vw, 640px);
+  max-width: 80%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -154,31 +142,15 @@ html, body {
   animation: fadeUp .8s ease both;
 }
 
-#pager {
-  opacity: 0;
-  transform: translateX(30%);
-  transition: opacity .45s ease, transform .45s ease;
-}
-
 /* --- Sortie du welcome --- */
 #welcome.is-leaving {
   opacity: 0;
   transform: translateX(-30%);
 }
 
-/* --- Entrée du pager --- */
-#pager.is-entering {
-  opacity: 1;
-  transform: translateX(0);
-}
-
 /* --- Blocage des clics pendant la transition --- */
 .transition-lock {
   pointer-events: none;
-}
-
-#welcome .welcome-inner {
-  max-width: 80%;
 }
 
 #welcome .welcome-title {
@@ -216,13 +188,17 @@ html, body {
   box-sizing: border-box;
   height: 100%;
 
-  overflow: auto;                                      /* défilement si besoin */
   display: flex;
   flex-direction: column;
   
   background: radial-gradient(120% 120% at 100% 0%, #1f2937 0%, #0b0f14 35%, #000 70%), #000;
   color: #fff;
   padding: 16px;
+  
+  overflow-x: hidden;               /* pas de scroll horizontal natif (pour ne pas inteférer avec le swip est géré par le pager parent) */
+  overflow-y: hidden;               /* pas de scroll vertical */
+  touch-action: pan-y;              /* idem : on laisse le vertical natif */
+  -webkit-overflow-scrolling: touch;/* fluidité verticale iOS */
 }
 
 /* Conteneur de la grille de boutons */
@@ -359,25 +335,6 @@ html, body {
 /*============================
   Resolution pb de swip sur page catalogue sur IOS
   ============================*/
-  /* Le conteneur pager ne doit pas “scroller” horizontalement */
-#pager {
-  overflow: hidden;                 /* stoppe tout scroll natif du pager */
-  overscroll-behavior-x: contain;   /* pas d’élastique horizontal */
-  touch-action: pan-y;              /* le navigateur gère le vertical, pas l’horizontal */
-}
-
-/* La piste qui translate ne doit pas capter d’overscroll non plus */
-#pager .pager-track {
-  overscroll-behavior: contain;     /* évite propagation du scroll */
-}
-
-/* La page “Catalogues” ne doit pas offrir de scroll horizontal natif */
-.page--catalogs {
-  overflow-x: hidden;               /* pas de scroll horizontal natif (pour ne pas inteférer avec le swip est géré par le pager parent) */
-  overflow-y: hidden;               /* pas de scroll vertical */
-  touch-action: pan-y;              /* idem : on laisse le vertical natif */
-  -webkit-overflow-scrolling: touch;/* fluidité verticale iOS */
-}
 
 #pg-next{
   position: absolute;
