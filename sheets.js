@@ -890,11 +890,6 @@ export function openSheetParams() {
         </div>
       `;
 
-          // <div class="form-row">
-          //   <label>Durée des pauses café (min)</label>
-          //   <input id="p-cafe" type="number" min="0" step="5" value="${dureeCafe}"/>
-          // </div>
-
       const $deb = body.querySelector('#pp-debut');
       const $fin = body.querySelector('#pp-fin');
       const $mar = body.querySelector('#p-marge');
@@ -5356,10 +5351,20 @@ export function openSheetInfosPlus({
       body.innerHTML = `
         <div class="bb-enrich-sheet" style="display:flex; flex-direction:column; gap:10px; height:100%;">
           <div id="bb-out"
-              style="flex:1 1 auto; overflow:auto;
-                      font-size:14px; line-height:1.4;
-                      border:1px solid rgba(0,0,0,.08); border-radius:10px;
-                      padding:10px; background:#fff; color:#111;">
+            style="
+              flex:1 1 auto;
+              min-height:0;
+              overflow:auto;
+              font-size:14px;
+              line-height:1.4;
+              border:1px solid rgba(0,0,0,.08);
+              border-radius:10px;
+              padding:10px;
+              padding-bottom:calc(var(--footer-h) + env(safe-area-inset-bottom));
+              scroll-padding-bottom:calc(var(--footer-h) + env(safe-area-inset-bottom));
+              background:#fff;
+              color:#111;
+            ">          
           </div>
 
           <div class="sheet-footer has-border">
@@ -5478,7 +5483,7 @@ export function openSheetInfosPlus({
           }
 
           const label = r?.Activite || r?.Spectacle || "(sans titre)";
-          append?.(`(${i + 1}/${rowsToEnrich.length}) ⏳ ${label}`);
+          append?.(`(${i + 1}/${rowsToEnrich.length}) ${label}`);
 
           try {
             const patch = await computeInfosPlusPatch(r);

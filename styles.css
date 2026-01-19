@@ -1435,7 +1435,7 @@ main, .page-wrap {
 
   border-top: 1px solid rgba(0,0,0,0.08);
   padding-top: 0px;
-  padding-bottom: var(--footer-h); /* Pour que le scrolle tienne compte de la hauteru du footer */
+  padding-bottom: var(--footer-h); /* Pour que le scrolle tienne compte de la hauteur du footer */
 }
 
 /* --- Chaque ligne de paramètre --- */
