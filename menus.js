@@ -14,12 +14,12 @@ import {
   prettyToDateint, 
   dateintToPretty, 
   ymdToDateint, 
-  toDateint,
   recalcFinForAll,
   isDateint,
 } from './utils-date.js';
 
 import { 
+  ctx,
   activitesAPI,
 } from './app.js'; 
 
@@ -36,6 +36,8 @@ import {
 
 import {
   PARSED_DEFAULT, 
+  getNoteFromAvis,
+  enrichWithAbstractPremium,
   parseAvignonInProgPageUrl, 
   parseAvignonInSpecPageUrl, 
   parseAvignonOffProgPageUrl, 
@@ -56,18 +58,11 @@ import {
 } from './parsers.js';
 
 import {
-  grids,
-  getSelectedRowSafe,
-  getSelectedRow,
-  getRowsFromGridId,
   selectRowByUuid,
-  getLigneVoisineUuid,
   rebuildColumnsForActiviteGrids,
-  refreshGrid,
 } from './grids.js';
 
 import {
-  openSheetExclusive,
   openSheetCarnet,
   openSheetAssistantProgrammation,
   openSheetAssistantChat,
@@ -75,6 +70,7 @@ import {
   openSheetAide,
   openSheetCoherence,
   openSheetImportBilletReduc,
+  openSheetInfosPlus,
 } from './sheets.js';
 
 import {
@@ -541,9 +537,12 @@ const CANON = {
   // colonnes usuelles
   'date': 'Date',
   'debut': 'Debut',
+  'heure': 'Debut',
   'duree': 'Duree',
   'activite': 'Activite',
+  'spectacle': 'Activite',
   'lieu': 'Lieu',
+  'theatre': 'Lieu',
   'page web': 'Hyperlien',
   'google': 'HyperlienGoogle',
   'hyperliengoogle': 'HyperlienGoogle',
@@ -636,7 +635,7 @@ async function importFromXlsxFile(f, {add=false} = {}) {
     const colActivite = headerRow.findIndex(h => normalizeHeaderToCanon(h) === 'Activite');
 
     // 5) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
-    if (typeof colActivite === 'number') {
+    if (typeof colActivite === 'number' && colActivite >= 0) {
       for (let i = 0; i < dfRows.length; i++) {
         const r = i + 1; // +1 car row 0 = ligne 2 en Excel (entête sur r0)
         const addr = XLSX.utils.encode_cell({ r: range.s.r + 1 + i, c: colActivite });
@@ -661,6 +660,10 @@ async function importFromXlsxFile(f, {add=false} = {}) {
           dfRows[i].HyperlienBR = `https://www.billetreduc.com/search.htm?se=${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
         }
       }
+    }
+    else { 
+      alert("Echec de l'import : colonne Activite non trouvée");
+      return;
     }
 
     // 6) normalisation colonnes + __uuid + Date->dateint 
@@ -758,7 +761,7 @@ async function importFromXlsxFile(f, {add=false} = {}) {
       recalcFinForAll(dfRows);
       if (!dfRows || dfRows.length == 0) return;
       // ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
-      ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(dfRows, rows, ['Activite', 'Debut', 'Session'])));
+      ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(rows, dfRows, ['Activite', 'Debut', 'Session'])));
 
       // Maj des sélections
       setTimeout(() => {
@@ -770,7 +773,6 @@ async function importFromXlsxFile(f, {add=false} = {}) {
   }
 
   catch (e) {
-    console.error('❌ Import Excel KO', e);
     alert("Echec de l'import : " + e.message);
   } finally {
     overlayAttente.hidden = true; // Masque l'overlay d'attente
@@ -1068,6 +1070,7 @@ export function wireAppKebab() {
         { id:'carnet',    label:"Carnet d'adresses",        onClick: ()=>openSheetCarnet() },
         { id:'prog',      label:"Assistant programmation",  onClick: ()=>openSheetAssistantProgrammation() },
         { id:'chat',      label:"Assistant chat",           onClick: ()=>openSheetAssistantChat() },
+        { id:'infosPlus', label:'Assistant infos+',         onClick: ()=>openSheetInfosPlus() },
         { id:'settings',  label:'Paramètres',               onClick: ()=>openSheetParams() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
       ]
@@ -1240,9 +1243,9 @@ async function doExportExcel() {
     })
     
     cleanData = cleanRows(cleanData, 
-      ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances", "__desc_summary", "__avis_summary"],
+      ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances"],
       { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienGoogle: "Google" },
-      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Priorité", "Billet Réduc", "Google" ],
+      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Priorité", "Billet Réduc", "Google", "__desc_summary", "__avis_summary" ],
       false
     );
 
@@ -1523,32 +1526,6 @@ async function getClipBoardText(parser=null) {
   if (isIOS) openPastePopup();
 };
 
-// essaye d’extraire une note et un count d’un champ avis texte
-function parseAvisObject(avisStr) {
-  if (!avisStr || typeof avisStr !== "string") {
-    return { note: null, count: null };
-  }
-
-  // Exemples supportés :
-  // "Note 10/10 (74 avis) — ..."
-  // "9/10 (35 avis)"
-  const noteMatch = avisStr.match(/(\d+(?:[.,]\d+)?)\s*\/\s*10/);
-  const countMatch = avisStr.match(/\((\d+)\s*avis\)/i);
-
-  const note = noteMatch
-    ? Number(noteMatch[1].replace(",", "."))
-    : null;
-
-  const count = countMatch
-    ? Number(countMatch[1])
-    : null;
-
-  return {
-    note: Number.isFinite(note) ? note : null,
-    count: Number.isFinite(count) ? count : null
-  };
-}
-
 // Appel d'une fonction asynchrone avec affichage overlay attente
 async function asyncCallAvecOverlayAttente(fnct, param, msg="Echec") {
   let res = null;
@@ -1581,6 +1558,7 @@ function syncCallAvecOverlayAttente(fnct, param, msg="Echec") {
   }
 }
 
+// Importe des activités depuis une URL ou un texte brut
 export async function importFromUrlOrTxt(raw, parser=null) {
 
   let parsed = null;
@@ -1690,13 +1668,8 @@ export async function importFromUrlOrTxt(raw, parser=null) {
       `https://www.google.com/search?q=spectacle+${nom.trim().replace(/\s+/g, '+')}` :
       null;
 
-    let note = null;
-    if (row.Avis) {
-      const avisObj = parseAvisObject(row.Avis.Note);
-      const notePart = (avisObj.note) ? `${String(avisObj.note)}` : null;
-      const countPart = (avisObj.count) ? `(${String(avisObj.count)} avis)` : null;
-      if (notePart || countPart) note = `${notePart} ${countPart}`;
-    }
+    const note = getNoteFromAvis(row.Avis);
+
     const nouvelleActivite = {
         __uuid: crypto.randomUUID?.() || String(Date.now()),
         Date: null, 
@@ -1714,24 +1687,28 @@ export async function importFromUrlOrTxt(raw, parser=null) {
         Hyperlien: row.Hyperlien || hyperlienDefault,
         HyperlienGoogle: row.HyperlienGoogle || hyperlienGoogleDefault,
         HyperlienBR: row.HyperlienBR || hyperlienBRDefault,
+        Mood: row?.Mood ?? null,
+        Description: row?.Description ?? null,
+        Distribution: row?.Distribution ?? null,
+        Avis: row?.Avis ?? null,
       }
       nouvellesActivites.push(nouvelleActivite);
   }
 
   if (!nouvellesActivites || nouvellesActivites.length == 0) return;
   
+  await asyncCallAvecOverlayAttente(enrichWithAbstractPremium, { rows:nouvellesActivites, df: ctx.df }, 'Echec enrichissement résumé');
 
   if (mergeMode == 1) {
     ctx.mutateDf(rows => { 
-      const next = sortDf(overloadRowsOrInsert(rows, nouvellesActivites[0], ['Activite', 'Lieu'], ['Duree'])); 
+      const next = sortDf(overloadRowsOrInsert(rows, nouvellesActivites[0], ['Activite', 'Lieu'], ['Duree', '__desc_summary', '__avis_summary', 'Mood'])); 
       recalcFinForAll(next); 
       return next;
     });
-    
   }
   else {
     recalcFinForAll(nouvellesActivites);
-    ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(nouvellesActivites, rows, ['Activite', 'Debut', 'Session'])));
+    ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(rows, nouvellesActivites, ['Activite', 'Lieu', 'Debut', 'Session'])));
   }
 
   // Maj des sélections

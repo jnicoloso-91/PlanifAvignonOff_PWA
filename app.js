@@ -34,6 +34,7 @@ import {
   wireExpanderSplitters
 } from './expanders.js';
 
+export let ctx = null;
 export let activitesAPI = null;
 
 function wireContext() {
@@ -46,7 +47,7 @@ function wireContext() {
   });
 
   // ctx.on('carnet:changed',    () => {
-  //   refreshCarnetGrid(); // scheduleGlobalRefresh());
+  //   refreshCarnetGrid(); 
   // });
 
   ctx.on('history:change', ({ domain, ...st })  => {
@@ -87,6 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 1️⃣ Contexte métier (singleton)
   window.ctx = await AppContext.ready();
+  ctx = window.ctx;
 
   // Creation de l'API pour le module activites.js
   activitesAPI = creerActivitesAPI(ctx);

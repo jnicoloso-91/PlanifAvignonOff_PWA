@@ -315,7 +315,7 @@ export function creerActivitesAPI(ctx) {
       if (!_estActiviteValideADate(activite, dateRef)) return false;
 
       if (!marge) {
-        const meta = (window.ctx?.meta) || {};
+        const meta = (_ctx.meta) || {};
         marge = Math.max(0, Number(meta.MARGE ?? 30) | 0); // minutes
       }
 
@@ -393,7 +393,7 @@ export function creerActivitesAPI(ctx) {
     // @ts-ignore
     getPausePlageDebut(dateRef, typePause, {activitesProgrammees=null, marge=null}={}) {
 
-      const meta = (window.ctx?.meta) || {};
+      const meta = (_ctx.meta) || {};
       const duree = Math.max(0, Number(meta.DUREE_REPAS ?? 60) | 0); // minutes
 
       if (!marge) {
@@ -2254,7 +2254,7 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
   const date_ref = ligne_ref.Date;
 
   // --- Constantes "Session"
-  const meta = (window.ctx?.meta) || {};
+  const meta = (_ctx.meta) || {};
   const MARGE       = Math.max(0, Number(meta.MARGE        ?? 30) | 0); // minutes
   const DUREE_REPAS = Math.max(0, Number(meta.DUREE_REPAS  ?? 60) | 0); // minutes
   const DUREE_CAFE  = Math.max(0, Number(meta.DUREE_CAFE   ?? 60) | 0); // minutes

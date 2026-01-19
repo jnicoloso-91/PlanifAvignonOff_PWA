@@ -16,6 +16,7 @@ import {
 } from './utils-date.js';
 
 import { 
+  ctx,
   activitesAPI,
 } from './app.js'; 
 
@@ -25,6 +26,7 @@ import {
 
 import {
   PARSED_DEFAULT, 
+  enrichWithAbstractPremiumOneRow,
 } from './parsers.js';
 
 import { 
@@ -832,7 +834,7 @@ export function openSheetParams() {
     title: 'Paramètres',
     panelHeight: '59vh', 
     panelMaxHeight: '59vh', 
-    mount: (body, {close}) => {
+    mount: (body, { close }) => {
       body.innerHTML = `
         <div class="form">
 
@@ -5128,4 +5130,520 @@ export function openSheetAssistantProgrammation() {
       setTimeout(() => elReq.focus(), 20);
     }
   });
+}
+
+// Sheet “Compléter Infos+ & Ton”
+// - détecte les rows incomplètes (Mood / __desc_summary / __avis_summary)
+// - propose OK / Annuler
+// - sur OK : boucle async + logs live
+// - sur Annuler : stop + close
+// export function openSheetInfosPlus({
+//   title = "Compléter Infos+ et Ton",
+//   maxList = 60,            // limite d’affichage dans la liste
+// } = {}) {
+//   // rows candidates
+//   const df = ctx?.df || [];
+//   const rows = Array.isArray(df) ? df : [];
+
+//   const missing = rows.filter(r =>
+//     r &&
+//     (r.Mood == null || r.__desc_summary == null || r.__avis_summary == null)
+//   );
+
+//   // petit helpers UI
+//   const esc = (s) => String(s ?? "")
+//     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+//     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+//   const rowLabel = (r) => {
+//     const a = r?.Activite ?? r?.Spectacle ?? r?.Titre ?? r?.activite ?? "";
+//     const d = r?.Date ?? "";
+//     const t = r?.Debut ?? "";
+//     const place = r?.Lieu ?? r?.Theatre ?? "";
+//     const bits = [a, d && `J${d}`, t, place].filter(Boolean);
+//     return bits.join(" — ") || "(activité sans titre)";
+//   };
+
+//   let cancelled = false;
+
+//   openSheetExclusive({
+//     title,
+//     panelMaxHeight: "70vh",
+//     panelHeight: "60vh",
+//     mount: (body, { close }) => {
+//       body.innerHTML = `
+//         <div class="bb-enrich-sheet" style="display:flex; flex-direction:column; gap:10px; height:100%;">
+
+//           <div class="bb-enrich-head" style="font-size:14px; line-height:1.4;">
+//             <div id="bb-enrich-intro"></div>
+//           </div>
+
+//           <div class="bb-enrich-list" style="font-size:13px; line-height:1.35; overflow:auto; flex:1 1 auto; border:1px solid rgba(0,0,0,.08); border-radius:10px; padding:10px; background:#fff;">
+//             <div id="bb-enrich-items"></div>
+//           </div>
+
+//           <div class="bb-enrich-actions" style="display:flex; gap:10px; justify-content:flex-end;">
+//             <button id="bb-enrich-cancel" class="bb-btn">Annuler</button>
+//             <button id="bb-enrich-ok" class="bb-btn bb-btn-primary">Ok</button>
+//           </div>
+
+//           <div class="bb-enrich-log" style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono','Courier New', monospace; font-size:12px; line-height:1.35; overflow:auto; height:35%; border:1px solid rgba(0,0,0,.08); border-radius:10px; padding:10px; background:#0b1220; color:#e5e7eb;">
+//             <div id="bb-enrich-loglines"></div>
+//           </div>
+//         </div>
+//       `;
+
+//       const introEl = body.querySelector("#bb-enrich-intro");
+//       const itemsEl = body.querySelector("#bb-enrich-items");
+//       const logEl = body.querySelector("#bb-enrich-loglines");
+//       const btnOk = body.querySelector("#bb-enrich-ok");
+//       const btnCancel = body.querySelector("#bb-enrich-cancel");
+
+//       const log = (msg) => {
+//         const line = document.createElement("div");
+//         line.textContent = msg;
+//         logEl.appendChild(line);
+//         // autoscroll bas
+//         logEl.parentElement.scrollTop = logEl.parentElement.scrollHeight;
+//       };
+
+//       const setBusy = (busy) => {
+//         btnOk.disabled = busy;
+//         btnCancel.textContent = busy ? "Annuler" : "Fermer";
+//       };
+
+//       // état initial
+//       if (!missing.length) {
+//         introEl.innerHTML = `Tous les champs Infos+ et Ton sont renseignés, rien à faire ici.`;
+//         itemsEl.innerHTML = "";
+//         btnOk.style.display = "none";
+//         btnCancel.textContent = "Fermer";
+//         log("OK — aucune activité à enrichir.");
+//       } else {
+//         const shown = missing.slice(0, maxList);
+//         const more = missing.length - shown.length;
+
+//         introEl.innerHTML = `
+//           Je vais mettre à jour les champs Infos+ et Ton des activités :
+//           <br><br>
+//           <b>${missing.length}</b> activité(s) détectée(s).
+//           <br>
+//           À tout moment vous pouvez annuler avec le bouton Annuler.
+//           <br>
+//           Bouton Ok pour lancer le traitement.
+//         `.trim();
+
+//         itemsEl.innerHTML = `
+//           <ul style="margin:0; padding-left:18px;">
+//             ${shown.map(r => {
+//               const label = esc(rowLabel(r));
+//               const miss = [
+//                 r?.__desc_summary == null ? "__desc_summary" : null,
+//                 r?.__avis_summary == null ? "__avis_summary" : null,
+//                 r?.Mood == null ? "Mood" : null,
+//               ].filter(Boolean).join(", ");
+//               return `<li style="margin:0 0 4px 0;">
+//                 ${label}
+//                 <span style="opacity:.7">(${esc(miss)})</span>
+//               </li>`;
+//             }).join("")}
+//             ${more > 0 ? `<li style="opacity:.7">… +${more} autres</li>` : ""}
+//           </ul>
+//         `;
+
+//         log(`Prêt. ${missing.length} activité(s) à enrichir.`);
+//       }
+
+//       // Annuler / Fermer
+//       btnCancel.addEventListener("click", async () => {
+//         cancelled = true;
+
+//         // si pas en cours -> ferme
+//         if (!btnOk.disabled) {
+//           // tu as sûrement déjà une fonction close associée à openSheetExclusive.
+//           // Si tu as un helper du genre closeSheetExclusive(), utilise-le ici.
+//           // Sinon, on tente de fermer via un événement custom si ton infra le supporte.
+//           close();
+//           return;
+//         }
+
+//         // en cours -> annuler + fermer
+//         log("⛔ Annulation demandée…");
+//         // laisse la boucle voir cancelled puis ferme
+//       });
+
+//       // OK
+//       btnOk.addEventListener("click", async () => {
+//         if (!missing.length) return;
+
+//         cancelled = false;
+//         setBusy(true);
+//         log("▶ Début enrichissement…");
+
+//         try {
+//           for (let i = 0; i < missing.length; i++) {
+//             if (cancelled) {
+//               log("⛔ Annulé. Arrêt du traitement.");
+//               break;
+//             }
+
+//             const r = missing[i];
+//             const label = rowLabel(r);
+
+//             log(`(${i + 1}/${missing.length}) ⏳ ${label}`);
+
+//             try {
+//               // attend ta fonction premium (doit être async)
+//               await enrichWithAbstractPremium(r);
+
+//               const missAfter = [
+//                 r?.__desc_summary == null ? "__desc_summary" : null,
+//                 r?.__avis_summary == null ? "__avis_summary" : null,
+//                 r?.Mood == null ? "Mood" : null,
+//               ].filter(Boolean);
+
+//               if (missAfter.length) {
+//                 log(`   ⚠️ incomplet après enrich: ${missAfter.join(", ")}`);
+//               } else {
+//                 log(`   ✅ OK`);
+//               }
+//             } catch (e) {
+//               log(`   ❌ Erreur: ${String(e?.message || e)}`);
+//             }
+//           }
+//         } finally {
+//           setBusy(false);
+
+//           if (cancelled) {
+//             close();
+//           } else {
+//             close();
+//           }
+//         }
+//       });
+//     }
+//   });
+// }
+export function openSheetInfosPlus({
+  title = "Génération Infos+",
+  maxList = 60,
+} = {}) {
+  const df = ctx?.df || [];
+  const rows = Array.isArray(df) ? df : [];
+
+  const missing = rows.filter(r =>
+    r && (r.Mood == null || r.__desc_summary == null || r.__avis_summary == null)
+  );
+
+  const esc = (s) => String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+  const rowLabel = (r) => {
+    const a = r?.Activite ?? r?.Spectacle ?? r?.Titre ?? r?.activite ?? "";
+    const d = r?.Date ?? "";
+    const t = r?.Debut ?? "";
+    const place = r?.Lieu ?? r?.Theatre ?? "";
+    const bits = [a, d && `J${d}`, t, place].filter(Boolean);
+    return bits.join(" — ") || "(activité sans titre)";
+  };
+
+  let cancelled = false;
+
+  openSheetExclusive({
+    title,
+    panelMaxHeight: "70vh",
+    panelHeight: "60vh",
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="bb-enrich-sheet" style="display:flex; flex-direction:column; gap:10px; height:100%;">
+          <div id="bb-out"
+              style="flex:1 1 auto; overflow:auto;
+                      font-size:14px; line-height:1.4;
+                      border:1px solid rgba(0,0,0,.08); border-radius:10px;
+                      padding:10px; background:#fff; color:#111;">
+          </div>
+
+          <div class="sheet-footer has-border">
+            <div class="form-actions">
+
+              <!-- Bouton Annuler -->
+              <button class="bb-btn is-primary" id="bb-cancel">
+                Annuler
+              </button>
+
+              <!-- Bouton Enregistrer -->
+              <button class="bb-btn is-primary" id="bb-ok">
+                Ok
+              </button>
+
+            </div>
+          </div>
+          
+        </div>
+      `;
+
+      const out = body.querySelector("#bb-out");
+      const btnOk = body.querySelector("#bb-ok");
+      const btnCancel = body.querySelector("#bb-cancel");
+
+      const append = (txt) => {
+        const div = document.createElement("div");
+        div.innerHTML = (txt == null ? "" : String(txt));
+        out.appendChild(div);
+        out.scrollTop = out.scrollHeight;
+      };
+
+      const setBusy = (busy) => {
+        btnOk.disabled = busy;
+        btnCancel.textContent = busy ? "Annuler" : "Fermer";
+      };
+
+      // état initial
+      if (!missing.length) {
+        btnOk.style.display = "none";
+        btnCancel.textContent = "Fermer";
+        append("Tous les champs Infos+ et Ton sont renseignés, rien à faire ici.");
+        btnCancel.addEventListener("click", () => close());
+        return;
+      }
+
+      const shown = missing.slice(0, maxList);
+      const more = missing.length - shown.length;
+
+      const blank = () => {
+        const div = document.createElement("div");
+        div.appendChild(document.createElement("br"));
+        out.appendChild(div);
+        out.scrollTop = out.scrollHeight;
+      };
+
+      append(`Je vais mettre à jour Infos+ pour les activités suivante (${missing.length}) :`);
+      shown.forEach((r) => {
+        const label = rowLabel(r);
+        const miss = [
+          r?.__desc_summary == null ? "__desc_summary" : null,
+          r?.__avis_summary == null ? "__avis_summary" : null,
+          r?.Mood == null ? "Mood" : null,
+        ].filter(Boolean).join(", ");
+        append(`- ${label}`);
+      });
+      if (more > 0) append(`… +${more} autres`);
+      blank();
+      append("À tout moment vous pouvez annuler avec le bouton <strong>Annuler</strong>.");
+      append("Bouton <strong>Ok</strong> pour lancer le traitement.");
+
+      // Annuler / Fermer
+      btnCancel.addEventListener("click", () => {
+        cancelled = true;
+        if (!btnOk.disabled) {
+          // refreshAllGrids();
+          close();
+          return;
+        }
+        append("⛔ Annulation demandée…");
+      });
+
+      async function computeInfosPlusPatch(row) {
+        const tmp = { ...row };                 // copie => pas d'effet sur DF
+        await enrichWithAbstractPremiumOneRow(tmp);   // mute tmp
+
+        return {
+          __desc_summary: tmp.__desc_summary ?? null,
+          __avis_summary: tmp.__avis_summary ?? null,
+          Mood: tmp.Mood ?? null
+        };
+      }
+
+      /**
+       * @param {Array<any>} rowsToEnrich
+       * @param {{
+       *   isCancelled?: () => boolean,
+       *   append?: (msg: string) => void
+       * }} opts
+       */
+      async function buildInfosPlusPatchMap(rowsToEnrich, { isCancelled, append } = {}) {
+        /** @type {Map<string, {__desc_summary:any,__avis_summary:any,Mood:any}>} */
+        const patchByUuid = new Map();
+
+        for (let i = 0; i < rowsToEnrich.length; i++) {
+          if (isCancelled?.()) {
+            append?.("⛔ Annulation demandée — commit partiel des éléments déjà calculés.");
+            break;
+          }
+
+          const r = rowsToEnrich[i];
+          const uuid = r?.__uuid;
+          if (!uuid) {
+            append?.(`(${i + 1}/${rowsToEnrich.length}) ❌ row sans __uuid, skip`);
+            continue;
+          }
+
+          const label = r?.Activite || r?.Spectacle || "(sans titre)";
+          append?.(`(${i + 1}/${rowsToEnrich.length}) ⏳ ${label}`);
+
+          try {
+            const patch = await computeInfosPlusPatch(r);
+            patchByUuid.set(uuid, patch);
+            // append?.("   ✅ OK");
+          } catch (e) {
+            append?.(`   ❌ Erreur: ${String(e?.message || e)}`);
+          }
+        }
+
+        return patchByUuid;
+      }
+
+      function commitInfosPlusPatchMap(patchByUuid) {
+        if (!patchByUuid || patchByUuid.size === 0) return;
+
+        ctx.mutateDf((rows) => {
+          const next = (Array.isArray(rows) ? rows : []).map((r) => {
+            const uuid = r?.__uuid;
+            const patch = uuid ? patchByUuid.get(uuid) : null;
+            if (!patch) return r;
+
+            // patch uniquement les 3 champs
+            return {
+              ...r,
+              __desc_summary: patch.__desc_summary,
+              __avis_summary: patch.__avis_summary,
+              Mood: patch.Mood
+            };
+          });
+
+          return next; // pas de recalcFinForAll
+        });
+      }
+
+      btnOk.addEventListener("click", async () => {
+        cancelled = false;
+        setBusy(true);
+        append(blank());
+        append("▶ C'est parti…");
+
+        try {
+          const patchByUuid = await buildInfosPlusPatchMap(missing, {
+            isCancelled: () => cancelled,
+            append
+          });
+
+          if (patchByUuid.size === 0) {
+            append("ℹ️ Aucun patch à committer.");
+          } else {
+            append(`💾 Commit global: ${patchByUuid.size} activité(s) mises à jour (1 seul undo).`);
+            commitInfosPlusPatchMap(patchByUuid);
+          }
+        } finally {
+          setBusy(false);
+          close();
+        }
+      });
+    }
+  });
+}
+
+// Sheet Progress
+// - retourne un API { setTotal(n), setCurrent(txt), log(s), tickOk(msg), tickErr(msg), isCancelled(), close() }
+export function openSheetProgress({
+  title = "Traitement en cours…",
+  initialTotal = 0,
+  initialStatus = "",
+  showLog = true,
+  cancellable = true   // 👈 NOUVEAU
+} = {}) {
+  let cancelled = false;
+  let done = 0;
+  let ok = 0;
+  let err = 0;
+  let total = initialTotal;
+
+  let elStatus, elBar, elLog, btnCancel;
+  let _close = null;
+
+  const render = () => {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    if (elStatus) elStatus.textContent = `${done}/${total} — OK ${ok} — Erreurs ${err} — ${pct}%`;
+    if (elBar) elBar.value = total > 0 ? done : 0;
+  };
+
+  const api = {
+    setTotal(n) {
+      total = Math.max(0, n | 0);
+      if (elBar) elBar.max = Math.max(1, total);
+      render();
+    },
+    log(s) {
+      if (!showLog || !elLog) return;
+      elLog.textContent += (elLog.textContent ? "\n" : "") + String(s);
+      elLog.scrollTop = elLog.scrollHeight;
+    },
+    tickOk(msg) {
+      done++; ok++;
+      if (msg) api.log(msg);
+      render();
+    },
+    tickErr(msg) {
+      done++; err++;
+      if (msg) api.log(msg);
+      render();
+    },
+    isCancelled() {
+      return cancelled;
+    },
+    close() {
+      if (typeof _close === "function") _close();
+    }
+  };
+
+  openSheetExclusive({
+    title,
+    panelMaxHeight: "55vh",
+    panelHeight: showLog ? "45vh" : "25vh",
+    mount: (body, { close }) => {
+      _close = close;
+
+      body.innerHTML = `
+        <div style="font-size:14px; line-height:1.35; height:100%; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div id="ip_status" style="font-weight:600;"></div>
+            ${
+              cancellable
+                ? `<button id="ip_cancel" class="btn">Annuler</button>`
+                : ``
+            }
+          </div>
+
+          <progress id="ip_bar" value="0" max="${Math.max(1, total)}"
+            style="width:100%; height:14px;"></progress>
+
+          ${
+            showLog
+              ? `<pre id="ip_log"
+                   style="flex:1; overflow:auto; margin:0; padding:10px;
+                   border:1px solid rgba(255,255,255,.15);
+                   border-radius:8px; white-space:pre-wrap;"></pre>`
+              : ``
+          }
+        </div>
+      `;
+
+      elStatus = body.querySelector("#ip_status");
+      elBar = body.querySelector("#ip_bar");
+      elLog = body.querySelector("#ip_log");
+      btnCancel = body.querySelector("#ip_cancel");
+
+      if (btnCancel) {
+        btnCancel.addEventListener("click", () => {
+          cancelled = true;
+          api.log("— Annulation demandée —");
+          if (typeof close === "function") close();
+        });
+      }
+
+      render();
+    }
+  });
+
+  return api;
 }

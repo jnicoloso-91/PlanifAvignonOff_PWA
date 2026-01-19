@@ -18,7 +18,7 @@ import {
 import {
   parseAvignonInSpecPageUrl, 
   parseAvignonOffSpecPageUrl, 
-  getAvisBilletReduc,
+  getBilletReducAvis,
 } from './parsers.js';
 
 // Pause d’exécution
@@ -45,6 +45,7 @@ function downloadJson(data, filename = 'export.json') {
 }
 
 // Enrichissement d'un df avec champ Mood
+// A utiliser en mode console pour compléter un catalogue avec le champ Mood si absent
 async function enrichDfWithMood(df, {
   basePath = "./ai",          // chemin relatif depuis la page
   overwrite = false,          // écraser un mood existant ?
@@ -103,6 +104,7 @@ async function enrichDfWithMood(df, {
 }
 
 // Enrichissement d'un df avec InfoPlus
+// A utiliser en mode console pour compléter un catalogue avec les champs desc_summary et avis_summary si absents
 async function enrichDfWithInfoPlus(df, {
   basePath = "./ai",          // chemin relatif depuis la page
   overwrite = false,          // écraser un mood existant ?
@@ -213,10 +215,10 @@ async function enrichWithDetailsAndAvis(
     // --- 2) Avis BilletRéduc (via URL de recherche)
     try {
       if (activite) {
-        const { avis } = await getAvisBilletReduc(activite);
+        const { avis } = await getBilletReducAvis(activite);
         if (avis) {
-          // Tu peux soit stocker l’objet complet, soit une version texte compactée
-          // Ici je fais un texte compact qui passera bien dans les embeddings existants
+          // On peut soit stocker l'objet complet, soit une version texte compacté
+          // Ici on choisit le texte compacté qui passe dans les embeddings existants
           const notePart = avis.Note ? `Note ${avis.Note}` : "";
           const commentsPart =
             avis.Comments && avis.Comments.length

@@ -22,6 +22,7 @@ import {
 } from './LieuRenderer.js';
 
 import { 
+  ctx,
   activitesAPI,
 } from './app.js'; 
 

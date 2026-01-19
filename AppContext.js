@@ -50,9 +50,12 @@ export class AppContext {
   }
 
   // ---------- État interne ----------
-  #df = [];        // activités (table principale)
-  #carnet = [];    // carnet d’adresses
-  #meta = [];      // métadonnées “légères”
+  #df = [];               // activités (table principale)
+  #carnet = [];           // carnet d’adresses
+
+  /** @type {AppMeta} */
+  #meta;                  // métadonnées “légères”
+
   #dirty = { df: false, carnet: false, meta: false };
 
   // autosave (débouncé)
@@ -328,7 +331,7 @@ export class AppContext {
 
   clearMeta() {
     this.#withHistory('meta','clearMeta', () => {
-      this.#meta = {};
+      this.#meta = createDefaultMeta();
       this.#dirty.meta = true;
       this.#em.emit('meta:changed', { reason: 'clear' });
     });
@@ -489,6 +492,21 @@ function normalizeUuid(rows) {
 function safeParseJson(s, dflt) {
   try { return JSON.parse(s); } catch { return dflt; }
 }
+
+/**
+ * @typedef {{
+ *   id: number,
+ *   fn: string,
+ *   fp: string,
+ *   MARGE: number,
+ *   DUREE_REPAS: number,
+ *   itineraire_app: string,
+ *   city_default: string,
+ *   traiter_pauses: string,
+ *   periode_a_programmer_debut: any,
+ *   periode_a_programmer_fin: any
+ * }} AppMeta
+ */
 
 function createDefaultMeta() {
   return {

@@ -11,6 +11,7 @@ import {
 } from './utils-date.js';
 
 import { 
+  ctx,
   activitesAPI,
 } from './app.js'; 
 

@@ -90,24 +90,22 @@ export function mergeRowsNoDup(arr1, arr2, col) {
 /**
  * Merge deux tableaux sans duplication.
  * Si deux lignes ont la même valeur sur les colonnes données par keyCols 
- * les valeurs de arr1 sont appliquées sur les colonnes données overloadCols 
- * ou sur toutes les colonnes si overloadCols est null.
+ * les valeurs de arr2 sont appliquées sur toutes les colonnes.
  * @param {*} arr1 
  * @param {*} arr2 
  * @param {*} keyCols       colonnes à tester pour considérer qu'il y a doublon.
- * @param {*} overloadCols  colonnes à surcharger en cas de doublon.
  * @param {*} normalizer    fonction de normalisation des valeurs à comparer.
  * 
  * @returns 
  */
-export function mergeRowsNoDupMultiKey(arr1, arr2, keyCols, overloadCols, normalizer) {
+export function mergeRowsNoDupMultiKey(arr1, arr2, keyCols, normalizer) {
   const map = new Map();
-  // On conserve l’ordre d’arrivée : d’abord arr1, puis arr2
-  for (const r of arr1) {
+  // On conserve l’ordre d’arrivée : d’abord arr2, puis arr1
+  for (const r of arr2) {
     const k = _buildKey(r, keyCols, normalizer);
     if (!map.has(k)) map.set(k, r);
   }
-  for (const r of arr2) {
+  for (const r of arr1) {
     const k = _buildKey(r, keyCols, normalizer);
     if (!map.has(k)) map.set(k, r);
   }
@@ -219,9 +217,8 @@ export function richValueGetValue(rv) {
 }
 
 // Retourne la "quality" (1er caractère si non numérique) ou null
-// ex: "1h30"  -> ""
+// ex: "1h30"   -> null
 //     "≈2h"    -> "≈"
-//     "1h30"   -> null
 export function richValueGetQuality(rv) {
   if (rv == null) return null;
   const s = String(rv).trim();
@@ -229,6 +226,13 @@ export function richValueGetQuality(rv) {
 
   const first = s[0];
   return /[0-9]/.test(first) ? null : first;
+}
+
+// Retourne vrai si rv != null et "quality" == null (1er caractère numérique)
+// ex: "1h30"         -> good
+//     "≈2h" ou ""    -> bad
+export function richValueGoodQuality(rv) {
+  return (rv !== null && richValueGetQuality(rv) === null);
 }
 
 // Construit une richValue à partir de value + quality
@@ -246,4 +250,13 @@ export function richValueSet(value, quality = null) {
 // ex: richValueGet("1h30") -> ["1h30", ""]
 export function richValueGet(rv) {
   return [richValueGetValue(rv), richValueGetQuality(rv)];
+}
+
+export function includesSafe(str, searchString) {
+    // Vérifie si str est une chaîne valide
+    if (typeof str !== 'string') {
+        return false;
+    }
+    // Utilise includes pour vérifier la présence de searchString
+    return str.includes(searchString);
 }

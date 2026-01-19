@@ -1,11 +1,20 @@
 // parsers.js
 
 import { 
+  richValueGoodQuality,
+  includesSafe,
+} from './utils.js';
+
+import { 
   mmToHHhMM,
   mmToHhmm,
   pad2,
   parseDurationToHhmm,
 } from './utils-date.js';
+
+import {
+  openSheetProgress,
+} from './sheets.js';
 
 /**
  * Objets retournes par les parsers
@@ -24,6 +33,204 @@ export const PARSED_DEFAULT = {
     HyperlienBR: null,
     Avis: null,
 };
+
+/**
+ * Essaye d’extraire une note et un count d’un champ avis de type texte
+ * @param {*} avisStr 
+ * @returns 
+ */
+export function parseAvisObject(avisStr) {
+  if (!avisStr || typeof avisStr !== "string") {
+    return { note: null, count: null };
+  }
+
+  // Exemples supportés :
+  // "Note 10/10 (74 avis) — ..."
+  // "9/10 (35 avis)"
+  const noteMatch = avisStr.match(/(\d+(?:[.,]\d+)?)\s*\/\s*10/);
+  const countMatch = avisStr.match(/\((\d+)\s*avis\)/i);
+
+  const note = noteMatch
+    ? Number(noteMatch[1].replace(",", "."))
+    : null;
+
+  const count = countMatch
+    ? Number(countMatch[1])
+    : null;
+
+  return {
+    note: Number.isFinite(note) ? note : null,
+    count: Number.isFinite(count) ? count : null
+  };
+}
+
+/**
+ * Extrait une note à partir d'un objet Avis { Note: "..." }
+ * @param {*} avis 
+ * @returns 
+ */
+export function getNoteFromAvis(avis) {
+  let note = null;
+  if (avis) {
+    const avisObj = parseAvisObject(avis.Note);
+    const notePart = (avisObj.note) ? `${String(avisObj.note)}` : null;
+    const countPart = (avisObj.count) ? `(${String(avisObj.count)} avis)` : null;
+    if (notePart || countPart) note = `${notePart} ${countPart}`;
+  }
+  return note;
+}
+
+const _summaryCache = new Map(); // key = uuid
+
+/**
+ * Enrichissement d'une row Activite avec __desc_summary, __avis_summary et Mood via worker AI
+ * @param {*} row 
+ */
+export async function enrichWithAbstractPremiumOneRow(row) {
+
+  // Récupération des détails de la page spectacle de BilletReduc associée
+  const details = await getBilletReducDetailedInfos(row);
+  if (!details) {
+    return;
+  }
+
+  // Mise à jour des champs de la row dépendants des détails de la page spectacle de BilletReduc
+  if (!richValueGoodQuality(row.Debut) && richValueGoodQuality(details.debut)) row.Debut = details.debut;
+  if (!richValueGoodQuality(row.Duree) && richValueGoodQuality(details.duree)) row.Duree = details.duree;
+  row.HyperlienBR = details.detailUrl;
+  row.Note = getNoteFromAvis(details.avis_obj);
+
+  // Construction du paramètre du worker AI
+  const item = {
+    activite: row.Activite || '',
+    lieu: row.Lieu || '',
+    style: row.Style || '',
+    description: details.description || '',
+    distribution: details.distribution || '',
+    avis_obj: details.avis_obj || '',
+  };
+
+  // Appel du worker AI pour résumé
+  try {
+
+    const summary = await _summarizeOneItemViaWorker(item);
+
+    row.__desc_summary = summary.desc_summary;
+    row.__avis_summary = summary.avis_summary;
+    row.Mood = summary.mood;
+
+  } catch (e) {
+    console.log(`ERREUR: ${e?.message || String(e)}`);
+  } 
+
+  delete row.Description;
+  delete row.Distribution;
+  delete row.Avis;
+
+}
+
+/**
+ * Enrichissement d'un tableau de rows Activite avec __desc_summary, __avis_summary et Mood via worker AI
+ * @param {Object} param - L'objet contenant les paramètres nécessaires.
+ * @param {Array<any>} param.rows - Le tableau de lignes Activite à enrichir.
+ * @param {Array<any>} param.df - Le tableau de données supplémentaires.
+ */
+export async function enrichWithAbstractPremium(param) {
+
+  // Renvoie les rows d'un dataframe qui ont déjà un résumé premium pour une clé donnée
+  function _getRowsWithAbstractPremium(df, key) {
+      // Filtrer les lignes qui correspondent à la clé donnée et ont les champs requis et non nuls
+      const matchingRows = df.filter(row =>
+          row.Activite === key.Activite &&
+          row.Lieu === key.Lieu &&
+          '__desc_summary' in row && row.__desc_summary != null &&
+          '__avis_summary' in row && row.__avis_summary != null &&
+          'Mood' in row && row.Mood != null
+      );
+
+      // Retourner le tableau des lignes correspondantes
+      return matchingRows;
+  }
+
+  const rows = param.rows;
+  const df = param.df;
+
+  // Ouverture de la sheet de progression
+  const sheet = openSheetProgress({ title: "Génération Infos+", initialTotal: rows.length, cancellable: false });
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];    
+
+    // Vérifie si abstracts déjà présents dans le dataframe existant
+    const rowsWithAbstractPremiumAlreadyThere = _getRowsWithAbstractPremium(df, { Activite: row.Activite, Lieu: row.Lieu });
+
+    if (rowsWithAbstractPremiumAlreadyThere.length > 0) {
+      const rowRef = rowsWithAbstractPremiumAlreadyThere[0];
+      row.__desc_summary = rowRef.__desc_summary;
+      row.__avis_summary = rowRef.__avis_summary;
+      row.Mood = rowRef.Mood;
+
+      if (!richValueGoodQuality(row.Debut) && richValueGoodQuality(rowRef.Debut)) row.Debut = rowRef.Debut;
+      if (!richValueGoodQuality(row.Duree) && richValueGoodQuality(rowRef.Duree)) row.Duree = rowRef.Duree;
+      if (includesSafe(row.HyperlienBR, "search") && !includesSafe(rowRef.HyperlienBR, "search")) row.HyperlienBR = rowRef.HyperlienBR;
+      if (row.Note == null && rowRef.Note != null) row.Note = rowRef.Note;
+
+      delete row.Description;
+      delete row.Distribution;
+      delete row.Avis;
+
+      sheet.tickOk();
+      continue;
+    }
+
+    // Log dans la sheet de progression
+    sheet.log(`Génération Infos+ pour ${row.Activite}`);
+
+    // Récupération des détails de la page spectacle de BilletReduc associée
+    const details = await getBilletReducDetailedInfos(row);
+    if (!details) {
+      sheet.tickOk();
+      continue;
+    }
+
+    // Mise à jour des champs de la row dépendants des détails de la page spectacle de BilletReduc
+    if (!richValueGoodQuality(row.Debut) && richValueGoodQuality(details.debut)) row.Debut = details.debut;
+    if (!richValueGoodQuality(row.Duree) && richValueGoodQuality(details.duree)) row.Duree = details.duree;
+    row.HyperlienBR = details.detailUrl;
+    row.Note = getNoteFromAvis(details.avis_obj);
+
+    // Construction du paramètre du worker AI
+    const item = {
+      activite: row.Activite || '',
+      lieu: row.Lieu || '',
+      style: row.Style || '',
+      description: details.description || '',
+      distribution: details.distribution || '',
+      avis_obj: details.avis_obj || '',
+    };
+
+    // Appel du worker AI pour résumé
+    try {
+
+      const summary = await _summarizeOneItemViaWorker(item);
+
+      row.__desc_summary = summary.desc_summary;
+      row.__avis_summary = summary.avis_summary;
+      row.Mood = summary.mood;
+
+    } catch (e) {
+      sheet.tickErr(`  ERREUR: ${e?.message || String(e)}`);
+    } 
+
+    delete row.Description;
+    delete row.Distribution;
+    delete row.Avis;
+
+    sheet.tickOk();
+  }
+
+  sheet.close();
+}
 
 /**
  * Parser d'une page programme du catalogue Avignon In donnée par son URL
@@ -847,7 +1054,10 @@ export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
   res.Orga = "Off";
 
   // 🔹 Hyperlien (URL de la fiche)
-  if (url) res.Hyperlien = url;
+  if (url) {
+    res.Hyperlien = url;
+    res.HyperlienBR = url;
+  }
 
   // 🔹 Description : meta[name="description"]
   {
@@ -1357,6 +1567,7 @@ function parseBilletReducSpecPageDom(doc) {
 
   // --- Activité (titre)
   const Activite = root.querySelector('.event_title h1')?.textContent?.trim() || null;
+  if (!Activite) return null;
 
   // --- Lieu
   const Lieu = root
@@ -1388,48 +1599,91 @@ function parseBilletReducSpecPageDom(doc) {
   });
   const Style = styleParts.length ? styleParts.join(' ') : null;
 
-  if (!Activite) return null;
+  // ── Description (bloc "event_description")
+  let Description = null;
+  const /** @type {HTMLElement} */ descEl =
+    doc.querySelector(".event_description .event_description_text#event-long-bio")
+    || doc.querySelector(".event_description .event_description_text");
 
-    // -----------------------------
-    // 🔹 Avis BilletRéduc
-    // -----------------------------
-    let avisNote = null;
-    const avisComments = [];
+  if (descEl) {
+    // récupère le texte, garde les sauts, supprime espaces parasites
+    Description = (descEl.innerText || descEl.textContent || "")
+      .replace(/\u00a0/g, " ")      // nbsp
+      .replace(/[ \t]+\n/g, "\n")   // trim fin de ligne
+      .replace(/\n{3,}/g, "\n\n")   // max 2 retours
+      .trim();
+  }
 
-    // Note globale + nb d'avis
-    const reviewsHeader = doc.querySelector('.reviews_container_header_left');
-    if (reviewsHeader) {
-      const noteSpan = reviewsHeader.querySelector('.review_note');
-      const countSpan = reviewsHeader.querySelector('.review_count');
+  // ── Distribution
+  let Distribution = null;
+  const rows = doc.querySelectorAll(
+    ".event_artists .event_artists_container_row"
+  );
 
-      const noteTxt = noteSpan ? _text(noteSpan.textContent || '') : '';
-      const countTxt = countSpan ? _text(countSpan.textContent || '') : '';
+  if (rows.length) {
+    const lines = [];
 
-      const combined = _text([noteTxt, countTxt].filter(Boolean).join(' '));
-      if (combined) {
-        avisNote = combined; // ex: "9/10 (35 avis)"
+    rows.forEach(row => {
+      const titleEl = row.querySelector(".artist_row_title");
+      if (!titleEl) return;
+
+      const role = titleEl.textContent.replace(/\s*:\s*$/, "").trim();
+
+      const names = Array.from(row.querySelectorAll("a"))
+        .map(a => a.textContent.trim())
+        .filter(Boolean);
+
+      if (role && names.length) {
+        lines.push(`${role} : ${names.join(", ")}`);
       }
-    }
+    });
 
-    // Avis textuels (jusqu'à 4)
-    const reviewNodes = doc.querySelectorAll(
-      '.review_card.customer_review_card .review_card_content_desc'
-    );
-    for (const node of Array.from(reviewNodes)) {
-      const txt = _text(node.textContent || '');
-      if (!txt) continue;
-      avisComments.push(txt);
-      if (avisComments.length >= 4) break; // on limite à 4 avis
+    if (lines.length) {
+      Distribution = lines.join("\n");
     }
+  }
 
-    let Avis = null;
-    if (avisNote || avisComments.length) {
-      Avis = {
-        Note: avisNote,
-        Comments: avisComments
-      };
+  // -----------------------------
+  // 🔹 Avis BilletRéduc
+  // -----------------------------
+  let avisNote = null;
+  const avisComments = [];
+
+  // Note globale + nb d'avis
+  const reviewsHeader = doc.querySelector('.reviews_container_header_left');
+  if (reviewsHeader) {
+    const noteSpan = reviewsHeader.querySelector('.review_note');
+    const countSpan = reviewsHeader.querySelector('.review_count');
+
+    const noteTxt = noteSpan ? _text(noteSpan.textContent || '') : '';
+    const countTxt = countSpan ? _text(countSpan.textContent || '') : '';
+
+    const combined = _text([noteTxt, countTxt].filter(Boolean).join(' '));
+    if (combined) {
+      avisNote = combined; // ex: "9/10 (35 avis)"
     }
-    return [{
+  }
+
+  // Avis textuels (jusqu'à 4)
+  const reviewNodes = doc.querySelectorAll(
+    '.review_card.customer_review_card .review_card_content_desc'
+  );
+  for (const node of Array.from(reviewNodes)) {
+    const txt = _text(node.textContent || '');
+    if (!txt) continue;
+    avisComments.push(txt);
+    if (avisComments.length >= 4) break; // on limite à 4 avis
+  }
+
+  let Avis = null;
+  if (avisNote || avisComments.length) {
+    Avis = {
+      Note: avisNote,
+      Comments: avisComments
+    };
+  }
+
+  return [{
     ...PARSED_DEFAULT,
     Activite,
     Lieu,
@@ -1437,7 +1691,9 @@ function parseBilletReducSpecPageDom(doc) {
     Duree,
     Style,
     Orga: 'BilletReduc',
-    Avis
+    Avis,
+    Description,
+    Distribution
   }];
 }
 
@@ -1491,13 +1747,26 @@ export function parseBilletReducCollecPageDom(docOrRoot) {
   return items;
 }
 
-// Recupère les avis Billet Reduc d'un spectacle 
-export async function getAvisBilletReduc(
+/**
+ * @typedef {Object} BilletReducAvisResult
+ * @property {object|null} avis
+ * @property {string|null} detailUrl
+ */
+
+/**
+ * Recupère les avis Billet Reduc d'un spectacle 
+ * @param {*} activite 
+ * @param {*} param1 
+ * @returns {Promise<BilletReducAvisResult>}  
+ */
+export async function getBilletReducAvis(
   activite,
   { fetcher = _fetchViaCloudFlareWorker } = {}
 ) {
+  const defaultResult = { avis: null, detailUrl: null };
+
   if (!activite) {
-    return { avis: null, detailUrl: null };
+    return defaultResult;
   }
 
   // Construire l’URL de recherche (on encode proprement)
@@ -1509,7 +1778,7 @@ export async function getAvisBilletReduc(
     const resSearch = await fetcher(urlBR);
     if (!resSearch.ok) {
       console.warn(`HTTP ${resSearch.status} on search ${urlBR}`);
-      return { avis: null, detailUrl: null };
+      return defaultResult;
     }
 
     const htmlSearch = await resSearch.text();
@@ -1533,7 +1802,7 @@ export async function getAvisBilletReduc(
         "via",
         urlBR
       );
-      return { avis: null, detailUrl: null };
+      return defaultResult;
     }
 
     // 3) Page de détail BilletRéduc + parse
@@ -1544,8 +1813,109 @@ export async function getAvisBilletReduc(
 
     return { avis, detailUrl };
   } catch (e) {
-    console.warn("getAvisBilletReduc error for", activite, "via", urlBR, e);
-    return { avis: null, detailUrl: null };
+    console.warn("getBilletReducAvis error for", activite, "via", urlBR, e);
+    return defaultResult;
+  }
+}
+
+/**
+ * @typedef {Object} getBilletReducDetailedInfosResult
+ * @property {string|null} debut
+ * @property {string|null} duree
+ * @property {object|null} avis_obj
+ * @property {string|null} description
+ * @property {string|null} distribution
+ * @property {string|null} detailUrl
+ */
+
+/**
+ * Recupère les informations détaillées d'une activité à partir de la page Billet Reduc correspondante
+ * @param {*} activite 
+ * @param {*} param1 
+ * @returns {Promise<getBilletReducDetailedInfosResult>}  
+ */
+export async function getBilletReducDetailedInfos(
+  activite,
+  { fetcher = _fetchViaCloudFlareWorker } = {}
+) {
+
+  const defaultResult = { debut: null, duree: null, avis_obj: null, description: null, distribution: null, detailUrl: null };
+
+  if (!activite || typeof activite !== 'object' || !('Activite' in activite)) {
+    return defaultResult;
+  }
+  
+  const activiteNom = activite.Activite;
+
+  // Si on a déjà un objet avec les infos détaillées → on les retourne directement
+  // Debut, Duree non significatifs dans ce test
+  const detailesInfosAlreadyDefined = 
+      'Description' in activite && activite.Description != null &&
+      'Distribution' in activite && activite.Distribution != null &&
+      'Avis' in activite && activite.Avis != null &&
+      'HyperlienBR' in activite && activite.HyperlienBR != null;
+
+  if (detailesInfosAlreadyDefined) {
+    return {
+      debut: activite.Debut,
+      duree: activite.Duree,
+      avis_obj: activite.Avis,
+      description: activite.Description,
+      distribution: activite.Distribution,
+      detailUrl: activite.HyperlienBR
+    };
+  }
+
+  // Construire l’URL de recherche (on encode proprement)
+  const q = encodeURIComponent(activiteNom.trim());
+  const urlBR = `https://www.billetreduc.com/search.htm?se=${q}`;
+
+  try {
+    // 1) Page de recherche BilletRéduc
+    const resSearch = await fetcher(urlBR);
+    if (!resSearch.ok) {
+      console.warn(`HTTP ${resSearch.status} on search ${urlBR}`);
+      return defaultResult;
+    }
+
+    const htmlSearch = await resSearch.text();
+    // Debug éventuel :
+    // console.log("BilletReduc search HTML length =", htmlSearch.length);
+
+    // 👉 On PARSE TOUJOURS, même si le head contient noBot & co
+    const docSearch = new DOMParser().parseFromString(htmlSearch, "text/html");
+
+    // 2) Essayer de trouver les liens de résultats
+    const detailUrl = _findBilletReducDetailUrlFromSearchDoc(
+      docSearch,
+      urlBR,
+      activiteNom
+    );
+
+    if (!detailUrl) {
+      console.warn(
+        "Aucun lien de fiche BilletReduc trouvé dans la page de recherche pour",
+        activiteNom,
+        "via",
+        urlBR
+      );
+      return defaultResult;
+    }
+
+    // 3) Page de détail BilletRéduc + parse
+    const parsed = await parseBilletReducSpecPageUrl(detailUrl, { fetcher });
+    const row    = Array.isArray(parsed) ? parsed[0] : parsed;
+
+    const debut = row && row.Debut ? row.Debut : null;
+    const duree = row && row.Duree ? row.Duree : null;
+    const avis_obj = row && row.Avis ? row.Avis : null;
+    const description = row && row.Description ? row.Description : null;
+    const distribution = row && row.Distribution ? row.Distribution : null;
+
+    return { debut, duree, avis_obj, description, distribution, detailUrl };
+  } catch (e) {
+    console.warn("getBilletReducAvis error for", activiteNom, "via", urlBR, e);
+    return defaultResult;
   }
 }
 
@@ -2492,7 +2862,7 @@ function _parseBilletReducDetailDuree(dureeTxt) {
   return `${h}h${String(mn).padStart(2, '0')}`;
 }
 
-// ==== Helpers getAvisBilletReduc ====
+// ==== Helpers getBilletReduc ====
 
 // Trouve une URL de page de détail à partir d'une page de recherche BilletReduc
 function _findBilletReducDetailUrlFromSearchDoc(searchDoc, searchUrl, activite) {
@@ -2533,3 +2903,29 @@ function _findBilletReducDetailUrlFromSearchDoc(searchDoc, searchUrl, activite) 
   // AUCUN match exact → on ne prend rien (on évite de se tromper de spectacle)
   return null;
 }
+
+// ==== Helpers enrichWithAbstractPremium ====
+
+// Renvoie le résumé d’un item via le worker AI
+async function _summarizeOneItemViaWorker(item) {
+  const key = `${item.activite}-${item.lieu}`;
+  if (_summaryCache.has(key)) {
+    return _summaryCache.get(key);
+  }
+
+  const resp = await fetch("https://off-proxy.joel-nicoloso.workers.dev/ai/summarize_one", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ item })
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => "");
+    throw new Error(`summarize_one error ${resp.status}: ${txt}`);
+  }
+
+  const res = await resp.json();
+  _summaryCache.set(key, res);
+  return res;
+}
+
