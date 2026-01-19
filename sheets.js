@@ -5340,11 +5340,9 @@ export function openSheetInfosPlus({
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
   const rowLabel = (r) => {
-    const a = r?.Activite ?? r?.Spectacle ?? r?.Titre ?? r?.activite ?? "";
-    const d = r?.Date ?? "";
-    const t = r?.Debut ?? "";
+    const a = r?.Activite ?? r?.Spectacle ?? r?.Titre ?? "";
     const place = r?.Lieu ?? r?.Theatre ?? "";
-    const bits = [a, d && `J${d}`, t, place].filter(Boolean);
+    const bits = [a, place].filter(Boolean);
     return bits.join(" — ") || "(activité sans titre)";
   };
 
