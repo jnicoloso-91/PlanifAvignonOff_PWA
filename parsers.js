@@ -204,9 +204,9 @@ export async function enrichWithAbstractPremium(param) {
       activite: row.Activite || '',
       lieu: row.Lieu || '',
       style: row.Style || '',
-      description: details.description || '',
-      distribution: details.distribution || '',
-      avis_obj: details.avis_obj || '',
+      description: details.description || row.Description || '',
+      distribution: details.distribution || row.Distribution || '',
+      avis_obj: details.avis_obj || row.Avis || '',
     };
 
     // Appel du worker AI pour résumé

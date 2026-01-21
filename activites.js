@@ -79,10 +79,7 @@ export function creerActivitesAPI(ctx) {
      * Renvoie la période à programmer
      */
     getPeriodeProgrammation() {
-      return {
-        debut: _ctx?.getMetaParam("periode_a_programmer_debut") ?? null,
-        fin:   _ctx?.getMetaParam("periode_a_programmer_fin") ?? null
-      };
+      return _getPeriodeProgrammation();
     },
 
     /**
@@ -357,11 +354,10 @@ export function creerActivitesAPI(ctx) {
      * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
      * @param {string|null} sessionVal - Description des dates de session (ex: "[5-26], [5-26] lu ma", "(8,25)/07", "jours pairs", etc.)
      * @param {string|null} relacheVal - Description des dates de relâche (grammaire identique à celle des sessions)
-     * @param {Date} [today] - Date de référence pour l'année/mois par défaut (par défaut mois / année courants)
      * @returns {boolean} - true = jour jouable / false = relâche
      */
-    estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
-      return _estDateValide(dateVal, sessionVal, relacheVal, today);
+    estDateValide(dateVal, sessionVal, relacheVal) {
+      return _estDateValide(dateVal, sessionVal, relacheVal);
     },
 
     /**
@@ -778,7 +774,7 @@ export function creerActivitesAPI(ctx) {
      *  - mois par défaut : mois courant
      *
      * On construit un ensemble de dates candidates (AAAAMMJJ), puis on les filtre
-     * avec activitesAPI.estDateValide(dateInt, sessionVal, relacheVal).
+     * avec _estDateValide(dateInt, sessionVal, relacheVal).
      *
      * @param {string|null} sessionVal
      * @param {string|null} relacheVal
@@ -1017,7 +1013,7 @@ export function creerActivitesAPI(ctx) {
         }
       }
 
-      // ---------- 2) Filtrage via estDateValide ----------
+      // ---------- 2) Filtrage via _estDateValide ----------
 
       const sorted = Array.from(candidateDates).sort((a, b) => a - b);
       const seances = [];
@@ -1544,26 +1540,49 @@ function _estCreneauValide(creneau) {
   return t === 'Avant' || t === 'Après' || t === 'Journée';
 }
 
+
+/**
+ *  Défauts pour mois/année -> mois/année du début de la période de progammation (ou de today si absent)
+ */
+function getMonthYearDefault() {
+  let defY, defM;
+
+  const d0 = _getPeriodeProgrammation().debut;
+
+  const ref =
+    (d0 instanceof Date && !isNaN(d0.getTime()))
+      ? d0
+      : (d0 ? new Date(d0) : null);
+
+  if (ref instanceof Date && !isNaN(ref.getTime())) {
+    defY = ref.getFullYear();
+    defM = ref.getMonth() + 1;
+  } else {
+    const today = new Date()
+    defY = today.getFullYear();
+    defM = today.getMonth() + 1;
+  }
+  return [defY, defM];
+}
+
 /**
  * Détermine si une date est valide, ie. est dans Session et pas dans Relache.
  * @param {number|null} dateVal - Date sous forme d'entier AAAAMMJJ (ex: 20250721)
  * @param {string|null} sessionVal - Description des dates de session (ex: "[5-26], [5-26] lu ma", "(8,25)/07", "jours pairs", etc.)
  * @param {string|null} relacheVal - Description des dates de relâche (grammaire identique à celle des sessions)
- * @param {Date} [today] - Date de référence pour l'année/mois par défaut (par défaut mois / année courants)
  * @returns {boolean} - true = jour jouable / false = relâche
  */
-function _estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
+function _estDateValide(dateVal, sessionVal, relacheVal) {
   if (dateVal == null) return true;
 
   const dv = Number(dateVal);
   if (!Number.isFinite(dv)) return true;
 
-  const dy = Math.floor(dv / 10000);
-  const dm = Math.floor((dv / 100) % 100);
+  // Jour dans dateVal
   const dd = dv % 100;
 
-  const defY = today.getFullYear();
-  const defM = today.getMonth() + 1;
+  // Récupération du mois et de l'année par défaut
+  const [defY, defM] = getMonthYearDefault();
 
   // --- Helpers ---
   const y2k = (y) => (Number.isFinite(y) && y < 100 ? (y < 50 ? 2000 + y : 1900 + y) : y);
@@ -1696,8 +1715,8 @@ function _estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
       if (startIdx > 0 && sessionStripped[startIdx - 1] === '/') continue;
 
       const d  = Number(m[1]);
-      const mm = m[2] ? Number(m[2]) : dm;      // défaut = mois de dateVal
-      const yy = m[3] ? y2k(Number(m[3])) : dy; // défaut = année de dateVal
+      const mm = m[2] ? Number(m[2]) : defM;      // défaut = mois de dateVal
+      const yy = m[3] ? y2k(Number(m[3])) : defY; // défaut = année de dateVal
       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
           Number.isFinite(yy)) {
@@ -1764,8 +1783,8 @@ function _estDateValide(dateVal, sessionVal, relacheVal, today = new Date()) {
       if (startIdx > 0 && relacheStripped[startIdx - 1] === '/') continue;
 
       const d  = Number(m[1]);
-      const mm = m[2] ? Number(m[2]) : dm;
-      const yy = m[3] ? y2k(Number(m[3])) : dy;
+      const mm = m[2] ? Number(m[2]) : defM;
+      const yy = m[3] ? y2k(Number(m[3])) : defY;
       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
           Number.isFinite(yy)) {
@@ -2542,4 +2561,14 @@ function _getPlagesLibres(activites) {
   // tri par Date (string -> int)
   creneaux.sort((a,b) => (parseInt(a.Date,10) || 0) - (parseInt(b.Date,10) || 0));
   return creneaux;
+}
+
+/** 
+ * Renvoie la période à programmer
+ */
+function _getPeriodeProgrammation() {
+  return {
+    debut: _ctx?.getMetaParam("periode_a_programmer_debut") ?? null,
+    fin:   _ctx?.getMetaParam("periode_a_programmer_fin") ?? null
+  };
 }

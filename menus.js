@@ -1514,16 +1514,21 @@ async function getClipBoardText(parser=null) {
     btn.focus();
   }
 
-  // 1️⃣ Tentative immédiate (doit être synchrone)
-  try {
-    const txt = await navigator.clipboard?.readText();
-    if (txt) {
-      importFromUrlOrTxt(txt, parser);
-      return;
-    }
-  } catch {}
-  // 2️⃣ Fallback : affiche la popup juste au-dessus du bouton
-  if (isIOS) openPastePopup();
+  // Avec IOS on utilise directement la paste popup 
+  if (isIOS()) {
+    openPastePopup();
+  } 
+  else {
+    // Sinon on utilise navigator.clipboard?.readText() avec la paste popup en fallback
+    try {
+      const txt = await navigator.clipboard?.readText();
+      if (txt) {
+        importFromUrlOrTxt(txt, parser);
+        return;
+      }
+    } catch {}
+    openPastePopup();
+  }
 };
 
 // Appel d'une fonction asynchrone avec affichage overlay attente

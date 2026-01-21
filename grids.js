@@ -688,14 +688,15 @@ function valueParserDuree (params) {
 function valueParserSession (params) {
   if (!activitesAPI.estSessionValide(params.newValue)) {
     alert(`⛔ Format attendu = suite d'expressions suivantes, séparées par des virgules :
-     - "9", "09" (mois courant et année courante implicites), 
-     - "9/7", "09/07" (année courante implicite) , 
-     - "09/07/25" ou "09/07/2025"
-     - "(9, 16, 23)/7" pour énumérer des dates du même mois
-     - "[9-12]/07", "[30/07-01/08]" pour une période
-     - "[9-12]/07 lu ma", "[30/07-01/08] lu ma" pour des jours de la semaine sur une période 
-     - "jours pairs" | "jours impairs"
-     - chaîne vide => tous les jours de la période de programmation
+  - "9", "09" 
+  - "9/7", "09/07" 
+  - "09/07/25" ou "09/07/2025"
+  - "(9, 16, 23)/7" pour énumérer des dates du même mois
+  - "[9-12]/07", "[30/07-01/08]" pour une période
+  - "[9-12]/07 lu ma", "[30/07-01/08] lu ma" pour des jours de la semaine sur une période 
+  - "jours pairs" | "jours impairs"
+  - chaîne vide => tous les jours de la période de programmation
+Mois et année par défaut = mois et année du début de la période de programmation.
     `);
     return params.oldValue;
   }
@@ -704,14 +705,15 @@ function valueParserSession (params) {
 function valueParserRelache (params) {
   if (!activitesAPI.estRelacheValide(params.newValue)) {
     alert(`⛔ Format attendu = suite d'expressions suivantes, séparées par des virgules :
-     - "9", "09" (mois courant et année courante implicites), 
-     - "9/7", "09/07" (année courante implicite) , 
-     - "09/07/25" ou "09/07/2025"
-     - "(9, 16, 23)/7" pour énumérer des dates du même mois
-     - "[9-12]/07", "[30/07-01/08]" pour une période
-     - "[9-12]/07 lu ma", "[30/07-01/08] lu ma" pour des jours de la semaine sur une période 
-     - "jours pairs" | "jours impairs"
-     - chaîne vide => pas de jours de relâche
+  - "9", "09" 
+  - "9/7", "09/07" 
+  - "09/07/25" ou "09/07/2025"
+  - "(9, 16, 23)/7" pour énumérer des dates du même mois
+  - "[9-12]/07", "[30/07-01/08]" pour une période
+  - "[9-12]/07 lu ma", "[30/07-01/08] lu ma" pour des jours de la semaine sur une période 
+  - "jours pairs" | "jours impairs"
+  - chaîne vide => pas de jours de relâche
+Mois et année par défaut = mois et année du début de la période de programmation.
     `);
     return params.oldValue;
   }
