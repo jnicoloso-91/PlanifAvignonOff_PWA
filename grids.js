@@ -1120,24 +1120,18 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   // const displayed = api?.getDisplayedRowCount?.() ?? 0;
   const displayed = visibleRowsInPane(pane, gridEl);   
 
-  // nb à prendre en compte : min(displayed, 5) ; si vide et tu veux ~1,5 ligne visible, mets 1.5
-  // const n = Math.min(displayed, maxRows);
+  // nb de lignes à prendre en compte pour le calcul
   let n = Math.min(maxRows, nbRows);
   if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
     } else if (nbRows <= nbRowsPred) {
-
-      // if (gridId === 'grid-programmables') {
-      //   logToPage(`nb calculé pour grid-programmables: no autoresize nbRows: ${nbRows} nbRowsPred: ${nbRowsPred}`);
-      // }
-
       return null;        // pas de resize auto
     }
   } 
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
-  const paddingPane = (nbRows > n) ? 8: 0;
+  const paddingPane = (nbRows > n) ? 8 : 8;
 
   const desired = Math.round(hHeader + (rowH * n) + paddingPane);
   return Math.max(desired, hHeader + 8);

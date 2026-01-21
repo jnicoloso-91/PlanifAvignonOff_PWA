@@ -492,13 +492,14 @@ export function creerActivitesAPI(ctx) {
      * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
      * ───────────────────────────────────────────────────────────
      * Format(s) acceptés, séparés par des virgules :
-     *  - "9", "09" (mois courant et année courante implicites), 
-     *  - "9/7", "09/07" (année courante implicite) , 
-     *  - "09/07/25" ou "09/07/2025"
-     *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
-     *  - "[9-12]/07", "[30/07-01/08]" pour une période
-     *  - "jours pairs" | "jours impairs"
-     *  - chaîne vide => tous les jours de la période programmation
+     *  - "9", "09", 
+     *  - "9/7", "09/07", 
+     *  - "09/07/25" ou "09/07/2025",
+     *  - "(9, 16, 23)/7" pour énumérer des dates du même mois,
+     *  - "[9-12]/07", "[30/07-01/08]" pour une période,
+     *  - "jours pairs" | "jours impairs",
+     *  - chaîne vide => tous les jours de la période programmation.
+     * Mois et année par défaut = mois et année du début de la période de programmation.
      * On valide que *tous* les tokens sont valides.
      * ───────────────────────────────────────────────────────────
      */
@@ -512,13 +513,14 @@ export function creerActivitesAPI(ctx) {
      * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
      * ───────────────────────────────────────────────────────────
      * Format(s) acceptés, séparés par des virgules :
-     *  - "9", "09" (mois courant et année courante implicites), 
-     *  - "9/7", "09/07" (année courante implicite) , 
-     *  - "09/07/25" ou "09/07/2025"
-     *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
-     *  - "[9-12]/07", "[30/07-01/08]" pour une période
-     *  - "jours pairs" | "jours impairs"
-     *  - chaîne vide => pas de jours de relâche
+     *  - "9", "09", 
+     *  - "9/7", "09/07", 
+     *  - "09/07/25" ou "09/07/2025",
+     *  - "(9, 16, 23)/7" pour énumérer des dates du même mois,
+     *  - "[9-12]/07", "[30/07-01/08]" pour une période,
+     *  - "jours pairs" | "jours impairs",
+     *  - chaîne vide => pas de jours de relâche.
+     * Mois et année par défaut = mois et année du début de la période de programmation.
      * On valide que *tous* les tokens sont valides.
      * ───────────────────────────────────────────────────────────
      */
@@ -1715,8 +1717,8 @@ function _estDateValide(dateVal, sessionVal, relacheVal) {
       if (startIdx > 0 && sessionStripped[startIdx - 1] === '/') continue;
 
       const d  = Number(m[1]);
-      const mm = m[2] ? Number(m[2]) : defM;      // défaut = mois de dateVal
-      const yy = m[3] ? y2k(Number(m[3])) : defY; // défaut = année de dateVal
+      const mm = m[2] ? Number(m[2]) : defM;      
+      const yy = m[3] ? y2k(Number(m[3])) : defY; 
       if (Number.isFinite(d) && d >= 1 && d <= 31 &&
           Number.isFinite(mm) && mm >= 1 && mm <= 12 &&
           Number.isFinite(yy)) {
@@ -1851,13 +1853,14 @@ function _estDateValide(dateVal, sessionVal, relacheVal) {
  * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
  * ───────────────────────────────────────────────────────────
  * Format(s) acceptés, séparés par des virgules :
- *  - "9", "09" (mois courant et année courante implicites), 
- *  - "9/7", "09/07" (année courante implicite) , 
- *  - "09/07/25" ou "09/07/2025"
- *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
- *  - "[9-12]/07", "[30/07-01/08]" pour une période
- *  - "jours pairs" | "jours impairs"
- *  - chaîne vide => pas de jours de relâche
+ *  - "9", "09", 
+ *  - "9/7", "09/07", 
+ *  - "09/07/25" ou "09/07/2025",
+ *  - "(9, 16, 23)/7" pour énumérer des dates du même mois,
+ *  - "[9-12]/07", "[30/07-01/08]" pour une période,
+ *  - "jours pairs" | "jours impairs",
+ *  - chaîne vide => pas de jours de relâche.
+ * Mois et année par défaut = mois et année du début de la période de programmation.
  * On valide que *tous* les tokens sont valides.
  * ───────────────────────────────────────────────────────────
  */
@@ -1882,13 +1885,14 @@ function _estRelacheValide(val) {
  * - sinon, tous les tokens (séparés par virgules au niveau 0) doivent être valides
  * ───────────────────────────────────────────────────────────
  * Format(s) acceptés, séparés par des virgules :
- *  - "9", "09" (mois courant et année courante implicites), 
- *  - "9/7", "09/07" (année courante implicite) , 
- *  - "09/07/25" ou "09/07/2025"
- *  - "(9, 16, 23)/7" pour énumérer des dates du même mois
- *  - "[9-12]/07", "[30/07-01/08]" pour une période
- *  - "jours pairs" | "jours impairs"
- *  - chaîne vide => tous les jours de la période programmation
+ *  - "9", "09", 
+ *  - "9/7", "09/07", 
+ *  - "09/07/25" ou "09/07/2025",
+ *  - "(9, 16, 23)/7" pour énumérer des dates du même mois,
+ *  - "[9-12]/07", "[30/07-01/08]" pour une période,
+ *  - "jours pairs" | "jours impairs",
+ *  - chaîne vide => tous les jours de la période programmation.
+ * Mois et année par défaut = mois et année du début de la période de programmation.
  * On valide que *tous* les tokens sont valides.
  * ───────────────────────────────────────────────────────────
  */

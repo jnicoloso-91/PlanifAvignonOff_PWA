@@ -3,6 +3,7 @@
 import { 
   richValueGoodQuality,
   includesSafe,
+  stripOrigin,
 } from './utils.js';
 
 import { 
@@ -1328,11 +1329,13 @@ export function parseAvignonOffSpecPageText(text) {
  * @param {number} [opts.maxPages=100]
  * @param {number} [opts.delayMs=200]
  * @param {boolean}[opts.verbose=false]
+ * @param {string} [opts.refURL=null]
+ * @param {any}    [opts.refActivite=null]
  * @returns {Promise<Array>}   liste d’objets parsés (Activite, Lieu, Session, Debut, Duree, Style, Hyperlien, Orga)
  */
 export async function parseBilletReducProgPageUrl(
   baseUrl = 'https://www.billetreduc.com/search.htm?',
-  { maxPages = 100, delayMs = 200, verbose = false } = {}
+  { maxPages = 100, delayMs = 200, verbose = false, refURL=null, refActivite=null } = {}
 ) {
 
   const urlPage = (page) =>
@@ -1370,7 +1373,7 @@ export async function parseBilletReducProgPageUrl(
     const html = await res.text();
     const doc  = _parseHTML(html);                       // ton helper DOMParser
 
-    const items = parseBilletReducProgPageDom(doc);
+    const items = parseBilletReducProgPageDom(doc, refURL, refActivite);
     const added = pushItems(items, page);
 
     // Si aucune nouvelle activité → on suppose qu'il n'y a plus de page suivante
@@ -1391,9 +1394,11 @@ export async function parseBilletReducProgPageUrl(
  *   - une ligne par horaire (Debut) avec Session propre.
  * 
  * @param {*} doc 
+ * @param {*} refURL 
+ * @param {*} refActivite 
  * @returns 
  */
-function parseBilletReducProgPageDom(doc) {
+function parseBilletReducProgPageDom(doc, refURL=null, refActivite=null) {
   const items = [];
   const table = doc.querySelector('#preliste');
   if (!table) return items;
@@ -1411,6 +1416,12 @@ function parseBilletReducProgPageDom(doc) {
     if (Hyperlien && Hyperlien.startsWith('/')) {
       Hyperlien = 'https://www.billetreduc.com' + Hyperlien;
     }
+
+    // Si refURL est présent on teste le match avec Hyperlien si no match on passe
+    if (refURL && refURL !== Hyperlien) return;
+
+    // HyperlienBR
+    const HyperlienBR = Hyperlien;
 
     // Lieu
     const lieuSpan = td.querySelector('span.lieu a');
@@ -1433,36 +1444,58 @@ function parseBilletReducProgPageDom(doc) {
 
     if (!parsed) {
       // fallback brut si on n'a rien compris
-      items.push({
-        ...PARSED_DEFAULT,
-        Activite,
-        Lieu,
-        Session: sbRaw || null,
-        Debut: null,
-        Duree,
-        Style,
-        Orga: 'BilletReduc',
-        Hyperlien,
-      });
-      return;
+      if (refActivite) {
+        items.push({
+          ...refActivite,
+          Session: sbRaw || refActivite.Session,
+          Duree: refActivite.Duree || Duree,
+        });
+        return;
+      }
+      else {
+        items.push({
+          ...PARSED_DEFAULT,
+          Activite,
+          Lieu,
+          Session: sbRaw || null,
+          Debut: null,
+          Duree,
+          Style,
+          Orga: 'BilletReduc',
+          Hyperlien,
+          HyperlienBR,
+        });
+        return;
+      }
     }
 
     const { rangePart, items: horaires } = parsed;
 
     // Aucun horaire découpé → une seule entrée générique
     if (!horaires || !horaires.length) {
-      items.push({
-        ...PARSED_DEFAULT,
-        Activite,
-        Lieu,
-        Session: rangePart || sbRaw || null,
-        Debut: null,
-        Duree,
-        Style,
-        Orga: 'BilletReduc',
-        Hyperlien,
-      });
-      return;
+      if (refActivite) {
+        items.push({
+          ...refActivite,
+          Session: rangePart || sbRaw || refActivite.Session,
+          Duree: refActivite.Duree || Duree,
+        });
+        return;
+      }
+      else {
+        items.push({
+          ...PARSED_DEFAULT,
+          Activite,
+          Lieu,
+          Session: rangePart || sbRaw || null,
+          Debut: null,
+          Duree,
+          Style,
+          Orga: 'BilletReduc',
+          Hyperlien,
+          HyperlienBR,
+        });
+        return;
+      }
     }
 
     // ========= REGROUPEMENT des horaires =========
@@ -1524,17 +1557,28 @@ function parseBilletReducProgPageDom(doc) {
         }
       }
 
-      items.push({
-        ...PARSED_DEFAULT,
-        Activite,
-        Lieu,
-        Session,
-        Debut: entry.Debut || null,
-        Duree,
-        Style,
-        Orga: 'BilletReduc',
-        Hyperlien,
-      });
+      if (refActivite) {
+        items.push({
+          ...refActivite,
+          Session: Session || refActivite.Session,
+          Duree: refActivite.Duree || Duree,
+          Debut: entry.Debut || refActivite.Debut,
+        });
+      }
+      else {
+        items.push({
+          ...PARSED_DEFAULT,
+          Activite,
+          Lieu,
+          Session,
+          Debut: entry.Debut || null,
+          Duree,
+          Style,
+          Orga: 'BilletReduc',
+          Hyperlien,
+          HyperlienBR,
+        });
+      }
     }
   });
 
@@ -1546,13 +1590,19 @@ function parseBilletReducProgPageDom(doc) {
  * @param {*} url 
  * @returns 
  */
-export async function parseBilletReducSpecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker } = {}) {
+export async function parseBilletReducSpecPageUrl(url, { fetcher = _fetchViaCloudFlareWorker, fetchHoraire = true } = {}) {
   const res  = await fetcher(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
-  const parsed = parseBilletReducSpecPageDom(doc);
-  if (parsed) parsed[0].Hyperlien = url;
+  let parsed = parseBilletReducSpecPageDom(doc);
+  if (parsed && fetchHoraire) {
+    const refActivite = parsed[0];
+    refActivite.Hyperlien = url;
+    refActivite.HyperlienBR = url;
+    const searchURL= _getBilletReducSearchURL(refActivite.Activite);
+    parsed = await parseBilletReducProgPageUrl(searchURL, { refURL:url, refActivite });
+  }
   return parsed;
 }
 
@@ -1589,6 +1639,24 @@ function parseBilletReducSpecPageDom(doc) {
       break;
     }
   }
+  if (!dureeRaw) {
+    const rootDesc = doc.querySelector('.event_description');
+    const desc =
+      rootDesc?.querySelector('#event-long-bio') ||
+      rootDesc?.querySelector('.event_description_text') ||
+      rootDesc?.querySelector('.event_description');
+
+    if (desc) {
+      const txt = desc.textContent || '';
+
+      // Capture après "Durée :" (tolérant)
+      const m = txt.match(/durée\s*[:\-]?\s*([^\n\r.;]+)/i);
+      if (m) {
+        dureeRaw = m[1].trim();
+      }
+    }
+  }
+
   const Duree = _parseBilletReducDetailDuree(dureeRaw);
 
   // --- Style = tags concaténés (.event_tags .tag / .public_tag)
@@ -1770,8 +1838,7 @@ export async function getBilletReducAvis(
   }
 
   // Construire l’URL de recherche (on encode proprement)
-  const q = encodeURIComponent(activite.trim());
-  const urlBR = `https://www.billetreduc.com/search.htm?se=${q}`;
+  const urlBR = _getBilletReducSearchURL(activite);
 
   try {
     // 1) Page de recherche BilletRéduc
@@ -1806,7 +1873,7 @@ export async function getBilletReducAvis(
     }
 
     // 3) Page de détail BilletRéduc + parse
-    const parsed = await parseBilletReducSpecPageUrl(detailUrl, { fetcher });
+    const parsed = await parseBilletReducSpecPageUrl(detailUrl, { fetcher, fetchHoraire:false });
     const row    = Array.isArray(parsed) ? parsed[0] : parsed;
 
     const avis = row && row.Avis ? row.Avis : null;
@@ -1867,8 +1934,7 @@ export async function getBilletReducDetailedInfos(
   }
 
   // Construire l’URL de recherche (on encode proprement)
-  const q = encodeURIComponent(activiteNom.trim());
-  const urlBR = `https://www.billetreduc.com/search.htm?se=${q}`;
+  const urlBR = _getBilletReducSearchURL(activiteNom);
 
   try {
     // 1) Page de recherche BilletRéduc
@@ -1903,7 +1969,7 @@ export async function getBilletReducDetailedInfos(
     }
 
     // 3) Page de détail BilletRéduc + parse
-    const parsed = await parseBilletReducSpecPageUrl(detailUrl, { fetcher });
+    const parsed = await parseBilletReducSpecPageUrl(detailUrl, { fetcher, fetchHoraire:false });
     const row    = Array.isArray(parsed) ? parsed[0] : parsed;
 
     const debut = row && row.Debut ? row.Debut : null;
@@ -2654,6 +2720,12 @@ function _plainifyWithAbbr(el) {
 
 // ==== Helpers ProgBilletReduc ====
 
+// Construire l’URL de recherche (on encode proprement)
+function _getBilletReducSearchURL(activiteNom) {
+  const q = encodeURIComponent(activiteNom.trim());
+  return `https://www.billetreduc.com/search.htm?se=${q}`;
+}
+
 // Construit une clé pour dédoublonner
 function _makeKeyBilletReduc(it) {
   return [
@@ -2856,7 +2928,7 @@ function _parseBilletReducDetailDuree(dureeTxt) {
 
   if (!minutes || !Number.isFinite(minutes) || minutes <= 0) return null;
 
-  // si tu as déjà mmToHhmm, utilise-le; sinon :
+  // mmToHhmm :
   const h = Math.floor(minutes / 60);
   const mn = minutes % 60;
   return `${h}h${String(mn).padStart(2, '0')}`;
@@ -2879,8 +2951,6 @@ function _findBilletReducDetailUrlFromSearchDoc(searchDoc, searchUrl, activite) 
 
   // Aucun lien → typiquement page "désolé, nous n’avons pas..." ou noBot → on sort proprement
   if (!anchors.length) {
-    // Optionnel, pour debug :
-    // console.warn("BilletReduc: aucun lien de résultat trouvé dans la page de recherche:", searchUrl);
     return null;
   }
 

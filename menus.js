@@ -1527,7 +1527,7 @@ async function getClipBoardText(parser=null) {
         return;
       }
     } catch {}
-    openPastePopup();
+    // openPastePopup();
   }
 };
 
@@ -1588,7 +1588,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
       } 
       else if (raw.includes("https://www.billetreduc.com/spectacle")) {
         parsed = await asyncCallAvecOverlayAttente(parseBilletReducSpecPageUrl, raw, 'Echec collage');
-        mergeMode = 1;
+        // mergeMode = 1;
       } 
       else if (raw.includes("https://www.billetreduc.com/collection")) {
         parsed = await asyncCallAvecOverlayAttente(parseBilletReducCollecPageUrl, raw, 'Echec collage');
@@ -1706,7 +1706,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
 
   if (mergeMode == 1) {
     ctx.mutateDf(rows => { 
-      const next = sortDf(overloadRowsOrInsert(rows, nouvellesActivites[0], ['Activite', 'Lieu'], ['Duree', '__desc_summary', '__avis_summary', 'Mood'])); 
+      const next = sortDf(overloadRowsOrInsert(rows, nouvellesActivites, ['Activite', 'Lieu'], ['Duree', '__desc_summary', '__avis_summary', 'Mood'])); 
       recalcFinForAll(next); 
       return next;
     });

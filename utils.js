@@ -29,6 +29,12 @@ export function escapeAttr(s) {
 // Attend la fin de deux frames
 export const waitAF = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+// Enlève la partie origin d'une URL
+export function stripOrigin(url) {
+  const u = new URL(url);
+  return u.pathname + u.search + u.hash;
+}
+
 // Ouvre une URL
 export function openUrl(u, IosPwaMode=true){
   if (!u) return;
@@ -113,46 +119,55 @@ export function mergeRowsNoDupMultiKey(arr1, arr2, keyCols, normalizer) {
 }
 
 /**
- * Surcharge ou insère une ligne dans le tableau rows.
+ * Surcharge ou insère des lignes de arr2 dans arr1.
  *
- * - Si rows contient des lignes qui matchent row sur keyCols → on les surcharge sur overloadCols
- * - Sinon → on ajoute row au tableau
+ * - Pour chaque ligne de arr2 :
+ *   - si arr1 contient une ligne qui matche sur keyCols → surcharge overloadCols
+ *   - sinon → insertion
  *
- * @param {Array<object>} rows
- * @param {object}        row
+ * @param {Array<object>} arr1
+ * @param {Array<object>} arr2
  * @param {Array<string>} keyCols
  * @param {Array<string>} overloadCols
- * @returns {Array<object>}  nouveau tableau
+ * @returns {Array<object>} nouveau tableau
  */
-export function overloadRowsOrInsert(rows, row, keyCols, overloadCols) {
-  if (!Array.isArray(rows) || !row) return rows;
-
-  let found = false;
-
-  const newRows = rows.map(r => {
-    if (!r || typeof r !== 'object') return r;
-
-    const isMatch = keyCols.every(col => (r?.[col] === row?.[col]));
-
-    if (!isMatch) return r;
-
-    found = true;
-
-    const updated = { ...r };
-    for (const col of overloadCols) {
-      if (Object.prototype.hasOwnProperty.call(row, col) && row[col]) {
-        updated[col] = row[col];
-      }
-    }
-    return updated;
-  });
-
-  if (!found) {
-    // On ajoute une copie de row
-    newRows.push({ ...row });
+export function overloadRowsOrInsert(arr1, arr2, keyCols, overloadCols) {
+  if (!Array.isArray(arr1) || !Array.isArray(arr2) || !keyCols?.length) {
+    return arr1;
   }
 
-  return newRows;
+  // Copie de travail
+  const result = arr1.map(r => (r && typeof r === "object" ? { ...r } : r));
+
+  for (const row of arr2) {
+    if (!row || typeof row !== "object") continue;
+
+    let found = false;
+
+    for (let i = 0; i < result.length; i++) {
+      const r = result[i];
+      if (!r || typeof r !== "object") continue;
+
+      const isMatch = keyCols.every(col => r?.[col] === row?.[col]);
+      if (!isMatch) continue;
+
+      found = true;
+
+      // surcharge ciblée
+      for (const col of overloadCols) {
+        if (Object.prototype.hasOwnProperty.call(row, col) && row[col] != null) {
+          r[col] = row[col];
+        }
+      }
+    }
+
+    // si aucune ligne matchée → insertion
+    if (!found) {
+      result.push({ ...row });
+    }
+  }
+
+  return result;
 }
 
 export function isIOS() {
