@@ -88,7 +88,7 @@ import {
 		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
 		'.st-expander-header',                         // headers
 		'#programme-panel #calA',                      // calendrier
-		'.page--planning',							   // page planning 
+		// '.page--planning',							   // page planning 
 	].join(',');
 
 	function isInNoSwipeZone(evTarget){

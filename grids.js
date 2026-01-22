@@ -62,6 +62,7 @@ const DAY_COLORS = [
 
 const COULEUR_ACTIVITE_PROGRAMMABLE = "#d9fcd9"  // ("#ccffcc" autre vert clair  "#cfe2f3" bleu clair)
 
+const AUTOSIZED_COLS = ['Session', 'Relache'];
 
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
@@ -211,6 +212,205 @@ export function collectGridApis(gridsLike) {
   if (gridsLike?.api?.onGridSizeChanged) return [gridsLike.api];
   if (typeof gridsLike === 'object') return Object.values(gridsLike).map(h=>h?.api).filter(a=>a?.onGridSizeChanged);
   return [];
+}
+
+// Manual autosize (works even when grid/rows are virtualized)
+// Drop-in for refreshGrid + helpers
+function autoSizeColsManual(h, colIds, opts = {}) {
+
+  // --- get a representative font used by AG cells (as a canvas font string)
+  function _getAgCellFont(gridEl) {
+    const cell =
+      gridEl.querySelector(".ag-center-cols-container .ag-cell") ||
+      gridEl.querySelector(".ag-body-viewport .ag-cell") ||
+      gridEl.querySelector(".ag-header .ag-header-cell-text");
+
+    if (!cell) return "400 14px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    const cs = getComputedStyle(cell);
+
+    // canvas expects: "font-style font-variant font-weight font-size/line-height font-family"
+    // line-height not needed; keep it simple & stable.
+    const weight = cs.fontWeight || "400";
+    const size = cs.fontSize || "14px";
+    const family = cs.fontFamily || "system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    const style = cs.fontStyle && cs.fontStyle !== "normal" ? cs.fontStyle : "";
+    const variant = cs.fontVariant && cs.fontVariant !== "normal" ? cs.fontVariant : "";
+
+    return [style, variant, weight, size, family].filter(Boolean).join(" ");
+  }
+
+  let _measureCanvas = null;
+
+  // --- canvas text measurement
+  function _measureTextPx(text, font) {
+    if (!_measureCanvas) {
+      _measureCanvas = document.createElement("canvas");
+    }
+    const ctx = _measureCanvas.getContext("2d");
+    if (!ctx) return 0;
+    ctx.font = font;
+    return ctx.measureText(String(text ?? "")).width;
+  }
+
+  // --- find if a colId exists in this grid
+  function _hasCol(api, colId) {
+    try {
+      // AG Grid v28+ supports api.getColumn(colId)
+      if (typeof api.getColumn === "function") return !!api.getColumn(colId);
+    } catch {}
+    try {
+      // fallback
+      const cols = api.getColumns?.() || [];
+      return cols.some(c => c?.getColId?.() === colId);
+    } catch {}
+    return false;
+  }
+
+  // --- get header label for a col
+  function _getHeaderLabel(api, colId) {
+    try {
+      const col = api.getColumn?.(colId);
+      const def = col?.getColDef?.();
+      return def?.headerName || def?.field || colId;
+    } catch {}
+    return colId;
+  }
+
+  // --- get a cell's displayed value (prefers api.getValue when available)
+  function _getCellValue(api, colId, node) {
+    try {
+      if (typeof api.getValue === "function") {
+        const v = api.getValue(colId, node);
+        return v == null ? "" : String(v);
+      }
+    } catch {}
+    // fallback: node.data[field]
+    try {
+      const v = node?.data?.[colId];
+      return v == null ? "" : String(v);
+    } catch {}
+    return "";
+  }
+
+  // --- compute width for one column, scanning all rows (optionally capped)
+  // function _computeManualColWidth(api, gridEl, colId, {
+  //   maxRows = 0,            // 0 = all rows; set e.g. 800 if you want to cap
+  //   minWidth = 50,
+  //   maxWidth = 900,
+  //   cellPaddingPx = 16,     // left+right padding approximation
+  //   headerIconsPx = 16,     // sort/menu/filter icons approximation
+  //   extraPx = 6,            // safety
+  //   includeHeader = true,
+  // } = {}) {
+  //   const font = _getAgCellFont(gridEl);
+
+  //   let maxTextPx = 0;
+
+  //   if (includeHeader) {
+  //     const header = _getHeaderLabel(api, colId);
+  //     maxTextPx = Math.max(maxTextPx, _measureTextPx(header, font));
+  //   }
+
+  //   let count = 0;
+  //   const iter = api.forEachNodeAfterFilterAndSort || api.forEachNode;
+  //   if (typeof iter !== "function") {
+  //     // can't iterate => just header-based
+  //     const w = Math.ceil(maxTextPx + cellPaddingPx + headerIconsPx + extraPx);
+  //     return Math.max(minWidth, Math.min(maxWidth, w));
+  //   }
+
+  //   iter.call(api, (node) => {
+  //     if (!node) return;
+  //     count++;
+  //     if (maxRows > 0 && count > maxRows) return;
+
+  //     const txt = _getCellValue(api, colId, node);
+  //     if (!txt) return;
+  //     const w = _measureTextPx(txt, font);
+  //     if (w > maxTextPx) maxTextPx = w;
+  //   });
+
+  //   const width = Math.ceil(maxTextPx + cellPaddingPx + headerIconsPx + extraPx);
+  //   return Math.max(minWidth, Math.min(maxWidth, width));
+  // }
+function _computeManualColWidth(api, gridEl, colId, opt = {}) {
+  const {
+    includeHeader = true,
+    maxRows = 0,
+    minWidth = 60,
+    maxWidth = 520,
+    cellPaddingPx = 18,     // padding gauche+droite "cell"
+    headerPaddingPx = 18,   // padding gauche+droite "header"
+    headerOverheadPx = 0,   // tri/menu/etc. (mets 0 si tu ne veux pas sur-tailler)
+    extraPx = 6,            // petite marge anti-troncage
+  } = opt;
+
+  const font = _getAgCellFont(gridEl); // ex: "14px Inter, sans-serif"
+
+  // ---- header text width
+  let headerTextPx = 0;
+  if (includeHeader) {
+    const header = _getHeaderLabel(api, colId);
+    if (header) headerTextPx = _measureTextPx(header, font);
+  }
+
+  // ---- cells text width
+  let maxCellTextPx = 0;
+
+  const iter = api?.forEachNodeAfterFilterAndSort || api?.forEachNode;
+  if (typeof iter === "function") {
+    let count = 0;
+    iter.call(api, (node) => {
+      if (!node) return;
+
+      count++;
+      if (maxRows > 0 && count > maxRows) return;
+
+      const txt = _getCellValue(api, colId, node);
+      if (!txt) return;
+
+      const w = _measureTextPx(txt, font);
+      if (w > maxCellTextPx) maxCellTextPx = w;
+    });
+  }
+
+  const cellWidth = Math.ceil(maxCellTextPx + cellPaddingPx + extraPx);
+  const headWidth = Math.ceil(headerTextPx + headerPaddingPx + headerOverheadPx + extraPx);
+
+  const width = Math.max(cellWidth, headWidth);
+  return Math.max(minWidth, Math.min(maxWidth, width));
+}
+
+  // --- optional cache (per grid element + colId + rowCount + font)
+  const _manualAutosizeCache = new Map();
+  function _cacheKey(api, gridEl, colId) {
+    let rc = 0;
+    try { rc = api.getDisplayedRowCount?.() || 0; } catch {}
+    const font = _getAgCellFont(gridEl);
+    return `${colId}::rc=${rc}::font=${font}`;
+  }
+
+  if (!h || !h.api || !h.el) return false;
+  const api = h.api;
+  const gridEl = h.el;
+
+  if (!Array.isArray(colIds) || !colIds.length) return false;
+
+  const todo = colIds.filter(colId => typeof colId === "string" && colId && _hasCol(api, colId));
+  if (!todo.length) return false;
+
+  for (const colId of todo) {
+    const key = _cacheKey(api, gridEl, colId);
+    const cached = _manualAutosizeCache.get(key);
+    const w = (typeof cached === "number")
+      ? cached
+      : _computeManualColWidth(api, gridEl, colId, opts);
+
+    _manualAutosizeCache.set(key, w);
+    api.setColumnWidth?.(colId, w, false);
+  }
+
+  return true;
 }
 
 // Vérifie un nom est un nom de colonne 
@@ -1895,6 +2095,9 @@ export async function refreshGrid(gridId) {
     // autosize pane (uniquement si ouvert ou mémorisation si fermé)
     const pane = h.el.closest('.st-expander-body');
     autoSizePanelFromRowCount(pane, h.el, api, gridId, { nbRows:nbRows, nbRowsPred:nbRowsPred });
+
+    // Auto-size columns to be auto-sized
+    autoSizeColsManual(h, AUTOSIZED_COLS);
   };
 
   const selectAfterPaint = () => {
