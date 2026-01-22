@@ -586,6 +586,157 @@ export function getLigneVoisineUuid(rows, uuid) {
   return rows[neighborIdx]?.__uuid ?? null;
 }
 
+// /**
+//  * Renvoie la row voisine dans la grille (après tri + filtre), à partir d'un uuid.
+//  * @param {any} api - AG Grid API
+//  * @param {string|null} uuid
+//  * @returns {object|null}
+//  */
+// export function getLigneVoisine(api, uuid) {
+//   const node = _getLigneVoisineNode(api, uuid);
+//   return node?.data ?? null;
+// }
+
+// /**
+//  * Renvoie le uuid de la row voisine dans la grille (après tri + filtre), à partir d'un uuid.
+//  * @param {any} api - AG Grid API
+//  * @param {string|null} uuid
+//  * @returns {string|null}
+//  */
+// export function getLigneVoisineUuid(api, uuid) {
+//   const node = _getLigneVoisineNode(api, uuid);
+//   return node?.data?.__uuid ?? null;
+// }
+
+// function _getLigneVoisineNode(api, uuid) {
+//   if (!api || !uuid) return null;
+
+//   // 1) node stable par id (nécessite getRowId => __uuid)
+//   const curNode = api.getRowNode?.(uuid) || null;
+//   if (!curNode) return null;
+
+//   // 2) rowIndex = index "displayed" (tri+filtre). Peut être null si la ligne n'est plus affichée.
+//   const idx = curNode.rowIndex;
+//   const n = api.getDisplayedRowCount?.() ?? 0;
+//   if (!n) return null;
+
+//   // Si la ligne n'est plus visible (filtrée), on choisit un fallback explicite
+//   if (typeof idx !== "number" || idx < 0) {
+//     return api.getDisplayedRowAtIndex?.(0) || null;
+//   }
+
+//   // 3) voisin
+//   const neighborIdx = (idx + 1 <= n - 1) ? (idx + 1) : Math.max(idx - 1, 0);
+//   return api.getDisplayedRowAtIndex?.(neighborIdx) || null;
+// }
+
+// /**
+//  * Helper: calcule le node voisin dans l'ordre *affiché* (filtré + trié).
+//  * @param {any} api
+//  * @param {string|null} uuid
+//  * @returns {any|null} RowNode
+//  */
+// function getLigneVoisineNode(api, uuid) {
+//   if (!api || typeof api.forEachNodeAfterFilterAndSort !== "function") return null;
+//   if (uuid == null) return null;
+
+//   const nodes = [];
+//   api.forEachNodeAfterFilterAndSort((n) => {
+//     if (n && n.data) nodes.push(n);
+//   });
+
+//   if (!nodes.length) return null;
+
+//   const idx = nodes.findIndex(n => n?.data?.__uuid === uuid);
+//   if (idx < 0) return null;
+
+//   const len = nodes.length;
+//   const neighborIdx = (idx + 1 <= len - 1) ? (idx + 1) : Math.max(idx - 1, 0);
+
+//   return nodes[neighborIdx] || null;
+// }
+
+// /**
+//  * Helper robuste : récupère les nodes "visibles" dans l'ordre affiché.
+//  * Supporte plusieurs versions/implémentations d'AG Grid.
+//  * @param {any} api
+//  * @returns {any[]} RowNode[]
+//  */
+// function _getDisplayedNodes(api) {
+//   if (!api) return [];
+
+//   // 1) La meilleure API (ordre = filter+sort)
+//   if (typeof api.forEachNodeAfterFilterAndSort === "function") {
+//     const nodes = [];
+//     api.forEachNodeAfterFilterAndSort((n) => { if (n?.data) nodes.push(n); });
+//     return nodes;
+//   }
+
+//   // 2) Modèle interne (souvent dispo) : rowsToDisplay déjà filtré+trié
+//   try {
+//     const model = (typeof api.getModel === "function") ? api.getModel() : null;
+//     const rtd = model?.rowsToDisplay;
+//     if (Array.isArray(rtd) && rtd.length) {
+//       return rtd.filter(n => n?.data);
+//     }
+//   } catch {}
+
+//   // 3) Fallback : tous les nodes (pas forcément trié/filtré selon version)
+//   if (typeof api.forEachNode === "function") {
+//     const nodes = [];
+//     api.forEachNode((n) => { if (n?.data) nodes.push(n); });
+//     return nodes;
+//   }
+
+//   return [];
+// }
+
+// /**
+//  * Renvoie le node voisin (après filtre/tri si dispo).
+//  * @param {any} api
+//  * @param {string|null} uuid
+//  * @returns {any|null}
+//  */
+// // function _getLigneVoisineNodeFromApi(api, uuid) {
+// //   if (uuid == null) return null;
+
+// //   const nodes = _getDisplayedNodes(api);
+// //   if (!nodes.length) return null;
+
+// //   const idx = nodes.findIndex(n => n?.data?.__uuid === uuid);
+// //   if (idx < 0) return null;
+
+// //   const len = nodes.length;
+// //   const neighborIdx = (idx + 1 <= len - 1) ? (idx + 1) : Math.max(idx - 1, 0);
+
+// //   return nodes[neighborIdx] || null;
+// // }
+// function _getLigneVoisineNodeFromApi(api, uuid) {
+//   if (!api || uuid == null) return null;
+
+//   // ✅ Chemin le plus fiable : lignes affichées (donc triées + filtrées)
+//   if (typeof api.getDisplayedRowCount === "function" &&
+//       typeof api.getDisplayedRowAtIndex === "function") {
+//     const n = api.getDisplayedRowCount();
+//     if (!n) return null;
+
+//     let idx = -1;
+//     for (let i = 0; i < n; i++) {
+//       const node = api.getDisplayedRowAtIndex(i);
+//       if (node?.data?.__uuid === uuid) { idx = i; break; }
+//     }
+//     if (idx < 0) return null;
+
+//     const neighborIdx = (idx + 1 <= n - 1) ? (idx + 1) : Math.max(idx - 1, 0);
+//     return api.getDisplayedRowAtIndex(neighborIdx) || null;
+//   }
+
+//   // (optionnel) fallback si jamais ton api est “exotique”
+//   // -> on évite les fallbacks non triés qui donnent “première ligne”
+//   return null;
+// }
+
+
 // Met à jour la definition des colonnes sur une grille
 function rebuildColumnsForGrid(gridId, dfRows = null) {
 
@@ -738,7 +889,7 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
   api.setGridOption('columnDefs', newColDefs);
   api.onColumnEverythingChanged?.();
   ensureWheelScrollOnGrid(handle);
-  requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
+  // requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
 }
 
 // Met à jour la definition des colonnes sur les grilles qui affichent des activités
@@ -1359,7 +1510,7 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
     if (displayed >= nbRows) { 
       n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-    } else if (nbRows <= nbRowsPred) {
+    } else if (nbRows <= nbRowsPred) { // || nbRows > maxRows) {
       return null;        // pas de resize auto
     }
   } 
@@ -1429,6 +1580,7 @@ function gridOptionsCommon(gridId, el) {
       const g = grids.get(gridId);
       const pane = g?.el?.closest('.st-expander-body');
       if (pane && g) autosizeFromGridSafe(g, pane);
+      restoreGridStateFromMeta(gridId);
     },
     onCellFocused: () => setActiveGridId(gridId),
     // onGridSizeChanged: () => safeSizeToFitFor(gridId),
@@ -1488,6 +1640,8 @@ const gridOptionsActivitesProgrammees = {
     const sel = params.api.getSelectedRows();
     const btn = document.getElementById('btn-deprogrammer');
     (/** @type {HTMLButtonElement} */ (btn)).disabled = (sel.length > 0) ? activitesAPI.estActiviteReservee(sel[0]) : true;
+    const gridId = params?.context?.gridId;  
+    if (gridId) saveGridStateToMeta(params, gridId);
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-prog')); saveGridStateToMeta(p, 'grid-programmees'); },
 }
@@ -1505,12 +1659,18 @@ const gridOptionsActivitesNonProgrammees = {
     const hasSel = !!p.api.getSelectedRows()?.length;
     document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);
     synchronizeSelection(p, 'grid-programmables'); 
+    const gridId = p?.context?.gridId;  
+    if (gridId) saveGridStateToMeta(p, gridId);
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-non-prog')); saveGridStateToMeta(p, 'grid-non-programmees'); },
 }
 
 const gridOptionsCreneaux = {
-  onSelectionChanged: () => onCreneauxSelectionChanged(),
+  onSelectionChanged: (p) => {
+    onCreneauxSelectionChanged();
+    const gridId = p?.context?.gridId;  
+    if (gridId) saveGridStateToMeta(p, gridId);
+  },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-creneaux')); saveGridStateToMeta(p, 'grid-creneaux'); },
 }
 
@@ -1520,6 +1680,8 @@ const gridOptionsActivitesProgrammables = {
     const hasSel = !!sels?.length;
     document.getElementById('btn-programmer')?.toggleAttribute('disabled', !hasSel);
     synchronizeSelection(p, 'grid-non-programmees'); 
+    const gridId = p?.context?.gridId;  
+    if (gridId) saveGridStateToMeta(p, gridId);
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-programmables')); saveGridStateToMeta(p, 'grid-programmables'); },
 }
@@ -1588,6 +1750,11 @@ function saveGridStateToMeta(e, gridId) {
   const columnState = api.getColumnState?.() || [];
   const filterModel = api.getFilterModel?.() || null;
 
+  // sélection : liste des __uuid
+  const selectedUuids = (api.getSelectedRows?.() || [])
+    .map(r => r?.__uuid)
+    .filter(Boolean);
+
   const prev = ctx.getMeta()?.gridState || {};
 
   const next = {
@@ -1595,13 +1762,14 @@ function saveGridStateToMeta(e, gridId) {
     [gridId]: {
       columnState,
       filterModel,
+      selectedUuids,
     },
   };
 
   ctx.setMetaParam('gridState', next);
 }
 
-function restoreGridStateFromMeta(gridId) {
+function restoreGridStateFromMeta(gridId, { align = "middle" } = {}) {
   const handle = window.grids?.get(gridId);
   if (!handle) return;
   const api = handle.api;
@@ -1612,7 +1780,7 @@ function restoreGridStateFromMeta(gridId) {
   const state = allStates[gridId];
   if (!state) return;
 
-  const { columnState, filterModel } = state;
+  const { columnState, filterModel, selectedUuids } = state;
 
   // 1) Colonnes : ordre, tri, pinning, visibilité
   if (columnState && Array.isArray(columnState) && columnState.length) {
@@ -1626,6 +1794,31 @@ function restoreGridStateFromMeta(gridId) {
   if (filterModel) {
     api.setFilterModel?.(filterModel);
     api.onFilterChanged?.(); // pour forcer la prise en compte
+  }
+
+  // 3) Sélection (après colonnes+filtres)
+  if (Array.isArray(selectedUuids) && selectedUuids.length) {
+    // on attend que le modèle soit prêt après filtres
+    requestAnimationFrame(() => {
+      try {
+        api.deselectAll?.();
+
+        api.forEachNode?.(node => {
+          const id = node?.data?.__uuid;
+          if (id && selectedUuids.includes(id)) {
+            node.setSelected?.(true, false);
+          }
+        });
+
+        // remonter sur le premier sélectionné
+        const node = api.getSelectedNodes?.()?.[0];
+        if (node) {
+          api.ensureIndexVisible?.(node.rowIndex, align);
+          // ou sinon :
+          // api.ensureNodeVisible?.(node, align);
+        }
+      } catch {}
+    });
   }
 }
 
@@ -2043,7 +2236,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   const handle = { id: gridId, el, api, loader, columnsBuilder }; //, nbRowsPred: null };
   grids.set(gridId, handle);
   if (!getActiveGridId()) setActiveGridId(gridId);
-  requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
+  // requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
   return handle;
 }
 
