@@ -58,7 +58,7 @@ function wireContext() {
   });
 
   // état initial des boutons Undo/Redo
-  const st = ctx.historyState ? ctx.historyState() : { canUndo: false, canRedo: false };
+  const st = ctx.historyState ? ctx.historyState('df') : { canUndo: false, canRedo: false };
   document.getElementById('btn-undo')?.toggleAttribute('disabled', !st.canUndo);
   document.getElementById('btn-redo')?.toggleAttribute('disabled', !st.canRedo);
 }

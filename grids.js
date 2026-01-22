@@ -213,6 +213,40 @@ export function collectGridApis(gridsLike) {
   return [];
 }
 
+// Vérifie un nom est un nom de colonne 
+function hasColId(gridApi, colId) {
+  return !!gridApi
+    .getColumnDefs()
+    ?.some(col => col.colId === colId || col.field === colId);
+}
+
+/**
+ * Trie une grille sur une colonne
+ * @param {*} gridId 
+ * @param {*} colId 
+ * @param {*} sort
+ * @returns 
+ */
+export function setSortModel(gridId, colId, sort) {
+  const handle = window.grids?.get(gridId);
+  if (!handle) return;
+  const api = handle.api;
+  if (!api) return;
+
+  try {
+    if (hasColId(api, colId)) {
+      api.applyColumnState({
+        state: [
+          { colId: "Activite", sort: "asc" }
+        ],
+        defaultState: { sort: null } // enlève les autres tris
+      });
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
 /**
  * Sélectionne par __uuid et rend visible
  * @param {*} gridId 
@@ -1223,7 +1257,10 @@ function gridOptionsCommon(gridId, el) {
     onColumnMoved: (p) => saveGridStateToMeta(p, gridId),
     onColumnPinned: (p) => saveGridStateToMeta(p, gridId),
     onColumnVisible: (p) => saveGridStateToMeta(p, gridId),
-    onSortChanged: (p) => saveGridStateToMeta(p, gridId),
+    onSortChanged: (p) => {
+      saveGridStateToMeta(p, gridId); 
+      ensureRowVisibleAndGetEl(gridId, getSelectedRowUuid(gridId));
+    },
   
     // floatingFilter: true,
     // suppressMenuHide: false,

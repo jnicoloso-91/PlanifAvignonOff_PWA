@@ -60,6 +60,7 @@ import {
 import {
   selectRowByUuid,
   rebuildColumnsForActiviteGrids,
+  setSortModel,
 } from './grids.js';
 
 import {
@@ -1721,7 +1722,9 @@ export async function importFromUrlOrTxt(raw, parser=null) {
     scrollToExpander?.('exp-non-programmees');
     openExpander?.('exp-non-programmees');
     selectRowByUuid('grid-non-programmees', nouvellesActivites[0].__uuid, { ensure: 'center', flash: null });
-  }, 50);
+    const nbInstances = nouvellesActivites.filter(r => r?.Activite === nouvellesActivites[0].Activite && r?.Lieu === nouvellesActivites[0].Lieu).length
+    if (nbInstances > 1) setSortModel('grid-non-programmees', 'Activite', 'asc');
+  }, 100);
   
 }
 
