@@ -295,7 +295,7 @@ function openFileMenu(anchorBtn) {
       const act = (/** @type {HTMLElement} */ (li)).dataset.action;
       close();
       if (act === 'new')  doNouveauContexte?.();
-      if (act === 'initProg')  doInitProg?.();
+      if (act === 'initProg')  doNouveauProgramme?.();
       if (act === 'open') doImportExcel?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
@@ -368,7 +368,7 @@ function openFileSheet() {
       const act = (/** @type {HTMLElement} */ (li)).dataset.action;
       close();
       if (act === 'new')  doNouveauContexte?.();
-      if (act === 'initProg')  doInitProg?.();
+      if (act === 'initProg')  doNouveauProgramme?.();
       if (act === 'open') doImportExcel?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
@@ -1095,7 +1095,7 @@ async function doNouveauContexte() {
 }
 
 // Reset du programme
-async function doInitProg() {
+async function doNouveauProgramme() {
   ctx.mutateDf(rows => {
     if (!Array.isArray(rows) || !rows.length) return rows;
 
@@ -1133,7 +1133,7 @@ async function doInitProg() {
         uuidsToDelete.add(uuid);
       } else {
         // activité programmée normale : on garde la ligne mais Date = null
-        next[idx] = { ...rowInDf, Date: null };
+        next[idx] = { ...rowInDf, Date: null, Reserve:'Non' };
       }
     }
 

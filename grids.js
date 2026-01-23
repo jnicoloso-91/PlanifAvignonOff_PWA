@@ -555,7 +555,7 @@ export async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true
 }
 
 // Renvoie la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
-export function getLigneVoisine(rows, uuid) {
+export function getLigneVoisineFromRows(rows, uuid) {
   if (!rows || rows.length === 0) return null;
   if (uuid == null) return null;
 
@@ -571,7 +571,7 @@ export function getLigneVoisine(rows, uuid) {
 }
 
 // Renvoie le __uuid de la ligne voisine (suivante ou précédente) d'une row donnée par son uuid.
-export function getLigneVoisineUuid(rows, uuid) {
+export function getLigneVoisineUuidFromRows(rows, uuid) {
   if (!rows || rows.length === 0) return null;
   if (uuid == null) return null;
 
@@ -586,156 +586,53 @@ export function getLigneVoisineUuid(rows, uuid) {
   return rows[neighborIdx]?.__uuid ?? null;
 }
 
-// /**
-//  * Renvoie la row voisine dans la grille (après tri + filtre), à partir d'un uuid.
-//  * @param {any} api - AG Grid API
-//  * @param {string|null} uuid
-//  * @returns {object|null}
-//  */
-// export function getLigneVoisine(api, uuid) {
-//   const node = _getLigneVoisineNode(api, uuid);
-//   return node?.data ?? null;
-// }
+/**
+ * Renvoie la row voisine dans la grille (après tri + filtre), à partir d'un uuid.
+ * @param {any} api - AG Grid API
+ * @param {string|null} uuid
+ * @returns {object|null}
+ */
+export function getLigneVoisine(api, uuid) {
+  const node = getLigneVoisineNode(api, uuid);
+  return node?.data ?? null;
+}
 
-// /**
-//  * Renvoie le uuid de la row voisine dans la grille (après tri + filtre), à partir d'un uuid.
-//  * @param {any} api - AG Grid API
-//  * @param {string|null} uuid
-//  * @returns {string|null}
-//  */
-// export function getLigneVoisineUuid(api, uuid) {
-//   const node = _getLigneVoisineNode(api, uuid);
-//   return node?.data?.__uuid ?? null;
-// }
+/**
+ * Renvoie le uuid de la row voisine dans la grille (après tri + filtre), à partir d'un uuid.
+ * @param {any} api - AG Grid API
+ * @param {string|null} uuid
+ * @returns {string|null}
+ */
+export function getLigneVoisineUuid(api, uuid) {
+  const node = getLigneVoisineNode(api, uuid);
+  return node?.data?.__uuid ?? null;
+}
 
-// function _getLigneVoisineNode(api, uuid) {
-//   if (!api || !uuid) return null;
+/**
+ * Helper: calcule le node voisin dans l'ordre *affiché* (filtré + trié).
+ * @param {any} api
+ * @param {string|null} uuid
+ * @returns {any|null} RowNode
+ */
+function getLigneVoisineNode(api, uuid) {
+  if (!api || typeof api.forEachNodeAfterFilterAndSort !== "function") return null;
+  if (uuid == null) return null;
 
-//   // 1) node stable par id (nécessite getRowId => __uuid)
-//   const curNode = api.getRowNode?.(uuid) || null;
-//   if (!curNode) return null;
+  const nodes = [];
+  api.forEachNodeAfterFilterAndSort((n) => {
+    if (n && n.data) nodes.push(n);
+  });
 
-//   // 2) rowIndex = index "displayed" (tri+filtre). Peut être null si la ligne n'est plus affichée.
-//   const idx = curNode.rowIndex;
-//   const n = api.getDisplayedRowCount?.() ?? 0;
-//   if (!n) return null;
+  if (!nodes.length) return null;
 
-//   // Si la ligne n'est plus visible (filtrée), on choisit un fallback explicite
-//   if (typeof idx !== "number" || idx < 0) {
-//     return api.getDisplayedRowAtIndex?.(0) || null;
-//   }
+  const idx = nodes.findIndex(n => n?.data?.__uuid === uuid);
+  if (idx < 0) return null;
 
-//   // 3) voisin
-//   const neighborIdx = (idx + 1 <= n - 1) ? (idx + 1) : Math.max(idx - 1, 0);
-//   return api.getDisplayedRowAtIndex?.(neighborIdx) || null;
-// }
+  const len = nodes.length;
+  const neighborIdx = (idx + 1 <= len - 1) ? (idx + 1) : Math.max(idx - 1, 0);
 
-// /**
-//  * Helper: calcule le node voisin dans l'ordre *affiché* (filtré + trié).
-//  * @param {any} api
-//  * @param {string|null} uuid
-//  * @returns {any|null} RowNode
-//  */
-// function getLigneVoisineNode(api, uuid) {
-//   if (!api || typeof api.forEachNodeAfterFilterAndSort !== "function") return null;
-//   if (uuid == null) return null;
-
-//   const nodes = [];
-//   api.forEachNodeAfterFilterAndSort((n) => {
-//     if (n && n.data) nodes.push(n);
-//   });
-
-//   if (!nodes.length) return null;
-
-//   const idx = nodes.findIndex(n => n?.data?.__uuid === uuid);
-//   if (idx < 0) return null;
-
-//   const len = nodes.length;
-//   const neighborIdx = (idx + 1 <= len - 1) ? (idx + 1) : Math.max(idx - 1, 0);
-
-//   return nodes[neighborIdx] || null;
-// }
-
-// /**
-//  * Helper robuste : récupère les nodes "visibles" dans l'ordre affiché.
-//  * Supporte plusieurs versions/implémentations d'AG Grid.
-//  * @param {any} api
-//  * @returns {any[]} RowNode[]
-//  */
-// function _getDisplayedNodes(api) {
-//   if (!api) return [];
-
-//   // 1) La meilleure API (ordre = filter+sort)
-//   if (typeof api.forEachNodeAfterFilterAndSort === "function") {
-//     const nodes = [];
-//     api.forEachNodeAfterFilterAndSort((n) => { if (n?.data) nodes.push(n); });
-//     return nodes;
-//   }
-
-//   // 2) Modèle interne (souvent dispo) : rowsToDisplay déjà filtré+trié
-//   try {
-//     const model = (typeof api.getModel === "function") ? api.getModel() : null;
-//     const rtd = model?.rowsToDisplay;
-//     if (Array.isArray(rtd) && rtd.length) {
-//       return rtd.filter(n => n?.data);
-//     }
-//   } catch {}
-
-//   // 3) Fallback : tous les nodes (pas forcément trié/filtré selon version)
-//   if (typeof api.forEachNode === "function") {
-//     const nodes = [];
-//     api.forEachNode((n) => { if (n?.data) nodes.push(n); });
-//     return nodes;
-//   }
-
-//   return [];
-// }
-
-// /**
-//  * Renvoie le node voisin (après filtre/tri si dispo).
-//  * @param {any} api
-//  * @param {string|null} uuid
-//  * @returns {any|null}
-//  */
-// // function _getLigneVoisineNodeFromApi(api, uuid) {
-// //   if (uuid == null) return null;
-
-// //   const nodes = _getDisplayedNodes(api);
-// //   if (!nodes.length) return null;
-
-// //   const idx = nodes.findIndex(n => n?.data?.__uuid === uuid);
-// //   if (idx < 0) return null;
-
-// //   const len = nodes.length;
-// //   const neighborIdx = (idx + 1 <= len - 1) ? (idx + 1) : Math.max(idx - 1, 0);
-
-// //   return nodes[neighborIdx] || null;
-// // }
-// function _getLigneVoisineNodeFromApi(api, uuid) {
-//   if (!api || uuid == null) return null;
-
-//   // ✅ Chemin le plus fiable : lignes affichées (donc triées + filtrées)
-//   if (typeof api.getDisplayedRowCount === "function" &&
-//       typeof api.getDisplayedRowAtIndex === "function") {
-//     const n = api.getDisplayedRowCount();
-//     if (!n) return null;
-
-//     let idx = -1;
-//     for (let i = 0; i < n; i++) {
-//       const node = api.getDisplayedRowAtIndex(i);
-//       if (node?.data?.__uuid === uuid) { idx = i; break; }
-//     }
-//     if (idx < 0) return null;
-
-//     const neighborIdx = (idx + 1 <= n - 1) ? (idx + 1) : Math.max(idx - 1, 0);
-//     return api.getDisplayedRowAtIndex(neighborIdx) || null;
-//   }
-
-//   // (optionnel) fallback si jamais ton api est “exotique”
-//   // -> on évite les fallbacks non triés qui donnent “première ligne”
-//   return null;
-// }
-
+  return nodes[neighborIdx] || null;
+}
 
 // Met à jour la definition des colonnes sur une grille
 function rebuildColumnsForGrid(gridId, dfRows = null) {
@@ -1502,18 +1399,18 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   } catch {}
 
   // nombre de lignes affichées
-  // const displayed = api?.getDisplayedRowCount?.() ?? 0;
   const displayed = visibleRowsInPane(pane, gridEl);   
 
   // nb de lignes à prendre en compte pour le calcul
   let n = Math.min(maxRows, nbRows);
-  if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
-    if (displayed >= nbRows) { 
-      n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-    } else if (nbRows <= nbRowsPred) { // || nbRows > maxRows) {
-      return null;        // pas de resize auto
-    }
-  } 
+  // if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
+  //   if (displayed >= nbRows) { 
+  //     n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
+  //   } else if (nbRows <= nbRowsPred) { 
+  //     return null;        // pas de resize auto
+  //   }
+  // } 
+  if (nbRows > maxRows && nbRowsPred > maxRows) return null; // pas de resize auto si nbRows et nbRowsPred > 5 lignes
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8 : 8;
@@ -1522,7 +1419,9 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   return Math.max(desired, hHeader + 8);
 }
 
-// Retaille le expander-bodyen fonction du row count
+// let i = 0; 
+
+// Retaille le expander-body en fonction du row count
 // Appelé en fin de refreshGrid
 function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!pane || !gridEl) return;
@@ -1537,6 +1436,11 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
 
   // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
   const h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows, nbRowsPred,  maxRows });
+
+  // if (gridId === 'grid-programmables') {
+  //   console.log(i++, h, nbRows, nbRowsPred,  maxRows);
+  // }
+  
   if (h == null) return;
 
   pane.dataset.maxContentHeight = String(h);
@@ -2129,8 +2033,7 @@ async function onProgGridDateCommitted(params) {
   if (params.newValue != "") di = prettyToDateint(params.newValue) ?? params.oldValue ?? null; // ← écriture
 
   // Récupération de l'uuid de la ligne voisine
-  const gridRows = []; params.api.forEachNode(node => gridRows.push(node.data));
-  const uuidVoisin = getLigneVoisineUuid(gridRows, uuid);
+  const uuidVoisin = getLigneVoisineUuid(params.api, uuid);
 
   // Commit dans contexte ctx
   let df = ctx.getDf().slice(); 
@@ -2163,8 +2066,7 @@ async function onNonProgGridDateCommitted(params) {
   const di = prettyToDateint(params.newValue) ?? params.oldValue ?? null; // ← écriture
   
   // Récupération de l'uuid de la ligne voisine
-  const gridRows = []; params.api.forEachNode(node => gridRows.push(node.data));
-  const uuidVoisin = getLigneVoisineUuid(gridRows, uuid);
+  const uuidVoisin = getLigneVoisineUuid(params.api, uuid);
 
   // Commit dans contexte ctx
   let df = ctx.getDf().slice(); 

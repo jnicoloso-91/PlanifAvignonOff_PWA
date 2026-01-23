@@ -1501,7 +1501,7 @@ async function doSupprimerActivite() {
   const row = getSelectedRow('grid-non-programmees');
   if (!row) return;
   const uuid = row.__uuid;
-  const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-non-programmees'), uuid);
+  const uuidVoisin = getLigneVoisineUuid(grids.get('grid-non-programmees').api, uuid);
 
   ctx.dfRemove(row.__uuid);
   
@@ -1523,7 +1523,7 @@ async function doProgrammerActivite() {
   const uuid = sel.__uuid;
   const dateInt = toDateint(sel.Date);
   if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
-  const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-programmables'), uuid);
+  const uuidVoisin = getLigneVoisineUuid(grids.get('grid-programmables'), uuid);
 
   ctx.mutateDf(rows => {
     const next = Array.isArray(rows) ? rows.slice() : [];
@@ -1579,7 +1579,7 @@ async function doDeprogrammerActivite() {
   if (!row) return;  
   if (activitesAPI.estActiviteReservee(row)) return;
   const uuid = row.__uuid;
-  const uuidVoisin = getLigneVoisineUuid(getRowsFromGridId('grid-programmees'), uuid);
+  const uuidVoisin = getLigneVoisineUuid(grids.get('grid-programmees'), uuid);
 
   if (activitesAPI.estPause(row)) {
     // 🗑️ Supprimer la ligne du DF

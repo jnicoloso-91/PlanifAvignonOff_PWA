@@ -776,7 +776,7 @@ export function openSheetCarnet() {
       btnDelC.addEventListener('click', () => {
         const sel = apiGrid.getSelectedRows?.()?.[0];
         if (!sel) return;
-        const voisin = getLigneVoisineUuid(ctx.carnet, sel.__uuid)
+        const voisin = getLigneVoisineUuid(apiGrid, sel.__uuid)
         ctx?.mutateCarnet?.(rows => (rows||[]).filter(r => r.__uuid !== sel.__uuid));
         setTimeout(() => selectRow(voisin), 0);
       });
