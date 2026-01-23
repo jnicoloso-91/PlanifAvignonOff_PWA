@@ -1116,6 +1116,8 @@ export function openSheetAide() {
               Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web. Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie.</li>
               <li><u><i>Assistant chat</u></i> : permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
               mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
+              <li><u><i>Assistant infos+</u></i> : permet de générer les informations complémentaires affichables dans les popup i+ disponibles dans les grilles et les plannings: 
+              résumé du spectacle et des avis spectateurs, évaluation du ton du spectacle.</li>
               <li><u><i>Paramètres</u></i> : permet d'éditer les paramètres de l'application comprenant:
                 <ul>
                   <li>la <u><i>période de programmation</u></i></li>
@@ -1144,6 +1146,8 @@ export function openSheetAide() {
               Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web. Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie.</li>
               <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
               mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
+              <li><u><i>Assistant infos+</u></i> : permet de générer les informations complémentaires affichables dans les popup i+ disponibles dans les grilles et les plannings: 
+              résumé du spectacle et des avis spectateurs, évaluation du ton du spectacle.</li>
             </ul>                        
           </div>
         </div>
