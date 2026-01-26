@@ -3541,7 +3541,7 @@ export function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-style-input">Mots-clés style</label>
+              <label>Mots-clés style</label>
 
               <div class="chipbox" id="prog-style-chipbox">
                 <div class="chipbox-inputwrap">
@@ -3553,7 +3553,7 @@ export function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-mood-input">Mots-clés ton, humeur</label>
+              <label>Mots-clés ton, humeur</label>
 
               <div class="chipbox" id="prog-mood-chipbox">
                 <div class="chipbox-inputwrap">
@@ -3768,7 +3768,9 @@ export function openSheetAssistantProgrammation() {
             btn.type = "button";
             btn.setAttribute("aria-label", `Supprimer ${label}`);
             btn.textContent = "✕";
-            btn.addEventListener("click", () => {
+            btn.addEventListener("click", (ev) => {
+              ev.preventDefault();
+              ev.stopPropagation();
               map.delete(normKey(label));
               render();
               inputEl.focus();
@@ -3805,31 +3807,6 @@ export function openSheetAssistantProgrammation() {
           return Array.from(map.values());
         }
 
-        // function setSuggestions(arr) {
-        //   if (!datalistEl) return;
-
-        //   datalistEl.replaceChildren();
-
-        //   const selectedKeys = new Set(map.keys()); // clés déjà choisies
-        //   const uniq = new Map();
-
-        //   for (const s of arr || []) {
-        //     const label = normToken(s);
-        //     const key   = normKey(label);
-
-        //     if (!label || !key) continue;
-        //     if (selectedKeys.has(key)) continue; // ⬅️ exclusion ici
-        //     if (uniq.has(key)) continue;
-
-        //     uniq.set(key, label);
-        //   }
-
-        //   for (const label of uniq.values()) {
-        //     const opt = document.createElement("option");
-        //     opt.value = label;
-        //     datalistEl.appendChild(opt);
-        //   }
-        // }   
         function setSuggestions(arr) {
           if (!datalistEl) return;
 
@@ -3865,10 +3842,14 @@ export function openSheetAssistantProgrammation() {
 
         // clic sur la box -> focus input
         boxEl.addEventListener("click", (ev) => {
-          // évite double focus quand on clique sur un bouton ✕
           const t = /** @type {HTMLElement} */ (ev.target);
-          if (t?.tagName?.toLowerCase() === "button") return;
-          inputEl.focus();
+          if (!t) return;
+
+          // Ne focus que si on tape sur input (ou dedans)
+          if (t === inputEl || t.closest?.("input") === inputEl)
+            inputEl.focus();
+          // if (t?.tagName?.toLowerCase() === "button") return;
+          // inputEl.focus();
         });
 
         // Entrée ou virgule => créer chip
@@ -3899,7 +3880,7 @@ export function openSheetAssistantProgrammation() {
         inputEl.addEventListener("keydown", (ev) => {
           if (ev.key === "ArrowDown") refreshSuggestionsForOpen();
         });
-        
+
         // init
         if (datalistEl) {
           // relier input -> datalist
