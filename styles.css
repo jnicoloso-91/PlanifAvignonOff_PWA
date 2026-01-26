@@ -2344,6 +2344,63 @@ input[type="range"]:focus::-moz-range-thumb {
 .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
 .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
 
+/* Conteneur global */
+.chipbox{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+/* Ligne du champ */
+.chipbox-inputwrap{
+  display:flex;
+  justify-content:flex-end;   /* ⬅️ input collé à droite */
+}
+
+/* Input = le vrai champ */
+.chipbox-input{
+  width:220px;                /* ajuste si besoin */
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:10px;
+  padding:8px 10px;
+  background:#fff;
+  outline:0;
+}
+
+/* Chips sous le champ */
+.chipbox-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+/* Chips */
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 8px;
+  border-radius:999px;
+  border:1px solid rgba(0,0,0,.12);
+  background:rgba(0,0,0,.04);
+  font-size:13px;
+  line-height:1;
+}
+
+.chip button{
+  border:0;
+  background:transparent;
+  padding:0;
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+  opacity:.7;
+}
+
+.chip button:active{
+  opacity:1;
+}
+
 /* =========================================================*/
 /* Gestion du scroll horizontal / vertical dans les grids   */
 /* =========================================================*/

@@ -3541,21 +3541,27 @@ export function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
-              <label for="prog-style-keywords">Mots-clés style</label>
-              <input id="prog-style-keywords"
-                     type="text"
-                     class="bb-input"
-                     value="${(aiProg.mots_cles_style || []).join(", ")}"
-                     placeholder="Ex. : comédie, musique, jeune public">
+              <label for="prog-style-input">Mots-clés style</label>
+
+              <div class="chipbox" id="prog-style-chipbox">
+                <div class="chipbox-inputwrap">
+                  <input id="prog-style-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter un style…">
+                  <datalist id="dl-prog-style"></datalist>
+                </div>
+                <div class="chipbox-chips" aria-label="styles sélectionnés"></div>
+              </div>
             </div>
 
             <div class="form-row">
-              <label for="prog-mood-keywords">Mots-clés ton, humeur</label>
-              <input id="prog-mood-keywords"
-                     type="text"
-                     class="bb-input"
-                     value="${(aiProg.mots_cles_mood || []).join(", ")}"
-                     placeholder="Ex. : intimiste, immersif, décalé">
+              <label for="prog-mood-input">Mots-clés ton, humeur</label>
+
+              <div class="chipbox" id="prog-mood-chipbox">
+                <div class="chipbox-inputwrap">
+                  <input id="prog-mood-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter un ton…">
+                  <datalist id="dl-prog-mood"></datalist>
+                </div>
+                <div class="chipbox-chips" aria-label="moods sélectionnés"></div>
+              </div>
             </div>
 
             <div class="form-row">
@@ -3638,8 +3644,6 @@ export function openSheetAssistantProgrammation() {
       const elGapMin   = body.querySelector("#prog-gap-minutes");
       const eltraitPaus = body.querySelector("#prog-traiter-pauses");
       const elUseFilt  = body.querySelector("#prog-use-filters");
-      const eStylKW    = body.querySelector("#prog-style-keywords");
-      const elMoodKW   = body.querySelector("#prog-mood-keywords");
       const elDistKW   = body.querySelector("#prog-distribution-keywords");
       const elGenKW    = body.querySelector("#prog-general-keywords");
 
@@ -3654,84 +3658,258 @@ export function openSheetAssistantProgrammation() {
         });
       }
 
-      // --- Construire des datalists pour les inputs de mots-clés (style / mood)
-      (function attachProgDatalists() {
-        try {
-          const rows = Array.isArray(ctx?.df) ? ctx.df : [];
+      // -------------------------------------------------------------------
+      // 4) Initialisation des chipboxes (STYLE / MOOD)
+      // -------------------------------------------------------------------
 
-          function sanitizeDL(s) {
-            return String(s || '')
-              .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim();
-          }
+      const styleInput = body.querySelector("#prog-style-input");
+      const styleBox   = body.querySelector("#prog-style-chipbox");
+      const styleDL    = body.querySelector("#dl-prog-style");
 
-          function uniqueValuesFromRows(rows, field, { max = 500, includeEmpty = false } = {}) {
-            const set = new Set();
-            for (const r of rows || []) {
-              let v = r && r[field];
-              if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
-              set.add(String(v));
-              if (set.size >= max) break;
-            }
-            return [...set].sort((a,b) => a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
-          }
+      const moodInput  = body.querySelector("#prog-mood-input");
+      const moodBox    = body.querySelector("#prog-mood-chipbox");
+      const moodDL     = body.querySelector("#dl-prog-mood");
 
-          function uniqueWordsFromRows(rows, field, { max = 500, sep = ',' } = {}) {
-            const raw = uniqueValuesFromRows(rows, field, { max });
-            const set = new Set();
-            for (const v of raw) {
-              if (!v) continue;
-              const parts = String(v).split(sep);
-              for (const p of parts) {
-                const w = p.trim();
-                if (!w) continue;
-                set.add(w);
-                if (set.size >= max) break;
-              }
-              if (set.size >= max) break;
-            }
-            return [...set].sort((a,b) => a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
-          }
+      // Sécurité
+      if (!styleInput || !styleBox || !moodInput || !moodBox) {
+        console.warn("Chipbox: éléments manquants");
+      } else {
+        const rows = Array.isArray(ctx?.df) ? ctx.df : [];
 
-          // Helper to create datalist and attach to input
-          function createAndAttachDatalist(inputEl, id, values, { storeRaw = false } = {}) {
-            if (!inputEl) return;
-            let dl = document.getElementById(id);
-            if (!dl) {
-              dl = document.createElement('datalist');
-              dl.id = id;
-              // append near the form so it is available in the sheet
-              (body || document.body).appendChild(dl);
-            }
-            inputEl.setAttribute('list', id);
-            dl.replaceChildren();
-            for (const v of values) {
-              const san = sanitizeDL(v);
-              if (!san) continue;
-              const o = document.createElement('option');
-              o.value = san;
-              if (storeRaw) o.dataset.raw = String(v);
-              dl.appendChild(o);
-            }
-          }
+        const styleSuggestions = uniqueValuesFromRows(rows, 'Style');
 
-          // STYLE : valeurs uniques de la colonne 'Style'
-          try {
-            const styleVals = uniqueValuesFromRows(rows, 'Style');
-            createAndAttachDatalist(eStylKW, 'dl-prog-style-keywords', styleVals, { storeRaw: true });
-          } catch (e) { console.warn('attach prog style datalist error', e); }
+        const moodSuggestions = uniqueWordsFromRows(rows, 'Mood', { max: 500, sep: ',' });
 
-          // MOOD : extraire les mots (CSV) depuis la colonne 'Mood' puis attacher
-          try {
-            const moodWords = uniqueWordsFromRows(rows, 'Mood', { max: 500, sep: ',' });
-            createAndAttachDatalist(elMoodKW, 'dl-prog-mood-keywords', moodWords, { storeRaw: true });
-          } catch (e) { console.warn('attach prog mood datalist error', e); }
+        const chipStyle = createChipBox({
+          boxEl: styleBox,
+          inputEl: styleInput,
+          datalistEl: styleDL,
+          initial: aiProg?.mots_cles_style || [],
+          suggestions: styleSuggestions
+        });
 
-        } catch (e) {
-          console.warn('attachProgDatalists error', e);
+        const chipMood = createChipBox({
+          boxEl: moodBox,
+          inputEl: moodInput,
+          datalistEl: moodDL,
+          initial: aiProg?.mots_cles_mood || [],
+          suggestions: moodSuggestions
+        });
+
+        // Exposer pour buildConstraints()
+        window._chipProgStyle = chipStyle;
+        window._chipProgMood  = chipMood;
+      }
+
+      function normToken(s) {
+        return String(s ?? "")
+          .trim()
+          .replace(/\s+/g, " ");
+      }
+            
+      function normKey(s) {
+        // pour dédoublonner : insensible casse + accents
+        return normToken(s)
+          .normalize("NFD")
+          .replace(/\p{Diacritic}/gu, "")
+          .toLowerCase();
+      }
+
+      function uniqueValuesFromRows(rows, field, { max = 500, includeEmpty = false } = {}) {
+        const set = new Set();
+        for (const r of rows || []) {
+          let v = r && r[field];
+          if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
+          set.add(String(v));
+          if (set.size >= max) break;
         }
-      })();
+        return [...set].sort((a,b) => a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+      }
+
+      function uniqueWordsFromRows(rows, field, { max = 500, sep = ',' } = {}) {
+        const raw = uniqueValuesFromRows(rows, field, { max });
+        const set = new Set();
+        for (const v of raw) {
+          if (!v) continue;
+          const parts = String(v).split(sep);
+          for (const p of parts) {
+            const w = p.trim();
+            if (!w) continue;
+            set.add(w);
+            if (set.size >= max) break;
+          }
+          if (set.size >= max) break;
+        }
+        return [...set].sort((a,b) => a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+      }
+
+      /**
+       * Chipbox "dans le champ" (style Mail iOS)
+       * @param {{
+       *   boxEl: HTMLElement,
+       *   inputEl: HTMLInputElement,
+       *   datalistEl?: HTMLDataListElement|null,
+       *   initial?: string[],
+       *   suggestions?: string[],
+       * }} args
+       */
+      function createChipBox({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [] }) {
+        const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
+        const map = new Map(); // key -> label (original)
+
+        function render() {
+          chipsEl.replaceChildren();
+          for (const label of map.values()) {
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            chip.textContent = label;
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.setAttribute("aria-label", `Supprimer ${label}`);
+            btn.textContent = "✕";
+            btn.addEventListener("click", () => {
+              map.delete(normKey(label));
+              render();
+              inputEl.focus();
+            });
+
+            chip.appendChild(btn);
+            chipsEl.appendChild(chip);
+          }
+        }
+
+        function addToken(raw) {
+          const label = normToken(raw);
+          if (!label) return;
+          const key = normKey(label);
+          if (!key) return;
+          if (map.has(key)) return; // anti doublon
+          map.set(key, label);
+          render();
+        }
+
+        function removeToken(raw) {
+          const key = normKey(raw);
+          map.delete(key);
+          render();
+        }
+
+        function setValues(arr) {
+          map.clear();
+          for (const v of (arr || [])) addToken(v);
+          render();
+        }
+
+        function getValues() {
+          return Array.from(map.values());
+        }
+
+        // function setSuggestions(arr) {
+        //   if (!datalistEl) return;
+
+        //   datalistEl.replaceChildren();
+
+        //   const selectedKeys = new Set(map.keys()); // clés déjà choisies
+        //   const uniq = new Map();
+
+        //   for (const s of arr || []) {
+        //     const label = normToken(s);
+        //     const key   = normKey(label);
+
+        //     if (!label || !key) continue;
+        //     if (selectedKeys.has(key)) continue; // ⬅️ exclusion ici
+        //     if (uniq.has(key)) continue;
+
+        //     uniq.set(key, label);
+        //   }
+
+        //   for (const label of uniq.values()) {
+        //     const opt = document.createElement("option");
+        //     opt.value = label;
+        //     datalistEl.appendChild(opt);
+        //   }
+        // }   
+        function setSuggestions(arr) {
+          if (!datalistEl) return;
+
+          datalistEl.replaceChildren();
+
+          // 1) Normalise + dédoublonne
+          const uniq = new Map(); // key -> label
+          for (const s of arr || []) {
+            const label = normToken(s);
+            const key = normKey(label);
+            if (!label || !key) continue;
+            if (uniq.has(key)) continue;
+            uniq.set(key, label);
+          }
+
+          // 2) Enlève les déjà sélectionnés
+          for (const [k] of map) {
+            uniq.delete(k);
+          }
+
+          // 3) Remplit le datalist
+          for (const label of uniq.values()) {
+            const opt = document.createElement("option");
+            opt.value = label;
+            datalistEl.appendChild(opt);
+          }
+        }
+
+        function refreshSuggestionsForOpen() {
+          setSuggestions(suggestions);
+        }
+
+
+        // clic sur la box -> focus input
+        boxEl.addEventListener("click", (ev) => {
+          // évite double focus quand on clique sur un bouton ✕
+          const t = /** @type {HTMLElement} */ (ev.target);
+          if (t?.tagName?.toLowerCase() === "button") return;
+          inputEl.focus();
+        });
+
+        // Entrée ou virgule => créer chip
+        inputEl.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === ",") {
+            ev.preventDefault();
+            addToken(inputEl.value);
+            inputEl.value = "";
+          } else if (ev.key === "Backspace" && !inputEl.value) {
+            // backspace dans champ vide => supprime la dernière chip
+            const last = Array.from(map.values()).pop();
+            if (last) removeToken(last);
+          }
+        });
+
+        // si l'utilisateur choisit une option du datalist, ça met la value dans l'input
+        // => on la convertit immédiatement en chip
+        inputEl.addEventListener("change", () => {
+          const v = inputEl.value;
+          if (!v) return;
+          addToken(v);
+          inputEl.value = "";
+        });
+
+        // Rafraîchir UNIQUEMENT au moment où le navigateur va potentiellement ouvrir le datalist
+        inputEl.addEventListener("pointerdown", refreshSuggestionsForOpen);
+        inputEl.addEventListener("focus", refreshSuggestionsForOpen);
+        inputEl.addEventListener("keydown", (ev) => {
+          if (ev.key === "ArrowDown") refreshSuggestionsForOpen();
+        });
+        
+        // init
+        if (datalistEl) {
+          // relier input -> datalist
+          if (datalistEl.id) inputEl.setAttribute("list", datalistEl.id);
+          setSuggestions(suggestions);
+        }
+        // setValues(initial);
+
+        return { addToken, setValues, getValues, setSuggestions };
+      }
 
       btnApply.disabled = true;
       let progError = true;
@@ -3771,8 +3949,8 @@ export function openSheetAssistantProgrammation() {
           gap_minutes: elGapMin.value ? Number(elGapMin.value) : defaultGap,
           traiter_pauses: !!eltraitPaus.checked, 
           utiliser_filtres_grille: !!elUseFilt.checked,
-          mots_cles_style: parseKeywords(eStylKW),
-          mots_cles_mood: parseKeywords(elMoodKW),
+          mots_cles_style: window._chipProgStyle?.getValues() || [],
+          mots_cles_mood:  window._chipProgMood?.getValues()  || [],
           mots_cles_distribution: parseKeywords(elDistKW),
           mots_cles_generaux: parseKeywords(elGenKW),
           note_weight: noteWeight,
