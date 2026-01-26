@@ -3773,7 +3773,7 @@ export function openSheetAssistantProgrammation() {
               ev.stopPropagation();
               map.delete(normKey(label));
               render();
-              inputEl.focus();
+              // inputEl.focus();
             });
 
             chip.appendChild(btn);
