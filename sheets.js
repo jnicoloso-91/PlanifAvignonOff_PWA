@@ -3553,6 +3553,20 @@ export function openSheetAssistantProgrammation() {
             </div>
 
             <div class="form-row">
+              <label>Dosage des styles</label>
+
+              <div class="mixbox">
+                <div class="mixbox-head">
+                  <div class="mixbox-help">
+                    Les % sont un objectif. Si un style manque de spectacles, on complète avec les autres.
+                  </div>
+                </div>
+
+                <div id="prog-style-mix" class="mixrows"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
               <label>Mots-clés ton, humeur</label>
 
               <div class="chipbox" id="prog-mood-chipbox">
@@ -3658,10 +3672,7 @@ export function openSheetAssistantProgrammation() {
         });
       }
 
-      // -------------------------------------------------------------------
-      // 4) Initialisation des chipboxes (STYLE / MOOD)
-      // -------------------------------------------------------------------
-
+      // Initialisation des chipboxes (STYLE / MOOD)
       const styleInput = body.querySelector("#prog-style-input");
       const styleBox   = body.querySelector("#prog-style-chipbox");
       const styleDL    = body.querySelector("#dl-prog-style");
@@ -3670,6 +3681,8 @@ export function openSheetAssistantProgrammation() {
       const moodBox    = body.querySelector("#prog-mood-chipbox");
       const moodDL     = body.querySelector("#dl-prog-mood");
 
+      let _prevStyles = (aiProg?.mots_cles_style || []).slice();
+
       // Sécurité
       if (!styleInput || !styleBox || !moodInput || !moodBox) {
         console.warn("Chipbox: éléments manquants");
@@ -3677,23 +3690,27 @@ export function openSheetAssistantProgrammation() {
         const rows = Array.isArray(ctx?.df) ? ctx.df : [];
 
         const styleSuggestions = uniqueValuesFromRows(rows, 'Style');
-
-        const moodSuggestions = uniqueWordsFromRows(rows, 'Mood', { max: 500, sep: ',' });
-
         const chipStyle = createChipBox({
           boxEl: styleBox,
           inputEl: styleInput,
           datalistEl: styleDL,
           initial: aiProg?.mots_cles_style || [],
-          suggestions: styleSuggestions
+          suggestions: styleSuggestions,
+          onChange: () => {
+            styleMixOnStylesChanged();
+          }
         });
 
+        const moodSuggestions = uniqueWordsFromRows(rows, 'Mood', { max: 500, sep: ',' });
         const chipMood = createChipBox({
           boxEl: moodBox,
           inputEl: moodInput,
           datalistEl: moodDL,
           initial: aiProg?.mots_cles_mood || [],
-          suggestions: moodSuggestions
+          suggestions: moodSuggestions,
+          onChange: () => {
+            styleMixOnStylesChanged();
+          }
         });
 
         // Exposer pour buildConstraints()
@@ -3701,12 +3718,413 @@ export function openSheetAssistantProgrammation() {
         window._chipProgMood  = chipMood;
       }
 
+      // Initialisation des dosages de styles
+      const elStyleMix = body.querySelector("#prog-style-mix");
+
+      function clampPct(x) {
+        x = Number(x);
+        if (!Number.isFinite(x)) return 0;
+        return Math.max(0, Math.min(100, Math.round(x)));
+      }
+
+      /** Répartit équitablement 100 sur n styles, en entiers */
+      function equalSplit(n) {
+        n = Math.max(1, n|0);
+        const base = Math.floor(100 / n);
+        let rem = 100 - base * n;
+        const arr = Array(n).fill(base);
+        for (let i = 0; i < n && rem > 0; i++, rem--) arr[i] += 1;
+        return arr;
+      }
+
+      // Handler de mise à jour des dosages de styles sur changement de style
+      function styleMixOnStylesChanged() {
+        const styles = window._chipProgStyle?.getValues() || [];
+        const prevMixArr = readStyleMixFromUI(); // [{style,pct}]
+        const prevMixMap = Object.fromEntries(prevMixArr.map(x => [x.style, clampPct(x.pct)]));
+
+        const prevSet = new Set(_prevStyles);
+        const newSet  = new Set(styles);
+
+        const added   = styles.filter(s => !prevSet.has(s));
+        const removed = _prevStyles.filter(s => !newSet.has(s));
+
+        let nextMixMap = {};
+
+        // 1) base: reprendre les anciens pcts pour les styles encore là
+        for (const s of styles) nextMixMap[s] = clampPct(prevMixMap[s] ?? 0);
+
+        // 2) cas ajout EXACTEMENT d’un style : appliquer TA règle
+        if (added.length === 1 && removed.length === 0) {
+          const newStyle = added[0];
+          const newPct = Math.round(100 / styles.length);
+          nextMixMap = rebalanceOthersProportional(nextMixMap, newStyle, newPct);
+        } else {
+          // suppression ou changements multiples : renormalise “proprement”
+          nextMixMap = normalizeTo100KeepRatios(nextMixMap);
+        }
+
+        renderStyleMixUI(styles, mapToMixArr(nextMixMap));
+        _prevStyles = styles.slice();
+      }
+
+      // Transforme un objet en tableau d'objets { style, pct }, en clampant pct.
+      function mapToMixArr(m) {
+        return Object.entries(m || {}).map(([style, pct]) => ({ style, pct: clampPct(pct) }));
+      }
+
+      // Normalisation des dosages de styles
+      function normalizeTo100KeepRatios(map) {
+        const styles = Object.keys(map || {});
+        if (!styles.length) return {};
+
+        const vals = styles.map(s => clampPct(map[s] ?? 0));
+        const sum = vals.reduce((a,b)=>a+b,0);
+
+        // tout à 0 => split égal
+        if (sum <= 0) {
+          const split = equalSplit(styles.length);
+          const out = {};
+          for (let i=0;i<styles.length;i++) out[styles[i]] = split[i];
+          return out;
+        }
+
+        // renormalisation + arrondi largest remainder
+        const scaled = vals.map(v => v * 100 / sum);
+        const flo = scaled.map(v => Math.floor(v));
+        let rem = 100 - flo.reduce((a,b)=>a+b,0);
+
+        const frac = scaled
+          .map((v,i)=>({i, f:v - Math.floor(v)}))
+          .sort((a,b)=>b.f-a.f);
+
+        for (let k=0; k<frac.length && rem>0; k++, rem--) flo[frac[k].i] += 1;
+
+        const out = {};
+        for (let i=0;i<styles.length;i++) out[styles[i]] = flo[i];
+        return out;
+      }
+
+      // Recalcule les dosages de styles
+      function rebalanceOthersProportional(pctsByStyle, changedStyle, changedPct) {
+        const styles = Object.keys(pctsByStyle);
+
+        const newMap = { ...pctsByStyle };
+        newMap[changedStyle] = clampPct(changedPct);
+
+        const others = styles.filter(s => s !== changedStyle);
+        const targetOthers = 100 - newMap[changedStyle];
+
+        if (!others.length) return { [changedStyle]: 100 };
+
+        const curSumOthers = others.reduce((a, s) => a + (Number(newMap[s]) || 0), 0);
+
+        // Si les autres étaient à 0, on fait un split égalitaire entre eux
+        if (curSumOthers <= 0) {
+          const base = Math.floor(targetOthers / others.length);
+          let rem = targetOthers - base * others.length;
+          for (const s of others) newMap[s] = base;
+          for (let i = 0; i < others.length && rem > 0; i++, rem--) newMap[others[i]] += 1;
+          return newMap;
+        }
+
+        // Répartition proportionnelle + arrondi (Largest Remainder)
+        const scaled = others.map(s => ({
+          s,
+          v: (Number(newMap[s]) || 0) * targetOthers / curSumOthers
+        }));
+
+        for (const o of scaled) newMap[o.s] = Math.floor(o.v);
+
+        let rem = targetOthers - others.reduce((a, s) => a + newMap[s], 0);
+        scaled.sort((a, b) => (b.v - Math.floor(b.v)) - (a.v - Math.floor(a.v)));
+
+        for (let i = 0; i < scaled.length && rem > 0; i++, rem--) {
+          newMap[scaled[i].s] += 1;
+        }
+
+        return newMap;
+      }
+
+      /**
+       * Rend une UI mix en gardant les valeurs existantes si possible.
+       * - Si nouveaux styles : on conserve l’existant et on renormalise.
+       * - Si suppression : on renormalise.
+       */
+      function renderStyleMixUI(styles, existingMix = []) {
+        if (!elStyleMix) return;
+
+        const prev = new Map((existingMix || []).map(x => [String(x.style), clampPct(x.pct)]));
+        elStyleMix.replaceChildren();
+
+        if (!styles.length) return;
+
+        // 1) valeurs initiales : prendre l’existant, sinon 0
+        const values = styles.map(st => prev.get(st) ?? 0);
+
+        // --- détecter les styles nouvellement ajoutés
+        const added = styles.filter(st => !prev.has(st));
+
+        if (added.length) {
+          const n = styles.length;
+
+          // valeur par défaut d’un nouveau style
+          const defNew = Math.round(100 / n);
+
+          // appliquer la valeur par défaut aux nouveaux
+          for (let i = 0; i < styles.length; i++) {
+            if (added.includes(styles[i])) {
+              values[i] = defNew;
+            }
+          }
+
+          // cible pour les anciens
+          const sumNew = styles.reduce(
+            (s, st, i) => s + (added.includes(st) ? values[i] : 0),
+            0
+          );
+          const targetOld = Math.max(0, 100 - sumNew);
+
+          const oldIdx = styles
+            .map((st, i) => ({ st, i }))
+            .filter(o => !added.includes(o.st));
+
+          const sumOld = oldIdx.reduce((s, o) => s + (values[o.i] || 0), 0);
+
+          if (oldIdx.length) {
+            if (sumOld <= 0) {
+              // split égal si anciens à 0
+              const base = Math.floor(targetOld / oldIdx.length);
+              let rem = targetOld - base * oldIdx.length;
+              for (const o of oldIdx) values[o.i] = base;
+              for (let k = 0; k < oldIdx.length && rem > 0; k++, rem--) {
+                values[oldIdx[k].i] += 1;
+              }
+            } else {
+              // rebalance proportionnel + Largest Remainder
+              const scaled = oldIdx.map(o => ({
+                i: o.i,
+                v: (values[o.i] || 0) * targetOld / sumOld
+              }));
+
+              for (const o of scaled) values[o.i] = Math.floor(o.v);
+
+              let rem = targetOld - scaled.reduce((s, o) => s + values[o.i], 0);
+              scaled.sort(
+                (a, b) => (b.v - Math.floor(b.v)) - (a.v - Math.floor(a.v))
+              );
+
+              for (let k = 0; k < scaled.length && rem > 0; k++, rem--) {
+                values[scaled[k].i] += 1;
+              }
+            }
+          }
+
+          // correction finale somme = 100
+          let s2 = values.reduce((a, b) => a + b, 0);
+          let rem2 = 100 - s2;
+          const step = rem2 >= 0 ? 1 : -1;
+          while (rem2 !== 0) {
+            for (let i = 0; i < values.length && rem2 !== 0; i++) {
+              const next = values[i] + step;
+              if (next >= 0 && next <= 100) {
+                values[i] = next;
+                rem2 -= step;
+              }
+            }
+            break; // sécurité
+          }
+
+        } else {
+          // --- comportement existant (pas d’ajout)
+          const sum0 = values.reduce((a, b) => a + b, 0);
+          if (sum0 === 0) {
+            const split = equalSplit(styles.length);
+            for (let i = 0; i < styles.length; i++) values[i] = split[i];
+          } else {
+            const scaled = values.map(v => (v * 100) / sum0);
+            const rounded = scaled.map(v => Math.floor(v));
+            let rem = 100 - rounded.reduce((a, b) => a + b, 0);
+            const frac = scaled
+              .map((v, i) => ({ i, f: v - Math.floor(v) }))
+              .sort((a, b) => b.f - a.f);
+
+            for (let k = 0; k < frac.length && rem > 0; k++, rem--) {
+              rounded[frac[k].i] += 1;
+            }
+            for (let i = 0; i < styles.length; i++) values[i] = rounded[i];
+          }
+        }
+
+        // --- rendu UI
+        for (let i = 0; i < styles.length; i++) {
+          const style = styles[i];
+          const pct0 = values[i];
+
+          const row = document.createElement("div");
+          row.className = "mixrow";
+          row.setAttribute("data-style", style);
+
+          const lab = document.createElement("label");
+          lab.textContent = style;
+
+          const inp = document.createElement("input");
+          inp.type = "number";
+          inp.min = "0";
+          inp.max = "100";
+          inp.step = "5";
+          inp.value = String(pct0);
+
+          row.appendChild(lab);
+          row.appendChild(inp);
+          elStyleMix.appendChild(row);
+        }
+      }
+
+      /**
+       * Ajuste automatiquement les autres % quand on change un style.
+       * - Conserve la valeur du champ modifié.
+       * - Répartit l’écart sur les autres, proportionnellement à leur valeur (ou égal si tous 0).
+       */
+      function rebalanceAfterEdit(changedStyle) {
+        if (!elStyleMix) return;
+
+        const mix = readStyleMixFromUI(); // [{style,pct}]
+        if (!mix.length) return;
+
+        // clamp + index changed
+        for (const x of mix) x.pct = clampPct(x.pct);
+
+        const idx = mix.findIndex(x => x.style === changedStyle);
+        if (idx < 0) return;
+
+        const sum = mix.reduce((s,x)=>s+x.pct,0);
+        const delta = 100 - sum; // ce qu’il manque (>0) ou ce qu’il faut retirer (<0)
+        if (delta === 0) return; 
+
+        // autres indices
+        const others = mix.map((x,i)=>i).filter(i => i !== idx);
+        if (!others.length) {
+          mix[idx].pct = 100;
+        } else {
+          const weightsSum = others.reduce((s,i)=>s+mix[i].pct,0);
+
+          if (weightsSum === 0) {
+            // répartir également sur les autres
+            let rem = delta;
+            const step = (rem >= 0) ? 1 : -1;
+            while (rem !== 0) {
+              for (const i of others) {
+                if (rem === 0) break;
+                const next = mix[i].pct + step;
+                if (next >= 0 && next <= 100) {
+                  mix[i].pct = next;
+                  rem -= step;
+                }
+              }
+              // sécurité anti-boucle infinie
+              if (Math.abs(rem) > 2000) break;
+            }
+          } else {
+            // répartir proportionnellement
+            const adj = new Array(mix.length).fill(0);
+            let applied = 0;
+
+            for (const i of others) {
+              const share = delta * (mix[i].pct / weightsSum);
+              const a = (delta >= 0) ? Math.floor(share) : Math.ceil(share);
+              adj[i] = a;
+              applied += a;
+            }
+
+            // corriger le reste dû à l’arrondi
+            let rem = delta - applied;
+
+            // ordre de distribution : plus gros poids d'abord si delta>0, sinon aussi
+            const order = others.slice().sort((a,b)=>mix[b].pct - mix[a].pct);
+
+            const step = (rem >= 0) ? 1 : -1;
+            while (rem !== 0) {
+              for (const i of order) {
+                if (rem === 0) break;
+                const next = mix[i].pct + step;
+                if (next >= 0 && next <= 100) {
+                  mix[i].pct = next;
+                  rem -= step;
+                }
+              }
+              if (Math.abs(rem) > 2000) break;
+            }
+
+            // appliquer l’ajustement arrondi
+            for (const i of others) {
+              mix[i].pct = clampPct(mix[i].pct + adj[i]);
+            }
+          }
+
+          // dernière passe : garantir somme=100 sans négatifs
+          // (mini-correction)
+          let s2 = mix.reduce((s,x)=>s+x.pct,0);
+          let rem2 = 100 - s2;
+          const step2 = (rem2 >= 0) ? 1 : -1;
+          const order2 = others.slice(); // on évite de toucher changed
+          while (rem2 !== 0 && order2.length) {
+            for (const i of order2) {
+              if (rem2 === 0) break;
+              const next = mix[i].pct + step2;
+              if (next >= 0 && next <= 100) {
+                mix[i].pct = next;
+                rem2 -= step2;
+              }
+            }
+            if (Math.abs(rem2) > 2000) break;
+          }
+        }
+
+        // réinjecte dans les inputs
+        for (const row of elStyleMix.querySelectorAll("[data-style]")) {
+          const style = row.getAttribute("data-style") || "";
+          const input = row.querySelector("input");
+          const x = mix.find(m => m.style === style);
+          if (input && x) input.value = String(clampPct(x.pct));
+        }
+      }
+
+      /** @returns {{style:string, pct:number}[]} */
+      function readStyleMixFromUI() {
+        if (!elStyleMix) return [];
+        const rows = Array.from(elStyleMix.querySelectorAll("[data-style]"));
+        const out = [];
+        for (const row of rows) {
+          const style = row.getAttribute("data-style") || "";
+          const input = row.querySelector("input");
+          const pct = input ? Number(input.value) : NaN;
+          if (style) out.push({ style, pct: clampPct(pct) });
+        }
+        return out;
+      }
+
+      // Listener : quand l’utilisateur change un %
+      elStyleMix?.addEventListener("input", (ev) => {
+        const t = /** @type {HTMLElement} */ (ev.target);
+        if (!t || t.tagName.toLowerCase() !== "input") return;
+        const row = t.closest("[data-style]");
+        const style = row?.getAttribute("data-style");
+        if (!style) return;
+        rebalanceAfterEdit(style);
+      });
+
+      // 1) rendu initial des dosages de styles
+      renderStyleMixUI(window._chipProgStyle?.getValues() || [], aiProg?.style_mix || []);
+
+      // Normalisation token
       function normToken(s) {
         return String(s ?? "")
           .trim()
           .replace(/\s+/g, " ");
       }
-            
+
+      // Normalisation clef
       function normKey(s) {
         // pour dédoublonner : insensible casse + accents
         return normToken(s)
@@ -3715,6 +4133,7 @@ export function openSheetAssistantProgrammation() {
           .toLowerCase();
       }
 
+      // Extrait les lignes uniques d'un tableau
       function uniqueValuesFromRows(rows, field, { max = 500, includeEmpty = false } = {}) {
         const set = new Set();
         for (const r of rows || []) {
@@ -3726,6 +4145,7 @@ export function openSheetAssistantProgrammation() {
         return [...set].sort((a,b) => a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
       }
 
+      // Extrait les mots uniques d'un tableau
       function uniqueWordsFromRows(rows, field, { max = 500, sep = ',' } = {}) {
         const raw = uniqueValuesFromRows(rows, field, { max });
         const set = new Set();
@@ -3744,16 +4164,17 @@ export function openSheetAssistantProgrammation() {
       }
 
       /**
-       * Chipbox "dans le champ" (style Mail iOS)
+       * Creation d'une chipbox 
        * @param {{
        *   boxEl: HTMLElement,
        *   inputEl: HTMLInputElement,
        *   datalistEl?: HTMLDataListElement|null,
        *   initial?: string[],
        *   suggestions?: string[],
+       *   onChange?: function,
        * }} args
        */
-      function createChipBox({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [] }) {
+      function createChipBox({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange=null }) {
         const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
         const map = new Map(); // key -> label (original)
 
@@ -3773,7 +4194,7 @@ export function openSheetAssistantProgrammation() {
               ev.stopPropagation();
               map.delete(normKey(label));
               render();
-              // inputEl.focus();
+              renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
             });
 
             chip.appendChild(btn);
@@ -3789,18 +4210,30 @@ export function openSheetAssistantProgrammation() {
           if (map.has(key)) return; // anti doublon
           map.set(key, label);
           render();
+          renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+          if (typeof onChange === "function") {
+            try { onChange(getValues()); } catch {}
+          }
         }
 
         function removeToken(raw) {
           const key = normKey(raw);
           map.delete(key);
           render();
+          renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+          if (typeof onChange === "function") {
+            try { onChange(getValues()); } catch {}
+          }
         }
 
         function setValues(arr) {
           map.clear();
           for (const v of (arr || [])) addToken(v);
           render();
+          renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+          if (typeof onChange === "function") {
+            try { onChange(getValues()); } catch {}
+          }
         }
 
         function getValues() {
@@ -3899,6 +4332,7 @@ export function openSheetAssistantProgrammation() {
       // Map<slotKey, boolean> implicite : un Set des slots EXCLUS
       let excludedKeys = new Set();
 
+      // Génère une clé unique pour un créneau horaire en combinant __uuid, dayInt, et startMin.
       function slotKey(dayInt, slot) {
         const r = slot.row || {};
         return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
@@ -3910,16 +4344,19 @@ export function openSheetAssistantProgrammation() {
       };
       const clearError = () => showError("");
 
+      // Extrait et nettoie les mots-clés d'une chaîne d'entrée, séparés par des virgules.
       const parseKeywords = (inputEl) => {
         const raw = (inputEl?.value || "").trim();
         if (!raw) return [];
         return raw.split(",").map(s => s.trim()).filter(Boolean);
       };
 
+      // Construit une structure de contraintes de programmation en fonction de l'UI
       function buildConstraints() {
         const noteWeight = elNoteW
           ? Math.min(1, Math.max(0, Number(elNoteW.value) || 0))
           : 0;
+        const styleMix = readStyleMixFromUI();
         const constraints = {
           request: elReq.value || "",
           date_min: dateToDateint(elDateMin.value),
@@ -3931,6 +4368,7 @@ export function openSheetAssistantProgrammation() {
           traiter_pauses: !!eltraitPaus.checked, 
           utiliser_filtres_grille: !!elUseFilt.checked,
           mots_cles_style: window._chipProgStyle?.getValues() || [],
+          style_mix: styleMix,   
           mots_cles_mood:  window._chipProgMood?.getValues()  || [],
           mots_cles_distribution: parseKeywords(elDistKW),
           mots_cles_generaux: parseKeywords(elGenKW),
@@ -3940,6 +4378,7 @@ export function openSheetAssistantProgrammation() {
         return constraints;
       }
 
+      // Sauvegarde les préférences
       function savePrefs(constraints) {
         try {
           if (ctx && typeof ctx.updMetaParams === "function") {
@@ -3972,6 +4411,7 @@ export function openSheetAssistantProgrammation() {
         : null; 
       }
 
+      // Ajoute un jour à une date au format YYYYMMDD et retourne le nouveau format YYYYMMDD.
       function addOneDayDateint(dateInt) {
         const s = String(dateInt);
         if (s.length !== 8) return dateInt;
@@ -4005,6 +4445,7 @@ export function openSheetAssistantProgrammation() {
         return !(A2 <= B1 || B2 <= A1); // overlap avec marge
       }
 
+      // Transforme un dateint en label
       function dateintToLabel(di) {
         if (!di) return "";
         const s = String(di);
@@ -4015,6 +4456,7 @@ export function openSheetAssistantProgrammation() {
         return `${y}-${m}-${d}`; // ou tu peux mettre un format FR "dd/mm/yyyy" si tu préfères
       }
 
+      // Normalise les minutes de début et de fin, ajustant la fin au lendemain si nécessaire.
       function normalizeStartEnd(sMin, eMin) {
         if (sMin == null || eMin == null) return [sMin, eMin];
         // si la fin est “avant” le début → spectacle qui finit le lendemain
@@ -4024,6 +4466,7 @@ export function openSheetAssistantProgrammation() {
         return [sMin, eMin];
       }
 
+      // Normalise le texte en supprimant les diacritiques et en convertissant en minuscules.
       function normText(s) {
         return (s || "")
           .toString()
@@ -4074,18 +4517,19 @@ export function openSheetAssistantProgrammation() {
         //    - mots_cles_style : au moins un doit apparaître dans Style
         //
         const sty = constraints.mots_cles_style || [];
+        const hasMix = Array.isArray(constraints.style_mix) && constraints.style_mix.length > 0;
 
-        if (sty.length) {
+        // Si on a un dosage, on NE filtre PAS strictement sur les styles,
+        // on laisse le picker faire le mix, et "other" servira de fallback.
+        if (sty.length && !hasMix) {
           rows = rows.filter((r) => {
             if (!r) return false;
             const styleText = normText(r.Style);
-
             for (const kw of sty) {
               const needle = normText(kw);
               if (!needle) continue;
               if (styleText.includes(needle)) return true;
             }
-
             return false;
           });
         }
@@ -4121,6 +4565,7 @@ export function openSheetAssistantProgrammation() {
         return rows;
       }
 
+      // Normalisation d'un tableau de mots-clefs
       function normalizeKeywordsArray(v) {
         if (!v) return [];
 
@@ -4138,6 +4583,7 @@ export function openSheetAssistantProgrammation() {
         );
       }
 
+      // Demande à l'IA via worker de traduire une query utilisateur en intent structurée
       async function fetchProgQueryIntent(freeQuery, previousIntent = null) {
         if (!freeQuery || !freeQuery.trim()) return null;
         try {
@@ -4177,6 +4623,7 @@ export function openSheetAssistantProgrammation() {
         }
       }
 
+      // Date ISO -> dateint
       function isoDateToDateint(iso) {
         if (!iso) return null;
         const parts = iso.split("-");
@@ -4323,6 +4770,7 @@ export function openSheetAssistantProgrammation() {
         });
       }
 
+      // Construit une semantic query à partir des contraintes
       function buildSemanticQueryFromConstraints(constraints) {
         const parts = [];
 
@@ -4494,6 +4942,267 @@ export function openSheetAssistantProgrammation() {
         }
       }
 
+      // Choisit le 1er style "match" dans row.Style
+      function pickSelectedStyleForRow(row, selectedStyles) {
+        const s0 = String(row?.Style || "");
+        const s = s0
+          .normalize("NFD")
+          .replace(/\p{Diacritic}/gu, "")
+          .toLowerCase();
+
+        const matches = [];
+        for (const st0 of selectedStyles || []) {
+          const st = String(st0 || "")
+            .normalize("NFD")
+            .replace(/\p{Diacritic}/gu, "")
+            .toLowerCase()
+            .trim();
+          if (!st) continue;
+
+          if (s.includes(st)) matches.push(st0); // on retourne le libellé original
+        }
+
+        if (!matches.length) return null;
+        if (matches.length === 1) return matches[0];
+
+        // plusieurs styles matchés => choix aléatoire (évite le biais “toujours le 1er”)
+        return matches[Math.floor(Math.random() * matches.length)];
+      }
+
+      /**
+       * Normalise un mix [{style,pct}] en [{style, weight}] avec weight dans [0..1] et somme=1.
+       * - Filtre les styles vides / pct <= 0
+       * - Déduplique par style (dernier gagne)
+       * @param {{style:string, pct:number}[]} styleMix
+       * @returns {{style:string, weight:number}[]}
+       */
+      function normalizeMix(styleMix) {
+        const tmp = new Map(); // style -> pct
+        for (const it of styleMix || []) {
+          const st = String(it?.style || "").trim();
+          const pct = Number(it?.pct);
+          if (!st) continue;
+          if (!Number.isFinite(pct) || pct <= 0) continue;
+          tmp.set(st, pct);
+        }
+
+        const arr = Array.from(tmp.entries()).map(([style, pct]) => ({
+          style,
+          pct: Number(pct) || 0
+        }));
+
+        const sum = arr.reduce((s, x) => s + x.pct, 0);
+        if (sum <= 0) return [];
+
+        return arr.map(x => ({
+          style: x.style,
+          weight: x.pct / sum
+        }));
+      }
+
+      // Ne garde que les candidats placeables dans un intervalle de dates
+      function precomputePossibleDatesForPeriod(candidates, dateMinInt, dateMaxInt) {
+        const out = [];
+        for (const r of candidates || []) {
+          if (!r) continue;
+
+          const poss = [];
+          for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
+            if (!activitesAPI.estActiviteValideADate(r, d)) continue;
+            poss.push(d);
+          }
+          if (!poss.length) continue;
+
+          // on stocke pour réutiliser dans la boucle
+          r._progPossibleDates = poss;
+          out.push(r);
+        }
+        return out;
+      }
+
+      // Style picker renvoyant un spectacle parmi des candidats en fonction d'un styleMix
+      // Renvoie un spectacle du style le plus en retard parmi les spectacles placés
+      function makePlacedAwareStylePicker(candidates, styleMix, {
+        pickStyleForRow = pickSelectedStyleForRow, // (row, wantedStyles) => style|null
+        placedState = null, // { placedByStyle: Map<string, number>, placedTotal: number }
+      } = {}) {
+        const list = Array.isArray(candidates) ? candidates.slice() : [];
+        if (!list.length) {
+          return { pick: () => null, accept: () => {}, reject: () => {} };
+        }
+
+        // Normalise mix -> [{style, weight}]
+        const norm = normalizeMix(styleMix); // renvoie un ARRAY
+        const wantedStyles = norm.map(x => x.style);
+
+        // Si pas de mix utilisable => itérateur simple, 1 passage, sans doublon
+        if (!wantedStyles.length) {
+          shuffleArrayInPlace(list);
+          let inflight = null;
+          let idx = 0;
+
+          return {
+            pick() {
+              inflight = (idx < list.length) ? list[idx++] : null;
+              return inflight;
+            },
+            accept(row) { inflight = null; },
+            reject(row) { inflight = null; },
+          };
+        }
+
+        // Pools par style
+        const byStyle = new Map();
+        for (const st of wantedStyles) byStyle.set(st, []);
+
+        const other = [];
+
+        for (const r of list) {
+          const st = pickStyleForRow(r, wantedStyles);
+          if (st && byStyle.has(st)) byStyle.get(st).push(r);
+          else other.push(r);
+        }
+
+        // Shuffle DANS chaque pool (variabilité sans casser le mix)
+        for (const [, arr] of byStyle) shuffleArrayInPlace(arr);
+        shuffleArrayInPlace(other);
+
+        // Écarter les styles sans stock + renormaliser leurs poids
+        const effective = normalizeMix(
+          norm
+            .filter(x => (byStyle.get(x.style)?.length || 0) > 0)
+            .map(x => ({ style: x.style, pct: x.weight * 100 }))
+        );
+        const effStyles = effective.map(x => x.style);
+        const weightByStyle = new Map(effective.map(x => [x.style, x.weight]));
+
+        // ------------------------------------------------------------
+        // ✅ Compteurs "PLACED" : internes OU partagés via placedState
+        // ------------------------------------------------------------
+        let placedByStyle;
+        let placedTotalRef;
+
+        if (placedState && placedState.placedByStyle instanceof Map) {
+          placedByStyle = placedState.placedByStyle;
+
+          // s'assurer que toutes les clés existent
+          for (const s of effStyles) {
+            if (!placedByStyle.has(s)) placedByStyle.set(s, 0);
+          }
+
+          // placedTotal en "ref" objet pour pouvoir l'incrémenter ici
+          // (si tu veux un number simple, il faut le remettre dans placedState à chaque accept)
+          if (typeof placedState.placedTotal !== "number") placedState.placedTotal = 0;
+          placedTotalRef = placedState;
+        } else {
+          placedByStyle = new Map(effStyles.map(s => [s, 0]));
+          placedTotalRef = { placedTotal: 0 };
+        }
+
+        let inflight = null;
+
+        function takeOneFromStyle(st) {
+          const arr = byStyle.get(st);
+          if (!arr || !arr.length) return null;
+          return arr.pop(); // ✅ consommé, ne reviendra jamais
+        }
+
+        function takeFallback() {
+          if (other.length) return other.pop(); // consommé
+          // sinon n’importe quel style restant
+          for (const [st, arr] of byStyle) {
+            if (arr.length) return arr.pop();
+          }
+          return null;
+        }
+
+        function chooseNextStylePlacedAware(effStyles, weightByStyle, placedByStyle, placedTotal, byStyle) {
+          if (!effStyles?.length) return null;
+
+          // si rien placé encore : tirage pondéré parmi ceux avec stock
+          if (!placedTotal) {
+            const avail = effStyles.filter(s => (byStyle.get(s)?.length || 0) > 0);
+            if (!avail.length) return null;
+
+            let sum = 0;
+            for (const s of avail) sum += Math.max(0, Number(weightByStyle.get(s) || 0));
+            if (sum <= 0) return avail[Math.floor(Math.random() * avail.length)];
+
+            let r = Math.random() * sum;
+            for (const s of avail) {
+              r -= Math.max(0, Number(weightByStyle.get(s) || 0));
+              if (r <= 0) return s;
+            }
+            return avail[avail.length - 1] || null;
+          }
+
+          let best = null;
+          let bestRatio = Infinity;
+
+          for (const s of effStyles) {
+            const stock = byStyle.get(s)?.length || 0;
+            if (stock <= 0) continue;
+
+            const w = Math.max(0, Number(weightByStyle.get(s) || 0));
+            if (w <= 0) continue;
+
+            const placed = Number(placedByStyle.get(s) || 0);
+            const target = w * placedTotal;              // cible "attendue"
+            const ratio = target > 0 ? (placed / target) : Infinity; // <1 => en retard
+
+            if (ratio < bestRatio) {
+              bestRatio = ratio;
+              best = s;
+            }
+          }
+
+          return best;
+        }
+
+        return {
+          pick() {
+            if (!effStyles.length) {
+              inflight = takeFallback();
+              return inflight;
+            }
+
+            const placedTotal = Number(placedTotalRef.placedTotal || 0);
+
+            // ✅ choisir le style en retard sur *PLACED*
+            const st = chooseNextStylePlacedAware(
+              effStyles,
+              weightByStyle,
+              placedByStyle,
+              placedTotal,
+              byStyle
+            );
+
+            inflight = (st ? takeOneFromStyle(st) : null) || takeFallback();
+            return inflight;
+          },
+
+          accept(rowPlaced) {
+            if (!inflight || inflight !== rowPlaced) return;
+
+            // Créditer le style du row placé
+            const st = pickStyleForRow(rowPlaced, effStyles);
+            if (st) {
+              if (!placedByStyle.has(st)) placedByStyle.set(st, 0);
+              placedByStyle.set(st, (placedByStyle.get(st) || 0) + 1);
+            }
+
+            placedTotalRef.placedTotal = Number(placedTotalRef.placedTotal || 0) + 1;
+            inflight = null;
+          },
+
+          reject(rowRejected) {
+            if (!inflight || inflight !== rowRejected) return;
+            // 🔥 brûlé dans CE picker/segment : on ne remet nulle part
+            inflight = null;
+          }
+        };
+      }
+
       // Mélange et retourne une *nouvelle* copie du tableau
       function shuffleArray(arr) {
         const a = arr.slice();
@@ -4565,6 +5274,35 @@ export function openSheetAssistantProgrammation() {
         return shuffled;
       }
 
+      // log des candidats par style
+      function logCandidatesByStyle(candidates, styleMix, label = "") {
+        const styles = styleMix.map(x => x.style);
+        const counts = {};
+        for (const s of styles) counts[s] = 0;
+
+        let other = 0;
+
+        for (const r of candidates) {
+          const st = pickSelectedStyleForRow(r, styles);
+          if (st && counts[st] != null) {
+            counts[st]++;
+          } else {
+            other++;
+          }
+        }
+
+        console.log(
+          `🎭 Candidats par style${label ? " – " + label : ""}`
+        );
+
+        for (const s of styles) {
+          console.log(`  ${s}: ${counts[s]}`);
+        }
+
+        console.log(`  autres / hors mix: ${other}`);
+        console.log(`  total: ${candidates.length}`);
+      }
+
       // Construction d'une nouvelle proposition de programme
       async function buildProgram(formConstraints) {
         const allRows = ctx?.df || [];
@@ -4620,6 +5358,10 @@ export function openSheetAssistantProgrammation() {
         // ====== 2) Candidats issus des filtres "classiques" (df local) ======
         let rawCandidates = getCandidateRows(constraints) || [];
 
+        // --- dosage style (optionnel) ---
+        const styleMix = readStyleMixFromUI?.() || []; // [{style, pct}]
+        // let nextCandidate = null; // function() -> row | null
+
         // ====== 3) Scoring IA + shuffle pondéré (ou aléatoire simple) ======
         const hasSemanticStuff =
           !!(constraints.request && constraints.request.trim()) ||
@@ -4633,7 +5375,6 @@ export function openSheetAssistantProgrammation() {
           rawCandidates = await applyAIScoringToCandidates(rawCandidates, constraints);
           rawCandidates = shuffleArrayWithScore(rawCandidates);
         } else {
-          // 🔹 ancien comportement : aléatoire uniforme
           rawCandidates = shuffleArray(rawCandidates);
         }
 
@@ -4661,25 +5402,31 @@ export function openSheetAssistantProgrammation() {
         if (!constraints.traiter_pauses) {
           const selectedByDay = new Map();
 
-          for (const r of rawCandidates) {
-            if (!r) continue;
+          // 1) préfiltre période : ne garder que ceux qui ont au moins une date possible
+          rawCandidates = precomputePossibleDatesForPeriod(rawCandidates, dateMinInt, dateMaxInt);
+
+          // 2) picker placed-aware
+          const styleMix = readStyleMixFromUI?.() || [];
+          const picker = makePlacedAwareStylePicker(rawCandidates, styleMix);
+
+          logCandidatesByStyle(rawCandidates, styleMix);
+
+          for (;;) {
+            const r = picker.pick();
+            if (!r) break;
 
             let sMin = mmFromHHhMM(r.Debut);
             let eMin = mmFromHHhMM(r.Fin);
             [sMin, eMin] = normalizeStartEnd(sMin, eMin);
-            if (sMin == null || eMin == null) continue;
+            if (sMin == null || eMin == null) { picker.reject(); continue; }
 
-            if (minMinutes != null && sMin < minMinutes) continue;
-            if (maxMinutes != null && eMin > maxMinutes) continue;
+            if (minMinutes != null && sMin < minMinutes) { picker.reject(); continue; }
+            if (maxMinutes != null && eMin > maxMinutes) { picker.reject(); continue; }
 
-            // liste des dates possibles
-            const possibleDates = [];
-            for (let d = dateMinInt; d <= dateMaxInt; d = addOneDayDateint(d)) {
-              // if (!activitesAPI.estActiviteProgrammableADate(r, d, {activitesProgrammees:progRows, marge:GAP})) continue;
-              if (!activitesAPI.estActiviteValideADate(r, d)) continue;
-              possibleDates.push(d);
-            }
-            if (!possibleDates.length) continue;
+            // ✅ dates possibles déjà calculées
+            const possibleDates = Array.isArray(r._progPossibleDates) ? r._progPossibleDates.slice() : [];
+            if (!possibleDates.length) { picker.reject(); continue; }
+
             shuffleArrayInPlace(possibleDates);
 
             let placed = false;
@@ -4688,26 +5435,20 @@ export function openSheetAssistantProgrammation() {
               const selectedForDay = selectedByDay.get(d) || [];
 
               const nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
-              if (nbSpectacles >= maxPerDay) {
-                continue;
-              }
+              if (nbSpectacles >= maxPerDay) continue;
 
               let conflict = false;
               for (const ex of existingForDay) {
-                if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
-                  conflict = true; break;
-                }
+                if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) { conflict = true; break; }
               }
               if (conflict) continue;
 
               for (const ex of selectedForDay) {
-                if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) {
-                  conflict = true; break;
-                }
+                if (slotsConflict(sMin, eMin, ex.startMin, ex.endMin, GAP)) { conflict = true; break; }
               }
               if (conflict) continue;
 
-              // OK on place
+              // ✅ placé !
               selectedForDay.push({ row: r, dateInt: d, startMin: sMin, endMin: eMin });
               selectedByDay.set(d, selectedForDay);
 
@@ -4717,9 +5458,10 @@ export function openSheetAssistantProgrammation() {
               placed = true;
               break;
             }
-            // si non placé : impossible dans la période
-          }
 
+            if (placed) picker.accept();
+            else picker.reject();
+          }
           return selectedByDay;
         }
 
@@ -4804,44 +5546,51 @@ export function openSheetAssistantProgrammation() {
           return { startMin: slotStart, endMin: slotEnd };
         }
 
-        function fillSegmentForDay(dateInt, segmentStart, segmentEnd, dayCandidates, busySlots, selectedForDay) {
-          const hasUpperBound = Number.isFinite(segmentEnd);  // <- nouveau
-
+        function fillSegmentForDay(dateInt, segmentStart, segmentEnd, dayCandidates, busySlots, selectedForDay, picker) {
+          const hasUpperBound = Number.isFinite(segmentEnd);
           if (hasUpperBound && segmentEnd <= segmentStart) return;
 
-          for (const r of dayCandidates) {
-            if (!r || !r.__uuid) continue;
-            if (usedUUID.has(r.__uuid)) continue;
+          // IMPORTANT: on ne doit pas retester le même candidat 2 fois dans ce segment
+          // -> on garde un set local de "déjà proposés"
+          const seen = new Set();
+
+          for (;;) {
+            let nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
+            if (nbSpectacles >= maxPerDay) break;
+
+            const r = picker.pick();
+            if (!r) break;
+
+            // sécurité anti-boucle (si jamais ton picker renvoie 2 fois la même row)
+            if (seen.has(r.__uuid || r)) {
+              picker.reject(r);
+              continue;
+            }
+            seen.add(r.__uuid || r);
+
+            if (!r || !r.__uuid) { picker.reject(r); continue; }
+            if (usedUUID.has(r.__uuid)) { picker.reject(r); continue; }
 
             let sMin = mmFromHHhMM(r.Debut);
             let eMin = mmFromHHhMM(r.Fin);
             [sMin, eMin] = normalizeStartEnd(sMin, eMin);
-            if (sMin == null || eMin == null) continue;
+            if (sMin == null || eMin == null) { picker.reject(r); continue; }
 
-            // doit être dans la plage
-            if (sMin < segmentStart) continue;
-            if (hasUpperBound && eMin > segmentEnd) continue;  // <- borne haute uniquement si définie
+            // doit être dans la plage du segment
+            if (sMin < segmentStart) { picker.reject(r); continue; }
+            if (hasUpperBound && eMin > segmentEnd) { picker.reject(r); continue; }
 
-            // if (selectedForDay.length >= maxPerDay) break;
-            let nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
-            if (nbSpectacles >= maxPerDay) {
-              break;
-            }
-
+            // conflits ?
             let conflict = false;
             for (const bs of busySlots) {
-              if (slotsConflict(sMin, eMin, bs.startMin, bs.endMin, GAP)) {
-                conflict = true; break;
+              if (slotsConflict(sMin, eMin, bs.startMin, bs.endMin, GAP)) { conflict = true; break; }
+            }
+            if (!conflict) {
+              for (const sl of selectedForDay) {
+                if (slotsConflict(sMin, eMin, sl.startMin, sl.endMin, GAP)) { conflict = true; break; }
               }
             }
-            if (conflict) continue;
-
-            for (const sl of selectedForDay) {
-              if (slotsConflict(sMin, eMin, sl.startMin, sl.endMin, GAP)) {
-                conflict = true; break;
-              }
-            }
-            if (conflict) continue;
+            if (conflict) { picker.reject(r); continue; }
 
             // OK on place
             selectedForDay.push({ row: r, dateInt, startMin: sMin, endMin: eMin });
@@ -4849,12 +5598,34 @@ export function openSheetAssistantProgrammation() {
             busySlots.sort((a, b) => a.startMin - b.startMin);
             usedUUID.add(r.__uuid);
 
-            // if (selectedForDay.length >= maxPerDay) break;
-            nbSpectacles = selectedForDay.filter(s => !activitesAPI.estPause(s.row)).length;
-            if (nbSpectacles >= maxPerDay) {
-              break;
-            }
+            picker.accept(r);
           }
+        }
+
+        function prefilterCandidatesForSegment(dayCandidates, segmentStart, segmentEnd, {
+          wantedStyles = null,   // tableau de styles du mix (ou null)
+          strictMix = false
+        } = {}) {
+          const hasUpperBound = Number.isFinite(segmentEnd);
+
+          return (dayCandidates || []).filter(r => {
+            if (!r || !r.__uuid) return false;
+            if (usedUUID.has(r.__uuid)) return false;
+
+            let sMin = mmFromHHhMM(r.Debut);
+            let eMin = mmFromHHhMM(r.Fin);
+            [sMin, eMin] = normalizeStartEnd(sMin, eMin);
+            if (sMin == null || eMin == null) return false;
+
+            if (sMin < segmentStart) return false;
+            if (hasUpperBound && eMin > segmentEnd) return false;
+
+            if (strictMix && wantedStyles?.length) {
+              const st = pickSelectedStyleForRow(r, wantedStyles);
+              if (!st) return false;
+            }
+            return true;
+          });
         }
 
         // Parcours jour par jour
@@ -4882,39 +5653,53 @@ export function openSheetAssistantProgrammation() {
             continue;
           }
 
-          // variabilité intra-jour
-          shuffleArrayInPlace(dayCandidates);
-
           const selectedForDay = [];
           const busySlots = [...(existingByDay.get(d) || [])].map(s => ({ ...s }))
             .sort((a, b) => a.startMin - b.startMin);
 
+          // styles demandés
+          const wanted = (normalizeMix(styleMix) || []).map(x => x.style);
+
+          // état "placed" partagé sur la journée (pour que le dosage des styles s'applique sur la journée entière)
+          const placedState = { placedByStyle: new Map(), placedTotal: 0 };
+
           // === 1) Plage matin : de FULL_START jusqu'à (14h - GAP)
           let morningEnd = (FULL_END) ? Math.min(FULL_END, DEJ_DEBUT_MAX - GAP) : DEJ_DEBUT_MAX - GAP;
+          const segMorning = prefilterCandidatesForSegment(dayCandidates, FULL_START, morningEnd, {
+            wantedStyles: wanted,
+            strictMix: true
+          });
+          const pickerMorning = makePlacedAwareStylePicker(segMorning, styleMix, { placedState });
           const dejPlageDebut = activitesAPI.getPausePlageDebut(d, 'déjeuner', {activitesProgrammees:progRows, marge:GAP})
           if (dejPlageDebut) morningEnd = Math.min(morningEnd, dejPlageDebut[1] - GAP);
-          fillSegmentForDay(d, FULL_START, morningEnd, dayCandidates, busySlots, selectedForDay);
+          fillSegmentForDay(d, FULL_START, morningEnd, dayCandidates, busySlots, selectedForDay, pickerMorning);
 
           // === 2) Pause déjeuner
           const dejSlot = addMealPauseForDay(selectedForDay, busySlots, d, 'déjeuner');
 
-          // début de l'aprem = fin du dej + GAP (si dej placé)
-          const afternoonStart = dejSlot ? (dejSlot.endMin + GAP) : morningEnd;
-
           // === 3) Plage après-midi : jusqu'à (21h - GAP)
+          const afternoonStart = dejSlot ? (dejSlot.endMin + GAP) : morningEnd;
           let afternoonEnd = (FULL_END) ? Math.min(FULL_END, DIN_DEBUT_MAX - GAP) : DIN_DEBUT_MAX - GAP;
+          const segAfternoon = prefilterCandidatesForSegment(dayCandidates, afternoonStart, afternoonEnd, {
+            wantedStyles: wanted,
+            strictMix: true
+          });
+          const pickerAfternoon = makePlacedAwareStylePicker(segAfternoon, styleMix, { placedState });
           const dinPlageDebut = activitesAPI.getPausePlageDebut(d, 'dîner', {activitesProgrammees:progRows, marge:GAP})
           if (dinPlageDebut) afternoonEnd = Math.min(afternoonEnd, dinPlageDebut[1] - GAP);
-          fillSegmentForDay(d, afternoonStart, afternoonEnd, dayCandidates, busySlots, selectedForDay);
+          fillSegmentForDay(d, afternoonStart, afternoonEnd, dayCandidates, busySlots, selectedForDay, pickerAfternoon);
 
           // === 4) Pause dîner
           const dinSlot = addMealPauseForDay(selectedForDay, busySlots, d, 'dîner');
 
-          // début de la soirée = fin du dîner + GAP (si dîner placé)
-          const eveningStart = dinSlot ? (dinSlot.endMin + GAP) : afternoonEnd;
-
           // === 5) Plage soir : [eveningStart, FULL_END]
-          fillSegmentForDay(d, eveningStart, FULL_END, dayCandidates, busySlots, selectedForDay);
+          const eveningStart = dinSlot ? (dinSlot.endMin + GAP) : afternoonEnd;
+          const segEvening = prefilterCandidatesForSegment(dayCandidates, eveningStart, FULL_END, {
+            wantedStyles: wanted,
+            strictMix: true
+          });
+          const pickerEvening = makePlacedAwareStylePicker(segEvening, styleMix, { placedState });
+          fillSegmentForDay(d, eveningStart, FULL_END, dayCandidates, busySlots, selectedForDay, pickerEvening);
 
           if (selectedForDay.length) {
             selectedByDay.set(d, selectedForDay);
@@ -5128,6 +5913,36 @@ export function openSheetAssistantProgrammation() {
           savePrefs(constraints);
           selectedByDay       = await buildProgram(constraints);
           const addedCount    = applyProgramToDf(selectedByDay, true);
+
+          (function logFinalMix() {
+            const mix = readStyleMixFromUI?.() || [];
+            const wanted = mix.map(x => x.style);
+
+            const picked = Object.fromEntries(wanted.map(s => [s, 0]));
+            let total = 0;
+
+            for (const slots of selectedByDay.values()) {
+              for (const s of slots) {
+                if (activitesAPI.estPause(s.row)) continue;
+                total++;
+                const st = pickSelectedStyleForRow(s.row, wanted);
+                if (st) picked[st]++;
+              }
+            }
+
+            console.group("📊 MIX FINAL PROGRAMMÉ");
+            console.log("objectif :", mix);
+            console.log("résultat :", picked);
+            console.log(
+              "ratios réels :",
+              Object.fromEntries(
+                Object.entries(picked).map(([k, v]) => [k, (v / total).toFixed(2)])
+              )
+            );
+            console.log("total spectacles :", total);
+            console.groupEnd();
+          })();
+
           const summary       = summarizeProgram(selectedByDay, addedCount);
           elResp.innerHTML    = summary;
           body.scrollTop = body.scrollHeight;
@@ -5193,193 +6008,6 @@ export function openSheetAssistantProgrammation() {
 // - propose OK / Annuler
 // - sur OK : boucle async + logs live
 // - sur Annuler : stop + close
-// export function openSheetInfosPlus({
-//   title = "Compléter Infos+ et Ton",
-//   maxList = 60,            // limite d’affichage dans la liste
-// } = {}) {
-//   // rows candidates
-//   const df = ctx?.df || [];
-//   const rows = Array.isArray(df) ? df : [];
-
-//   const missing = rows.filter(r =>
-//     r &&
-//     (r.Mood == null || r.__desc_summary == null || r.__avis_summary == null)
-//   );
-
-//   // petit helpers UI
-//   const esc = (s) => String(s ?? "")
-//     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-//     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-
-//   const rowLabel = (r) => {
-//     const a = r?.Activite ?? r?.Spectacle ?? r?.Titre ?? r?.activite ?? "";
-//     const d = r?.Date ?? "";
-//     const t = r?.Debut ?? "";
-//     const place = r?.Lieu ?? r?.Theatre ?? "";
-//     const bits = [a, d && `J${d}`, t, place].filter(Boolean);
-//     return bits.join(" — ") || "(activité sans titre)";
-//   };
-
-//   let cancelled = false;
-
-//   openSheetExclusive({
-//     title,
-//     panelMaxHeight: "70vh",
-//     panelHeight: "60vh",
-//     mount: (body, { close }) => {
-//       body.innerHTML = `
-//         <div class="bb-enrich-sheet" style="display:flex; flex-direction:column; gap:10px; height:100%;">
-
-//           <div class="bb-enrich-head" style="font-size:14px; line-height:1.4;">
-//             <div id="bb-enrich-intro"></div>
-//           </div>
-
-//           <div class="bb-enrich-list" style="font-size:13px; line-height:1.35; overflow:auto; flex:1 1 auto; border:1px solid rgba(0,0,0,.08); border-radius:10px; padding:10px; background:#fff;">
-//             <div id="bb-enrich-items"></div>
-//           </div>
-
-//           <div class="bb-enrich-actions" style="display:flex; gap:10px; justify-content:flex-end;">
-//             <button id="bb-enrich-cancel" class="bb-btn">Annuler</button>
-//             <button id="bb-enrich-ok" class="bb-btn bb-btn-primary">Ok</button>
-//           </div>
-
-//           <div class="bb-enrich-log" style="font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono','Courier New', monospace; font-size:12px; line-height:1.35; overflow:auto; height:35%; border:1px solid rgba(0,0,0,.08); border-radius:10px; padding:10px; background:#0b1220; color:#e5e7eb;">
-//             <div id="bb-enrich-loglines"></div>
-//           </div>
-//         </div>
-//       `;
-
-//       const introEl = body.querySelector("#bb-enrich-intro");
-//       const itemsEl = body.querySelector("#bb-enrich-items");
-//       const logEl = body.querySelector("#bb-enrich-loglines");
-//       const btnOk = body.querySelector("#bb-enrich-ok");
-//       const btnCancel = body.querySelector("#bb-enrich-cancel");
-
-//       const log = (msg) => {
-//         const line = document.createElement("div");
-//         line.textContent = msg;
-//         logEl.appendChild(line);
-//         // autoscroll bas
-//         logEl.parentElement.scrollTop = logEl.parentElement.scrollHeight;
-//       };
-
-//       const setBusy = (busy) => {
-//         btnOk.disabled = busy;
-//         btnCancel.textContent = busy ? "Annuler" : "Fermer";
-//       };
-
-//       // état initial
-//       if (!missing.length) {
-//         introEl.innerHTML = `Tous les champs Infos+ et Ton sont renseignés, rien à faire ici.`;
-//         itemsEl.innerHTML = "";
-//         btnOk.style.display = "none";
-//         btnCancel.textContent = "Fermer";
-//         log("OK — aucune activité à enrichir.");
-//       } else {
-//         const shown = missing.slice(0, maxList);
-//         const more = missing.length - shown.length;
-
-//         introEl.innerHTML = `
-//           Je vais mettre à jour les champs Infos+ et Ton des activités :
-//           <br><br>
-//           <b>${missing.length}</b> activité(s) détectée(s).
-//           <br>
-//           À tout moment vous pouvez annuler avec le bouton Annuler.
-//           <br>
-//           Bouton Ok pour lancer le traitement.
-//         `.trim();
-
-//         itemsEl.innerHTML = `
-//           <ul style="margin:0; padding-left:18px;">
-//             ${shown.map(r => {
-//               const label = esc(rowLabel(r));
-//               const miss = [
-//                 r?.__desc_summary == null ? "__desc_summary" : null,
-//                 r?.__avis_summary == null ? "__avis_summary" : null,
-//                 r?.Mood == null ? "Mood" : null,
-//               ].filter(Boolean).join(", ");
-//               return `<li style="margin:0 0 4px 0;">
-//                 ${label}
-//                 <span style="opacity:.7">(${esc(miss)})</span>
-//               </li>`;
-//             }).join("")}
-//             ${more > 0 ? `<li style="opacity:.7">… +${more} autres</li>` : ""}
-//           </ul>
-//         `;
-
-//         log(`Prêt. ${missing.length} activité(s) à enrichir.`);
-//       }
-
-//       // Annuler / Fermer
-//       btnCancel.addEventListener("click", async () => {
-//         cancelled = true;
-
-//         // si pas en cours -> ferme
-//         if (!btnOk.disabled) {
-//           // tu as sûrement déjà une fonction close associée à openSheetExclusive.
-//           // Si tu as un helper du genre closeSheetExclusive(), utilise-le ici.
-//           // Sinon, on tente de fermer via un événement custom si ton infra le supporte.
-//           close();
-//           return;
-//         }
-
-//         // en cours -> annuler + fermer
-//         log("⛔ Annulation demandée…");
-//         // laisse la boucle voir cancelled puis ferme
-//       });
-
-//       // OK
-//       btnOk.addEventListener("click", async () => {
-//         if (!missing.length) return;
-
-//         cancelled = false;
-//         setBusy(true);
-//         log("▶ Début enrichissement…");
-
-//         try {
-//           for (let i = 0; i < missing.length; i++) {
-//             if (cancelled) {
-//               log("⛔ Annulé. Arrêt du traitement.");
-//               break;
-//             }
-
-//             const r = missing[i];
-//             const label = rowLabel(r);
-
-//             log(`(${i + 1}/${missing.length}) ⏳ ${label}`);
-
-//             try {
-//               // attend ta fonction premium (doit être async)
-//               await enrichWithAbstractPremium(r);
-
-//               const missAfter = [
-//                 r?.__desc_summary == null ? "__desc_summary" : null,
-//                 r?.__avis_summary == null ? "__avis_summary" : null,
-//                 r?.Mood == null ? "Mood" : null,
-//               ].filter(Boolean);
-
-//               if (missAfter.length) {
-//                 log(`   ⚠️ incomplet après enrich: ${missAfter.join(", ")}`);
-//               } else {
-//                 log(`   ✅ OK`);
-//               }
-//             } catch (e) {
-//               log(`   ❌ Erreur: ${String(e?.message || e)}`);
-//             }
-//           }
-//         } finally {
-//           setBusy(false);
-
-//           if (cancelled) {
-//             close();
-//           } else {
-//             close();
-//           }
-//         }
-//       });
-//     }
-//   });
-// }
 export function openSheetInfosPlus({
   title = "Génération Infos+",
   maxList = 60,

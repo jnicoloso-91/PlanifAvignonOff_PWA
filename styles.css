@@ -2401,6 +2401,34 @@ input[type="range"]:focus::-moz-range-thumb {
   opacity:1;
 }
 
+/* .mixbox{ display:flex; flex-direction:column; gap:8px; }
+.mixrow{ display:grid; grid-template-columns: 1fr 92px; gap:10px; align-items:center; }
+.mixrow label{ font-size:13px; opacity:.9; }
+.mixrow input[type="number"]{ width:92px; }
+.mixbox-help{ font-size:12px; opacity:.7; } */
+
+.mixbox{ display:flex; flex-direction:column; gap:8px; }
+
+.mixbox-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+}
+
+.mixbox-help{ font-size:12px; opacity:.7; }
+
+.mixrows{ display:flex; flex-direction:column; gap:8px; }
+
+.mixrow{
+  display:grid;
+  grid-template-columns: 1fr 96px;
+  gap:10px;
+  align-items:center;
+}
+.mixrow label{ font-size:13px; opacity:.9; }
+.mixrow input[type="number"]{ width:96px; }
+
 /* =========================================================*/
 /* Gestion du scroll horizontal / vertical dans les grids   */
 /* =========================================================*/
