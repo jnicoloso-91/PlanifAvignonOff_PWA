@@ -2349,17 +2349,26 @@ input[type="range"]:focus::-moz-range-thumb {
   display:flex;
   flex-direction:column;
   gap:8px;
+  position: relative;
 }
 
 /* Ligne du champ */
 .chipbox-inputwrap{
-  display:flex;
-  justify-content:flex-end;   /* ⬅️ input collé à droite */
+  position: relative;
+  width: 14rem;
+  margin-left: auto;
+  /* display:flex; */
+  /*justify-content:flex-end;   /* ⬅️ input collé à droite */
+}
+
+.chipbox-input,
+.chipbox-dd {
+  box-sizing: border-box;
 }
 
 /* Input = le vrai champ */
 .chipbox-input{
-  width:220px;                /* ajuste si besoin */
+  width:100%;                
   border:1px solid rgba(0,0,0,.12);
   border-radius:10px;
   padding:8px 10px;
@@ -2401,11 +2410,43 @@ input[type="range"]:focus::-moz-range-thumb {
   opacity:1;
 }
 
-/* .mixbox{ display:flex; flex-direction:column; gap:8px; }
-.mixrow{ display:grid; grid-template-columns: 1fr 92px; gap:10px; align-items:center; }
-.mixrow label{ font-size:13px; opacity:.9; }
-.mixrow input[type="number"]{ width:92px; }
-.mixbox-help{ font-size:12px; opacity:.7; } */
+/* dropdown custom */
+.chipbox-dd{
+  position:absolute;
+  top:calc(100% + 4px);                
+  right:0;                 /* car input à droite */
+  width:100%;              
+  max-height:min(220px, 40vh);
+  overflow:auto;
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 6px 18px rgba(0,0,0,.10);
+  display:none;
+  z-index:9999;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chipbox-dd.open{ display:block; }
+
+.chipbox-ddlist{ display:flex; flex-direction:column; }
+
+.chipbox-dditem{
+  padding:6px 10px;
+  cursor:pointer;
+  user-select:none;
+  font-size:12px;
+  /* line-height:1.2; */
+}
+
+.chipbox-dditem.is-active{
+  background:rgba(0,0,0,.06);
+  font-weight:600;
+}
+
+.chipbox-dditem:active{
+  background:rgba(0,0,0,.10);
+}
 
 .mixbox{ display:flex; flex-direction:column; gap:8px; }
 

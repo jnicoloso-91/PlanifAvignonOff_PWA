@@ -293,46 +293,6 @@ function autoSizeColsManual(h, colIds, opts = {}) {
   }
 
   // --- compute width for one column, scanning all rows (optionally capped)
-  // function _computeManualColWidth(api, gridEl, colId, {
-  //   maxRows = 0,            // 0 = all rows; set e.g. 800 if you want to cap
-  //   minWidth = 50,
-  //   maxWidth = 900,
-  //   cellPaddingPx = 16,     // left+right padding approximation
-  //   headerIconsPx = 16,     // sort/menu/filter icons approximation
-  //   extraPx = 6,            // safety
-  //   includeHeader = true,
-  // } = {}) {
-  //   const font = _getAgCellFont(gridEl);
-
-  //   let maxTextPx = 0;
-
-  //   if (includeHeader) {
-  //     const header = _getHeaderLabel(api, colId);
-  //     maxTextPx = Math.max(maxTextPx, _measureTextPx(header, font));
-  //   }
-
-  //   let count = 0;
-  //   const iter = api.forEachNodeAfterFilterAndSort || api.forEachNode;
-  //   if (typeof iter !== "function") {
-  //     // can't iterate => just header-based
-  //     const w = Math.ceil(maxTextPx + cellPaddingPx + headerIconsPx + extraPx);
-  //     return Math.max(minWidth, Math.min(maxWidth, w));
-  //   }
-
-  //   iter.call(api, (node) => {
-  //     if (!node) return;
-  //     count++;
-  //     if (maxRows > 0 && count > maxRows) return;
-
-  //     const txt = _getCellValue(api, colId, node);
-  //     if (!txt) return;
-  //     const w = _measureTextPx(txt, font);
-  //     if (w > maxTextPx) maxTextPx = w;
-  //   });
-
-  //   const width = Math.ceil(maxTextPx + cellPaddingPx + headerIconsPx + extraPx);
-  //   return Math.max(minWidth, Math.min(maxWidth, width));
-  // }
 function _computeManualColWidth(api, gridEl, colId, opt = {}) {
   const {
     includeHeader = true,
