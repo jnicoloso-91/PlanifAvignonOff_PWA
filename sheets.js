@@ -4693,8 +4693,8 @@ function createChipBox({
       // 🔥 important : garder focus + réouvrir sans taper (fix critique #1)
       inputEl.focus({ preventScroll: true });
       refreshSuggestions();
-      // openDD();
-      closeDD();
+      openDD();
+      // closeDD();
 
       ensureInputVisible({ tries: 4 });
     }
