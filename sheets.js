@@ -4693,7 +4693,8 @@ function createChipBox({
       // 🔥 important : garder focus + réouvrir sans taper (fix critique #1)
       inputEl.focus({ preventScroll: true });
       refreshSuggestions();
-      openDD();
+      // openDD();
+      closeDD();
 
       ensureInputVisible({ tries: 4 });
     }
@@ -4893,10 +4894,12 @@ function onGlobalPick(ev) {
   if (item && dd && dd.contains(item)) {
     ev.preventDefault();
     ev.stopImmediatePropagation();
-    addToken(item.textContent || "");
-    inputEl.value = "";
-    closeDD();
-    inputEl.focus({ preventScroll: true });
+
+    // addToken(item.textContent || "");
+    // inputEl.value = "";
+    // closeDD();
+    // inputEl.focus({ preventScroll: true });
+    selectLabel(item.textContent || "");
     return;
   }
 
@@ -5013,51 +5016,6 @@ function onGlobalPick(ev) {
       inputEl.value = "";
       refreshSuggestions();
     });
-
-    // document.addEventListener("pointerdown", (ev) => {
-    //   if (!isOpen) return;
-
-    //   const hit = document.elementFromPoint(ev.clientX, ev.clientY);
-    //   if (!(hit instanceof Element)) {
-    //     closeDD();
-    //     return;
-    //   }
-
-    //   // ✅ 1) clic sur un item => sélection (ICI)
-    //   const item = hit.closest(".chipbox-dditem");
-    //   if (item && dd && dd.contains(item)) {
-    //     ev.preventDefault();
-    //     ev.stopImmediatePropagation(); // stoppe tout le reste (autres chipbox comprises)
-    //     addToken(item.textContent || "");
-    //     inputEl.value = "";
-    //     closeDD();
-    //     // optionnel mais souvent utile après sélection
-    //     inputEl.focus();
-    //     return;
-    //   }
-
-    //   // ✅ 1bis) clic sur l'input => (ré)ouvrir même si déjà focus
-    //   if (hit === inputEl || inputEl.contains(hit)) {
-    //     ev.preventDefault(); // évite des bizarreries iOS / sélection texte
-    //     ev.stopImmediatePropagation();
-    //     refreshAndOpenDD();    // <-- c'est LA différence
-    //     return;
-    //   }
-
-    //   // ✅ 1ter) clic dans le wrap de l'input (mais pas dans l'input) => fermer
-    //   const wrap = hit.closest(".chipbox-inputwrap");
-    //   if (wrap && boxEl && boxEl.contains(wrap)) {
-    //     closeDD();
-    //     return;
-    //   }
-
-    //   // ✅ 2) clic à l'intérieur de cette chipbox => on ne ferme pas
-    //   if (boxEl && boxEl.contains(hit)) return;
-    //   if (dd && dd.contains(hit)) return;
-
-    //   // ✅ 3) clic dehors => fermer
-    //   closeDD();
-    // }, { capture: true, passive: false });
 
 // ⚠️ Important : écoute sur pointerup + touchend (pas seulement pointerdown)
 document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
