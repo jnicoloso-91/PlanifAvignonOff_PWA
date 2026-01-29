@@ -4717,15 +4717,6 @@ function createChipBox({
         // survol => highlight (critique #2)
         it.addEventListener("pointerenter", () => setActive(idx));
 
-        // ✅ sélection fiable iOS/desktop :
-        // - mousedown/touchstart + preventDefault empêche blur
-        // - pointerdown idem
-        const onPick = (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          selectLabel(label);
-        };
-
         list.appendChild(it);
       });
 
@@ -4743,6 +4734,102 @@ function createChipBox({
       } catch {}
     }
 
+function installKeyboardViewportFix() {
+  const vv = window.visualViewport;
+  if (!vv) return () => {};
+
+  const sc = scrollerEl
+    || boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet")
+    || document.scrollingElement
+    || document.documentElement;
+
+  if (!(sc instanceof HTMLElement)) return () => {};
+
+  const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+
+  function apply() {
+    // hauteur “mangée” par clavier = innerHeight - visualViewport.height - offsetTop
+    const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+    sc.style.paddingBottom = `${basePad + kb + 12}px`; // +12 pour respirer
+
+    // remonte l’input si besoin (après layout)
+    requestAnimationFrame(() => {
+      try { inputEl.scrollIntoView({ block: "center", inline: "nearest" }); } catch {}
+    });
+  }
+
+  function reset() {
+    sc.style.paddingBottom = `${basePad}px`;
+  }
+
+  vv.addEventListener("resize", apply);
+  vv.addEventListener("scroll", apply);
+
+  inputEl.addEventListener("focus", apply, { passive: true });
+  inputEl.addEventListener("blur", reset, { passive: true });
+
+  return () => {
+    vv.removeEventListener("resize", apply);
+    vv.removeEventListener("scroll", apply);
+    inputEl.removeEventListener("focus", apply);
+    inputEl.removeEventListener("blur", reset);
+    reset();
+  };
+}
+
+function getClientXY(ev) {
+  // PointerEvent / MouseEvent
+  if (typeof ev.clientX === "number" && typeof ev.clientY === "number") {
+    return { x: ev.clientX, y: ev.clientY };
+  }
+  // TouchEvent (fallback)
+  const t = ev.changedTouches?.[0] || ev.touches?.[0];
+  if (t) return { x: t.clientX, y: t.clientY };
+  return null;
+}
+
+function onGlobalPick(ev) {
+  if (!isOpen) return;
+
+  const xy = getClientXY(ev);
+  if (!xy) { closeDD(); return; }
+
+  const hit = document.elementFromPoint(xy.x, xy.y);
+  if (!(hit instanceof Element)) { closeDD(); return; }
+
+  // 1) item dropdown => select
+  const item = hit.closest(".chipbox-dditem");
+  if (item && dd && dd.contains(item)) {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    addToken(item.textContent || "");
+    inputEl.value = "";
+    closeDD();
+    inputEl.focus({ preventScroll: true });
+    return;
+  }
+
+  // 2) tap dans input => (ré)ouvrir
+  if (hit === inputEl || inputEl.contains(hit)) {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    refreshAndOpenDD();
+    return;
+  }
+
+  // 3) tap dans le wrap input (mais pas input) => fermer
+  const wrap = hit.closest(".chipbox-inputwrap");
+  if (wrap && boxEl && boxEl.contains(wrap)) {
+    closeDD();
+    return;
+  }
+
+  // 4) inside chipbox => ne pas fermer
+  if (boxEl && boxEl.contains(hit)) return;
+  if (dd && dd.contains(hit)) return;
+
+  closeDD();
+}
     // ============ Wiring datalist natif ============
     if (!useCustom && datalistEl && datalistEl.id) {
       inputEl.setAttribute("list", datalistEl.id);
@@ -4834,55 +4921,62 @@ function createChipBox({
       refreshSuggestions();
     });
 
-    document.addEventListener("pointerdown", (ev) => {
-      if (!isOpen) return;
+    // document.addEventListener("pointerdown", (ev) => {
+    //   if (!isOpen) return;
 
-      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
-      if (!(hit instanceof Element)) {
-        closeDD();
-        return;
-      }
+    //   const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+    //   if (!(hit instanceof Element)) {
+    //     closeDD();
+    //     return;
+    //   }
 
-      // ✅ 1) clic sur un item => sélection (ICI)
-      const item = hit.closest(".chipbox-dditem");
-      if (item && dd && dd.contains(item)) {
-        ev.preventDefault();
-        ev.stopImmediatePropagation(); // stoppe tout le reste (autres chipbox comprises)
-        addToken(item.textContent || "");
-        inputEl.value = "";
-        closeDD();
-        // optionnel mais souvent utile après sélection
-        inputEl.focus();
-        return;
-      }
+    //   // ✅ 1) clic sur un item => sélection (ICI)
+    //   const item = hit.closest(".chipbox-dditem");
+    //   if (item && dd && dd.contains(item)) {
+    //     ev.preventDefault();
+    //     ev.stopImmediatePropagation(); // stoppe tout le reste (autres chipbox comprises)
+    //     addToken(item.textContent || "");
+    //     inputEl.value = "";
+    //     closeDD();
+    //     // optionnel mais souvent utile après sélection
+    //     inputEl.focus();
+    //     return;
+    //   }
 
-      // ✅ 1bis) clic sur l'input => (ré)ouvrir même si déjà focus
-      if (hit === inputEl || inputEl.contains(hit)) {
-        ev.preventDefault(); // évite des bizarreries iOS / sélection texte
-        ev.stopImmediatePropagation();
-        refreshAndOpenDD();    // <-- c'est LA différence
-        return;
-      }
+    //   // ✅ 1bis) clic sur l'input => (ré)ouvrir même si déjà focus
+    //   if (hit === inputEl || inputEl.contains(hit)) {
+    //     ev.preventDefault(); // évite des bizarreries iOS / sélection texte
+    //     ev.stopImmediatePropagation();
+    //     refreshAndOpenDD();    // <-- c'est LA différence
+    //     return;
+    //   }
 
-      // ✅ 1ter) clic dans le wrap de l'input (mais pas dans l'input) => fermer
-      const wrap = hit.closest(".chipbox-inputwrap");
-      if (wrap && boxEl && boxEl.contains(wrap)) {
-        closeDD();
-        return;
-      }
+    //   // ✅ 1ter) clic dans le wrap de l'input (mais pas dans l'input) => fermer
+    //   const wrap = hit.closest(".chipbox-inputwrap");
+    //   if (wrap && boxEl && boxEl.contains(wrap)) {
+    //     closeDD();
+    //     return;
+    //   }
 
-      // ✅ 2) clic à l'intérieur de cette chipbox => on ne ferme pas
-      if (boxEl && boxEl.contains(hit)) return;
-      if (dd && dd.contains(hit)) return;
+    //   // ✅ 2) clic à l'intérieur de cette chipbox => on ne ferme pas
+    //   if (boxEl && boxEl.contains(hit)) return;
+    //   if (dd && dd.contains(hit)) return;
 
-      // ✅ 3) clic dehors => fermer
-      closeDD();
-    }, { capture: true, passive: false });
+    //   // ✅ 3) clic dehors => fermer
+    //   closeDD();
+    // }, { capture: true, passive: false });
+
+// ⚠️ Important : écoute sur pointerup + touchend (pas seulement pointerdown)
+document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
+document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
 
     // ============ API / init ============
     // init suggestions
     ensureDD(); // si custom => créé maintenant (sinon no-op)
     refreshSuggestions();
+
+let cleanupViewportFix = () => {};
+if (useCustom) cleanupViewportFix = installKeyboardViewportFix();
 
     // init values
     if (initial && initial.length) setValues(initial);
@@ -4897,6 +4991,7 @@ function createChipBox({
         refreshSuggestions();
       },
       destroy() {
+try { cleanupViewportFix?.(); } catch {}
         try { dd?.remove(); } catch {}
         dd = null;
         isOpen = false;
