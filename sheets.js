@@ -4774,7 +4774,7 @@ function createChipBox({
 
   // --- Choix : custom dropdown ?
   // Si non précisé => auto: iOS => custom, sinon natif
-  const useCustom = true; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
+  const useCustom = (useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
 
   // --- Dropdown custom (si activé)
   /** @type {HTMLElement | null} */
@@ -4944,21 +4944,6 @@ function createChipBox({
     if (dd) renderDD();
   }
 
-  // function isInside(ev, el) {
-  //   if (!el) return false;
-
-  //   // le plus fiable (shadow DOM / iOS / etc.)
-  //   if (typeof ev.composedPath === "function") {
-  //     const p = ev.composedPath();
-  //     return p && p.includes(el);
-  //   }
-
-  //   const t = ev.target;
-  //   if (!t) return false;
-  //   if (t === el) return true;
-  //   return el.contains(t);
-  // }
-
   function selectLabel(label) {
     addToken(label);
     inputEl.value = "";
@@ -4999,32 +4984,11 @@ function createChipBox({
         ev.stopPropagation();
         selectLabel(label);
       };
-      // it.addEventListener("pointerdown", onPick, { passive: false });
-// it.addEventListener("pointerdown", (ev) => {
-//   ev.preventDefault();   // évite blur / sélection texte
-//   ev.stopPropagation();  // empêche le handler document de fermer avant addToken
-
-//   addToken(label);
-//   inputEl.value = "";
-
-//   closeDD();
-//   inputEl.focus();
-// });
-// it.addEventListener("pointerdown", (ev) => {
-//   ev.preventDefault();      // évite blur iOS
-//   ev.stopPropagation();     // empêche le handler document (bubble) de fermer avant addToken
-//   addToken(label);
-//   inputEl.value = "";
-//   closeDD();                // ou refreshAndOpen() si tu veux rester ouvert
-// });
-      // it.addEventListener("mousedown", onPick, { passive: false });
-      // it.addEventListener("touchstart", onPick, { passive: false });
 
       list.appendChild(it);
     });
 
     dd.appendChild(list);
-    // openDD();
   }
 
   function scrollInputIntoView() {
