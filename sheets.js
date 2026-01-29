@@ -3694,6 +3694,7 @@ export function openSheetAssistantProgrammation() {
           boxEl: styleBox,
           inputEl: styleInput,
           datalistEl: styleDL,
+          scrollerEl: body,
           initial: aiProg?.mots_cles_style || [],
           suggestions: styleSuggestions,
           onChange: () => {
@@ -3706,6 +3707,7 @@ export function openSheetAssistantProgrammation() {
           boxEl: moodBox,
           inputEl: moodInput,
           datalistEl: moodDL,
+          scrollerEl: body,
           initial: aiProg?.mots_cles_mood || [],
           suggestions: moodSuggestions,
           onChange: () => {
