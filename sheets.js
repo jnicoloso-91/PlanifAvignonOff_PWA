@@ -3696,7 +3696,6 @@ export function openSheetAssistantProgrammation() {
           datalistEl: styleDL,
           initial: aiProg?.mots_cles_style || [],
           suggestions: styleSuggestions,
-          scrollerEl: body,
           onChange: () => {
             styleMixOnStylesChanged();
           }
@@ -3709,7 +3708,6 @@ export function openSheetAssistantProgrammation() {
           datalistEl: moodDL,
           initial: aiProg?.mots_cles_mood || [],
           suggestions: moodSuggestions,
-          scrollerEl: body,
           onChange: () => {
             styleMixOnStylesChanged();
           }
@@ -4326,422 +4324,10 @@ export function openSheetAssistantProgrammation() {
 
       //   return { addToken, setValues, getValues, setSuggestions };
       // }
-function ensureVisibleInScroller(scrollerEl, targetEl) {
-  if (!scrollerEl || !targetEl) return;
-  requestAnimationFrame(() => {
-    try {
-      // scroll doux vers un endroit confortable
-      targetEl.scrollIntoView({ block: "center", behavior: "smooth" });
-    } catch {}
-  });
-}
-
-function attachIOSKeyboardAssist(scrollerEl, inputEl) {
-  if (!window.visualViewport) return () => {};
-
-  const onResize = () => ensureVisibleInScroller(scrollerEl, inputEl);
-  window.visualViewport.addEventListener("resize", onResize);
-
-  return () => window.visualViewport.removeEventListener("resize", onResize);
-}
-
-function isIOS() {
-  const ua = navigator.userAgent || "";
-  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-}
-
-// /**
-//  * Creation d'une chipbox
-//  * @param {{
-//  *   boxEl: HTMLElement,
-//  *   inputEl: HTMLInputElement,
-//  *   datalistEl?: (HTMLDataListElement|null),
-//  *   initial?: string[],
-//  *   suggestions?: string[],
-//  *   onChange?: ((values: string[]) => void) | null,
-//  *   scrollerEl?: (HTMLElement|null),
-//  * }} args
-//  */
-// function createChipBox({
-//   boxEl,
-//   inputEl,
-//   datalistEl = null, 
-//   initial = [],
-//   suggestions = [],
-//   onChange = null,
-//   scrollerEl = null,          // "body" 
-// }) {
-//   const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
-//   const map = new Map();
-
-//   const useCustom = true; //isIOS();  // 👈 iOS => dropdown custom
-//   const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
-
-//   // dropdown custom
-//   const dd = document.createElement("div");
-//   dd.className = "chipbox-dd";
-//   wrap.appendChild(dd);
-  
-// // Empêche le focus de quitter l'input quand on clique dans la dropdown
-// dd.addEventListener("pointerdown", (ev) => {
-//   ev.preventDefault();  // ✅ garde le focus sur l'input
-// }, true);
-
-//   let isOpen = false;
-//   let activeIndex = -1;
-//   let filtered = []; // liste affichée (labels)
-//   let lastQuery = "";
-
-//   function openDD() {
-//     dd.classList.add("open");
-//     isOpen = true;
-//   }
-//   function closeDD() {
-//     dd.classList.remove("open");
-//     isOpen = false;
-//   }
-
-//   function setActive(idx) {
-//     activeIndex = idx;
-//     renderDD();
-//   }
-
-//   function clampActive() {
-//     if (!filtered.length) { activeIndex = -1; return; }
-//     if (activeIndex < 0) activeIndex = 0;
-//     if (activeIndex >= filtered.length) activeIndex = filtered.length - 1;
-//   }
-
-//   function renderDD() {
-//     if (!dd) return;
-//     dd.replaceChildren();
-
-//     // rien à montrer => ferme
-//     if (!filtered.length) {
-//       closeDD();
-//       return;
-//     }
-
-//     const ul = document.createElement("div");
-//     ul.className = "chipbox-ddlist";
-
-//     filtered.forEach((label, idx) => {
-//       const it = document.createElement("div");
-//       it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
-//       it.textContent = label;
-
-//       // mousing
-//       it.addEventListener("pointerenter", () => setActive(idx));
-//       it.addEventListener("pointerdown", (ev) => {
-//         ev.preventDefault(); // évite blur input iOS/desktop
-//         addToken(label);
-//         inputEl.value = "";
-//         // IMPORTANT: ré-ouvre directement après ajout
-//         refreshAndOpen();
-//       });
-
-//       ul.appendChild(it);
-//     });
-
-//     dd.appendChild(ul);
-//   }
-
-//   function computeFiltered() {
-//     // suggestions = toutes les suggestions possibles
-//     // map = chips déjà sélectionnées
-//     const q = normKey(inputEl.value || "");
-//     lastQuery = q;
-
-//     // 1) base = suggestions uniques, sans chips déjà présentes
-//     const base = [];
-//     const seen = new Set();
-//     for (const s of suggestions || []) {
-//       const label = normToken(s);
-//       const key = normKey(label);
-//       if (!label || !key) continue;
-//       if (map.has(key)) continue;
-//       if (seen.has(key)) continue;
-//       seen.add(key);
-//       base.push(label);
-//     }
-
-//     // 2) filtre par query
-//     if (!q) {
-//       filtered = base;
-//     } else {
-//       filtered = base.filter(lbl => normKey(lbl).includes(q));
-//     }
-
-//     // 3) active index
-//     clampActive();
-//   }
-
-//   function refreshAndOpen() {
-//     computeFiltered();
-//     if (filtered.length) {
-//       openDD();
-//       if (activeIndex < 0) setActive(0);
-//       else renderDD();
-//     } else {
-//       closeDD();
-//     }
-//   }
-
-//   function getValues() {
-//     return Array.from(map.values());
-//   }
-
-//   function render() {
-//     chipsEl.replaceChildren();
-//     for (const label of map.values()) {
-//       const chip = document.createElement("span");
-//       chip.className = "chip";
-//       chip.textContent = label;
-
-//       const btn = document.createElement("button");
-//       btn.type = "button";
-//       btn.setAttribute("aria-label", `Supprimer ${label}`);
-//       btn.textContent = "✕";
-//       btn.addEventListener("click", (ev) => {
-//         ev.preventDefault();
-//         ev.stopPropagation();
-//         map.delete(normKey(label));
-//         render();
-//         renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-//         if (typeof onChange === "function") {
-//           try { onChange(getValues()); } catch {}
-//         }
-//       });
-
-//       chip.appendChild(btn);
-//       chipsEl.appendChild(chip);
-//     }
-//   }
-
-//   function addToken(raw) {
-//     const label = normToken(raw);
-//     if (!label) return;
-//     const key = normKey(label);
-//     if (!key) return;
-//     if (map.has(key)) return;
-//     map.set(key, label);
-//     render();
-//     renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-//     if (typeof onChange === "function") {
-//       try { onChange(getValues()); } catch {}
-//     }
-//   }
-
-//   function setSuggestionsCustom(arr, filterText = "") {
-//     const ft = normKey(filterText);
-//     dd.replaceChildren();
-
-//     // 1) Normalise + dédoublonne + filtre + enlève déjà sélectionnés
-//     const uniq = new Map();
-//     for (const s of arr || []) {
-//       const label = normToken(s);
-//       const key = normKey(label);
-//       if (!label || !key) continue;
-//       if (map.has(key)) continue;
-//       if (ft && !key.includes(ft)) continue;
-//       if (uniq.has(key)) continue;
-//       uniq.set(key, label);
-//     }
-
-//     // 2) Render items
-//     for (const label of uniq.values()) {
-//       const it = document.createElement("div");
-//       it.className = "chipbox-dd-item";
-//       it.textContent = label;
-
-//       // IMPORTANT : pointerdown pour éviter blur/focus foireux iOS
-//       it.addEventListener("pointerdown", (ev) => {
-//         ev.preventDefault();
-//         ev.stopPropagation();
-//         addToken(label);
-//         inputEl.value = "";
-//         closeDD();
-//         // garder le clavier si tu veux continuer à taper
-//         inputEl.focus();
-//       });
-
-//       dd.appendChild(it);
-//     }
-//   }
-
-//   function refreshSuggestions() {
-//     if (useCustom) {
-//       setSuggestionsCustom(suggestions, inputEl.value || "");
-//       openDD();
-//     } else {
-//       // datalist : tu gardes ton mécanisme
-//       if (!datalistEl) return;
-//       datalistEl.replaceChildren();
-
-//       const uniq = new Map();
-//       for (const s of suggestions || []) {
-//         const label = normToken(s);
-//         const key = normKey(label);
-//         if (!label || !key) continue;
-//         if (uniq.has(key)) continue;
-//         uniq.set(key, label);
-//       }
-//       for (const [k] of map) uniq.delete(k);
-
-//       for (const label of uniq.values()) {
-//         const opt = document.createElement("option");
-//         opt.value = label;
-//         datalistEl.appendChild(opt);
-//       }
-//     }
-//   }
-
-//   // ---- focus / click
-//   boxEl.addEventListener("click", (ev) => {
-//     const t = /** @type {HTMLElement} */ (ev.target);
-//     if (!t) return;
-//     if (t === inputEl || t.closest?.("input") === inputEl) {
-//       inputEl.focus();
-//     }
-//   });
-
-//   // inputEl.addEventListener("focus", () => {
-//   //   if (scrollerEl) ensureVisibleInScroller(scrollerEl, inputEl);
-//   //   refreshSuggestions();
-//   // });
-//   // inputEl.addEventListener("input", () => {
-//   //   if (useCustom) {
-//   //     setSuggestionsCustom(suggestions, inputEl.value || "");
-//   //     if (!isOpen) openDD();
-//   //   }
-//   // });
-//   // inputEl.addEventListener("keydown", (ev) => {
-//   //   if (ev.key === "Enter" || ev.key === ",") {
-//   //     ev.preventDefault();
-//   //     addToken(inputEl.value);
-//   //     inputEl.value = "";
-//   //     if (useCustom) refreshSuggestions();
-//   //   } else if (ev.key === "Escape") {
-//   //     closeDD();
-//   //   } else if (ev.key === "Backspace" && !inputEl.value) {
-//   //     const last = Array.from(map.values()).pop();
-//   //     if (last) {
-//   //       map.delete(normKey(last));
-//   //       render();
-//   //       renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-//   //       if (typeof onChange === "function") {
-//   //         try { onChange(getValues()); } catch {}
-//   //       }
-//   //     }
-//   //   }
-//   // });
-
-//   inputEl.addEventListener("focus", () => {
-//     refreshAndOpen();
-//   });
-
-//   inputEl.addEventListener("pointerdown", () => {
-//     // utile sur iOS: focus ne suffit pas toujours
-//     queueMicrotask(() => refreshAndOpen());
-//   });
-
-//   inputEl.addEventListener("input", () => {
-//     refreshAndOpen();
-//   });
-
-//   inputEl.addEventListener("keydown", (ev) => {
-//     if (!isOpen && (ev.key === "ArrowDown" || ev.key === "ArrowUp")) {
-//       ev.preventDefault();
-//       refreshAndOpen();
-//       return;
-//     }
-
-//     if (!isOpen) return;
-
-//     if (ev.key === "ArrowDown") {
-//       ev.preventDefault();
-//       setActive(activeIndex + 1);
-//       clampActive();
-//       renderDD();
-//     } else if (ev.key === "ArrowUp") {
-//       ev.preventDefault();
-//       setActive(activeIndex - 1);
-//       clampActive();
-//       renderDD();
-//     } else if (ev.key === "Enter") {
-//       // si dropdown ouverte et un item actif => on choisit cet item
-//       if (activeIndex >= 0 && filtered[activeIndex]) {
-//         ev.preventDefault();
-//         addToken(filtered[activeIndex]);
-//         inputEl.value = "";
-//         refreshAndOpen();
-//       }
-//     } else if (ev.key === "Escape") {
-//       ev.preventDefault();
-//       closeDD();
-//     }
-//   });
-
-//   // inputEl.addEventListener("blur", () => {
-//   //   // laisse le pointerdown sur item faire son job (il fait preventDefault)
-//   //   // petit délai de sécurité
-//   //   setTimeout(() => closeDD(), 0);
-//   // });
-
-//   // click dehors => fermer
-//   // document.addEventListener("pointerdown", (ev) => {
-//   //   if (!useCustom) return;
-//   //   const t = /** @type {Node} */ (ev.target);
-//   //   if (!boxEl.contains(t) && !dd.contains(t)) closeDD();
-//   // });
-//   document.addEventListener("pointerdown", (ev) => {
-//     const t = ev.target;
-//     if (!t) return;
-//     if (!(t instanceof Node)) return;
-
-//     // si clic dans la chipbox (input ou dropdown), on ne ferme pas
-//     if (boxEl.contains(t)) return;
-
-//     closeDD();
-//   }, true); // capture = plus fiable
-
-//   // init datalist si non iOS
-//   if (!useCustom && datalistEl) {
-//     if (datalistEl.id) inputEl.setAttribute("list", datalistEl.id);
-//     refreshSuggestions();
-//     inputEl.addEventListener("change", () => {
-//       const v = inputEl.value;
-//       if (!v) return;
-//       addToken(v);
-//       inputEl.value = "";
-//     });
-//     inputEl.addEventListener("pointerdown", refreshSuggestions);
-//   } else {
-//     // iOS : on évite datalist
-//     inputEl.removeAttribute("list");
-//   }
-
-//   // Optionnel : assist clavier iOS
-//   let detachVV = () => {};
-//   if (useCustom && scrollerEl) {
-//     detachVV = attachIOSKeyboardAssist(scrollerEl, inputEl);
-//   }
-
-//   return {
-//     addToken,
-//     setValues(arr) { map.clear(); for (const v of (arr || [])) addToken(v); },
-//     getValues,
-//     setSuggestions(arr) { suggestions = Array.isArray(arr) ? arr : []; refreshSuggestions(); },
-//     destroy() { try { detachVV(); } catch {} }
-//   };
-// }
 /**
- * ChipBox + suggestions (datalist natif OU dropdown custom).
- * - Un seul jeu de listeners (pas de branches partout).
- * - Si dropdown custom absent => les listeners sont “no-op” et le datalist natif fait le taf.
- * - Fix iOS : pas de datalist natif, dropdown custom + clavier OK.
- *
- * Requis : normToken(), normKey(), renderStyleMixUI(), readStyleMixFromUI() existent déjà chez toi.
+ * createChipBox 
+ * - Mode natif : datalists natives
+ * - Mode custom : datalists natives remplacées par dropdown custom (pour contourner errances IOS)
  *
  * @param {{
  *   boxEl: HTMLElement,
@@ -4749,9 +4335,9 @@ function isIOS() {
  *   datalistEl?: HTMLDataListElement|null,
  *   initial?: string[],
  *   suggestions?: string[],
- *   onChange?: (values: string[]) => void,
+ *   onChange?: Function|null,
  *   useCustomDropdown?: boolean,     // force custom (sinon auto iOS)
- *   scrollerEl?: HTMLElement|null,   // le conteneur scrollable (ton "body" de sheet) pour scrollIntoView
+ *   scrollerEl?: HTMLElement|null,
  * }} args
  */
 function createChipBox({
@@ -4762,10 +4348,561 @@ function createChipBox({
   suggestions = [],
   onChange = null,
   useCustomDropdown = undefined,
-  scrollerEl = null
+  scrollerEl = null,
 }) {
-  const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
-  const map = new Map(); // key -> label
+
+  /**
+   * Version avec datalists natives
+   */
+  function initChipBoxNative({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange = null }) {
+    const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
+    const map = new Map(); // key -> label (original)
+
+    function render() {
+      chipsEl.replaceChildren();
+      for (const label of map.values()) {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = label;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.setAttribute("aria-label", `Supprimer ${label}`);
+        btn.textContent = "✕";
+        btn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          map.delete(normKey(label));
+          render();
+          renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+        });
+
+        chip.appendChild(btn);
+        chipsEl.appendChild(chip);
+      }
+    }
+
+    function addToken(raw) {
+      const label = normToken(raw);
+      if (!label) return;
+      const key = normKey(label);
+      if (!key) return;
+      if (map.has(key)) return; // anti doublon
+      map.set(key, label);
+      render();
+      renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+      if (typeof onChange === "function") {
+        try { onChange(getValues()); } catch {}
+      }
+    }
+
+    function removeToken(raw) {
+      const key = normKey(raw);
+      map.delete(key);
+      render();
+      renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+      if (typeof onChange === "function") {
+        try { onChange(getValues()); } catch {}
+      }
+    }
+
+    function setValues(arr) {
+      map.clear();
+      for (const v of (arr || [])) addToken(v);
+      render();
+      renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+      if (typeof onChange === "function") {
+        try { onChange(getValues()); } catch {}
+      }
+    }
+
+    function getValues() {
+      return Array.from(map.values());
+    }
+
+    function setSuggestions(arr) {
+      if (!datalistEl) return;
+
+      datalistEl.replaceChildren();
+
+      // 1) Normalise + dédoublonne
+      const uniq = new Map(); // key -> label
+      for (const s of arr || []) {
+        const label = normToken(s);
+        const key = normKey(label);
+        if (!label || !key) continue;
+        if (uniq.has(key)) continue;
+        uniq.set(key, label);
+      }
+
+      // 2) Enlève les déjà sélectionnés
+      for (const [k] of map) {
+        uniq.delete(k);
+      }
+
+      // 3) Remplit le datalist
+      for (const label of uniq.values()) {
+        const opt = document.createElement("option");
+        opt.value = label;
+        datalistEl.appendChild(opt);
+      }
+    }
+
+    function refreshSuggestionsForOpen() {
+      setSuggestions(suggestions);
+    }
+
+    // clic sur la box -> focus input
+    boxEl.addEventListener("click", (ev) => {
+      const t = /** @type {HTMLElement} */ (ev.target);
+      if (!t) return;
+
+      // Ne focus que si on tape sur input (ou dedans)
+      if (t === inputEl || t.closest?.("input") === inputEl)
+        inputEl.focus();
+    });
+
+    // Entrée ou virgule => créer chip
+    inputEl.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === ",") {
+        ev.preventDefault();
+        addToken(inputEl.value);
+        inputEl.value = "";
+      } else if (ev.key === "Backspace" && !inputEl.value) {
+        // backspace dans champ vide => supprime la dernière chip
+        const last = Array.from(map.values()).pop();
+        if (last) removeToken(last);
+      }
+    });
+
+    // si l'utilisateur choisit une option du datalist, ça met la value dans l'input
+    // => on la convertit immédiatement en chip
+    inputEl.addEventListener("change", () => {
+      const v = inputEl.value;
+      if (!v) return;
+      addToken(v);
+      inputEl.value = "";
+    });
+
+    // Rafraîchir UNIQUEMENT au moment où le navigateur va potentiellement ouvrir le datalist
+    inputEl.addEventListener("pointerdown", refreshSuggestionsForOpen);
+    inputEl.addEventListener("focus", refreshSuggestionsForOpen);
+    inputEl.addEventListener("keydown", (ev) => {
+      if (ev.key === "ArrowDown") refreshSuggestionsForOpen();
+    });
+
+    // init
+    if (datalistEl) {
+      // relier input -> datalist
+      if (datalistEl.id) inputEl.setAttribute("list", datalistEl.id);
+      setSuggestions(suggestions);
+    }
+
+    return { addToken, setValues, getValues, setSuggestions };
+  }
+
+  /**
+   * Version custom avec datalists natives remplacées par dropdown custom
+   */
+  function initChipBoxCustom({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange = null, scrollerEl = null }) {
+    const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
+    const map = new Map(); // key -> label
+
+    // --- iOS detection (simple & suffisante ici)
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    // --- Choix : custom dropdown ?
+    // Si non précisé => auto: iOS => custom, sinon natif
+    const useCustom = (useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
+
+    // --- Dropdown custom (si activé)
+    /** @type {HTMLElement | null} */
+    let dd = null;                // container
+    let isOpen = false;
+    let filtered = [];            // suggestions filtrées et non sélectionnées
+    let activeIndex = 0;
+
+    // ============ Helpers UI ============
+    function renderChips() {
+      chipsEl.replaceChildren();
+
+      for (const label of map.values()) {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = label;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.setAttribute("aria-label", `Supprimer ${label}`);
+        btn.textContent = "✕";
+        btn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          map.delete(normKey(label));
+          renderChips();
+          // ton hook UI
+          renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+          if (typeof onChange === "function") {
+            try { onChange(getValues()); } catch {}
+          }
+          // refresh suggestions
+          refreshSuggestions();
+        });
+
+        chip.appendChild(btn);
+        chipsEl.appendChild(chip);
+      }
+    }
+
+    function getValues() {
+      return Array.from(map.values());
+    }
+
+    function addToken(raw) {
+      const label = normToken(raw);
+      if (!label) return;
+      const key = normKey(label);
+      if (!key) return;
+      if (map.has(key)) return;
+
+      map.set(key, label);
+      renderChips();
+      renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+
+      if (typeof onChange === "function") {
+        try { onChange(getValues()); } catch {}
+      }
+      refreshSuggestions();
+    }
+
+    function removeToken(raw) {
+      map.delete(normKey(raw));
+      renderChips();
+      renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+
+      if (typeof onChange === "function") {
+        try { onChange(getValues()); } catch {}
+      }
+      refreshSuggestions();
+    }
+
+    function setValues(arr) {
+      map.clear();
+      for (const v of (arr || [])) {
+        const label = normToken(v);
+        const key = normKey(label);
+        if (!label || !key) continue;
+        if (!map.has(key)) map.set(key, label);
+      }
+      renderChips();
+      renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
+
+      if (typeof onChange === "function") {
+        try { onChange(getValues()); } catch {}
+      }
+      refreshSuggestions();
+    }
+
+    // ============ Suggestions (source) ============
+    function normalizeSuggestionList(arr) {
+      const uniq = new Map(); // key -> label
+      for (const s of (arr || [])) {
+        const label = normToken(s);
+        const key = normKey(label);
+        if (!label || !key) continue;
+        if (!uniq.has(key)) uniq.set(key, label);
+      }
+      // enlever les déjà sélectionnés
+      for (const k of map.keys()) uniq.delete(k);
+      return Array.from(uniq.values());
+    }
+
+    function refreshSuggestions() {
+      // 1) calculer filtered (pour custom)
+      const all = normalizeSuggestionList(suggestions);
+      const q = normToken(inputEl.value || "").toLowerCase();
+
+      if (!q) {
+        filtered = all;
+      } else {
+        filtered = all.filter(x => x.toLowerCase().includes(q));
+      }
+
+      // reset active index propre
+      if (activeIndex >= filtered.length) activeIndex = 0;
+
+      // 2) mettre à jour datalist (pour natif) — uniquement si custom OFF
+      if (!useCustom && datalistEl) {
+        datalistEl.replaceChildren();
+        for (const label of all) {
+          const opt = document.createElement("option");
+          opt.value = label;
+          datalistEl.appendChild(opt);
+        }
+      }
+
+      // 3) rendre le custom si présent
+      if (dd) renderDD();
+    }
+
+    function refreshAndOpenDD() {
+        refreshSuggestions();
+        if (filtered.length) openDD();
+    }
+
+    // ============ Dropdown custom ============
+    function ensureDD() {
+      if (!useCustom) return null;
+      if (dd) return dd;
+
+      dd = document.createElement("div");
+      dd.className = "chipbox-dd";
+      dd.setAttribute("role", "listbox");
+      dd.setAttribute("aria-label", "Suggestions");
+
+      const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
+      wrap.appendChild(dd);
+
+      return dd;
+    }
+
+    function openDD() {
+      if (!dd) return;
+      dd.classList.add("open");
+      isOpen = true;
+    }
+
+    function closeDD() {
+      if (!dd) return;
+      dd.classList.remove("open");
+      isOpen = false;
+    }
+
+    function setActive(idx) {
+      activeIndex = Math.max(0, Math.min(filtered.length - 1, idx));
+      if (dd) renderDD();
+    }
+
+    function selectLabel(label) {
+      addToken(label);
+      inputEl.value = "";
+      // 🔥 important : garder focus + réouvrir sans taper (fix critique #1)
+      inputEl.focus({ preventScroll: true });
+      refreshSuggestions();
+      openDD();
+    }
+
+    function renderDD() {
+      if (!dd) return;
+      dd.replaceChildren();
+
+      // rien => ferme
+      if (!filtered.length) {
+        closeDD();
+        return;
+      }
+
+      const list = document.createElement("div");
+      list.className = "chipbox-ddlist";
+
+      filtered.forEach((label, idx) => {
+        const it = document.createElement("div");
+        it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
+        it.setAttribute("role", "option");
+        it.setAttribute("aria-selected", idx === activeIndex ? "true" : "false");
+        it.textContent = label;
+
+        // survol => highlight (critique #2)
+        it.addEventListener("pointerenter", () => setActive(idx));
+
+        // ✅ sélection fiable iOS/desktop :
+        // - mousedown/touchstart + preventDefault empêche blur
+        // - pointerdown idem
+        const onPick = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          selectLabel(label);
+        };
+
+        list.appendChild(it);
+      });
+
+      dd.appendChild(list);
+    }
+
+    function scrollInputIntoView() {
+      const sc = scrollerEl || boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet") || null;
+      // on tente un scroll “gentil”
+      try {
+        inputEl.scrollIntoView({ block: "nearest", inline: "nearest" });
+        if (sc && typeof sc.scrollTo === "function") {
+          // petit ajustement si besoin (optionnel)
+        }
+      } catch {}
+    }
+
+    // ============ Wiring datalist natif ============
+    if (!useCustom && datalistEl && datalistEl.id) {
+      inputEl.setAttribute("list", datalistEl.id);
+    } else {
+      // iOS/custom : on évite que le natif se déclenche
+      inputEl.removeAttribute("list");
+    }
+
+    // ============ Listeners (UNIFIÉS, sans if(useCustom) partout) ============
+    // click sur box => focus input si click sur input
+    boxEl.addEventListener("click", (ev) => {
+      const t = /** @type {HTMLElement} */ (ev.target);
+      if (!t) return;
+      if (t === inputEl || t.closest?.("input") === inputEl) {
+        inputEl.focus({ preventScroll: true });
+      }
+    });
+
+    // input / focus : doit ouvrir la dropdown même sans taper 
+    inputEl.addEventListener("focus", () => {
+      ensureDD();          // si custom => crée dd; sinon dd reste null
+      refreshSuggestions();
+      if (dd) openDD();
+      scrollInputIntoView();
+    });
+
+    inputEl.addEventListener("input", () => {
+      refreshSuggestions();
+      if (dd) openDD();
+    });
+
+    inputEl.addEventListener("pointerup", () => {
+      refreshAndOpenDD();
+    }, { passive: true });
+
+    inputEl.addEventListener("click", () => {
+      refreshAndOpenDD();
+    });
+
+    // Entrée / virgule => chip
+    inputEl.addEventListener("keydown", (ev) => {
+      // navigation dropdown custom si ouverte
+      if (dd && isOpen && filtered.length) {
+        if (ev.key === "ArrowDown") {
+          ev.preventDefault();
+          setActive(activeIndex + 1);
+          refreshAndOpenDD();
+          return;
+        }
+        if (ev.key === "ArrowUp") {
+          ev.preventDefault();
+          setActive(activeIndex - 1);
+          return;
+        }
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          const pick = filtered[activeIndex];
+          if (pick) selectLabel(pick);
+          return;
+        }
+        if (ev.key === "Escape") {
+          closeDD();
+          return;
+        }
+      }
+
+      // création chip (mode normal)
+      if (ev.key === "Enter" || ev.key === ",") {
+        ev.preventDefault();
+        if (inputEl.value) addToken(inputEl.value);
+        inputEl.value = "";
+        refreshSuggestions();
+        if (dd) openDD();
+      } else if (ev.key === "Backspace" && !inputEl.value) {
+        const last = Array.from(map.values()).pop();
+        if (last) removeToken(last);
+      }
+    });
+
+    // natif datalist : change => chip
+    inputEl.addEventListener("change", () => {
+      // Si custom : “change” peut arriver, mais on ignore (on gère via dd)
+      if (dd) return;
+
+      const v = inputEl.value;
+      if (!v) return;
+      addToken(v);
+      inputEl.value = "";
+      refreshSuggestions();
+    });
+
+    document.addEventListener("pointerdown", (ev) => {
+      if (!isOpen) return;
+
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (!(hit instanceof Element)) {
+        closeDD();
+        return;
+      }
+
+      // ✅ 1) clic sur un item => sélection (ICI)
+      const item = hit.closest(".chipbox-dditem");
+      if (item && dd && dd.contains(item)) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation(); // stoppe tout le reste (autres chipbox comprises)
+        addToken(item.textContent || "");
+        inputEl.value = "";
+        closeDD();
+        // optionnel mais souvent utile après sélection
+        inputEl.focus();
+        return;
+      }
+
+      // ✅ 1bis) clic sur l'input => (ré)ouvrir même si déjà focus
+      if (hit === inputEl || inputEl.contains(hit)) {
+        ev.preventDefault(); // évite des bizarreries iOS / sélection texte
+        ev.stopImmediatePropagation();
+        refreshAndOpenDD();    // <-- c'est LA différence
+        return;
+      }
+
+      // ✅ 1ter) clic dans le wrap de l'input (mais pas dans l'input) => fermer
+      const wrap = hit.closest(".chipbox-inputwrap");
+      if (wrap && boxEl && boxEl.contains(wrap)) {
+        closeDD();
+        return;
+      }
+
+      // ✅ 2) clic à l'intérieur de cette chipbox => on ne ferme pas
+      if (boxEl && boxEl.contains(hit)) return;
+      if (dd && dd.contains(hit)) return;
+
+      // ✅ 3) clic dehors => fermer
+      closeDD();
+    }, { capture: true, passive: false });
+
+    // ============ API / init ============
+    // init suggestions
+    ensureDD(); // si custom => créé maintenant (sinon no-op)
+    refreshSuggestions();
+
+    // init values
+    if (initial && initial.length) setValues(initial);
+
+    return {
+      addToken,
+      removeToken,
+      setValues,
+      getValues,
+      setSuggestions(arr) {
+        suggestions = Array.isArray(arr) ? arr.slice() : [];
+        refreshSuggestions();
+      },
+      destroy() {
+        try { dd?.remove(); } catch {}
+        dd = null;
+        isOpen = false;
+      }
+    };
+  }
 
   // --- iOS detection (simple & suffisante ici)
   const isIOS =
@@ -4776,601 +4913,26 @@ function createChipBox({
   // Si non précisé => auto: iOS => custom, sinon natif
   const useCustom = (useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
 
-  // --- Dropdown custom (si activé)
-  /** @type {HTMLElement | null} */
-  let dd = null;                // container
-  let isOpen = false;
-  let filtered = [];            // suggestions filtrées et non sélectionnées
-  let activeIndex = 0;
-
-  // ============ Helpers UI ============
-  function renderChips() {
-    chipsEl.replaceChildren();
-
-    for (const label of map.values()) {
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      chip.textContent = label;
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.setAttribute("aria-label", `Supprimer ${label}`);
-      btn.textContent = "✕";
-      btn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        map.delete(normKey(label));
-        renderChips();
-        // ton hook UI
-        renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-        if (typeof onChange === "function") {
-          try { onChange(getValues()); } catch {}
-        }
-        // refresh suggestions
-        refreshSuggestions();
-      });
-
-      chip.appendChild(btn);
-      chipsEl.appendChild(chip);
-    }
-  }
-
-  function getValues() {
-    return Array.from(map.values());
-  }
-
-  function addToken(raw) {
-    const label = normToken(raw);
-    if (!label) return;
-    const key = normKey(label);
-    if (!key) return;
-    if (map.has(key)) return;
-
-    map.set(key, label);
-    renderChips();
-    renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-
-    if (typeof onChange === "function") {
-      try { onChange(getValues()); } catch {}
-    }
-    refreshSuggestions();
-  }
-
-  function removeToken(raw) {
-    map.delete(normKey(raw));
-    renderChips();
-    renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-
-    if (typeof onChange === "function") {
-      try { onChange(getValues()); } catch {}
-    }
-    refreshSuggestions();
-  }
-
-  function setValues(arr) {
-    map.clear();
-    for (const v of (arr || [])) {
-      const label = normToken(v);
-      const key = normKey(label);
-      if (!label || !key) continue;
-      if (!map.has(key)) map.set(key, label);
-    }
-    renderChips();
-    renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-
-    if (typeof onChange === "function") {
-      try { onChange(getValues()); } catch {}
-    }
-    refreshSuggestions();
-  }
-
-  // ============ Suggestions (source) ============
-  function normalizeSuggestionList(arr) {
-    const uniq = new Map(); // key -> label
-    for (const s of (arr || [])) {
-      const label = normToken(s);
-      const key = normKey(label);
-      if (!label || !key) continue;
-      if (!uniq.has(key)) uniq.set(key, label);
-    }
-    // enlever les déjà sélectionnés
-    for (const k of map.keys()) uniq.delete(k);
-    return Array.from(uniq.values());
-  }
-
-  function refreshSuggestions() {
-    // 1) calculer filtered (pour custom)
-    const all = normalizeSuggestionList(suggestions);
-    const q = normToken(inputEl.value || "").toLowerCase();
-
-    if (!q) {
-      filtered = all;
-    } else {
-      filtered = all.filter(x => x.toLowerCase().includes(q));
-    }
-
-    // reset active index propre
-    if (activeIndex >= filtered.length) activeIndex = 0;
-
-    // 2) mettre à jour datalist (pour natif) — uniquement si custom OFF
-    if (!useCustom && datalistEl) {
-      datalistEl.replaceChildren();
-      for (const label of all) {
-        const opt = document.createElement("option");
-        opt.value = label;
-        datalistEl.appendChild(opt);
-      }
-    }
-
-    // 3) rendre le custom si présent
-    if (dd) renderDD();
-  }
-
-  function refreshAndOpenDD() {
-      refreshSuggestions();
-      if (filtered.length) openDD();
-  }
-
-  // ============ Dropdown custom ============
-  function ensureDD() {
-    if (!useCustom) return null;
-    if (dd) return dd;
-
-    dd = document.createElement("div");
-    dd.className = "chipbox-dd";
-    dd.setAttribute("role", "listbox");
-    dd.setAttribute("aria-label", "Suggestions");
-
-    const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
-    wrap.appendChild(dd);
-
-    return dd;
-  }
-
-  function openDD() {
-    if (!dd) return;
-    dd.classList.add("open");
-    isOpen = true;
-  }
-
-  function closeDD() {
-    if (!dd) return;
-    dd.classList.remove("open");
-    isOpen = false;
-  }
-
-  function setActive(idx) {
-    activeIndex = Math.max(0, Math.min(filtered.length - 1, idx));
-    if (dd) renderDD();
-  }
-
-  function selectLabel(label) {
-    addToken(label);
-    inputEl.value = "";
-    // 🔥 important : garder focus + réouvrir sans taper (fix critique #1)
-    inputEl.focus({ preventScroll: true });
-    refreshSuggestions();
-    openDD();
-  }
-
-  function renderDD() {
-    if (!dd) return;
-    dd.replaceChildren();
-
-    // rien => ferme
-    if (!filtered.length) {
-      closeDD();
-      return;
-    }
-
-    const list = document.createElement("div");
-    list.className = "chipbox-ddlist";
-
-    filtered.forEach((label, idx) => {
-      const it = document.createElement("div");
-      it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
-      it.setAttribute("role", "option");
-      it.setAttribute("aria-selected", idx === activeIndex ? "true" : "false");
-      it.textContent = label;
-
-      // survol => highlight (critique #2)
-      it.addEventListener("pointerenter", () => setActive(idx));
-
-      // ✅ sélection fiable iOS/desktop :
-      // - mousedown/touchstart + preventDefault empêche blur
-      // - pointerdown idem
-      const onPick = (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        selectLabel(label);
-      };
-
-      list.appendChild(it);
+  if (useCustom) {
+    return initChipBoxCustom({
+      boxEl,
+      inputEl,
+      datalistEl,
+      initial,
+      suggestions,
+      onChange,
+      scrollerEl,
     });
-
-    dd.appendChild(list);
   }
 
-  function scrollInputIntoView() {
-    const sc = scrollerEl || boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet") || null;
-    // on tente un scroll “gentil”
-    try {
-      inputEl.scrollIntoView({ block: "nearest", inline: "nearest" });
-      if (sc && typeof sc.scrollTo === "function") {
-        // petit ajustement si besoin (optionnel)
-      }
-    } catch {}
-  }
-
-  // ============ Wiring datalist natif ============
-  if (!useCustom && datalistEl && datalistEl.id) {
-    inputEl.setAttribute("list", datalistEl.id);
-  } else {
-    // iOS/custom : on évite que le natif se déclenche
-    inputEl.removeAttribute("list");
-  }
-
-  // ============ Listeners (UNIFIÉS, sans if(useCustom) partout) ============
-  // click sur box => focus input si click sur input
-  boxEl.addEventListener("click", (ev) => {
-    const t = /** @type {HTMLElement} */ (ev.target);
-    if (!t) return;
-    if (t === inputEl || t.closest?.("input") === inputEl) {
-      inputEl.focus({ preventScroll: true });
-    }
+  else return initChipBoxNative({
+    boxEl,
+    inputEl,
+    datalistEl,
+    initial,
+    suggestions,
+    onChange,
   });
-
-  // input / focus : doit ouvrir la dropdown même sans taper 
-  inputEl.addEventListener("focus", () => {
-    ensureDD();          // si custom => crée dd; sinon dd reste null
-    refreshSuggestions();
-    if (dd) openDD();
-    scrollInputIntoView();
-  });
-
-  inputEl.addEventListener("input", () => {
-    refreshSuggestions();
-    if (dd) openDD();
-  });
-
-  inputEl.addEventListener("pointerup", () => {
-    refreshAndOpenDD();
-  }, { passive: true });
-
-  inputEl.addEventListener("click", () => {
-    refreshAndOpenDD();
-  });
-
-  // Entrée / virgule => chip
-  inputEl.addEventListener("keydown", (ev) => {
-    // navigation dropdown custom si ouverte
-    if (dd && isOpen && filtered.length) {
-      if (ev.key === "ArrowDown") {
-        ev.preventDefault();
-        setActive(activeIndex + 1);
-        refreshAndOpenDD();
-        return;
-      }
-      if (ev.key === "ArrowUp") {
-        ev.preventDefault();
-        setActive(activeIndex - 1);
-        return;
-      }
-      if (ev.key === "Enter") {
-        ev.preventDefault();
-        const pick = filtered[activeIndex];
-        if (pick) selectLabel(pick);
-        return;
-      }
-      if (ev.key === "Escape") {
-        closeDD();
-        return;
-      }
-    }
-
-    // création chip (mode normal)
-    if (ev.key === "Enter" || ev.key === ",") {
-      ev.preventDefault();
-      if (inputEl.value) addToken(inputEl.value);
-      inputEl.value = "";
-      refreshSuggestions();
-      if (dd) openDD();
-    } else if (ev.key === "Backspace" && !inputEl.value) {
-      const last = Array.from(map.values()).pop();
-      if (last) removeToken(last);
-    }
-  });
-
-  // natif datalist : change => chip
-  inputEl.addEventListener("change", () => {
-    // Si custom : “change” peut arriver, mais on ignore (on gère via dd)
-    if (dd) return;
-
-    const v = inputEl.value;
-    if (!v) return;
-    addToken(v);
-    inputEl.value = "";
-    refreshSuggestions();
-  });
-
-  // ✅ fermer dropdown si clic hors INPUT (critique #3)
-  // (et pas juste hors inputwrap)
-  // document.addEventListener("pointerdown", (ev) => {
-  //   if (!dd || !isOpen) return;
-  //   const t = /** @type {HTMLElement} */ (ev.target);
-  //   if (!t) return;
-
-  //   const clickInInput = (t === inputEl) || !!t.closest?.("input") && (t.closest("input") === inputEl);
-  //   const clickInDD = !!t.closest?.(".chipbox-dd");
-  //   if (!clickInInput && !clickInDD) {
-  //     closeDD();
-  //   }
-  // }, { capture: true });
-// document.addEventListener("pointerdown", (ev) => {
-//   const t = /** @type {HTMLElement} */ (ev.target);
-
-//   // Si clic dans l'input ou dans la dropdown -> on ne ferme PAS
-//   if (t === inputEl || inputEl.contains(t)) return;
-//   if (dd && (t === dd || dd.contains(t))) return;
-//   if (boxEl && (t === boxEl || boxEl.contains(t))) return; // optionnel: si tu considères la chipbox comme "inside"
-
-//   closeDD();
-// }, { capture: true }); // capture=true : important pour être stable sur iOS
-  // inputEl.addEventListener("pointerdown", (ev) => {
-  //   ev.stopPropagation(); // empeche le handler document de se déclencher
-  // }, { capture: true });
-
-// document.addEventListener("pointerdown", (ev) => {
-//   // si clic dans input / dropdown / box => ne pas fermer
-//   if (isInside(ev, inputEl)) return;
-//   if (isInside(ev, dd)) return;
-//   if (isInside(ev, boxEl)) return;
-
-//   console.log("closeDD dans listener document")
-//   closeDD();
-// }, { capture: true });
-// document.addEventListener("pointerdown", (ev) => {
-//   const path = ev.composedPath ? ev.composedPath() : [];
-
-//   const inside =
-//     path.includes(inputEl) ||
-//     (dd && path.includes(dd)) ||
-//     (boxEl && path.includes(boxEl));
-
-//   if (inside) return;
-
-//   closeDD();
-// }, true); // capture:true OK, mais maintenant on ne ferme plus “inside”
-// document.addEventListener("pointerdown", (ev) => {
-  
-//   let t = /** @type {HTMLElement} */ (ev.target);
-
-//   // Safari/iOS: parfois target est un Text node
-//   if (t && t.nodeType === 3) t = t.parentNode;
-
-//   // si on n'a pas un Node, on ferme par défaut
-//   if (!(t instanceof Node)) {
-//     closeDD();
-//     return;
-//   }
-
-//   // ✅ tout ce qui est dans la chipbox (input + dropdown + chips) est "inside"
-//   if (boxEl && boxEl.contains(t)) return;
-
-//   closeDD();
-// }, { capture: true });
-// document.addEventListener("pointerdown", (ev) => {
-//   let t = ev.target;
-
-//   // 🔒 Typage sûr
-//   if (!(t instanceof Node)) {
-//     closeDD();
-//     return;
-//   }
-
-//   // Safari / iOS : target peut être un Text node
-//   if (t.nodeType === Node.TEXT_NODE) {
-//     t = t.parentNode;
-//     if (!(t instanceof Node)) {
-//       closeDD();
-//       return;
-//     }
-//   }
-
-//   // ✅ Tout ce qui est dans la chipbox est considéré "inside"
-//   if (boxEl && boxEl.contains(t)) return;
-
-//   closeDD();
-// }, { capture: true });
-// /** @param {EventTarget|null} t */
-// function toNode(t) {
-//   return (t instanceof Node) ? t : null;
-// }
-
-// document.addEventListener("pointerdown", (ev) => {
-//   /** @type {Node|null} */
-//   let n = toNode(ev.target);
-
-//   // Safari/iOS: parfois target = Text node
-//   if (n && n.nodeType === Node.TEXT_NODE) n = n.parentNode;
-
-//   // Si target est douteux (ou déjà “perdu”), on récupère l’élément réel sous le doigt/souris
-//   if (!n || n === document || n === window) {
-//     const el = document.elementFromPoint(ev.clientX, ev.clientY);
-//     n = el instanceof Node ? el : null;
-//   }
-
-//   if (!n) {
-//     closeDD();
-//     return;
-//   }
-
-//   // ✅ INSIDE = input OU dropdown OU box
-//   if (inputEl && inputEl.contains(n)) return;
-//   if (dd && dd.contains(n)) return;          // <<<< IMPORTANT si dd est dans body
-//   if (boxEl && boxEl.contains(n)) return;
-
-//   closeDD();
-// }, { capture: true });
-
-// /** @param {EventTarget|null} t */
-// function toNode(t) {
-//   return (t instanceof Node) ? t : null;
-// }
-
-// document.addEventListener("pointerdown", (ev) => {
-// if (!isOpen) return;
-
-//   const el = ev.target instanceof Element ? ev.target : null;
-
-//   // ✅ Si clic ailleurs que dans la chipbox, on sort.
-//   if (el && el.closest(".chipbox")) return;
-  
-// console.log("target=", ev.target);
-// console.log("hit=", document.elementFromPoint(ev.clientX, ev.clientY));
-
-//   /** @type {Node|null} */
-//   let n = toNode(ev.target);
-
-//   // Safari/iOS : target parfois Text
-//   if (n && n.nodeType === Node.TEXT_NODE) {
-//     n = n.parentNode;
-//   }
-
-//   // target douteux → récupère l’élément réel sous le pointeur
-//   if (!n || n === document) {
-//     const el = document.elementFromPoint(ev.clientX, ev.clientY);
-//     n = el instanceof Node ? el : null;
-//   }
-
-//   if (!n) {
-//     console.log("!n");
-//     closeDD();
-//     return;
-//   }
-
-//   // ✅ INSIDE = input OU dropdown OU box
-//   if (inputEl && inputEl.contains(n)) {console.log("inputEl && inputEl.contains(n)"); return;}
-//   if (dd && dd.contains(n)) {console.log("dd && dd.contains(n)"); return;}
-//   if (boxEl && boxEl.contains(n)) {console.log("boxEl && boxEl.contains(n)"); return;}
-
-// console.log("closeDD()");
-//   closeDD();
-// }, { capture: true });
-// document.addEventListener("pointerdown", (ev) => {
-//   if (!isOpen) return;
-
-// console.log("target=", ev.target);
-// console.log("hit=", document.elementFromPoint(ev.clientX, ev.clientY));
-
-//   const el = ev.target instanceof Element ? ev.target : null;
-//   if (!el) {console.log("!el"); return;}
-
-//   // tout ce qui est dans la chipbox est "inside"
-//   if (el.closest(".chipbox")) {console.log("el.closest('.chipbox')"); return;}
-
-//   console.log("closeDD");
-//   closeDD();
-// }, { capture: true });
-// document.addEventListener("pointerdown", (ev) => {
-//   if (!isOpen) return;
-
-//   const hit = document.elementFromPoint(ev.clientX, ev.clientY);
-//   if (!(hit instanceof Element)) {
-//   console.log("clic ailleurs");
-//     closeDD();
-//     return;
-//   }
-
-//   // ✅ 1) clic sur un item => on sélectionne ICI (car dd/item ne reçoivent pas l'event chez toi)
-//   const item = hit.closest(".chipbox-dditem");
-//   if (item && dd && dd.contains(item)) {
-//     ev.preventDefault();
-//     ev.stopImmediatePropagation(); // stoppe tout le reste
-//     addToken(item.textContent || "");
-//     inputEl.value = "";
-//   console.log("clic sur un item");
-//     closeDD();
-//     return;
-//   }
-
-//   // ✅ 2) clic à l'intérieur de cette chipbox => on ne ferme pas
-//   if (boxEl && boxEl.contains(hit)) {console.log("boxEl && boxEl.contains(hit)"); return;}
-//   if (dd && dd.contains(hit)) {console.log("dd && dd.contains(hit)"); return;}
-//   if (inputEl && inputEl.contains(hit)) {console.log("inputEl && inputEl.contains(hit)"); return;}
-
-//   // ✅ 3) clic dehors => fermer
-//   console.log("closeDD");
-//   closeDD();
-// }, { capture: true, passive: false });
-document.addEventListener("pointerdown", (ev) => {
-  if (!isOpen) return;
-
-  const hit = document.elementFromPoint(ev.clientX, ev.clientY);
-  if (!(hit instanceof Element)) {
-    closeDD();
-    return;
-  }
-
-  // ✅ 1) clic sur un item => sélection (ICI)
-  const item = hit.closest(".chipbox-dditem");
-  if (item && dd && dd.contains(item)) {
-    ev.preventDefault();
-    ev.stopImmediatePropagation(); // stoppe tout le reste (autres chipbox comprises)
-    addToken(item.textContent || "");
-    inputEl.value = "";
-    closeDD();
-    // optionnel mais souvent utile après sélection
-    inputEl.focus();
-    return;
-  }
-
-  // ✅ 1bis) clic sur l'input => (ré)ouvrir même si déjà focus
-  if (hit === inputEl || inputEl.contains(hit)) {
-    ev.preventDefault(); // évite des bizarreries iOS / sélection texte
-    ev.stopImmediatePropagation();
-    refreshAndOpenDD();    // <-- c'est LA différence
-    return;
-  }
-
-  // ✅ 1ter) clic dans le wrap de l'input (mais pas dans l'input) => fermer
-  const wrap = hit.closest(".chipbox-inputwrap");
-  if (wrap && boxEl && boxEl.contains(wrap)) {
-    closeDD();
-    return;
-  }
-
-  // ✅ 2) clic à l'intérieur de cette chipbox => on ne ferme pas
-  if (boxEl && boxEl.contains(hit)) return;
-  if (dd && dd.contains(hit)) return;
-
-  // ✅ 3) clic dehors => fermer
-  closeDD();
-}, { capture: true, passive: false });
-
-  // ============ API / init ============
-  // init suggestions
-  ensureDD(); // si custom => créé maintenant (sinon no-op)
-  refreshSuggestions();
-
-  // init values
-  if (initial && initial.length) setValues(initial);
-
-  return {
-    addToken,
-    removeToken,
-    setValues,
-    getValues,
-    setSuggestions(arr) {
-      suggestions = Array.isArray(arr) ? arr.slice() : [];
-      refreshSuggestions();
-    },
-    destroy() {
-      try { dd?.remove(); } catch {}
-      dd = null;
-      isOpen = false;
-    }
-  };
 }
 
       btnApply.disabled = true;
