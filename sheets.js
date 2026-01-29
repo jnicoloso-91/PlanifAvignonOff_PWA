@@ -4694,6 +4694,8 @@ function createChipBox({
       inputEl.focus({ preventScroll: true });
       refreshSuggestions();
       openDD();
+
+      ensureInputVisible({ tries: 4 });
     }
 
     function renderDD() {
@@ -4736,28 +4738,115 @@ function createChipBox({
       } catch {}
     }
 
+// function installKeyboardViewportFix() {
+//   const vv = window.visualViewport;
+//   if (!vv) return () => {};
+
+//   const sc = scrollerEl
+//     || boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet")
+//     || document.scrollingElement
+//     || document.documentElement;
+
+//   if (!(sc instanceof HTMLElement)) return () => {};
+
+//   const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+
+//   function apply() {
+//     // hauteur “mangée” par clavier = innerHeight - visualViewport.height - offsetTop
+//     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+//     sc.style.paddingBottom = `${basePad + kb + 12}px`; // +12 pour respirer
+
+//     // remonte l’input si besoin (après layout)
+//     requestAnimationFrame(() => {
+//       try { inputEl.scrollIntoView({ block: "center", inline: "nearest" }); } catch {}
+//     });
+//   }
+
+//   function reset() {
+//     sc.style.paddingBottom = `${basePad}px`;
+//   }
+
+//   vv.addEventListener("resize", apply);
+//   vv.addEventListener("scroll", apply);
+
+//   inputEl.addEventListener("focus", apply, { passive: true });
+//   inputEl.addEventListener("blur", reset, { passive: true });
+
+//   return () => {
+//     vv.removeEventListener("resize", apply);
+//     vv.removeEventListener("scroll", apply);
+//     inputEl.removeEventListener("focus", apply);
+//     inputEl.removeEventListener("blur", reset);
+//     reset();
+//   };
+// }
+function getScrollContainer() {
+  const sc =
+    scrollerEl ||
+    boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet") ||
+    document.scrollingElement ||
+    document.documentElement;
+  return (sc instanceof HTMLElement) ? sc : null;
+}
+
+function ensureInputVisible({ tries = 3 } = {}) {
+  const sc = getScrollContainer();
+  if (!sc) return;
+
+  const vv = window.visualViewport;
+  const marginTop = 12;
+  const marginBottom = 12;
+
+  const runOnce = () => {
+    const rect = inputEl.getBoundingClientRect();
+
+    // hauteur “visible” utile
+    const viewH = vv ? vv.height : window.innerHeight;
+
+    // zone visible (dans le viewport visuel)
+    const topLimit = marginTop;
+    const bottomLimit = Math.max(topLimit + 40, viewH - marginBottom);
+
+    let dy = 0;
+
+    if (rect.bottom > bottomLimit) {
+      dy = rect.bottom - bottomLimit;
+    } else if (rect.top < topLimit) {
+      dy = rect.top - topLimit;
+    }
+
+    if (dy) {
+      // scroll “dans le bon conteneur”
+      sc.scrollTop += dy;
+    }
+  };
+
+  // iOS: le clavier + vv changent en plusieurs temps → on répète
+  let n = 0;
+  const tick = () => {
+    runOnce();
+    n++;
+    if (n < tries) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+
+  // et un dernier coup après stabilisation (optionnel mais utile iOS)
+  setTimeout(runOnce, 120);
+}
+
 function installKeyboardViewportFix() {
   const vv = window.visualViewport;
   if (!vv) return () => {};
 
-  const sc = scrollerEl
-    || boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet")
-    || document.scrollingElement
-    || document.documentElement;
-
-  if (!(sc instanceof HTMLElement)) return () => {};
+  const sc = getScrollContainer();
+  if (!sc) return () => {};
 
   const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
 
   function apply() {
-    // hauteur “mangée” par clavier = innerHeight - visualViewport.height - offsetTop
     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
-    sc.style.paddingBottom = `${basePad + kb + 12}px`; // +12 pour respirer
-
-    // remonte l’input si besoin (après layout)
-    requestAnimationFrame(() => {
-      try { inputEl.scrollIntoView({ block: "center", inline: "nearest" }); } catch {}
-    });
+    sc.style.paddingBottom = `${basePad + kb + 12}px`;
+    ensureInputVisible({ tries: 4 });
   }
 
   function reset() {
@@ -4816,6 +4905,7 @@ function onGlobalPick(ev) {
     ev.preventDefault();
     ev.stopImmediatePropagation();
     refreshAndOpenDD();
+    ensureInputVisible({ tries: 4 });
     return;
   }
 
@@ -4855,7 +4945,8 @@ function onGlobalPick(ev) {
       ensureDD();          // si custom => crée dd; sinon dd reste null
       refreshSuggestions();
       if (dd) openDD();
-      scrollInputIntoView();
+      // scrollInputIntoView();
+      ensureInputVisible({ tries: 4 });
     });
 
     inputEl.addEventListener("input", () => {
