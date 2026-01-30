@@ -4700,8 +4700,8 @@ export function openSheetAssistantProgrammation() {
 
             // 2) tap dans input => (ré)ouvrir
             if (hit === inputEl || inputEl.contains(hit)) {
-              // ev.preventDefault();
-              // ev.stopImmediatePropagation();
+              ev.preventDefault();
+              ev.stopImmediatePropagation();
               refreshAndOpenDD();
               ensureInputVisible({ tries: 4 });
               return;
