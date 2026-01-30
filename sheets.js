@@ -4962,7 +4962,7 @@ getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
 
         // --- Choix : custom dropdown ?
         // Si non précisé => auto: iOS => custom, sinon natif
-        const useCustom = true; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
+        const useCustom = false; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
 
         if (useCustom) {
           return initChipBoxCustom({
