@@ -4515,8 +4515,8 @@ export function openSheetAssistantProgrammation() {
             refreshSuggestions();
 
             // OpenDD -> la dropdown reste ouverte sur sélection item, sinon CloseDD -> la dropdown se ferme sur sélection item
-            openDD();
-            // closeDD();
+            // openDD();
+            closeDD();
 
             ensureInputVisible({ tries: 4 });
           }
