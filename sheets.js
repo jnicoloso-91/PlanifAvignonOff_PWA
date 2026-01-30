@@ -4349,6 +4349,12 @@ export function openSheetAssistantProgrammation() {
           const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
           const map = new Map(); // key -> label
 
+function isStandalone() {
+  return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
+}
+
+const NEED_PORTAL = true; //isIOS && (isStandalone() || true);
+
           // --- Dropdown custom (si activé)
           /** @type {HTMLElement | null} */
           let dd = null;                // container
@@ -4476,90 +4482,186 @@ export function openSheetAssistantProgrammation() {
           }
 
           // ============ Dropdown custom ============
-          function ensureDD() {
-            if (dd) return dd;
+          // function ensureDD() {
+          //   if (dd) return dd;
 
-            dd = document.createElement("div");
-            dd.className = "chipbox-dd";
+          //   dd = document.createElement("div");
+          //   dd.className = "chipbox-dd";
+          //   dd.setAttribute("role", "listbox");
+          //   dd.setAttribute("aria-label", "Suggestions");
+
+          //   const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
+          //   wrap.appendChild(dd);
+
+          //   return dd;
+          // }
+// function ensureDD() {
+//   if (dd) return dd;
+
+//   dd = document.createElement("div");
+//   dd.className = "chipbox-dd";
+//   dd.setAttribute("role", "listbox");
+//   dd.setAttribute("aria-label", "Suggestions");
+
+//   // ✅ portal body
+//   dd.style.position = "fixed";
+//   dd.style.zIndex = "999999";
+//   dd.hidden = true;
+
+//   document.body.appendChild(dd);
+//   return dd;
+// }
+function ensureDD() {
+  if (dd) return dd;
+
+  dd = document.createElement("div");
+  dd.className = "chipbox-dd";
+  dd.setAttribute("role", "listbox");
+  dd.setAttribute("aria-label", "Suggestions");
+
+  if (NEED_PORTAL) {
+    dd.style.position = "fixed";
+    dd.style.zIndex = "999999";
+    dd.hidden = true;
+    document.body.appendChild(dd);
+  } else {
+    // desktop: on reste local (fluide, pas de lag)
+    // const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
+    // wrap.style.position = wrap.style.position || "relative";
+    // dd.style.position = "absolute";
+    // dd.style.left = "0px";
+    // dd.style.top = "100%";
+    // dd.style.width = "100%";
+    // dd.hidden = true;
+    // wrap.appendChild(dd);
             dd.setAttribute("role", "listbox");
             dd.setAttribute("aria-label", "Suggestions");
 
             const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
             wrap.appendChild(dd);
+  }
 
-            return dd;
-          }
+  return dd;
+}
+          // function openDD() {
+          //   if (!dd) return;
+          //   dd.classList.add("open");
+          //   isOpen = true;
+          // }
 
-          function openDD() {
-            if (!dd) return;
-            dd.classList.add("open");
-            isOpen = true;
-          }
+          // function closeDD() {
+          //   if (!dd) return;
+          //   dd.classList.remove("open");
+          //   isOpen = false;
+          // }
+function positionDD() {
+  if (!dd || !NEED_PORTAL) return;
+  const r = inputEl.getBoundingClientRect();
+  const vv = window.visualViewport;
+  const offL = vv?.offsetLeft ?? 0;
+  const offT = vv?.offsetTop ?? 0;
 
-          function closeDD() {
-            if (!dd) return;
-            dd.classList.remove("open");
-            isOpen = false;
-          }
+  dd.style.left = (r.left + offL) + "px";
+  dd.style.top = (r.bottom + offT) + "px";
+  dd.style.width = r.width + "px";
+}
+
+function openDD() {
+  if (!dd) return;
+  positionDD();
+  dd.hidden = false;
+  dd.classList.add("open");
+  isOpen = true;
+}
+
+function closeDD() {
+  if (!dd) return;
+  dd.classList.remove("open");
+  dd.hidden = true;
+  isOpen = false;
+}
 
           function setActive(idx) {
             activeIndex = Math.max(0, Math.min(filtered.length - 1, idx));
             if (dd) renderDD();
           }
 
-          function selectLabel(label) {
-            addToken(label);
-            inputEl.value = "";
-            // 🔥 important : garder focus + réouvrir sans taper (fix critique #1)
-            inputEl.focus({ preventScroll: true });
-            refreshSuggestions();
+          // function selectLabel(label) {
+          //   addToken(label);
+          //   inputEl.value = "";
+          //   // 🔥 important : garder focus + réouvrir sans taper (fix critique #1)
+          //   inputEl.focus({ preventScroll: true });
+          //   refreshSuggestions();
 
-            // OpenDD -> la dropdown reste ouverte sur sélection item, sinon CloseDD -> la dropdown se ferme sur sélection item
-            // openDD();
-            closeDD();
+          //   // OpenDD -> la dropdown reste ouverte sur sélection item, sinon CloseDD -> la dropdown se ferme sur sélection item
+          //   // openDD();
+          //   closeDD();
 
-            ensureInputVisible({ tries: 4 });
-          }
+          //   ensureInputVisible({ tries: 4 });
+          // }
+function selectLabel(label) {
+  addToken(label);
+  inputEl.value = "";
 
-          function renderDD() {
-            if (!dd) return;
-            dd.replaceChildren();
+  refreshSuggestions();
+  closeDD();
 
-            // rien => ferme
-            if (!filtered.length) {
-              closeDD();
-              return;
-            }
+  // iOS: ne PAS forcer focus ici, sinon clavier + jumps
+  // inputEl.focus({ preventScroll: true });
 
-            const list = document.createElement("div");
-            list.className = "chipbox-ddlist";
+  // idem: ne pas scroller ici, laisse le viewport se stabiliser
+  // ensureInputVisible({ tries: 4 });
+}
 
-            filtered.forEach((label, idx) => {
-              const it = document.createElement("div");
-              it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
-              it.setAttribute("role", "option");
-              it.setAttribute("aria-selected", idx === activeIndex ? "true" : "false");
-              it.textContent = label;
+          // function renderDD() {
+          //   if (!dd) return;
+          //   dd.replaceChildren();
 
-              // survol => highlight (critique #2)
-              it.addEventListener("pointerenter", () => setActive(idx));
+          //   // rien => ferme
+          //   if (!filtered.length) {
+          //     closeDD();
+          //     return;
+          //   }
 
-              list.appendChild(it);
-            });
+          //   const list = document.createElement("div");
+          //   list.className = "chipbox-ddlist";
 
-            dd.appendChild(list);
-          }
+          //   filtered.forEach((label, idx) => {
+          //     const it = document.createElement("div");
+          //     it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
+          //     it.setAttribute("role", "option");
+          //     it.setAttribute("aria-selected", idx === activeIndex ? "true" : "false");
+          //     it.textContent = label;
 
-          function scrollInputIntoView() {
-            const sc = scrollerEl || boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet") || null;
-            // on tente un scroll “gentil”
-            try {
-              inputEl.scrollIntoView({ block: "nearest", inline: "nearest" });
-              if (sc && typeof sc.scrollTo === "function") {
-                // petit ajustement si besoin (optionnel)
-              }
-            } catch {}
-          }
+          //     // survol => highlight (critique #2)
+          //     it.addEventListener("pointerenter", () => setActive(idx));
+
+          //     list.appendChild(it);
+          //   });
+
+          //   dd.appendChild(list);
+          // }
+function renderDD() {
+  if (!dd) return;
+  dd.replaceChildren();
+
+  if (!filtered.length) { closeDD(); return; }
+
+  const list = document.createElement("div");
+  list.className = "chipbox-ddlist";
+
+  filtered.forEach((label, idx) => {
+    const it = document.createElement("div");
+    it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
+    it.textContent = label;
+
+    it.addEventListener("pointerenter", () => setActive(idx));
+    list.appendChild(it);
+  });
+
+  dd.appendChild(list);
+  positionDD(); // ✅
+}
 
           function getScrollContainer() {
             const sc =
@@ -4681,13 +4783,22 @@ export function openSheetAssistantProgrammation() {
             }
 
             // 2) tap dans input => (ré)ouvrir
-            if (hit === inputEl || inputEl.contains(hit)) {
-              ev.preventDefault();
-              ev.stopImmediatePropagation();
-              refreshAndOpenDD();
-              ensureInputVisible({ tries: 4 });
-              return;
-            }
+            // if (hit === inputEl || inputEl.contains(hit)) {
+            //   ev.preventDefault();
+            //   ev.stopImmediatePropagation();
+            //   refreshAndOpenDD();
+            //   ensureInputVisible({ tries: 4 });
+            //   return;
+            // }
+if (hit === inputEl || inputEl.contains(hit)) {
+  // iOS: laisser le navigateur faire le focus / clavier
+  if (ev.type === "pointerup" || ev.type === "touchend") {
+    refreshAndOpenDD();
+    // évite ensureInputVisible ici, ça crée des jumps pendant l'ouverture du clavier
+    // ensureInputVisible({ tries: 4 });
+  }
+  return;
+}
 
             // 3) tap dans le wrap input (mais pas input) => fermer
             const wrap = hit.closest(".chipbox-inputwrap");
@@ -4707,6 +4818,26 @@ export function openSheetAssistantProgrammation() {
           inputEl.removeAttribute("list");
 
           // ============ Listeners ============
+
+// window.visualViewport?.addEventListener("resize", () => { if (isOpen) positionDD(); });
+// window.visualViewport?.addEventListener("scroll",  () => { if (isOpen) positionDD(); });
+// window.addEventListener("scroll", () => { if (isOpen) positionDD(); }, { passive: true });
+let posScheduled = false;
+function schedulePositionDD() {
+  if (!NEED_PORTAL || !isOpen) return;
+  if (posScheduled) return;
+  posScheduled = true;
+  requestAnimationFrame(() => {
+    posScheduled = false;
+    positionDD();
+  });
+}
+
+window.visualViewport?.addEventListener("resize", schedulePositionDD);
+window.visualViewport?.addEventListener("scroll", schedulePositionDD);
+window.addEventListener("scroll", schedulePositionDD, { passive: true });
+getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
+
           // click sur box => focus input si click sur input
           boxEl.addEventListener("click", (ev) => {
             const t = /** @type {HTMLElement} */ (ev.target);
@@ -4730,13 +4861,13 @@ export function openSheetAssistantProgrammation() {
             if (dd) openDD();
           });
 
-          inputEl.addEventListener("pointerup", () => {
-            refreshAndOpenDD();
-          }, { passive: true });
+          // inputEl.addEventListener("pointerup", () => {
+          //   refreshAndOpenDD();
+          // }, { passive: true });
 
-          inputEl.addEventListener("click", () => {
-            refreshAndOpenDD();
-          });
+          // inputEl.addEventListener("click", () => {
+          //   refreshAndOpenDD();
+          // });
 
           // Entrée / virgule => chip
           inputEl.addEventListener("keydown", (ev) => {
@@ -4790,8 +4921,8 @@ export function openSheetAssistantProgrammation() {
             refreshSuggestions();
           });
 
-          // ⚠️ Important : écoute sur pointerup + touchend (pas seulement pointerdown)
-          document.addEventListener("pointerdown", onGlobalPick, { capture: true, passive: false });
+          // ⚠️ Important : écoute sur pointerup + touchend (pointerdown à eviter sur IOS)
+          // document.addEventListener("pointerdown", onGlobalPick, { capture: true, passive: false });
           document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
           document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
 
