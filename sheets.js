@@ -4349,15 +4349,6 @@ export function openSheetAssistantProgrammation() {
           const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
           const map = new Map(); // key -> label
 
-          // --- iOS detection (simple & suffisante ici)
-          const isIOS =
-            /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-            (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-
-          // --- Choix : custom dropdown ?
-          // Si non précisé => auto: iOS => custom, sinon natif
-          const useCustom = (useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
-
           // --- Dropdown custom (si activé)
           /** @type {HTMLElement | null} */
           let dd = null;                // container
@@ -4461,6 +4452,7 @@ export function openSheetAssistantProgrammation() {
           }
 
           function refreshSuggestions() {
+
             // 1) calculer filtered (pour custom)
             const all = normalizeSuggestionList(suggestions);
             const q = normToken(inputEl.value || "").toLowerCase();
@@ -4474,17 +4466,7 @@ export function openSheetAssistantProgrammation() {
             // reset active index propre
             if (activeIndex >= filtered.length) activeIndex = 0;
 
-            // 2) mettre à jour datalist (pour natif) — uniquement si custom OFF
-            if (!useCustom && datalistEl) {
-              datalistEl.replaceChildren();
-              for (const label of all) {
-                const opt = document.createElement("option");
-                opt.value = label;
-                datalistEl.appendChild(opt);
-              }
-            }
-
-            // 3) rendre le custom si présent
+            // rendre la dropdown custom si présente
             if (dd) renderDD();
           }
 
@@ -4495,7 +4477,6 @@ export function openSheetAssistantProgrammation() {
 
           // ============ Dropdown custom ============
           function ensureDD() {
-            if (!useCustom) return null;
             if (dd) return dd;
 
             dd = document.createElement("div");
@@ -4534,8 +4515,8 @@ export function openSheetAssistantProgrammation() {
             refreshSuggestions();
 
             // OpenDD -> la dropdown reste ouverte sur sélection item, sinon CloseDD -> la dropdown se ferme sur sélection item
-            openDD();
-            // closeDD();
+            // openDD();
+            closeDD();
 
             ensureInputVisible({ tries: 4 });
           }
@@ -4680,6 +4661,7 @@ export function openSheetAssistantProgrammation() {
           }
 
           function onGlobalPick(ev) {
+            console.log("onGlobalPick");
             if (!isOpen) return;
 
             const xy = getClientXY(ev);
@@ -4721,15 +4703,10 @@ export function openSheetAssistantProgrammation() {
             closeDD();
           }
 
-          // ============ Wiring datalist natif ============
-          if (!useCustom && datalistEl && datalistEl.id) {
-            inputEl.setAttribute("list", datalistEl.id);
-          } else {
-            // iOS/custom : on évite que le natif se déclenche
-            inputEl.removeAttribute("list");
-          }
+          // ============ Remove datalist natif ============
+          inputEl.removeAttribute("list");
 
-          // ============ Listeners (UNIFIÉS, sans if(useCustom) partout) ============
+          // ============ Listeners ============
           // click sur box => focus input si click sur input
           boxEl.addEventListener("click", (ev) => {
             const t = /** @type {HTMLElement} */ (ev.target);
@@ -4814,6 +4791,7 @@ export function openSheetAssistantProgrammation() {
           });
 
           // ⚠️ Important : écoute sur pointerup + touchend (pas seulement pointerdown)
+          document.addEventListener("pointerdown", onGlobalPick, { capture: true, passive: false });
           document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
           document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
 
@@ -4823,7 +4801,7 @@ export function openSheetAssistantProgrammation() {
           refreshSuggestions();
 
           let cleanupViewportFix = () => {};
-          if (useCustom) cleanupViewportFix = installKeyboardViewportFix();
+          cleanupViewportFix = installKeyboardViewportFix();
 
           // init values
           if (initial && initial.length) setValues(initial);
@@ -4853,7 +4831,7 @@ export function openSheetAssistantProgrammation() {
 
         // --- Choix : custom dropdown ?
         // Si non précisé => auto: iOS => custom, sinon natif
-        const useCustom = (useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
+        const useCustom = true; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
 
         if (useCustom) {
           return initChipBoxCustom({
