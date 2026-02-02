@@ -4599,12 +4599,6 @@ export function openSheetAssistantProgrammation() {
 
             refreshSuggestions();
             closeDD();
-
-            // iOS: ne PAS forcer focus ici, sinon clavier + jumps
-            // inputEl.focus({ preventScroll: true });
-
-            // idem: ne pas scroller ici, laisse le viewport se stabiliser
-            // ensureInputVisible({ tries: 4 });
           }
 
           function getScrollContainer() {
@@ -4628,6 +4622,16 @@ export function openSheetAssistantProgrammation() {
 
             return Math.ceil(bar.getBoundingClientRect().height || 0);
           }
+
+let ignoreVVUntil = 0;
+
+function withIgnoreVV(ms = 180) {
+  ignoreVVUntil = Date.now() + ms;
+}
+
+function isIgnoringVV() {
+  return Date.now() < ignoreVVUntil;
+}
 
           function ensureInputVisible({ tries = 4, marginTop = 10, marginBottom = 14 } = {}) {
             const vv = window.visualViewport;
@@ -4685,7 +4689,7 @@ export function openSheetAssistantProgrammation() {
           let lastEnsureAt = 0;
           function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
             if (Date.now() - lastEnsureAt < 250) return;
-            
+
             const vv = window.visualViewport;
             if (!vv) return;
 
@@ -4703,6 +4707,7 @@ export function openSheetAssistantProgrammation() {
             if (Math.abs(dy) <= 4) return;
 
             // ✅ un seul scroll (pas de boucle)
+            withIgnoreVV(220);
             window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
           }
 
@@ -4739,6 +4744,53 @@ export function openSheetAssistantProgrammation() {
 
           //   return api;
           // } 
+// function installKeyboardViewportFix() {
+//   const noop = () => {};
+//   const api = { apply: noop, reset: noop, cleanup: noop };
+
+//   const vv = window.visualViewport;
+//   if (!vv) return api;
+
+//   const sc = getScrollContainer?.();
+//   if (!sc) return api;
+
+//   const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+
+//   let tEnsure = 0;
+
+//   function scheduleEnsure() {
+//     clearTimeout(tEnsure);
+//     // attendre que iOS finisse ses ajustements clavier/viewport
+//     tEnsure = window.setTimeout(() => {
+//       ensureInputVisibleOneShot({ marginBottom: 18 });
+//     }, 120);
+//   }
+
+//   api.apply = function apply() {
+//     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+//     sc.style.paddingBottom = `${basePad + kb + 12}px`;
+
+//     // ✅ pas d'ensure ici en direct
+//     scheduleEnsure();
+//   };
+
+//   api.reset = function reset() {
+//     clearTimeout(tEnsure);
+//     sc.style.paddingBottom = `${basePad}px`;
+//   };
+
+//   vv.addEventListener("resize", api.apply);
+//   vv.addEventListener("scroll", api.apply);
+
+//   api.cleanup = function cleanup() {
+//     clearTimeout(tEnsure);
+//     vv.removeEventListener("resize", api.apply);
+//     vv.removeEventListener("scroll", api.apply);
+//     api.reset();
+//   };
+
+//   return api;
+// }
 function installKeyboardViewportFix() {
   const noop = () => {};
   const api = { apply: noop, reset: noop, cleanup: noop };
@@ -4755,17 +4807,19 @@ function installKeyboardViewportFix() {
 
   function scheduleEnsure() {
     clearTimeout(tEnsure);
-    // attendre que iOS finisse ses ajustements clavier/viewport
     tEnsure = window.setTimeout(() => {
+      // ✅ ne corrige que si l'input est encore focus (sinon ça bouge pour rien)
+      if (document.activeElement !== inputEl) return;
       ensureInputVisibleOneShot({ marginBottom: 18 });
     }, 120);
   }
 
   api.apply = function apply() {
+    if (isIgnoringVV()) return; // ✅ coupe la boucle
+
     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
     sc.style.paddingBottom = `${basePad + kb + 12}px`;
 
-    // ✅ pas d'ensure ici en direct
     scheduleEnsure();
   };
 
@@ -4786,7 +4840,6 @@ function installKeyboardViewportFix() {
 
   return api;
 }
-
           function getClientXY(ev) {
             // PointerEvent / MouseEvent
             if (typeof ev.clientX === "number" && typeof ev.clientY === "number") {
