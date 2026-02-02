@@ -4360,7 +4360,7 @@ export function openSheetAssistantProgrammation() {
           let activeIndex = 0;
 
           // Informe le enableKeyboardAutoScroll (auto scroller par défaut) de ne pas agir
-          inputEl.dataset.keyboardManager = "true";
+          inputEl.dataset.keyboardManaged = "true";
 
           // ============ Helpers UI ============
           function isStandalone() {
