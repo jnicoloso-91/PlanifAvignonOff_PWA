@@ -4686,30 +4686,64 @@ function isIgnoringVV() {
             requestAnimationFrame(() => setTimeout(tick, 0));
           }
 
-          let lastEnsureAt = 0;
-          function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
-            if (Date.now() - lastEnsureAt < 250) return;
+          // let lastEnsureAt = 0;
+          // function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
+          //   if (Date.now() - lastEnsureAt < 250) return;
 
-            const vv = window.visualViewport;
-            if (!vv) return;
+          //   const vv = window.visualViewport;
+          //   if (!vv) return;
 
-            const r = inputEl.getBoundingClientRect();
-            const barH = getBottomBarHeight();
+          //   const r = inputEl.getBoundingClientRect();
+          //   const barH = getBottomBarHeight();
 
-            const minY = vv.offsetTop + marginTop;
-            const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
+          //   const minY = vv.offsetTop + marginTop;
+          //   const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
 
-            let dy = 0;
-            if (r.top < minY) dy = r.top - minY;
-            else if (r.bottom > maxY) dy = r.bottom - maxY;
+          //   let dy = 0;
+          //   if (r.top < minY) dy = r.top - minY;
+          //   else if (r.bottom > maxY) dy = r.bottom - maxY;
 
-            // dead-zone anti micro-jitter
-            if (Math.abs(dy) <= 4) return;
+          //   // dead-zone anti micro-jitter
+          //   if (Math.abs(dy) <= 4) return;
 
-            // ✅ un seul scroll (pas de boucle)
-            withIgnoreVV(220);
-            window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
-          }
+          //   // ✅ un seul scroll (pas de boucle)
+          //   withIgnoreVV(220);
+          //   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
+          // }
+let lastEnsureAt = 0;
+function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
+  if (Date.now() - lastEnsureAt < 250) return;
+  const vv = window.visualViewport;
+  if (!vv) return;
+
+  const r = inputEl.getBoundingClientRect();
+  const barH = getBottomBarHeight();
+
+  // ✅ Convertit le rect "layout viewport" -> repère "visual viewport"
+  const topVV = r.top - (vv.offsetTop || 0);
+  const bottomVV = r.bottom - (vv.offsetTop || 0);
+
+  // zone utile dans le visual viewport
+  const minY = marginTop;
+  const maxY = vv.height - barH - marginBottom;
+
+  let dy = 0;
+
+  // Trop haut => on doit remonter la page (scrollY diminue)
+  if (topVV < minY) {
+    dy = topVV - minY;            // dy négatif
+  }
+  // Trop bas (sous le clavier / sous la barre) => on descend la page (scrollY augmente)
+  else if (bottomVV > maxY) {
+    dy = bottomVV - maxY;         // dy positif
+  }
+
+  // dead-zone anti micro jitter
+  if (Math.abs(dy) <= 6) return;
+
+  withIgnoreVV(220); // ton verrou anti-feedback
+  window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
+}
 
           // function installKeyboardViewportFix() {
           //   const noop = () => {};
