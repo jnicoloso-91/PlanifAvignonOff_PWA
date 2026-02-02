@@ -4479,7 +4479,7 @@ const NEED_PORTAL = isIOS && (isStandalone() || true);
           function refreshAndOpenDD() {
               refreshSuggestions();
               // if (filtered.length) openDD();
-if (dd && canAutoOpen() && filtered.length) openDD();
+if (dd && filtered.length) openDD();
           }
 
           // ============ Dropdown custom ============
@@ -5077,7 +5077,7 @@ inputEl.addEventListener("blur", () => {
 
           inputEl.addEventListener("input", () => {
             refreshSuggestions();
-            if (dd && canAutoOpen()) openDD();
+            if (dd) openDD();
           });
 
           // inputEl.addEventListener("pointerup", () => {
@@ -5121,7 +5121,7 @@ inputEl.addEventListener("blur", () => {
               if (inputEl.value) addToken(inputEl.value);
               inputEl.value = "";
               refreshSuggestions();
-              if (dd && canAutoOpen()) openDD();
+              // if (dd) openDD();
             } else if (ev.key === "Backspace" && !inputEl.value) {
               const last = Array.from(map.values()).pop();
               if (last) removeToken(last);
