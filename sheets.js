@@ -4582,7 +4582,6 @@ export function openSheetAssistantProgrammation() {
 
           function refreshAndOpenDD() {
               refreshSuggestions();
-              // if (filtered.length) openDD();
               if (dd && filtered.length) openDD();
           }
 
@@ -4638,37 +4637,80 @@ export function openSheetAssistantProgrammation() {
             // (si un jour tu veux un scroller interne, on fera une autre version)
             let attempt = 0;
 
-            const tick = () => {
-              attempt++;
+            // const tick = () => {
+            //   attempt++;
 
-              const r = inputEl.getBoundingClientRect(); // repère layout viewport
-              const barH = getBottomBarHeight();
+            //   const r = inputEl.getBoundingClientRect(); // repère layout viewport
+            //   const barH = getBottomBarHeight();
 
-              // zone visible utile dans le repère layout viewport
-              const minY = vv.offsetTop + marginTop;
+            //   // zone visible utile dans le repère layout viewport
+            //   const minY = vv.offsetTop + marginTop;
 
-              // vv.height exclut déjà le clavier, mais PAS ta bottom bar
-              const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
+            //   // vv.height exclut déjà le clavier, mais PAS ta bottom bar
+            //   const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
 
-              let dy = 0;
+            //   let dy = 0;
 
-              // Trop haut => on scroll UP (dy négatif)
-              if (r.top < minY) {
-                dy = r.top - minY;
-              }
-              // Trop bas => on scroll DOWN (dy positif)
-              else if (r.bottom > maxY) {
-                dy = r.bottom - maxY;
-              }
+            //   // Trop haut => on scroll UP (dy négatif)
+            //   if (r.top < minY) {
+            //     dy = r.top - minY;
+            //   }
+            //   // Trop bas => on scroll DOWN (dy positif)
+            //   else if (r.bottom > maxY) {
+            //     dy = r.bottom - maxY;
+            //   }
 
-              if (dy !== 0) {
-                window.scrollBy({ top: dy, left: 0, behavior: "auto" });
-              }
+            //   if (dy !== 0) {
+            //     window.scrollBy({ top: dy, left: 0, behavior: "auto" });
+            //   }
 
-              if (attempt < tries) {
-                requestAnimationFrame(() => setTimeout(tick, 0));
-              }
-            };
+            //   if (attempt < tries) {
+            //     requestAnimationFrame(() => setTimeout(tick, 0));
+            //   }
+            // };
+const EPS = 4;
+let lastVV = {
+  height: window.visualViewport?.height,
+  top: window.visualViewport?.offsetTop
+};
+
+const tick = () => {
+  attempt++;
+
+  const vv = window.visualViewport;
+  if (!vv) return;
+
+  // viewport encore en mouvement ? on attend
+  const dv =
+    Math.abs(vv.height - lastVV.height) +
+    Math.abs(vv.offsetTop - lastVV.top);
+
+  if (dv > 2) {
+    lastVV.height = vv.height;
+    lastVV.top = vv.offsetTop;
+    if (attempt < tries) requestAnimationFrame(() => setTimeout(tick, 0));
+    return;
+  }
+
+  lastVV.height = vv.height;
+  lastVV.top = vv.offsetTop;
+
+  const r = inputEl.getBoundingClientRect();
+  const barH = getBottomBarHeight();
+
+  const minY = vv.offsetTop + marginTop;
+  const maxY = vv.offsetTop + vv.height - barH - marginBottom;
+
+  let dy = 0;
+  if (r.top < minY) dy = r.top - minY;
+  else if (r.bottom > maxY) dy = r.bottom - maxY;
+
+  if (Math.abs(dy) <= EPS) return; // ✅ convergence
+
+  window.scrollBy({ top: dy, behavior: "auto" });
+
+  if (attempt < tries) requestAnimationFrame(() => setTimeout(tick, 0));
+};
 
             requestAnimationFrame(() => setTimeout(tick, 0));
           }
