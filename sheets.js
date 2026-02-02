@@ -49,7 +49,6 @@ import {
 import { sortCarnet } from './carnet.js'; 
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
-import { logToPage } from './debug.js'; 
 
 const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
 
@@ -5066,7 +5065,7 @@ inputEl.addEventListener("focus", () => {
   // Android: ne pas auto-open sur focus (évite reopen après sélection)
   // if (dd && !isAndroid && filtered.length) openDD();
  // ✅ n’auto-ouvre pas si on vient juste de sélectionner un item
-  if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
+  if (dd && canAutoOpen() && filtered.length) openDD();
 
   // 3) visibilité (au cas où)
   ensureInputVisible({ tries: 4 });
@@ -5078,7 +5077,7 @@ inputEl.addEventListener("blur", () => {
 
           inputEl.addEventListener("input", () => {
             refreshSuggestions();
-            if (dd) openDD();
+            if (dd && canAutoOpen()) openDD();
           });
 
           // inputEl.addEventListener("pointerup", () => {
@@ -5122,7 +5121,7 @@ inputEl.addEventListener("blur", () => {
               if (inputEl.value) addToken(inputEl.value);
               inputEl.value = "";
               refreshSuggestions();
-              if (dd) openDD();
+              if (dd && canAutoOpen()) openDD();
             } else if (ev.key === "Backspace" && !inputEl.value) {
               const last = Array.from(map.values()).pop();
               if (last) removeToken(last);
@@ -5182,8 +5181,6 @@ const kbFix = installKeyboardViewportFix();
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
         const isAndroid = /Android/i.test(navigator.userAgent);
-
-logToPage(`isAndroid ${isAndroid}`);
 
         // --- Choix : custom vs dropdown ?
         // Si non précisé => auto: iOS => custom, sinon natif
