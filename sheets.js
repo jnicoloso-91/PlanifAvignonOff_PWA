@@ -4633,121 +4633,159 @@ export function openSheetAssistantProgrammation() {
             const vv = window.visualViewport;
             if (!vv) return;
 
-            // ici tu es en scroller body => window scroll
-            // (si un jour tu veux un scroller interne, on fera une autre version)
             let attempt = 0;
 
-            // const tick = () => {
-            //   attempt++;
+            const EPS = 4;
+            let lastVV = {
+              height: window.visualViewport?.height,
+              top: window.visualViewport?.offsetTop
+            };
 
-            //   const r = inputEl.getBoundingClientRect(); // repère layout viewport
-            //   const barH = getBottomBarHeight();
+            const tick = () => {
+              attempt++;
 
-            //   // zone visible utile dans le repère layout viewport
-            //   const minY = vv.offsetTop + marginTop;
+              const vv = window.visualViewport;
+              if (!vv) return;
 
-            //   // vv.height exclut déjà le clavier, mais PAS ta bottom bar
-            //   const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
+              // viewport encore en mouvement ? on attend
+              const dv =
+                Math.abs(vv.height - lastVV.height) +
+                Math.abs(vv.offsetTop - lastVV.top);
 
-            //   let dy = 0;
+              if (dv > 2) {
+                lastVV.height = vv.height;
+                lastVV.top = vv.offsetTop;
+                if (attempt < tries) requestAnimationFrame(() => setTimeout(tick, 0));
+                return;
+              }
 
-            //   // Trop haut => on scroll UP (dy négatif)
-            //   if (r.top < minY) {
-            //     dy = r.top - minY;
-            //   }
-            //   // Trop bas => on scroll DOWN (dy positif)
-            //   else if (r.bottom > maxY) {
-            //     dy = r.bottom - maxY;
-            //   }
+              lastVV.height = vv.height;
+              lastVV.top = vv.offsetTop;
 
-            //   if (dy !== 0) {
-            //     window.scrollBy({ top: dy, left: 0, behavior: "auto" });
-            //   }
+              const r = inputEl.getBoundingClientRect();
+              const barH = getBottomBarHeight();
 
-            //   if (attempt < tries) {
-            //     requestAnimationFrame(() => setTimeout(tick, 0));
-            //   }
-            // };
-const EPS = 4;
-let lastVV = {
-  height: window.visualViewport?.height,
-  top: window.visualViewport?.offsetTop
-};
+              const minY = vv.offsetTop + marginTop;
+              const maxY = vv.offsetTop + vv.height - barH - marginBottom;
 
-const tick = () => {
-  attempt++;
+              let dy = 0;
+              if (r.top < minY) dy = r.top - minY;
+              else if (r.bottom > maxY) dy = r.bottom - maxY;
 
-  const vv = window.visualViewport;
-  if (!vv) return;
+              if (Math.abs(dy) <= EPS) return; // ✅ convergence
 
-  // viewport encore en mouvement ? on attend
-  const dv =
-    Math.abs(vv.height - lastVV.height) +
-    Math.abs(vv.offsetTop - lastVV.top);
+              window.scrollBy({ top: dy, behavior: "auto" });
 
-  if (dv > 2) {
-    lastVV.height = vv.height;
-    lastVV.top = vv.offsetTop;
-    if (attempt < tries) requestAnimationFrame(() => setTimeout(tick, 0));
-    return;
-  }
-
-  lastVV.height = vv.height;
-  lastVV.top = vv.offsetTop;
-
-  const r = inputEl.getBoundingClientRect();
-  const barH = getBottomBarHeight();
-
-  const minY = vv.offsetTop + marginTop;
-  const maxY = vv.offsetTop + vv.height - barH - marginBottom;
-
-  let dy = 0;
-  if (r.top < minY) dy = r.top - minY;
-  else if (r.bottom > maxY) dy = r.bottom - maxY;
-
-  if (Math.abs(dy) <= EPS) return; // ✅ convergence
-
-  window.scrollBy({ top: dy, behavior: "auto" });
-
-  if (attempt < tries) requestAnimationFrame(() => setTimeout(tick, 0));
-};
+              if (attempt < tries) requestAnimationFrame(() => setTimeout(tick, 0));
+            };
 
             requestAnimationFrame(() => setTimeout(tick, 0));
           }
 
-          function installKeyboardViewportFix() {
-            const noop = () => {};
-            const api = { apply: noop, reset: noop, cleanup: noop };
-
+          let lastEnsureAt = 0;
+          function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
+            if (Date.now() - lastEnsureAt < 250) return;
+            
             const vv = window.visualViewport;
-            if (!vv) return api;
+            if (!vv) return;
 
-            const sc = getScrollContainer?.();
-            if (!sc) return api;
+            const r = inputEl.getBoundingClientRect();
+            const barH = getBottomBarHeight();
 
-            const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+            const minY = vv.offsetTop + marginTop;
+            const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
 
-            api.apply = function apply() {
-              const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
-              sc.style.paddingBottom = `${basePad + kb + 12}px`;
-              ensureInputVisible?.({ tries: 4, marginBottom: 18 });
-            };
+            let dy = 0;
+            if (r.top < minY) dy = r.top - minY;
+            else if (r.bottom > maxY) dy = r.bottom - maxY;
 
-            api.reset = function reset() {
-              sc.style.paddingBottom = `${basePad}px`;
-            };
+            // dead-zone anti micro-jitter
+            if (Math.abs(dy) <= 4) return;
 
-            vv.addEventListener("resize", api.apply);
-            vv.addEventListener("scroll", api.apply);
+            // ✅ un seul scroll (pas de boucle)
+            window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
+          }
 
-            api.cleanup = function cleanup() {
-              vv.removeEventListener("resize", api.apply);
-              vv.removeEventListener("scroll", api.apply);
-              api.reset();
-            };
+          // function installKeyboardViewportFix() {
+          //   const noop = () => {};
+          //   const api = { apply: noop, reset: noop, cleanup: noop };
 
-            return api;
-          } 
+          //   const vv = window.visualViewport;
+          //   if (!vv) return api;
+
+          //   const sc = getScrollContainer?.();
+          //   if (!sc) return api;
+
+          //   const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+
+          //   api.apply = function apply() {
+          //     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+          //     sc.style.paddingBottom = `${basePad + kb + 12}px`;
+          //     ensureInputVisible?.({ tries: 4, marginBottom: 18 });
+          //   };
+
+          //   api.reset = function reset() {
+          //     sc.style.paddingBottom = `${basePad}px`;
+          //   };
+
+          //   vv.addEventListener("resize", api.apply);
+          //   vv.addEventListener("scroll", api.apply);
+
+          //   api.cleanup = function cleanup() {
+          //     vv.removeEventListener("resize", api.apply);
+          //     vv.removeEventListener("scroll", api.apply);
+          //     api.reset();
+          //   };
+
+          //   return api;
+          // } 
+function installKeyboardViewportFix() {
+  const noop = () => {};
+  const api = { apply: noop, reset: noop, cleanup: noop };
+
+  const vv = window.visualViewport;
+  if (!vv) return api;
+
+  const sc = getScrollContainer?.();
+  if (!sc) return api;
+
+  const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+
+  let tEnsure = 0;
+
+  function scheduleEnsure() {
+    clearTimeout(tEnsure);
+    // attendre que iOS finisse ses ajustements clavier/viewport
+    tEnsure = window.setTimeout(() => {
+      ensureInputVisibleOneShot({ marginBottom: 18 });
+    }, 120);
+  }
+
+  api.apply = function apply() {
+    const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+    sc.style.paddingBottom = `${basePad + kb + 12}px`;
+
+    // ✅ pas d'ensure ici en direct
+    scheduleEnsure();
+  };
+
+  api.reset = function reset() {
+    clearTimeout(tEnsure);
+    sc.style.paddingBottom = `${basePad}px`;
+  };
+
+  vv.addEventListener("resize", api.apply);
+  vv.addEventListener("scroll", api.apply);
+
+  api.cleanup = function cleanup() {
+    clearTimeout(tEnsure);
+    vv.removeEventListener("resize", api.apply);
+    vv.removeEventListener("scroll", api.apply);
+    api.reset();
+  };
+
+  return api;
+}
 
           function getClientXY(ev) {
             // PointerEvent / MouseEvent
@@ -4864,7 +4902,7 @@ const tick = () => {
             if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
 
             // 3) visibilité (au cas où)
-            ensureInputVisible({ tries: 4 });
+            // ensureInputVisible({ tries: 4 });
           });
 
           inputEl.addEventListener("blur", () => {
