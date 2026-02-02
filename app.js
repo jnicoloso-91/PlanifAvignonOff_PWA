@@ -67,14 +67,34 @@ function initSheetGrids() {
   window.sheetGrids = window.sheetGrids || new Map();
 }
 
+// function enableKeyboardAutoScroll() {
+//   document.addEventListener('focusin', (e) => {
+//     const el = e.target;
+//     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+
+//     // petit délai : attendre que le clavier soit visible
+//     setTimeout(() => {
+//       // essaie d'amener l'élément dans la zone visible
+//       el.scrollIntoView({
+//         behavior: 'smooth',
+//         block: 'center'
+//       });
+//     }, 300);
+//   });
+// }
 function enableKeyboardAutoScroll() {
   document.addEventListener('focusin', (e) => {
     const el = e.target;
     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
 
-    // petit délai : attendre que le clavier soit visible
+    // ✅ 1) Input géré par un système custom → on s’efface
+    if (el.dataset.keyboardManaged === "true") return;
+
+    // ✅ 2) Un système moderne est présent → on s’efface
+    if (window.visualViewport) return;
+
+    // ✅ 3) Fallback legacy (ce pour quoi ce code existe vraiment)
     setTimeout(() => {
-      // essaie d'amener l'élément dans la zone visible
       el.scrollIntoView({
         behavior: 'smooth',
         block: 'center'

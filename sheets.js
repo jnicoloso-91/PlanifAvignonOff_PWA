@@ -4359,6 +4359,9 @@ export function openSheetAssistantProgrammation() {
           let filtered = [];            // suggestions filtrées et non sélectionnées
           let activeIndex = 0;
 
+          // Informe le enableKeyboardAutoScroll (auto scroller par défaut) de ne pas agir
+          inputEl.dataset.keyboardManager = "true";
+
           // ============ Helpers UI ============
           function isStandalone() {
             return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
