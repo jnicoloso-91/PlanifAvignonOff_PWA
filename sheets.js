@@ -4960,9 +4960,9 @@ getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
           /iPad|iPhone|iPod/.test(navigator.userAgent) ||
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-        // --- Choix : custom dropdown ?
+        // --- Choix : custom vs dropdown ?
         // Si non précisé => auto: iOS => custom, sinon natif
-        const useCustom = false; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
+        const useCustom = true; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
 
         if (useCustom) {
           return initChipBoxCustom({
