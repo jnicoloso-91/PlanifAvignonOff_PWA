@@ -4539,6 +4539,36 @@ function ensureDD() {
 
             const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
             wrap.appendChild(dd);
+            
+  const onPickFromDD = (ev) => {
+    // event delegation
+    const target = ev.target instanceof Element ? ev.target : null;
+    if (!target) return;
+
+    const item = target.closest(".chipbox-dditem");
+    if (!item || !dd.contains(item)) return;
+
+    // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const label = item.textContent || "";
+    if (!label) return;
+
+    addToken(label);
+    inputEl.value = "";
+
+    // tu choisis : fermer ou rester ouvert
+    closeDD();
+
+    // garder le focus (optionnel) — mais sans forcer des scrolls
+    try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
+  };
+
+  // Triple binding = robuste Android + émulation
+  dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
+  dd.addEventListener("touchstart", onPickFromDD, { passive: false });
+  dd.addEventListener("click", onPickFromDD);
   }
 
   return dd;
@@ -4847,6 +4877,17 @@ getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
             }
           });
 
+  const openFromInput = () => {
+    ensureDD();
+    refreshAndOpenDD(); // refreshSuggestions + openDD si filtered non vide
+  };
+
+  // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
+  inputEl.addEventListener("pointerup", openFromInput, { passive: true });
+
+  // fallback desktop/Android
+  inputEl.addEventListener("click", openFromInput);
+          
           // input / focus : doit ouvrir la dropdown même sans taper 
           inputEl.addEventListener("focus", () => {
             ensureDD();          // si custom => crée dd; sinon dd reste null
