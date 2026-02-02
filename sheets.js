@@ -4686,7 +4686,7 @@ function isIgnoringVV() {
             requestAnimationFrame(() => setTimeout(tick, 0));
           }
 
-          // let lastEnsureAt = 0;
+          let lastEnsureAt = 0;
           // function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
           //   if (Date.now() - lastEnsureAt < 250) return;
 
@@ -4710,8 +4710,40 @@ function isIgnoringVV() {
           //   withIgnoreVV(220);
           //   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
           // }
-let lastEnsureAt = 0;
-function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
+// function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
+//   if (Date.now() - lastEnsureAt < 250) return;
+//   const vv = window.visualViewport;
+//   if (!vv) return;
+
+//   const r = inputEl.getBoundingClientRect();
+//   const barH = getBottomBarHeight();
+
+//   // ✅ Convertit le rect "layout viewport" -> repère "visual viewport"
+//   const topVV = r.top - (vv.offsetTop || 0);
+//   const bottomVV = r.bottom - (vv.offsetTop || 0);
+
+//   // zone utile dans le visual viewport
+//   const minY = marginTop;
+//   const maxY = vv.height - barH - marginBottom;
+
+//   let dy = 0;
+
+//   // Trop haut => on doit remonter la page (scrollY diminue)
+//   if (topVV < minY) {
+//     dy = topVV - minY;            // dy négatif
+//   }
+//   // Trop bas (sous le clavier / sous la barre) => on descend la page (scrollY augmente)
+//   else if (bottomVV > maxY) {
+//     dy = bottomVV - maxY;         // dy positif
+//   }
+
+//   // dead-zone anti micro jitter
+//   if (Math.abs(dy) <= 6) return;
+
+//   withIgnoreVV(220); // ton verrou anti-feedback
+//   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
+// }
+function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 24 } = {}) {
   if (Date.now() - lastEnsureAt < 250) return;
   const vv = window.visualViewport;
   if (!vv) return;
@@ -4719,32 +4751,40 @@ function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
   const r = inputEl.getBoundingClientRect();
   const barH = getBottomBarHeight();
 
-  // ✅ Convertit le rect "layout viewport" -> repère "visual viewport"
-  const topVV = r.top - (vv.offsetTop || 0);
-  const bottomVV = r.bottom - (vv.offsetTop || 0);
+  // rect -> repère visualViewport
+  const offT = vv.offsetTop || 0;
+  const topVV = r.top - offT;
+  const bottomVV = r.bottom - offT;
 
-  // zone utile dans le visual viewport
+  // fenêtre utile dans vv
   const minY = marginTop;
-  const maxY = vv.height - barH - marginBottom;
+  let maxY = vv.height - barH - marginBottom;
+
+  // ✅ garde-fou : fenêtre invalide => ne rien faire (sinon scroll fou)
+  // (ça arrive si barH est trop grand / mauvais selector / vv.height petite)
+  if (!Number.isFinite(maxY) || maxY <= minY + 30) return;
+
+  // ✅ si l'élément est plus grand que la fenêtre, on aligne le HAUT (stratégie stable)
+  const winH = maxY - minY;
+  const elH = bottomVV - topVV;
+  const alignTopOnly = elH > winH;
 
   let dy = 0;
 
-  // Trop haut => on doit remonter la page (scrollY diminue)
   if (topVV < minY) {
-    dy = topVV - minY;            // dy négatif
-  }
-  // Trop bas (sous le clavier / sous la barre) => on descend la page (scrollY augmente)
-  else if (bottomVV > maxY) {
-    dy = bottomVV - maxY;         // dy positif
+    // trop haut -> scroll UP (dy négatif) pour descendre l’input
+    dy = topVV - minY;
+  } else if (!alignTopOnly && bottomVV > maxY) {
+    // trop bas -> scroll DOWN (dy positif) pour remonter l’input
+    dy = bottomVV - maxY;
   }
 
-  // dead-zone anti micro jitter
+  // dead-zone anti-jitter
   if (Math.abs(dy) <= 6) return;
 
-  withIgnoreVV(220); // ton verrou anti-feedback
+  withIgnoreVV(220);
   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
 }
-
           // function installKeyboardViewportFix() {
           //   const noop = () => {};
           //   const api = { apply: noop, reset: noop, cleanup: noop };
