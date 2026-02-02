@@ -49,6 +49,7 @@ import {
 import { sortCarnet } from './carnet.js'; 
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
+import { logToPage } from './debug.js';
 
 const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
 
@@ -5181,7 +5182,7 @@ const kbFix = installKeyboardViewportFix();
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
         const isAndroid = /Android/i.test(navigator.userAgent);
-
+logToPage(`isAndroid ${isAndroid}`);
         // --- Choix : custom vs dropdown ?
         // Si non précisé => auto: iOS => custom, sinon natif
         const useCustom = true; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
