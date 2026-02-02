@@ -4478,7 +4478,8 @@ const NEED_PORTAL = isIOS && (isStandalone() || true);
 
           function refreshAndOpenDD() {
               refreshSuggestions();
-              if (filtered.length) openDD();
+              // if (filtered.length) openDD();
+if (dd && canAutoOpen() && filtered.length) openDD();
           }
 
           // ============ Dropdown custom ============
@@ -4633,6 +4634,9 @@ function selectLabel(label) {
   addToken(label);
   inputEl.value = "";
 
+  // ✅ IMPORTANT: empêcher le focus/retap de ré-ouvrir immédiatement (Android)
+  suppressAutoOpen(350);
+
   refreshSuggestions();
   closeDD();
 
@@ -4747,40 +4751,72 @@ function renderDD() {
             setTimeout(runOnce, 120);
           }
 
-          function installKeyboardViewportFix() {
-            const vv = window.visualViewport;
-            if (!vv) return () => {};
+          // function installKeyboardViewportFix() {
+          //   const vv = window.visualViewport;
+          //   if (!vv) return () => {};
 
-            const sc = getScrollContainer();
-            if (!sc) return () => {};
+          //   const sc = getScrollContainer();
+          //   if (!sc) return () => {};
 
-            const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+          //   const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
 
-            function apply() {
-              const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
-              sc.style.paddingBottom = `${basePad + kb + 12}px`;
-              ensureInputVisible({ tries: 4 });
-            }
+          //   function apply() {
+          //     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+          //     sc.style.paddingBottom = `${basePad + kb + 12}px`;
+          //     ensureInputVisible({ tries: 4 });
+          //   }
 
-            function reset() {
-              sc.style.paddingBottom = `${basePad}px`;
-            }
+          //   function reset() {
+          //     sc.style.paddingBottom = `${basePad}px`;
+          //   }
 
-            vv.addEventListener("resize", apply);
-            vv.addEventListener("scroll", apply);
+          //   vv.addEventListener("resize", apply);
+          //   vv.addEventListener("scroll", apply);
 
-            inputEl.addEventListener("focus", apply, { passive: true });
-            inputEl.addEventListener("blur", reset, { passive: true });
+          //   inputEl.addEventListener("focus", apply, { passive: true });
+          //   inputEl.addEventListener("blur", reset, { passive: true });
 
-            return () => {
-              vv.removeEventListener("resize", apply);
-              vv.removeEventListener("scroll", apply);
-              inputEl.removeEventListener("focus", apply);
-              inputEl.removeEventListener("blur", reset);
-              reset();
-            };
-          }
+          //   return () => {
+          //     vv.removeEventListener("resize", apply);
+          //     vv.removeEventListener("scroll", apply);
+          //     inputEl.removeEventListener("focus", apply);
+          //     inputEl.removeEventListener("blur", reset);
+          //     reset();
+          //   };
+          // }
+function installKeyboardViewportFix() {
+  const noop = () => {};
+  const api = { apply: noop, reset: noop, cleanup: noop };
 
+  const vv = window.visualViewport;
+  if (!vv) return api;
+
+  const sc = getScrollContainer?.();
+  if (!sc) return api;
+
+  const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+
+  api.apply = function apply() {
+    const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+    sc.style.paddingBottom = `${basePad + kb + 12}px`;
+    ensureInputVisible?.({ tries: 4 });
+  };
+
+  api.reset = function reset() {
+    sc.style.paddingBottom = `${basePad}px`;
+  };
+
+  vv.addEventListener("resize", api.apply);
+  vv.addEventListener("scroll", api.apply);
+
+  api.cleanup = function cleanup() {
+    vv.removeEventListener("resize", api.apply);
+    vv.removeEventListener("scroll", api.apply);
+    api.reset();
+  };
+
+  return api;
+} 
           function getClientXY(ev) {
             // PointerEvent / MouseEvent
             if (typeof ev.clientX === "number" && typeof ev.clientY === "number") {
@@ -4852,6 +4888,15 @@ if (hit === inputEl || inputEl.contains(hit)) {
 // window.visualViewport?.addEventListener("resize", () => { if (isOpen) positionDD(); });
 // window.visualViewport?.addEventListener("scroll",  () => { if (isOpen) positionDD(); });
 // window.addEventListener("scroll", () => { if (isOpen) positionDD(); }, { passive: true });
+
+let suppressAutoOpenUntil = 0;
+function suppressAutoOpen(ms = 250) {
+  suppressAutoOpenUntil = Date.now() + ms;
+}
+function canAutoOpen() {
+  return Date.now() >= suppressAutoOpenUntil;
+}
+
 let posScheduled = false;
 function schedulePositionDD() {
   if (!NEED_PORTAL || !isOpen) return;
@@ -4889,13 +4934,36 @@ getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
   inputEl.addEventListener("click", openFromInput);
           
           // input / focus : doit ouvrir la dropdown même sans taper 
-          inputEl.addEventListener("focus", () => {
-            ensureDD();          // si custom => crée dd; sinon dd reste null
-            refreshSuggestions();
-            if (dd) openDD();
-            // scrollInputIntoView();
-            ensureInputVisible({ tries: 4 });
-          });
+  //         inputEl.addEventListener("focus", () => {
+  //           ensureDD();          // si custom => crée dd; sinon dd reste null
+  //           refreshSuggestions();
+  //           // if (dd) openDD();
+  // if (dd && !isAndroid && filtered.length) {
+  //   openDD();
+  // }
+  //           // scrollInputIntoView();
+  //           ensureInputVisible({ tries: 4 });
+  //         });
+inputEl.addEventListener("focus", () => {
+  // 1) viewport fix clavier
+  try { kbFix.apply(); } catch {}
+
+  // 2) dropdown logic
+  ensureDD();
+  refreshSuggestions();
+
+  // Android: ne pas auto-open sur focus (évite reopen après sélection)
+  // if (dd && !isAndroid && filtered.length) openDD();
+ // ✅ n’auto-ouvre pas si on vient juste de sélectionner un item
+  if (dd && canAutoOpen() && filtered.length) openDD();
+
+  // 3) visibilité (au cas où)
+  ensureInputVisible({ tries: 4 });
+});
+
+inputEl.addEventListener("blur", () => {
+  try { kbFix.reset?.(); } catch {}
+});
 
           inputEl.addEventListener("input", () => {
             refreshSuggestions();
@@ -4972,8 +5040,9 @@ getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
           ensureDD(); // si custom => créé maintenant (sinon no-op)
           refreshSuggestions();
 
-          let cleanupViewportFix = () => {};
-          cleanupViewportFix = installKeyboardViewportFix();
+          // let cleanupViewportFix = () => {};
+          // cleanupViewportFix = installKeyboardViewportFix();
+const kbFix = installKeyboardViewportFix();
 
           // init values
           if (initial && initial.length) setValues(initial);
@@ -4988,7 +5057,7 @@ getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
               refreshSuggestions();
             },
             destroy() {
-              try { cleanupViewportFix?.(); } catch {}
+              try { kbFix.cleanup(); } catch {}
               try { dd?.remove(); } catch {}
               dd = null;
               isOpen = false;
@@ -5000,6 +5069,8 @@ getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
         const isIOS =
           /iPad|iPhone|iPod/.test(navigator.userAgent) ||
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+        const isAndroid = /Android/i.test(navigator.userAgent);
 
         // --- Choix : custom vs dropdown ?
         // Si non précisé => auto: iOS => custom, sinon natif
