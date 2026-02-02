@@ -91,7 +91,7 @@ function enableKeyboardAutoScroll() {
     if (el.dataset.keyboardManaged === "true") return;
 
     // ✅ 2) Un système moderne est présent → on s’efface
-    if (window.visualViewport) return;
+    // if (window.visualViewport) return;
 
     // ✅ 3) Fallback legacy (ce pour quoi ce code existe vraiment)
     setTimeout(() => {
