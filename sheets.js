@@ -5066,7 +5066,8 @@ inputEl.addEventListener("focus", () => {
   // Android: ne pas auto-open sur focus (évite reopen après sélection)
   // if (dd && !isAndroid && filtered.length) openDD();
  // ✅ n’auto-ouvre pas si on vient juste de sélectionner un item
-  if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
+  // if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
+  if (dd && isIOS && filtered.length) openDD();
 
   // 3) visibilité (au cas où)
   ensureInputVisible({ tries: 4 });
