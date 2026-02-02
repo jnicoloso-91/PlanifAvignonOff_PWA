@@ -5182,7 +5182,7 @@ const kbFix = installKeyboardViewportFix();
           (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
         const isAndroid = /Android/i.test(navigator.userAgent);
-logToPage(`isAndroid ${isAndroid}`);
+
         // --- Choix : custom vs dropdown ?
         // Si non précisé => auto: iOS => custom, sinon natif
         const useCustom = true; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
