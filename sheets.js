@@ -4706,51 +4706,105 @@ function renderDD() {
             return (sc instanceof HTMLElement) ? sc : null;
           }
 
-          function ensureInputVisible({ tries = 3 } = {}) {
-            const sc = getScrollContainer();
-            if (!sc) return;
+          // function ensureInputVisible({ tries = 3 } = {}) {
+          //   const sc = getScrollContainer();
+          //   if (!sc) return;
 
-            const vv = window.visualViewport;
-            const marginTop = 12;
-            const marginBottom = 12;
+          //   const vv = window.visualViewport;
+          //   const marginTop = 12;
+          //   const marginBottom = 12;
 
-            const runOnce = () => {
-              const rect = inputEl.getBoundingClientRect();
+          //   const runOnce = () => {
+          //     const rect = inputEl.getBoundingClientRect();
 
-              // hauteur “visible” utile
-              const viewH = vv ? vv.height : window.innerHeight;
+          //     // hauteur “visible” utile
+          //     const viewH = vv ? vv.height : window.innerHeight;
 
-              // zone visible (dans le viewport visuel)
-              const topLimit = marginTop;
-              const bottomLimit = Math.max(topLimit + 40, viewH - marginBottom);
+          //     // zone visible (dans le viewport visuel)
+          //     const topLimit = marginTop;
+          //     const bottomLimit = Math.max(topLimit + 40, viewH - marginBottom);
 
-              let dy = 0;
+          //     let dy = 0;
 
-              if (rect.bottom > bottomLimit) {
-                dy = rect.bottom - bottomLimit;
-              } else if (rect.top < topLimit) {
-                dy = rect.top - topLimit;
-              }
+          //     if (rect.bottom > bottomLimit) {
+          //       dy = rect.bottom - bottomLimit;
+          //     } else if (rect.top < topLimit) {
+          //       dy = rect.top - topLimit;
+          //     }
 
-              if (dy) {
-                // scroll “dans le bon conteneur”
-                sc.scrollTop += dy;
-              }
-            };
+          //     if (dy) {
+          //       // scroll “dans le bon conteneur”
+          //       sc.scrollTop += dy;
+          //     }
+          //   };
 
-            // iOS: le clavier + vv changent en plusieurs temps → on répète
-            let n = 0;
-            const tick = () => {
-              runOnce();
-              n++;
-              if (n < tries) requestAnimationFrame(tick);
-            };
-            requestAnimationFrame(tick);
+          //   // iOS: le clavier + vv changent en plusieurs temps → on répète
+          //   let n = 0;
+          //   const tick = () => {
+          //     runOnce();
+          //     n++;
+          //     if (n < tries) requestAnimationFrame(tick);
+          //   };
+          //   requestAnimationFrame(tick);
 
-            // et un dernier coup après stabilisation (optionnel mais utile iOS)
-            setTimeout(runOnce, 120);
-          }
+          //   // et un dernier coup après stabilisation (optionnel mais utile iOS)
+          //   setTimeout(runOnce, 120);
+          // }
+function ensureInputVisible({ tries = 4, marginTop = 10, marginBottom = 14 } = {}) {
+  const vv = window.visualViewport;
+  if (!vv) return;
 
+  const sc = getScrollContainer?.() || scrollerEl || document.scrollingElement || document.documentElement;
+  if (!sc) return;
+
+  let attempt = 0;
+
+  const tick = () => {
+    attempt++;
+
+    // viewport "utile" (zone visible hors clavier)
+    const viewportTop = vv.offsetTop;
+    const viewportBottom = vv.offsetTop + vv.height;
+
+    const r = inputEl.getBoundingClientRect();
+    const elTop = r.top + window.scrollY;
+    const elBottom = r.bottom + window.scrollY;
+
+    // On veut l'input dans une "zone confortable" :
+    // - pas collé au haut du viewport
+    // - surtout pas collé au clavier => garder marginBottom
+    const minY = viewportTop + marginTop;
+    const maxY = viewportBottom - marginBottom;
+
+    let dy = 0;
+
+    // si le haut de l'input est trop haut (hors zone)
+    if (elTop < minY) {
+      dy = elTop - minY;               // dy négatif => scroll up
+    }
+    // si le bas de l'input est trop bas (touche/clavier)
+    else if (elBottom > maxY) {
+      dy = elBottom - maxY;            // dy positif => scroll down
+    }
+
+    if (dy !== 0) {
+      // important : scrollBy sur le bon scroller
+      if (sc === document.scrollingElement || sc === document.documentElement || sc === document.body) {
+        window.scrollBy({ top: dy, left: 0, behavior: "auto" });
+      } else {
+        sc.scrollTop += dy;
+      }
+    }
+
+    // iOS fait souvent une 2e passe : on retente un peu après
+    if (attempt < tries) {
+      requestAnimationFrame(() => setTimeout(tick, 0));
+    }
+  };
+
+  // on laisse iOS finir son scroll de focus, puis on corrige
+  requestAnimationFrame(() => setTimeout(tick, 0));
+}
           // function installKeyboardViewportFix() {
           //   const vv = window.visualViewport;
           //   if (!vv) return () => {};
