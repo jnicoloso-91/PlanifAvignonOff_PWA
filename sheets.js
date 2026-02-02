@@ -5067,7 +5067,7 @@ inputEl.addEventListener("focus", () => {
   // if (dd && !isAndroid && filtered.length) openDD();
  // ✅ n’auto-ouvre pas si on vient juste de sélectionner un item
   // if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
-  if (dd && isIOS && filtered.length) openDD();
+  if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
 
   // 3) visibilité (au cas où)
   ensureInputVisible({ tries: 4 });
