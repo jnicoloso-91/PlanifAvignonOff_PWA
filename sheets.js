@@ -4349,12 +4349,8 @@ export function openSheetAssistantProgrammation() {
         function initChipBoxCustom({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange = null, scrollerEl = null }) {
           const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
           const map = new Map(); // key -> label
-
-function isStandalone() {
-  return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
-}
-
-const NEED_PORTAL = isIOS && (isStandalone() || true);
+          // const NEED_PORTAL = isIOS && (isStandalone() || true);
+          const NEED_PORTAL = isIOS && isStandalone();
 
           // --- Dropdown custom (si activé)
           /** @type {HTMLElement | null} */
@@ -4364,6 +4360,10 @@ const NEED_PORTAL = isIOS && (isStandalone() || true);
           let activeIndex = 0;
 
           // ============ Helpers UI ============
+          function isStandalone() {
+            return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
+          }
+
           function renderChips() {
             chipsEl.replaceChildren();
 
@@ -4395,10 +4395,6 @@ const NEED_PORTAL = isIOS && (isStandalone() || true);
             }
           }
 
-          function getValues() {
-            return Array.from(map.values());
-          }
-
           function addToken(raw) {
             const label = normToken(raw);
             if (!label) return;
@@ -4425,6 +4421,10 @@ const NEED_PORTAL = isIOS && (isStandalone() || true);
               try { onChange(getValues()); } catch {}
             }
             refreshSuggestions();
+          }
+
+          function getValues() {
+            return Array.from(map.values());
           }
 
           function setValues(arr) {
@@ -4477,226 +4477,136 @@ const NEED_PORTAL = isIOS && (isStandalone() || true);
             if (dd) renderDD();
           }
 
-          function refreshAndOpenDD() {
-              refreshSuggestions();
-              // if (filtered.length) openDD();
-if (dd && filtered.length) openDD();
-          }
+          function ensureDD() {
+            if (dd) return dd;
 
-          // ============ Dropdown custom ============
-          // function ensureDD() {
-          //   if (dd) return dd;
-
-          //   dd = document.createElement("div");
-          //   dd.className = "chipbox-dd";
-          //   dd.setAttribute("role", "listbox");
-          //   dd.setAttribute("aria-label", "Suggestions");
-
-          //   const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
-          //   wrap.appendChild(dd);
-
-          //   return dd;
-          // }
-// function ensureDD() {
-//   if (dd) return dd;
-
-//   dd = document.createElement("div");
-//   dd.className = "chipbox-dd";
-//   dd.setAttribute("role", "listbox");
-//   dd.setAttribute("aria-label", "Suggestions");
-
-//   // ✅ portal body
-//   dd.style.position = "fixed";
-//   dd.style.zIndex = "999999";
-//   dd.hidden = true;
-
-//   document.body.appendChild(dd);
-//   return dd;
-// }
-function ensureDD() {
-  if (dd) return dd;
-
-  dd = document.createElement("div");
-  dd.className = "chipbox-dd";
-  dd.setAttribute("role", "listbox");
-  dd.setAttribute("aria-label", "Suggestions");
-
-  if (NEED_PORTAL) {
-    dd.style.position = "fixed";
-    dd.style.zIndex = "999999";
-    dd.hidden = true;
-    document.body.appendChild(dd);
-  } else {
-    // desktop: on reste local (fluide, pas de lag)
-    // const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
-    // wrap.style.position = wrap.style.position || "relative";
-    // dd.style.position = "absolute";
-    // dd.style.left = "0px";
-    // dd.style.top = "100%";
-    // dd.style.width = "100%";
-    // dd.hidden = true;
-    // wrap.appendChild(dd);
+            dd = document.createElement("div");
+            dd.className = "chipbox-dd";
             dd.setAttribute("role", "listbox");
             dd.setAttribute("aria-label", "Suggestions");
 
-            const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
-            wrap.appendChild(dd);
+            if (NEED_PORTAL) {
+              dd.style.position = "fixed";
+              dd.style.zIndex = "999999";
+              dd.hidden = true;
+              document.body.appendChild(dd);
+            } else {
+              dd.setAttribute("role", "listbox");
+              dd.setAttribute("aria-label", "Suggestions");
+
+              const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
+              wrap.appendChild(dd);
             
-  const onPickFromDD = (ev) => {
-    // event delegation
-    const target = ev.target instanceof Element ? ev.target : null;
-    if (!target) return;
+              const onPickFromDD = (ev) => {
+                // event delegation
+                const target = ev.target instanceof Element ? ev.target : null;
+                if (!target) return;
 
-    const item = target.closest(".chipbox-dditem");
-    if (!item || !dd.contains(item)) return;
+                const item = target.closest(".chipbox-dditem");
+                if (!item || !dd.contains(item)) return;
 
-    // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
-    ev.preventDefault();
-    ev.stopPropagation();
+                // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
+                ev.preventDefault();
+                ev.stopPropagation();
 
-    const label = item.textContent || "";
-    if (!label) return;
+                const label = item.textContent || "";
+                if (!label) return;
 
-    addToken(label);
-    inputEl.value = "";
+                addToken(label);
+                inputEl.value = "";
 
-    // tu choisis : fermer ou rester ouvert
-    closeDD();
+                // tu choisis : fermer ou rester ouvert
+                closeDD();
 
-    // garder le focus (optionnel) — mais sans forcer des scrolls
-    try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
-  };
+                // garder le focus (optionnel) — mais sans forcer des scrolls
+                try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
+              };
 
-  // Triple binding = robuste Android + émulation
-  dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
-  dd.addEventListener("touchstart", onPickFromDD, { passive: false });
-  dd.addEventListener("click", onPickFromDD);
-  }
+            // Triple binding = robuste Android + émulation
+            dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
+            dd.addEventListener("touchstart", onPickFromDD, { passive: false });
+            dd.addEventListener("click", onPickFromDD);
+            }
 
-  return dd;
-}
-          // function openDD() {
-          //   if (!dd) return;
-          //   dd.classList.add("open");
-          //   isOpen = true;
-          // }
+            return dd;
+          }
 
-          // function closeDD() {
-          //   if (!dd) return;
-          //   dd.classList.remove("open");
-          //   isOpen = false;
-          // }
-function positionDD() {
-  if (!dd || !NEED_PORTAL) return;
-  const r = inputEl.getBoundingClientRect();
-  const vv = window.visualViewport;
-  const offL = vv?.offsetLeft ?? 0;
-  const offT = vv?.offsetTop ?? 0;
+          function positionDD() {
+            if (!dd || !NEED_PORTAL) return;
+            const r = inputEl.getBoundingClientRect();
+            const vv = window.visualViewport;
+            const offL = vv?.offsetLeft ?? 0;
+            const offT = vv?.offsetTop ?? 0;
 
-  dd.style.left = (r.left + offL) + "px";
-  dd.style.top = (r.bottom + offT) + "px";
-  dd.style.width = r.width + "px";
-}
+            dd.style.left = (r.left + offL) + "px";
+            dd.style.top = (r.bottom + offT) + "px";
+            dd.style.width = r.width + "px";
+          }
 
-function openDD() {
-  if (!dd) return;
-  positionDD();
-  dd.hidden = false;
-  dd.classList.add("open");
-  isOpen = true;
-}
+          function openDD() {
+            if (!dd) return;
+            positionDD();
+            dd.hidden = false;
+            dd.classList.add("open");
+            isOpen = true;
+          }
 
-function closeDD() {
-  if (!dd) return;
-  dd.classList.remove("open");
-  dd.hidden = true;
-  isOpen = false;
-}
+          function closeDD() {
+            if (!dd) return;
+            dd.classList.remove("open");
+            dd.hidden = true;
+            isOpen = false;
+          }
+
+          function renderDD() {
+            if (!dd) return;
+            dd.replaceChildren();
+
+            if (!filtered.length) { closeDD(); return; }
+
+            const list = document.createElement("div");
+            list.className = "chipbox-ddlist";
+
+            filtered.forEach((label, idx) => {
+              const it = document.createElement("div");
+              it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
+              it.textContent = label;
+
+              it.addEventListener("pointerenter", () => setActive(idx));
+              list.appendChild(it);
+            });
+
+            dd.appendChild(list);
+            positionDD(); // ✅
+          }
+
+          function refreshAndOpenDD() {
+              refreshSuggestions();
+              // if (filtered.length) openDD();
+              if (dd && filtered.length) openDD();
+          }
 
           function setActive(idx) {
             activeIndex = Math.max(0, Math.min(filtered.length - 1, idx));
             if (dd) renderDD();
           }
 
-          // function selectLabel(label) {
-          //   addToken(label);
-          //   inputEl.value = "";
-          //   // 🔥 important : garder focus + réouvrir sans taper (fix critique #1)
-          //   inputEl.focus({ preventScroll: true });
-          //   refreshSuggestions();
+          function selectLabel(label) {
+            addToken(label);
+            inputEl.value = "";
 
-          //   // OpenDD -> la dropdown reste ouverte sur sélection item, sinon CloseDD -> la dropdown se ferme sur sélection item
-          //   // openDD();
-          //   closeDD();
+            // ✅ IMPORTANT: empêcher le focus/retap de ré-ouvrir immédiatement (Android)
+            suppressAutoOpen(350);
 
-          //   ensureInputVisible({ tries: 4 });
-          // }
-function selectLabel(label) {
-  addToken(label);
-  inputEl.value = "";
+            refreshSuggestions();
+            closeDD();
 
-  // ✅ IMPORTANT: empêcher le focus/retap de ré-ouvrir immédiatement (Android)
-  suppressAutoOpen(350);
+            // iOS: ne PAS forcer focus ici, sinon clavier + jumps
+            // inputEl.focus({ preventScroll: true });
 
-  refreshSuggestions();
-  closeDD();
-
-  // iOS: ne PAS forcer focus ici, sinon clavier + jumps
-  // inputEl.focus({ preventScroll: true });
-
-  // idem: ne pas scroller ici, laisse le viewport se stabiliser
-  // ensureInputVisible({ tries: 4 });
-}
-
-          // function renderDD() {
-          //   if (!dd) return;
-          //   dd.replaceChildren();
-
-          //   // rien => ferme
-          //   if (!filtered.length) {
-          //     closeDD();
-          //     return;
-          //   }
-
-          //   const list = document.createElement("div");
-          //   list.className = "chipbox-ddlist";
-
-          //   filtered.forEach((label, idx) => {
-          //     const it = document.createElement("div");
-          //     it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
-          //     it.setAttribute("role", "option");
-          //     it.setAttribute("aria-selected", idx === activeIndex ? "true" : "false");
-          //     it.textContent = label;
-
-          //     // survol => highlight (critique #2)
-          //     it.addEventListener("pointerenter", () => setActive(idx));
-
-          //     list.appendChild(it);
-          //   });
-
-          //   dd.appendChild(list);
-          // }
-function renderDD() {
-  if (!dd) return;
-  dd.replaceChildren();
-
-  if (!filtered.length) { closeDD(); return; }
-
-  const list = document.createElement("div");
-  list.className = "chipbox-ddlist";
-
-  filtered.forEach((label, idx) => {
-    const it = document.createElement("div");
-    it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
-    it.textContent = label;
-
-    it.addEventListener("pointerenter", () => setActive(idx));
-    list.appendChild(it);
-  });
-
-  dd.appendChild(list);
-  positionDD(); // ✅
-}
+            // idem: ne pas scroller ici, laisse le viewport se stabiliser
+            // ensureInputVisible({ tries: 4 });
+          }
 
           function getScrollContainer() {
             const sc =
@@ -4707,227 +4617,96 @@ function renderDD() {
             return (sc instanceof HTMLElement) ? sc : null;
           }
 
-          // function ensureInputVisible({ tries = 3 } = {}) {
-          //   const sc = getScrollContainer();
-          //   if (!sc) return;
+          function getBottomBarHeight() {
+            // adapte le sélecteur si besoin
+            const bar = document.querySelector(".sheet-footer");
+            if (!bar) return 0;
 
-          //   const vv = window.visualViewport;
-          //   const marginTop = 12;
-          //   const marginBottom = 12;
+            // Si la bar est fixed/sticky, elle obstrue le viewport
+            const cs = getComputedStyle(bar);
+            const pos = cs.position;
+            if (pos !== "fixed" && pos !== "sticky") return 0;
 
-          //   const runOnce = () => {
-          //     const rect = inputEl.getBoundingClientRect();
+            return Math.ceil(bar.getBoundingClientRect().height || 0);
+          }
 
-          //     // hauteur “visible” utile
-          //     const viewH = vv ? vv.height : window.innerHeight;
+          function ensureInputVisible({ tries = 4, marginTop = 10, marginBottom = 14 } = {}) {
+            const vv = window.visualViewport;
+            if (!vv) return;
 
-          //     // zone visible (dans le viewport visuel)
-          //     const topLimit = marginTop;
-          //     const bottomLimit = Math.max(topLimit + 40, viewH - marginBottom);
+            // ici tu es en scroller body => window scroll
+            // (si un jour tu veux un scroller interne, on fera une autre version)
+            let attempt = 0;
 
-          //     let dy = 0;
+            const tick = () => {
+              attempt++;
 
-          //     if (rect.bottom > bottomLimit) {
-          //       dy = rect.bottom - bottomLimit;
-          //     } else if (rect.top < topLimit) {
-          //       dy = rect.top - topLimit;
-          //     }
+              const r = inputEl.getBoundingClientRect(); // repère layout viewport
+              const barH = getBottomBarHeight();
 
-          //     if (dy) {
-          //       // scroll “dans le bon conteneur”
-          //       sc.scrollTop += dy;
-          //     }
-          //   };
+              // zone visible utile dans le repère layout viewport
+              const minY = vv.offsetTop + marginTop;
 
-          //   // iOS: le clavier + vv changent en plusieurs temps → on répète
-          //   let n = 0;
-          //   const tick = () => {
-          //     runOnce();
-          //     n++;
-          //     if (n < tries) requestAnimationFrame(tick);
-          //   };
-          //   requestAnimationFrame(tick);
+              // vv.height exclut déjà le clavier, mais PAS ta bottom bar
+              const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
 
-          //   // et un dernier coup après stabilisation (optionnel mais utile iOS)
-          //   setTimeout(runOnce, 120);
-          // }
-// function ensureInputVisible({ tries = 4, marginTop = 10, marginBottom = 14 } = {}) {
-//   const vv = window.visualViewport;
-//   if (!vv) return;
+              let dy = 0;
 
-//   const sc = getScrollContainer?.() || scrollerEl || document.scrollingElement || document.documentElement;
-//   if (!sc) return;
+              // Trop haut => on scroll UP (dy négatif)
+              if (r.top < minY) {
+                dy = r.top - minY;
+              }
+              // Trop bas => on scroll DOWN (dy positif)
+              else if (r.bottom > maxY) {
+                dy = r.bottom - maxY;
+              }
 
-//   let attempt = 0;
+              if (dy !== 0) {
+                window.scrollBy({ top: dy, left: 0, behavior: "auto" });
+              }
 
-//   const tick = () => {
-//     attempt++;
+              if (attempt < tries) {
+                requestAnimationFrame(() => setTimeout(tick, 0));
+              }
+            };
 
-//     // viewport "utile" (zone visible hors clavier)
-//     const viewportTop = vv.offsetTop;
-//     const viewportBottom = vv.offsetTop + vv.height;
+            requestAnimationFrame(() => setTimeout(tick, 0));
+          }
 
-//     const r = inputEl.getBoundingClientRect();
-//     const elTop = r.top + window.scrollY;
-//     const elBottom = r.bottom + window.scrollY;
+          function installKeyboardViewportFix() {
+            const noop = () => {};
+            const api = { apply: noop, reset: noop, cleanup: noop };
 
-//     // On veut l'input dans une "zone confortable" :
-//     // - pas collé au haut du viewport
-//     // - surtout pas collé au clavier => garder marginBottom
-//     const minY = viewportTop + marginTop;
-//     const maxY = viewportBottom - marginBottom;
+            const vv = window.visualViewport;
+            if (!vv) return api;
 
-//     let dy = 0;
+            const sc = getScrollContainer?.();
+            if (!sc) return api;
 
-//     // si le haut de l'input est trop haut (hors zone)
-//     if (elTop < minY) {
-//       dy = elTop - minY;               // dy négatif => scroll up
-//     }
-//     // si le bas de l'input est trop bas (touche/clavier)
-//     else if (elBottom > maxY) {
-//       dy = elBottom - maxY;            // dy positif => scroll down
-//     }
+            const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
 
-//     if (dy !== 0) {
-//       // important : scrollBy sur le bon scroller
-//       if (sc === document.scrollingElement || sc === document.documentElement || sc === document.body) {
-//         window.scrollBy({ top: dy, left: 0, behavior: "auto" });
-//       } else {
-//         sc.scrollTop += dy;
-//       }
-//     }
+            api.apply = function apply() {
+              const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+              sc.style.paddingBottom = `${basePad + kb + 12}px`;
+              ensureInputVisible?.({ tries: 4, marginBottom: 18 });
+            };
 
-//     // iOS fait souvent une 2e passe : on retente un peu après
-//     if (attempt < tries) {
-//       requestAnimationFrame(() => setTimeout(tick, 0));
-//     }
-//   };
+            api.reset = function reset() {
+              sc.style.paddingBottom = `${basePad}px`;
+            };
 
-//   // on laisse iOS finir son scroll de focus, puis on corrige
-//   requestAnimationFrame(() => setTimeout(tick, 0));
-// }
-function getBottomBarHeight() {
-  // adapte le sélecteur si besoin
-  const bar = document.querySelector(".sheet-footer");
-  if (!bar) return 0;
+            vv.addEventListener("resize", api.apply);
+            vv.addEventListener("scroll", api.apply);
 
-  // Si la bar est fixed/sticky, elle obstrue le viewport
-  const cs = getComputedStyle(bar);
-  const pos = cs.position;
-  if (pos !== "fixed" && pos !== "sticky") return 0;
+            api.cleanup = function cleanup() {
+              vv.removeEventListener("resize", api.apply);
+              vv.removeEventListener("scroll", api.apply);
+              api.reset();
+            };
 
-  return Math.ceil(bar.getBoundingClientRect().height || 0);
-}
+            return api;
+          } 
 
-function ensureInputVisible({ tries = 4, marginTop = 10, marginBottom = 14 } = {}) {
-  const vv = window.visualViewport;
-  if (!vv) return;
-
-  // ici tu es en scroller body => window scroll
-  // (si un jour tu veux un scroller interne, on fera une autre version)
-  let attempt = 0;
-
-  const tick = () => {
-    attempt++;
-
-    const r = inputEl.getBoundingClientRect(); // repère layout viewport
-    const barH = getBottomBarHeight();
-
-    // zone visible utile dans le repère layout viewport
-    const minY = vv.offsetTop + marginTop;
-
-    // vv.height exclut déjà le clavier, mais PAS ta bottom bar
-    const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
-
-    let dy = 0;
-
-    // Trop haut => on scroll UP (dy négatif)
-    if (r.top < minY) {
-      dy = r.top - minY;
-    }
-    // Trop bas => on scroll DOWN (dy positif)
-    else if (r.bottom > maxY) {
-      dy = r.bottom - maxY;
-    }
-
-    if (dy !== 0) {
-      window.scrollBy({ top: dy, left: 0, behavior: "auto" });
-    }
-
-    if (attempt < tries) {
-      requestAnimationFrame(() => setTimeout(tick, 0));
-    }
-  };
-
-  requestAnimationFrame(() => setTimeout(tick, 0));
-}
-
-          // function installKeyboardViewportFix() {
-          //   const vv = window.visualViewport;
-          //   if (!vv) return () => {};
-
-          //   const sc = getScrollContainer();
-          //   if (!sc) return () => {};
-
-          //   const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
-
-          //   function apply() {
-          //     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
-          //     sc.style.paddingBottom = `${basePad + kb + 12}px`;
-          //     ensureInputVisible({ tries: 4 });
-          //   }
-
-          //   function reset() {
-          //     sc.style.paddingBottom = `${basePad}px`;
-          //   }
-
-          //   vv.addEventListener("resize", apply);
-          //   vv.addEventListener("scroll", apply);
-
-          //   inputEl.addEventListener("focus", apply, { passive: true });
-          //   inputEl.addEventListener("blur", reset, { passive: true });
-
-          //   return () => {
-          //     vv.removeEventListener("resize", apply);
-          //     vv.removeEventListener("scroll", apply);
-          //     inputEl.removeEventListener("focus", apply);
-          //     inputEl.removeEventListener("blur", reset);
-          //     reset();
-          //   };
-          // }
-function installKeyboardViewportFix() {
-  const noop = () => {};
-  const api = { apply: noop, reset: noop, cleanup: noop };
-
-  const vv = window.visualViewport;
-  if (!vv) return api;
-
-  const sc = getScrollContainer?.();
-  if (!sc) return api;
-
-  const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
-
-  api.apply = function apply() {
-    const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
-    sc.style.paddingBottom = `${basePad + kb + 12}px`;
-    ensureInputVisible?.({ tries: 4, marginBottom: 18 });
-  };
-
-  api.reset = function reset() {
-    sc.style.paddingBottom = `${basePad}px`;
-  };
-
-  vv.addEventListener("resize", api.apply);
-  vv.addEventListener("scroll", api.apply);
-
-  api.cleanup = function cleanup() {
-    vv.removeEventListener("resize", api.apply);
-    vv.removeEventListener("scroll", api.apply);
-    api.reset();
-  };
-
-  return api;
-} 
           function getClientXY(ev) {
             // PointerEvent / MouseEvent
             if (typeof ev.clientX === "number" && typeof ev.clientY === "number") {
@@ -4940,7 +4719,6 @@ function installKeyboardViewportFix() {
           }
 
           function onGlobalPick(ev) {
-            console.log("onGlobalPick");
             if (!isOpen) return;
 
             const xy = getClientXY(ev);
@@ -4953,29 +4731,20 @@ function installKeyboardViewportFix() {
             const item = hit.closest(".chipbox-dditem");
             if (item && dd && dd.contains(item)) {
               ev.preventDefault();
-              ev.stopImmediatePropagation();
+              // ev.stopImmediatePropagation();
+              ev.stopPropagation();
 
               selectLabel(item.textContent || "");
               return;
             }
 
-            // 2) tap dans input => (ré)ouvrir
-            // if (hit === inputEl || inputEl.contains(hit)) {
-            //   ev.preventDefault();
-            //   ev.stopImmediatePropagation();
-            //   refreshAndOpenDD();
-            //   ensureInputVisible({ tries: 4 });
-            //   return;
-            // }
-if (hit === inputEl || inputEl.contains(hit)) {
-  // iOS: laisser le navigateur faire le focus / clavier
-  if (ev.type === "pointerup" || ev.type === "touchend") {
-    refreshAndOpenDD();
-    // évite ensureInputVisible ici, ça crée des jumps pendant l'ouverture du clavier
-    // ensureInputVisible({ tries: 4 });
-  }
-  return;
-}
+            if (hit === inputEl || inputEl.contains(hit)) {
+              // iOS: laisser le navigateur faire le focus / clavier
+              if (ev.type === "pointerup" || ev.type === "touchend") {
+                refreshAndOpenDD();
+              }
+              return;
+            }
 
             // 3) tap dans le wrap input (mais pas input) => fermer
             const wrap = hit.closest(".chipbox-inputwrap");
@@ -4995,34 +4764,29 @@ if (hit === inputEl || inputEl.contains(hit)) {
           inputEl.removeAttribute("list");
 
           // ============ Listeners ============
+          let suppressAutoOpenUntil = 0;
+          function suppressAutoOpen(ms = 250) {
+            suppressAutoOpenUntil = Date.now() + ms;
+          }
+          function canAutoOpen() {
+            return Date.now() >= suppressAutoOpenUntil;
+          }
 
-// window.visualViewport?.addEventListener("resize", () => { if (isOpen) positionDD(); });
-// window.visualViewport?.addEventListener("scroll",  () => { if (isOpen) positionDD(); });
-// window.addEventListener("scroll", () => { if (isOpen) positionDD(); }, { passive: true });
+          let posScheduled = false;
+          function schedulePositionDD() {
+            if (!NEED_PORTAL || !isOpen) return;
+            if (posScheduled) return;
+            posScheduled = true;
+            requestAnimationFrame(() => {
+              posScheduled = false;
+              positionDD();
+            });
+          }
 
-let suppressAutoOpenUntil = 0;
-function suppressAutoOpen(ms = 250) {
-  suppressAutoOpenUntil = Date.now() + ms;
-}
-function canAutoOpen() {
-  return Date.now() >= suppressAutoOpenUntil;
-}
-
-let posScheduled = false;
-function schedulePositionDD() {
-  if (!NEED_PORTAL || !isOpen) return;
-  if (posScheduled) return;
-  posScheduled = true;
-  requestAnimationFrame(() => {
-    posScheduled = false;
-    positionDD();
-  });
-}
-
-window.visualViewport?.addEventListener("resize", schedulePositionDD);
-window.visualViewport?.addEventListener("scroll", schedulePositionDD);
-window.addEventListener("scroll", schedulePositionDD, { passive: true });
-getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
+          window.visualViewport?.addEventListener("resize", schedulePositionDD);
+          window.visualViewport?.addEventListener("scroll", schedulePositionDD);
+          window.addEventListener("scroll", schedulePositionDD, { passive: true });
+          getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
 
           // click sur box => focus input si click sur input
           boxEl.addEventListener("click", (ev) => {
@@ -5033,62 +4797,42 @@ getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
             }
           });
 
-  const openFromInput = () => {
-    ensureDD();
-    refreshAndOpenDD(); // refreshSuggestions + openDD si filtered non vide
-  };
+          const openFromInput = () => {
+            ensureDD();
+            refreshAndOpenDD(); // refreshSuggestions + openDD si filtered non vide
+          };
 
-  // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
-  inputEl.addEventListener("pointerup", openFromInput, { passive: true });
+          // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
+          inputEl.addEventListener("pointerup", openFromInput, { passive: true });
 
-  // fallback desktop/Android
-  inputEl.addEventListener("click", openFromInput);
-          
-          // input / focus : doit ouvrir la dropdown même sans taper 
-  //         inputEl.addEventListener("focus", () => {
-  //           ensureDD();          // si custom => crée dd; sinon dd reste null
-  //           refreshSuggestions();
-  //           // if (dd) openDD();
-  // if (dd && !isAndroid && filtered.length) {
-  //   openDD();
-  // }
-  //           // scrollInputIntoView();
-  //           ensureInputVisible({ tries: 4 });
-  //         });
-inputEl.addEventListener("focus", () => {
-  // 1) viewport fix clavier
-  try { kbFix.apply(); } catch {}
+          // fallback desktop/Android
+          inputEl.addEventListener("click", openFromInput);
+                  
+                  // input / focus : doit ouvrir la dropdown même sans taper 
+          inputEl.addEventListener("focus", () => {
+            // 1) viewport fix clavier
+            try { kbFix.apply(); } catch {}
 
-  // 2) dropdown logic
-  ensureDD();
-  refreshSuggestions();
+            // 2) dropdown logic
+            ensureDD();
+            refreshSuggestions();
 
-  // Android: ne pas auto-open sur focus (évite reopen après sélection)
-  // if (dd && !isAndroid && filtered.length) openDD();
- // ✅ n’auto-ouvre pas si on vient juste de sélectionner un item
-  // if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
-  if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
+            // Android: ne pas auto-open sur focus (évite reopen après sélection)
+            // if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
+            if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
 
-  // 3) visibilité (au cas où)
-  ensureInputVisible({ tries: 4 });
-});
+            // 3) visibilité (au cas où)
+            ensureInputVisible({ tries: 4 });
+          });
 
-inputEl.addEventListener("blur", () => {
-  try { kbFix.reset?.(); } catch {}
-});
+          inputEl.addEventListener("blur", () => {
+            try { kbFix.reset?.(); } catch {}
+          });
 
           inputEl.addEventListener("input", () => {
             refreshSuggestions();
             if (dd) openDD();
           });
-
-          // inputEl.addEventListener("pointerup", () => {
-          //   refreshAndOpenDD();
-          // }, { passive: true });
-
-          // inputEl.addEventListener("click", () => {
-          //   refreshAndOpenDD();
-          // });
 
           // Entrée / virgule => chip
           inputEl.addEventListener("keydown", (ev) => {
@@ -5148,13 +4892,10 @@ inputEl.addEventListener("blur", () => {
           document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
 
           // ============ API / init ============
-          // init suggestions
           ensureDD(); // si custom => créé maintenant (sinon no-op)
           refreshSuggestions();
 
-          // let cleanupViewportFix = () => {};
-          // cleanupViewportFix = installKeyboardViewportFix();
-const kbFix = installKeyboardViewportFix();
+          const kbFix = installKeyboardViewportFix();
 
           // init values
           if (initial && initial.length) setValues(initial);
