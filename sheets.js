@@ -4353,7 +4353,7 @@ function isStandalone() {
   return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
 }
 
-const NEED_PORTAL = true; //isIOS && (isStandalone() || true);
+const NEED_PORTAL = isIOS && (isStandalone() || true);
 
           // --- Dropdown custom (si activé)
           /** @type {HTMLElement | null} */
