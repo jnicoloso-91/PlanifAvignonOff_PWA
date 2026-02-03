@@ -2344,6 +2344,10 @@ input[type="range"]:focus::-moz-range-thumb {
 .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
 .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
 
+/* ============*/
+/* Chipboxes   */
+/* ============*/
+
 /* Conteneur global */
 .chipbox{
   display:flex;
