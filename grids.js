@@ -1490,7 +1490,7 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
 function gridOptionsCommon(gridId, el) {
   return {
     context: { gridId },                 
-    defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
+    defaultColDef: { editable: true, resizable: true, sortable: true, filter: "agSetColumnFilter" },
     rowData: [],
     getRowId: p => p.data?.__uuid,
     popupParent: document.body, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
