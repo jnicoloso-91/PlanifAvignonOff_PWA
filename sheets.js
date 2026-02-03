@@ -2732,10 +2732,6 @@ export function openSheetFiltres(gridId) {
             <label>${col.headerName}</label>
 
             <div class="input-wrap${hasVal}">
-              <button type="button" class="btn-clear" data-field="${colId}"
-                      aria-label="Effacer le filtre ${col.headerName}"
-                      title="Effacer">×</button>
-
               <div class="chipbox" data-field="${colId}">
                 <div class="chipbox-inputwrap">
                   <input type="text"
