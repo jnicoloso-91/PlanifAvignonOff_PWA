@@ -777,6 +777,7 @@ function buildColumnsActivitesCommon(){
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width },
+    { field:'Priorite', headerName: 'Prio', width:45, minWidth:45, valueParser: valueParserNumerique, cellEditor:IntCellEditor },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
@@ -784,7 +785,6 @@ function buildColumnsActivitesCommon(){
     { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
-    { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique, cellEditor:"agTextCellEditor", cellEditorParams: { type: "tel", inputMode: "numeric", pattern: "[0-9]*"} },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
     { field:'HyperlienGoogle', headerName: 'Google', minWidth:120, flex:1, cellRenderer: AvisRenderer },
     { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
@@ -910,6 +910,73 @@ function buildColumnsActivitesProgrammables() {
     ...col,
     editable: false
   }));
+}
+
+// Cell Editors
+class IntCellEditor {
+  init(params) {
+    this.params = params;
+
+    const input = document.createElement("input");
+    input.className = "ag-input ag-text-field-input";
+
+    // 🔑 CLÉ : clavier numérique iOS / Android
+    input.type = "tel";
+    input.setAttribute("inputmode", "numeric");
+    input.setAttribute("pattern", "[0-9]*");
+    input.autocomplete = "off";
+
+    // valeur initiale
+    input.value = (params.value == null) ? "" : String(params.value);
+
+    // 🔒 Filtrage live (chiffres uniquement)
+    input.addEventListener("input", () => {
+      const cleaned = input.value.replace(/\D+/g, "");
+      if (input.value !== cleaned) input.value = cleaned;
+    });
+
+    // 🔒 Bloque lettres sur desktop (UX propre)
+    input.addEventListener("keydown", (e) => {
+      // touches autorisées
+      if (
+        e.key === "Backspace" ||
+        e.key === "Delete" ||
+        e.key === "Tab" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight"
+      ) return;
+
+      // chiffres seulement
+      if (!/^\d$/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+
+    this.eInput = input;
+  }
+
+  getGui() {
+    return this.eInput;
+  }
+
+  afterGuiAttached() {
+    // ⚠️ Important iOS : focus direct sans preventDefault
+    this.eInput.focus({ preventScroll: true });
+    this.eInput.select();
+  }
+
+  getValue() {
+    const v = this.eInput.value.replace(/\D+/g, "");
+    return v === "" ? null : parseInt(v, 10);
+  }
+
+  isCancelBeforeStart() {
+    return false;
+  }
+
+  isCancelAfterEnd() {
+    return false;
+  }
 }
 
 // ===== Parsers de grilles =====

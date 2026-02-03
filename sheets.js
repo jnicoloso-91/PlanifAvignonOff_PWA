@@ -92,6 +92,774 @@ function waitTransitionEnd(el, prop = 'transform', timeout = 280) {
 }
 
 /**
+ * createChipBox 
+ * - Mode natif : datalists natives
+ * - Mode custom : datalists natives remplacées par dropdown custom (pour contourner errances IOS)
+ *
+ * @param {{
+ *   boxEl: HTMLElement,
+ *   inputEl: HTMLInputElement,
+ *   datalistEl?: HTMLDataListElement|null,
+ *   initial?: string[],
+ *   suggestions?: string[],
+ *   onChange?: Function|null,
+ *   useCustomDropdown?: boolean,     // force custom (sinon auto iOS)
+ *   scrollerEl?: HTMLElement|null,
+ * }} args
+ */
+function createChipBox({
+  boxEl,
+  inputEl,
+  datalistEl = null,
+  initial = [],
+  suggestions = [],
+  onChange = null,
+  useCustomDropdown = undefined,
+  scrollerEl = null,
+}) {
+
+  const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
+  const map = new Map(); // key -> label (original)
+    
+  // Normalisation token
+  function normToken(s) {
+    return String(s ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  // Normalisation clef
+  function normKey(s) {
+    // pour dédoublonner : insensible casse + accents
+    return normToken(s)
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase();
+  }
+
+  function initChipBoxCore(refreshSuggestions=null) {
+
+    let changeScheduled = false;
+
+    function renderChips() {
+      chipsEl.replaceChildren();
+
+      for (const label of map.values()) {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = `${label} ×`;
+
+        chip.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          map.delete(normKey(label));
+          renderChips();
+          if (typeof refreshSuggestions === "function") refreshSuggestions();
+          notifyChange();
+        });
+
+        // const btn = document.createElement("button");
+        // btn.type = "button";
+        // btn.setAttribute("aria-label", `Supprimer ${label}`);
+        // btn.textContent = "✕";
+        // btn.addEventListener("click", (ev) => {
+        //   ev.preventDefault();
+        //   ev.stopPropagation();
+        //   map.delete(normKey(label));
+        //   renderChips();
+        //   if (typeof refreshSuggestions === "function") refreshSuggestions();
+        //   notifyChange();
+        // });
+
+        chipsEl.appendChild(chip);
+      }
+    }
+
+    function addToken(raw) {
+      const label = normToken(raw);
+      if (!label) return;
+      const key = normKey(label);
+      if (!key) return;
+      if (map.has(key)) return; // anti doublon
+      map.set(key, label);
+      renderChips();
+      if (typeof refreshSuggestions === "function") refreshSuggestions();
+      notifyChange();
+    }
+
+    function removeToken(raw) {
+      const key = normKey(raw);
+      map.delete(key);
+      renderChips();
+      if (typeof refreshSuggestions === "function") refreshSuggestions();
+      notifyChange();
+    }
+
+    function setValues(arr) {
+      map.clear();
+      for (const v of (arr || [])) addToken(v);
+      renderChips();
+      if (typeof refreshSuggestions === "function") refreshSuggestions();
+      notifyChange();
+    }
+
+    function getValues() {
+      return Array.from(map.values());
+    }
+
+    function notifyChange() {
+      if (changeScheduled) return;
+      changeScheduled = true;
+
+      queueMicrotask(() => {
+        changeScheduled = false;
+        if (typeof onChange === "function") {
+          try { onChange(getValues()); } catch {}
+        }
+      });
+    }
+
+    return {
+      addToken,
+      removeToken,
+      setValues,
+      getValues,
+    }
+  }
+
+  /**
+   * Version avec datalists natives
+   */
+  function initChipBoxNative({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange = null }) {
+
+    function setSuggestions(arr) {
+      if (!datalistEl) return;
+
+      datalistEl.replaceChildren();
+
+      // 1) Normalise + dédoublonne
+      const uniq = new Map(); // key -> label
+      for (const s of arr || []) {
+        const label = normToken(s);
+        const key = normKey(label);
+        if (!label || !key) continue;
+        if (uniq.has(key)) continue;
+        uniq.set(key, label);
+      }
+
+      // 2) Enlève les déjà sélectionnés
+      for (const [k] of map) {
+        uniq.delete(k);
+      }
+
+      // 3) Remplit le datalist
+      for (const label of uniq.values()) {
+        const opt = document.createElement("option");
+        opt.value = label;
+        datalistEl.appendChild(opt);
+      }
+    }
+
+    function refreshSuggestionsForOpen() {
+      setSuggestions(suggestions);
+    }
+
+    // clic sur la box -> focus input
+    boxEl.addEventListener("click", (ev) => {
+      const t = /** @type {HTMLElement} */ (ev.target);
+      if (!t) return;
+
+      // Ne focus que si on tape sur input (ou dedans)
+      if (t === inputEl || t.closest?.("input") === inputEl)
+        inputEl.focus();
+    });
+
+    // Entrée ou virgule => créer chip
+    inputEl.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === ",") {
+        ev.preventDefault();
+        addToken(inputEl.value);
+        inputEl.value = "";
+      } else if (ev.key === "Backspace" && !inputEl.value) {
+        // backspace dans champ vide => supprime la dernière chip
+        const last = Array.from(map.values()).pop();
+        if (last) removeToken(last);
+      }
+    });
+
+    // si l'utilisateur choisit une option du datalist, ça met la value dans l'input
+    // => on la convertit immédiatement en chip
+    inputEl.addEventListener("change", () => {
+      const v = inputEl.value;
+      if (!v) return;
+      addToken(v);
+      inputEl.value = "";
+    });
+
+    // Rafraîchir UNIQUEMENT au moment où le navigateur va potentiellement ouvrir le datalist
+    inputEl.addEventListener("pointerdown", refreshSuggestionsForOpen);
+    inputEl.addEventListener("focus", refreshSuggestionsForOpen);
+    inputEl.addEventListener("keydown", (ev) => {
+      if (ev.key === "ArrowDown") refreshSuggestionsForOpen();
+    });
+
+    // init
+    
+    const { addToken, removeToken, setValues, getValues } = initChipBoxCore();
+
+    if (datalistEl) {
+      // relier input -> datalist
+      if (datalistEl.id) inputEl.setAttribute("list", datalistEl.id);
+      setSuggestions(suggestions);
+    }
+
+    return { 
+      setValues, 
+      getValues, 
+      setSuggestions,
+      destroy: null,
+    };
+  }
+
+  /**
+   * Version custom avec datalists natives remplacées par dropdown custom
+   */
+  function initChipBoxCustom({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange = null, scrollerEl = null }) {
+    const NEED_PORTAL = isIOS && isStandalone();
+
+    // --- Dropdown custom (si activé)
+    /** @type {HTMLElement | null} */
+    let dd = null;                // container
+    let isOpen = false;
+    let filtered = [];            // suggestions filtrées et non sélectionnées
+    let activeIndex = 0;
+
+    function isStandalone() {
+      return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
+    }
+
+    function getScrollContainer() {
+      const sc =
+        scrollerEl ||
+        boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet") ||
+        document.scrollingElement ||
+        document.documentElement;
+      return (sc instanceof HTMLElement) ? sc : null;
+    }
+
+    function getBottomBarHeight() {
+      // adapte le sélecteur si besoin
+      const bar = document.querySelector(".sheet-footer");
+      if (!bar) return 0;
+
+      // Si la bar est fixed/sticky, elle obstrue le viewport
+      const cs = getComputedStyle(bar);
+      const pos = cs.position;
+      if (pos !== "fixed" && pos !== "sticky") return 0;
+
+      return Math.ceil(bar.getBoundingClientRect().height || 0);
+    }
+
+    function getClientXY(ev) {
+      // PointerEvent / MouseEvent
+      if (typeof ev.clientX === "number" && typeof ev.clientY === "number") {
+        return { x: ev.clientX, y: ev.clientY };
+      }
+      // TouchEvent (fallback)
+      const t = ev.changedTouches?.[0] || ev.touches?.[0];
+      if (t) return { x: t.clientX, y: t.clientY };
+      return null;
+    }
+
+    function normalizeSuggestionList(arr) {
+      const uniq = new Map(); // key -> label
+      for (const s of (arr || [])) {
+        const label = normToken(s);
+        const key = normKey(label);
+        if (!label || !key) continue;
+        if (!uniq.has(key)) uniq.set(key, label);
+      }
+      // enlever les déjà sélectionnés
+      for (const k of map.keys()) uniq.delete(k);
+      return Array.from(uniq.values());
+    }
+
+    function refreshSuggestions() {
+
+      // 1) calculer filtered (pour custom)
+      const all = normalizeSuggestionList(suggestions);
+      const q = normToken(inputEl.value || "").toLowerCase();
+
+      if (!q) {
+        filtered = all;
+      } else {
+        filtered = all.filter(x => x.toLowerCase().includes(q));
+      }
+
+      // reset active index propre
+      if (activeIndex >= filtered.length) activeIndex = 0;
+
+      // rendre la dropdown custom si présente
+      if (dd) renderDD();
+    }
+
+    function ensureDD() {
+      if (dd) return dd;
+
+      dd = document.createElement("div");
+      dd.className = "chipbox-dd";
+      dd.setAttribute("role", "listbox");
+      dd.setAttribute("aria-label", "Suggestions");
+
+      if (NEED_PORTAL) {
+        dd.style.position = "fixed";
+        dd.style.zIndex = "999999";
+        dd.hidden = true;
+        document.body.appendChild(dd);
+      } else {
+        dd.setAttribute("role", "listbox");
+        dd.setAttribute("aria-label", "Suggestions");
+
+        const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
+        wrap.appendChild(dd);
+      
+        const onPickFromDD = (ev) => {
+          // event delegation
+          const target = ev.target instanceof Element ? ev.target : null;
+          if (!target) return;
+
+          const item = target.closest(".chipbox-dditem");
+          if (!item || !dd.contains(item)) return;
+
+          // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          const label = item.textContent || "";
+          if (!label) return;
+
+          addToken(label);
+          inputEl.value = "";
+
+          // tu choisis : fermer ou rester ouvert
+          closeDD();
+
+          // garder le focus (optionnel) — mais sans forcer des scrolls
+          try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
+        };
+
+      // Triple binding = robuste Android + émulation
+      dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
+      dd.addEventListener("touchstart", onPickFromDD, { passive: false });
+      dd.addEventListener("click", onPickFromDD);
+      }
+
+      return dd;
+    }
+
+    function positionDD() {
+      if (!dd || !NEED_PORTAL) return;
+      const r = inputEl.getBoundingClientRect();
+      const vv = window.visualViewport;
+      const offL = vv?.offsetLeft ?? 0;
+      const offT = vv?.offsetTop ?? 0;
+
+      dd.style.left = (r.left + offL) + "px";
+      dd.style.top = (r.bottom + offT) + "px";
+      dd.style.width = r.width + "px";
+    }
+
+    function openDD() {
+      if (!dd) return;
+      positionDD();
+      dd.hidden = false;
+      dd.classList.add("open");
+      isOpen = true;
+    }
+
+    function closeDD() {
+      if (!dd) return;
+      dd.classList.remove("open");
+      dd.hidden = true;
+      isOpen = false;
+    }
+
+    function renderDD() {
+      if (!dd) return;
+      dd.replaceChildren();
+
+      if (!filtered.length) { closeDD(); return; }
+
+      const list = document.createElement("div");
+      list.className = "chipbox-ddlist";
+
+      filtered.forEach((label, idx) => {
+        const it = document.createElement("div");
+        it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
+        it.textContent = label;
+
+        it.addEventListener("pointerenter", () => setActive(idx));
+        list.appendChild(it);
+      });
+
+      dd.appendChild(list);
+      positionDD(); // ✅
+    }
+
+    function refreshAndOpenDD() {
+        refreshSuggestions();
+        if (dd && filtered.length) openDD();
+    }
+
+    function setActive(idx) {
+      activeIndex = Math.max(0, Math.min(filtered.length - 1, idx));
+      if (dd) renderDD();
+    }
+
+    function selectLabel(label) {
+      addToken(label);
+      inputEl.value = "";
+
+      // ✅ IMPORTANT: empêcher le focus/retap de ré-ouvrir immédiatement (Android)
+      suppressAutoOpen(350);
+
+      refreshSuggestions();
+      closeDD();
+    }
+
+    let lastEnsureAt = 0;
+    function ensureInputVisible({ marginTop = 10, marginBottom = 24 } = {}) {
+      if (Date.now() - lastEnsureAt < 250) return;
+      lastEnsureAt = Date.now();
+
+      const vv = window.visualViewport;
+      if (!vv) return;
+
+      const r = inputEl.getBoundingClientRect();
+      const barH = getBottomBarHeight();
+
+      // Bornes dans repère "layout":
+      // VV_top    = vv.offsetTop
+      // VV_bottom = vv.offsetTop + vv.height
+      //
+      // Contraintes voulues :
+      // r.top    - dy ≥ vv.offsetTop + marginTop
+      // r.bottom - dy ≤ vv.offsetTop + vv.height - barH - marginBottom
+      //
+      // => lower ≤ dy ≤ upper
+      const lower = r.bottom - vv.offsetTop - vv.height + barH + marginBottom;
+      const upper = r.top    - vv.offsetTop              - marginTop;
+
+      let dy = 0;
+
+      if (lower <= upper) {
+        // Cas nominal
+        dy = Math.max(lower, 0);
+      } else {
+        // Fallback stable : aligner le haut (marge nulle)
+        dy = r.top - vv.offsetTop;
+        dy = Math.max(dy, 0);
+      }
+
+      // dead-zone anti-jitter
+      if (Math.abs(dy) <= 6) return;
+
+      withIgnoreVV(220);
+      window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
+    }
+
+    function installKeyboardViewportFix() {
+      const noop = () => {};
+      const api = { apply: noop, reset: noop, cleanup: noop };
+
+      const vv = window.visualViewport;
+      if (!vv) return api;
+
+      const sc = getScrollContainer?.();
+      if (!sc) return api;
+
+      const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
+
+      let tEnsure = 0;
+
+      function scheduleEnsure() {
+        clearTimeout(tEnsure);
+        tEnsure = window.setTimeout(() => {
+          // ✅ ne corrige que si l'input est encore focus (sinon ça bouge pour rien)
+          if (document.activeElement !== inputEl) return;
+          ensureInputVisible({ marginBottom: 18 });
+        }, 120);
+      }
+
+      api.apply = function apply() {
+        if (isIgnoringVV()) return; // ✅ coupe la boucle
+
+        const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+        sc.style.paddingBottom = `${basePad + kb + 12}px`;
+
+        scheduleEnsure();
+      };
+
+      api.reset = function reset() {
+        clearTimeout(tEnsure);
+        sc.style.paddingBottom = `${basePad}px`;
+      };
+
+      vv.addEventListener("resize", api.apply);
+      vv.addEventListener("scroll", api.apply);
+
+      api.cleanup = function cleanup() {
+        clearTimeout(tEnsure);
+        vv.removeEventListener("resize", api.apply);
+        vv.removeEventListener("scroll", api.apply);
+        api.reset();
+      };
+
+      return api;
+    }
+
+    function onGlobalPick(ev) {
+      if (!isOpen) return;
+
+      const xy = getClientXY(ev);
+      if (!xy) { closeDD(); return; }
+
+      const hit = document.elementFromPoint(xy.x, xy.y);
+      if (!(hit instanceof Element)) { closeDD(); return; }
+
+      // 1) item dropdown => select
+      const item = hit.closest(".chipbox-dditem");
+      if (item && dd && dd.contains(item)) {
+        ev.preventDefault();
+        // ev.stopImmediatePropagation();
+        ev.stopPropagation();
+
+        selectLabel(item.textContent || "");
+        return;
+      }
+
+      if (hit === inputEl || inputEl.contains(hit)) {
+        // iOS: laisser le navigateur faire le focus / clavier
+        if (ev.type === "pointerup" || ev.type === "touchend") {
+          refreshAndOpenDD();
+        }
+        return;
+      }
+
+      // 3) tap dans le wrap input (mais pas input) => fermer
+      const wrap = hit.closest(".chipbox-inputwrap");
+      if (wrap && boxEl && boxEl.contains(wrap)) {
+        closeDD();
+        return;
+      }
+
+      // 4) inside chipbox => ne pas fermer
+      if (boxEl && boxEl.contains(hit)) return;
+      if (dd && dd.contains(hit)) return;
+
+      closeDD();
+    }
+
+    let ignoreVVUntil = 0;
+    function withIgnoreVV(ms = 180) {
+      ignoreVVUntil = Date.now() + ms;
+    }
+    function isIgnoringVV() {
+      return Date.now() < ignoreVVUntil;
+    }
+
+    let suppressAutoOpenUntil = 0;
+    function suppressAutoOpen(ms = 250) {
+      suppressAutoOpenUntil = Date.now() + ms;
+    }
+    function canAutoOpen() {
+      return Date.now() >= suppressAutoOpenUntil;
+    }
+
+    let posScheduled = false;
+    function schedulePositionDD() {
+      if (!NEED_PORTAL || !isOpen) return;
+      if (posScheduled) return;
+      posScheduled = true;
+      requestAnimationFrame(() => {
+        posScheduled = false;
+        positionDD();
+      });
+    }
+
+    const openFromInput = () => {
+      ensureDD();
+      refreshAndOpenDD(); // refreshSuggestions + openDD si filtered non vide
+    };
+
+    // ============ Listeners ============
+    window.visualViewport?.addEventListener("resize", schedulePositionDD);
+    window.visualViewport?.addEventListener("scroll", schedulePositionDD);
+    window.addEventListener("scroll", schedulePositionDD, { passive: true });
+    getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
+
+    // click sur box => focus input si click sur input
+    boxEl.addEventListener("click", (ev) => {
+      const t = /** @type {HTMLElement} */ (ev.target);
+      if (!t) return;
+      if (t === inputEl || t.closest?.("input") === inputEl) {
+        inputEl.focus({ preventScroll: true });
+      }
+    });
+
+    // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
+    inputEl.addEventListener("pointerup", openFromInput, { passive: true });
+
+    // fallback desktop/Android
+    inputEl.addEventListener("click", openFromInput);
+            
+            // input / focus : doit ouvrir la dropdown même sans taper 
+    inputEl.addEventListener("focus", () => {
+      // 1) viewport fix clavier
+      try { kbFix.apply(); } catch {}
+
+      // 2) dropdown logic
+      ensureDD();
+      refreshSuggestions();
+
+      // Android: ne pas auto-open sur focus (évite reopen après sélection)
+      // if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
+      if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
+
+      // 3) visibilité (au cas où)
+      // ensureInputVisible({ tries: 4 });
+    });
+
+    inputEl.addEventListener("blur", () => {
+      try { kbFix.reset?.(); } catch {}
+    });
+
+    inputEl.addEventListener("input", () => {
+      refreshSuggestions();
+      if (dd) openDD();
+    });
+
+    // Entrée / virgule => chip
+    inputEl.addEventListener("keydown", (ev) => {
+      // navigation dropdown custom si ouverte
+      if (dd && isOpen && filtered.length) {
+        if (ev.key === "ArrowDown") {
+          ev.preventDefault();
+          setActive(activeIndex + 1);
+          refreshAndOpenDD();
+          return;
+        }
+        if (ev.key === "ArrowUp") {
+          ev.preventDefault();
+          setActive(activeIndex - 1);
+          return;
+        }
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          const pick = filtered[activeIndex];
+          if (pick) selectLabel(pick);
+          return;
+        }
+        if (ev.key === "Escape") {
+          closeDD();
+          return;
+        }
+      }
+
+      // création chip (mode normal)
+      if (ev.key === "Enter" || ev.key === ",") {
+        ev.preventDefault();
+        if (inputEl.value) addToken(inputEl.value);
+        inputEl.value = "";
+        refreshSuggestions();
+        // if (dd) openDD();
+      } else if (ev.key === "Backspace" && !inputEl.value) {
+        const last = Array.from(map.values()).pop();
+        if (last) removeToken(last);
+      }
+    });
+
+    // natif datalist : change => chip
+    inputEl.addEventListener("change", () => {
+      // Si custom : “change” peut arriver, mais on ignore (on gère via dd)
+      if (dd) return;
+
+      const v = inputEl.value;
+      if (!v) return;
+      addToken(v);
+      inputEl.value = "";
+      refreshSuggestions();
+    });
+
+    // ⚠️ Important : écoute sur pointerup + touchend (pointerdown à eviter sur IOS)
+    // document.addEventListener("pointerdown", onGlobalPick, { capture: true, passive: false });
+    document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
+    document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
+
+    // ============ API / init ============
+    // Informe le enableKeyboardAutoScroll (auto scroller par défaut) de ne pas agir
+    inputEl.dataset.keyboardManaged = "true";
+
+    // Supprime la datalist si elle existe
+    inputEl.removeAttribute("list");
+
+    const kbFix = installKeyboardViewportFix();
+    const { addToken, removeToken, setValues, getValues } = initChipBoxCore(refreshSuggestions);
+
+    ensureDD(); 
+    refreshSuggestions();
+
+    // init values
+    if (initial && initial.length) setValues(initial);
+
+    return {
+      setValues,
+      getValues,
+      setSuggestions(arr) {
+        suggestions = Array.isArray(arr) ? arr.slice() : [];
+        refreshSuggestions();
+      },
+      destroy() {
+        try { kbFix.cleanup(); } catch {}
+        try { dd?.remove(); } catch {}
+        dd = null;
+        isOpen = false;
+      }
+    };
+  }
+
+  // --- iOS detection (simple & suffisante ici)
+  const isIOS =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  // --- Choix : custom vs dropdown ?
+  // Si non précisé => auto: iOS => custom, sinon natif
+  const useCustom = (useCustomDropdown != null) ? !!useCustomDropdown : true; //isIOS;
+
+  if (useCustom) {
+    return initChipBoxCustom({
+      boxEl,
+      inputEl,
+      datalistEl,
+      initial,
+      suggestions,
+      onChange,
+      scrollerEl,
+    });
+  }
+
+  else return initChipBoxNative({
+    boxEl,
+    inputEl,
+    datalistEl,
+    initial,
+    suggestions,
+    onChange,
+  });
+}
+
+/**
  * Obsolete (bug au basculement sur IOS => page grille disparait au retour en mode portrait)
  * @param {*} param0 
  * @returns 
@@ -1243,6 +2011,627 @@ export function openSheetCoherence(rows, {
 }
 
 // Feuille Filtres 
+// export function openSheetFiltres(gridId) {
+//   const gridApi = window.grids?.get?.(gridId)?.api;
+//   if (!gridApi) return;
+
+//   const currentFilters = gridApi.getFilterModel?.() || {};
+//   const columns = (gridApi.getColumnDefs?.() || []).filter(col => col.filter);
+//   const fields = columns.map(c => c.field);
+
+//   openSheetExclusive({
+//     title: 'Filtres',
+//     panelHeight: '50vh',
+//     panelMaxHeight: '50vh',
+//     mount: (body, { close }) => {
+//       // ===== Markup =====
+//       const rowsHtml = columns.map(col => {
+//         const colId = col.field;
+//         const value = currentFilters[colId]?.filter || '';
+//         const hasVal = value ? ' has-val' : '';
+//         return `
+//           <div class="form-row filter-row">
+//             <label for="filter-${colId}">${col.headerName}</label>
+//             <div class="input-wrap${hasVal}">
+//               <button type="button" class="btn-clear" data-field="${colId}" aria-label="Effacer le filtre ${col.headerName}" title="Effacer">×</button>
+//               <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}" class="filter-input">
+//             </div>
+//           </div>
+//         `;
+//       }).join('');
+
+//       body.innerHTML = `
+//         <div class="form">
+//           ${rowsHtml}
+//         </div>
+//         <div id="dl-container" hidden></div>
+//         <div class="sheet-footer has-border">
+//           <div class="form-actions">
+//             <button id="btn-clear" class="bb-btn is-primary">Réinitialiser</button>
+//             <button id="btn-apply" class="bb-btn is-primary">Appliquer</button>
+//           </div>
+//         </div>
+//       `;
+
+//       // ===== CSS inline minimal (une seule fois) =====
+//       if (!document.getElementById('filters-inline-css')) {
+//         const style = document.createElement('style');
+//         style.id = 'filters-inline-css';
+//         style.textContent = `
+//           .filter-row .input-wrap { position: relative; display:flex; align-items:center; gap:.5rem; }
+//           .filter-row .btn-clear {
+//             width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
+//             border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
+//             background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
+//             display: none; font-weight: 600; font-size: 1rem;
+//           }
+//           .filter-row .input-wrap.has-val .btn-clear { display: inline-block; }
+//           .filter-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
+//           @media (hover:hover) {
+//             .filter-row .btn-clear:hover { background:#eee; }
+//           }
+//           /* Hook repaint pour casser les "zones mortes" iOS */
+//           .sheet-wrap.repaint { transform: translateZ(0); }
+//         `;
+//         document.head.appendChild(style);
+//       }
+
+//       // Préremplir inputs avec la valeur SANITIZÉE + stocker la RAW d'origine
+//       columns.forEach(col => {
+//         const raw = currentFilters[col.field]?.filter ?? '';
+//         const san = sanitizeDatalistValue(raw);
+//         const inp = body.querySelector(`#filter-${col.field}`);
+//         if (!inp) return;
+//         inp.value = san;
+//         inp.dataset.rawDefault = String(raw);
+//         inp.dataset.modified = 'false';
+//       });
+
+//       // ===== Helpers list/datalist =====
+//       function scrollPageToRevealFooter(footerEl, { margin = 12, smooth = true } = {}) {
+//         if (!footerEl) return;
+//         // viewport visible (en tenant compte d'un éventuel offset top du visualViewport)
+//         const vpTop = vv ? vv.offsetTop : 0;
+//         const vpH   = vv ? vv.height   : window.innerHeight;
+
+//         const rect  = footerEl.getBoundingClientRect();
+//         const bottomLimit = vpTop + vpH - margin; // limite basse utile
+
+//         if (rect.bottom > bottomLimit) {
+//           const delta = rect.bottom - bottomLimit;
+//           window.scrollTo({
+//             top: window.scrollY + delta,
+//             behavior: smooth ? 'smooth' : 'auto'
+//           });
+//         }
+//       }
+
+//       // scrolle UNIQUEMENT si la row est masquée par clavier+footer
+//       function scrollRowIfOccluded(input, { smooth = true } = {}) {
+//         if (!sheetBody) return;
+//         const row = input.closest('.form-row') || input;
+//         const r = row.getBoundingClientRect();
+
+//         const safeH = vv ? vv.height : window.innerHeight;
+//         const footerH = footer?.getBoundingClientRect?.().height || 0;
+//         const margin = 12;
+
+//         // lim inf visible au-dessus du clavier et du footer
+//         const bottomLimit = safeH - footerH - margin;
+
+//         // si la row déborde sous la limite, on avance le scroll juste ce qu’il faut
+//         if (r.bottom > bottomLimit) {
+//           const delta = r.bottom - bottomLimit;
+//           sheetBody.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
+//         }
+//       }
+//       // Remplace CR/LF réels ET littéraux (\r\n, \n, \r) par un espace pour l’affichage
+//       function sanitizeDatalistValue(s) {
+//         return String(s)
+//           .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, ' ')
+//           .replace(/\s+/g, ' ')
+//           .trim();
+//       }
+//       // Si l’utilisateur tape "\r\n", on peut (optionnel) le retransformer en vrai saut de ligne
+//       function unescapeCRLF(s) {
+//         return String(s).replace(/\\r\\n|\\n|\\r/g, '\n');
+//       }
+//       function collectRowsFromGrid(api, mode = 'all') {
+//         const out = [];
+//         if (mode === 'afterFilter' && api.forEachNodeAfterFilterAndSort) {
+//           api.forEachNodeAfterFilterAndSort(n => { if (n?.data) out.push(n.data); });
+//         } else if (api.forEachLeafNode) {
+//           api.forEachLeafNode(n => { if (n?.data) out.push(n.data); });
+//         } else if (api.getDisplayedRowCount) {
+//           const cnt = api.getDisplayedRowCount();
+//           for (let i = 0; i < cnt; i++) {
+//             const rowNode = api.getDisplayedRowAtIndex(i);
+//             if (rowNode?.data) out.push(rowNode.data);
+//           }
+//         }
+//         return out;
+//       }
+//       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
+//         const set = new Set();
+//         for (const r of rows || []) {
+//           let v = r?.[field];
+//           if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
+//           set.add(String(v));
+//           if (set.size >= max) break;
+//         }
+//         return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+//       }
+
+//       // Returns unique words extracted from values of a field.
+//       // For each value (assumed possibly a CSV/list), split by `sep`, trim and collect unique tokens.
+//       function uniqueWords(rows, field, { max = 500, includeEmpty = false, sep = ',' } = {}) {
+//         const rawVals = uniqueValues(rows, field, { max, includeEmpty });
+//         const set = new Set();
+//         for (const v of rawVals) {
+//           if (!v) continue;
+//           const parts = String(v).split(sep);
+//           for (const p of parts) {
+//             const w = p.trim();
+//             if (!w) continue;
+//             set.add(w);
+//             if (set.size >= max) break;
+//           }
+//           if (set.size >= max) break;
+//         }
+//         return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+//       }
+//       function wireDatalistForField(field, rows) {
+//         const input = body.querySelector(`#filter-${field}`);
+//         if (!input) return;
+//         const listId = `dl-${field}`;
+//         const dlContainer = body.querySelector('#dl-container');
+//         let dl = body.querySelector(`#${listId}`);
+//         if (!dl) {
+//           dl = document.createElement('datalist');
+//           dl.id = listId;
+//           dlContainer.appendChild(dl);
+//         }
+//         input.setAttribute('list', listId);
+//         const values = uniqueValues(rows, field);
+//         dl.replaceChildren(...values.map(v => {
+//           const o = document.createElement('option');
+//           o.value = v;
+//           return o;
+//         }));
+//       }
+      
+//       function wireDatalistForField(field, rows) {
+//         const input = body.querySelector(`#filter-${field}`);
+//         if (!input) return;
+//         const listId = `dl-${field}`;
+//         const dlContainer = body.querySelector('#dl-container');
+//         let dl = body.querySelector(`#${listId}`);
+//         if (!dl) {
+//           dl = document.createElement('datalist');
+//           dl.id = listId;
+//           dlContainer.appendChild(dl);
+//         }
+//         input.setAttribute('list', listId);
+
+//         const rawValues = uniqueValues(rows, field);
+//         dl.replaceChildren(); // reset
+
+//         // éviter les doublons après sanitization
+//         const seenSanitized = new Set();
+//         for (const raw of rawValues) {
+//           const san = sanitizeDatalistValue(raw);
+//           if (!san) continue;
+//           if (seenSanitized.has(san)) continue;
+//           seenSanitized.add(san);
+
+//           const o = document.createElement('option');
+//           o.value = san;           // ce que voit/saisit l’utilisateur
+//           o.dataset.raw = String(raw); // la valeur brute (avec éventuels \r\n réels)
+//           dl.appendChild(o);
+//         }
+//       }
+//       function wireDatalistForFieldWords(field, rows) {
+//         const input = body.querySelector(`#filter-${field}`);
+//         if (!input) return;
+//         const listId = `dl-${field}`;
+//         const dlContainer = body.querySelector('#dl-container');
+//         let dl = body.querySelector(`#${listId}`);
+//         if (!dl) {
+//           dl = document.createElement('datalist');
+//           dl.id = listId;
+//           dlContainer.appendChild(dl);
+//         }
+//         input.setAttribute('list', listId);
+
+//         const words = uniqueWords(rows, field);
+//         dl.replaceChildren(); // reset
+//         for (const w of words) {
+//           const san = sanitizeDatalistValue(w);
+//           if (!san) continue;
+//           const o = document.createElement('option');
+//           o.value = san;
+//           o.dataset.raw = String(w);
+//           dl.appendChild(o);
+//         }
+//       }
+
+//       function buildFilterLists(rows, fields) {
+//         fields.forEach(f => {
+//           try {
+//             if (String(f).toLowerCase() === 'mood') {
+//               wireDatalistForFieldWords(f, rows);
+//             } else {
+//               wireDatalistForField(f, rows);
+//             }
+//           } catch (e) {
+//             console.warn('buildFilterLists error for field', f, e);
+//           }
+//         });
+//       }
+//       buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
+
+//       const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
+//       const sheetBody = sheet?.querySelector('.sheet-body') || body;
+//       const footer    = sheet?.querySelector('.sheet-footer');
+//       const vv        = window.visualViewport;
+//       const scrollEl  = sheet?.querySelector('.sheet-body .form') || body;
+
+//       // **************************************
+//       // Section avec menus plutot que datalist
+//       // Resoud le pb de détachement de la datalist de son champ input sur IPad 
+//       // mais reste un pb de scroll insuffisant du menu sur IOS lorsque le clavier est affiché
+//       // et des menus qui parfois ne se ferment pas lorsque l'on ferme la sheet
+//       // function attachAutocomplete(inp, values, {max=300, minChars=0} = {}) {
+//       //   let box = null, selIdx = -1, open = false;
+//       //   const vv = window.visualViewport;
+
+//       //   function makeBox() {
+//       //     if (box) return box;
+//       //     box = document.createElement('div');
+//       //     box.className = 'bb-ac';
+//       //     box.setAttribute('role','listbox');
+//       //     box.hidden = true;
+//       //     document.body.appendChild(box);
+//       //     return box;
+//       //   }
+//       //   function posBox() {
+//       //     if (!box) return;
+//       //     const r = inp.getBoundingClientRect();
+//       //     const gap = 4;
+//       //     const top = r.bottom + gap + (vv ? vv.offsetTop : 0);
+//       //     const left = r.left + (vv ? vv.offsetLeft : 0);
+//       //     box.style.top = `${top}px`;
+//       //     box.style.left = `${left}px`;
+//       //     box.style.minWidth = `${r.width}px`;
+//       //   }
+//       //   function render(list) {
+//       //     const b = makeBox();
+//       //     b.innerHTML = '';
+//       //     selIdx = -1;
+//       //     const frag = document.createDocumentFragment();
+//       //     list.slice(0, max).forEach((v, i) => {
+//       //       const it = document.createElement('div');
+//       //       it.className = 'bb-ac__item';
+//       //       it.setAttribute('role','option');
+//       //       it.textContent = v;
+//       //       it.addEventListener('mousedown', (e) => {
+//       //         e.preventDefault();          // empêche blur avant click
+//       //         commit(v);
+//       //       });
+//       //       frag.appendChild(it);
+//       //     });
+//       //     b.appendChild(frag);
+//       //     open = list.length > 0;
+//       //     b.hidden = !open;
+//       //     if (open) posBox();
+//       //   }
+//       //   function commit(val) {
+//       //     inp.value = val;
+//       //     hide();
+//       //     // ferme le clavier pour libérer le footer, à la manière de ta sheet
+//       //     inp.blur?.();
+//       //     setTimeout(() => {
+//       //       const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
+//       //       if (!footer) return;
+//       //       const r = footer.getBoundingClientRect();
+//       //       const vh = window.innerHeight;
+//       //       if (r.bottom > vh) {
+//       //         window.scrollTo({ top: window.scrollY + (r.bottom - vh) + 8, behavior: 'smooth' });
+//       //       }
+//       //     }, 40);
+//       //     // propage tes hooks existants
+//       //     inp.dispatchEvent(new Event('input', { bubbles:true }));
+//       //     inp.dispatchEvent(new Event('change', { bubbles:true }));
+//       //   }
+//       //   function hide() {
+//       //     open = false;
+//       //     if (box) box.hidden = true;
+//       //   }
+//       //   function items() { return box ? Array.from(box.querySelectorAll('.bb-ac__item')) : []; }
+//       //   function highlight(idx) {
+//       //     selIdx = idx;
+//       //     items().forEach((el,i)=>el.setAttribute('aria-selected', String(i===idx)));
+//       //   }
+//       //   function move(delta) {
+//       //     const it = items();
+//       //     if (!it.length) return;
+//       //     let n = selIdx + delta;
+//       //     if (n < 0) n = it.length - 1;
+//       //     if (n >= it.length) n = 0;
+//       //     highlight(n);
+//       //     it[n].scrollIntoView({ block:'nearest' });
+//       //   }
+
+//       //   // filtres (tu peux remplacer par ta sanitize/normalize)
+//       //   const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+//       //   function filterNow() {
+//       //     const q = normalize(inp.value);
+//       //     if (q.length < minChars) { hide(); return; }
+//       //     const out = [];
+//       //     for (const v of values) {
+//       //       if (normalize(v).includes(q)) out.push(v);
+//       //     }
+//       //     render(out);
+//       //   }
+
+//       //   // events
+//       //   inp.addEventListener('focus', () => { filterNow(); posBox(); });
+//       //   inp.addEventListener('input', filterNow);
+//       //   inp.addEventListener('keydown', (e) => {
+//       //     if (!open) return;
+//       //     if (e.key === 'ArrowDown') { e.preventDefault(); move(+1); }
+//       //     else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+//       //     else if (e.key === 'Enter') { 
+//       //       if (selIdx >= 0) { e.preventDefault(); commit(items()[selIdx].textContent); }
+//       //       else hide();
+//       //     } else if (e.key === 'Escape') { hide(); }
+//       //   });
+//       //   inp.addEventListener('blur', () => setTimeout(hide, 100)); // laisse le click se faire
+
+//       //   // suivre déplacements/clavier iOS
+//       //   const rePos = () => { if (open) posBox(); };
+//       //   window.addEventListener('scroll', rePos, true);
+//       //   window.addEventListener('resize', rePos);
+//       //   vv?.addEventListener('resize', rePos);
+//       //   vv?.addEventListener('scroll', rePos);
+
+//       //   return {
+//       //     destroy() {
+//       //       window.removeEventListener('scroll', rePos, true);
+//       //       window.removeEventListener('resize', rePos);
+//       //       vv?.removeEventListener('resize', rePos);
+//       //       vv?.removeEventListener('scroll', rePos);
+//       //       box?.remove();
+//       //       box = null;
+//       //     }
+//       //   };
+//       // }
+
+//       // // 1️⃣ Récupère les valeurs uniques pour chaque champ filtrable
+//       // const sourceRows = collectRowsFromGrid(gridApi, 'all');
+//       // const valuesByField = Object.fromEntries(
+//       //   fields.map(f => [f, uniqueValues(sourceRows, f)])
+//       // );
+
+//       // // 2️⃣ Attache un autocompléteur custom sur chaque input
+//       // const acHandles = [];
+//       // body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
+//       //   const field = inp.id.replace(/^filter-/, '');
+//       //   const values = valuesByField[field] || [];
+//       //   const ac = attachAutocomplete(inp, values, { max: 500, minChars: 0 });
+//       //   acHandles.push(ac);
+//       // });
+
+//       // // 3️⃣ Nettoyage à la fermeture de la sheet (optionnel)
+//       // const sw = document.querySelector('.sheet-wrap.is-open');
+//       // if (sw) {
+//       //   sw.addEventListener('transitionend', (ev) => {
+//       //     if (!sw.classList.contains('is-open')) {
+//       //       acHandles.forEach(h => h.destroy());
+//       //     }
+//       //   });
+//       // }
+//       // **************************************
+
+//       // hooks visualViewport (iOS)
+//       // if (vv) {
+//       //   const onVV = () => applyInsets();
+//       //   vv.addEventListener('resize', onVV);
+//       //   vv.addEventListener('scroll', onVV);
+//       //   // cleanup quand la sheet est détruite
+//       //   const mo = new MutationObserver(() => {
+//       //     if (sheet && !document.body.contains(sheet)) {
+//       //       vv.removeEventListener('resize', onVV);
+//       //       vv.removeEventListener('scroll', onVV);
+//       //       mo.disconnect();
+//       //     }
+//       //   });
+//       //   mo.observe(document.body, { childList: true, subtree: true });
+//       // }
+//       // applyInsets();
+      
+//       // ===== RAZ par champ (×) + sync has-val =====
+//       body.addEventListener('click', (e) => {
+//         const btn = e.target.closest('.btn-clear');
+//         if (!btn) return;
+//         const field = btn.dataset.field;
+//         const input = body.querySelector(`#filter-${field}`);
+//         if (!input) return;
+//         input.value = '';
+//         input.dispatchEvent(new Event('input', { bubbles: true }));
+//         btn.parentElement.classList.remove('has-val');
+//         input.focus();
+//       });
+
+//       body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
+//         const wrap = inp.closest('.input-wrap');
+//         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
+//         const markModified = () => { inp.dataset.modified = 'true'; };
+//         const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
+
+//         // Tape clavier → on ne scrolle PAS (évite les “sauts”)
+//         inp.addEventListener('input', () => {
+//           sync();
+//           markModified();
+//         });
+
+//         // Focus → scroller la ROW si masquée
+//         inp.addEventListener('focus', () => {
+//           // applyInsets();
+//           // petit rafraîchissement visuel avant calcul
+//           requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: false }));
+//         });
+
+//         // Sélection via datalist → scroller la ROW si masquée
+//         inp.addEventListener('change', () => {
+//           sync();
+//           markModified();
+//           // applyInsets();
+//           // requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
+//           inp.blur();
+//           setTimeout(() => {
+//             scrollPageToRevealFooter(footer, { smooth: true });
+//           }, 50);
+//         });
+
+//         // Enter : sécurise aussi
+//         inp.addEventListener('keydown', (ev) => {
+//           if (ev.key === 'Enter') {
+//             requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
+//           }
+//           if (ev.key === 'Escape') {
+//             inp.value = '';
+//             inp.dispatchEvent(new Event('input', { bubbles: true }));
+//           }
+//         });
+
+//         sync(); // init visuelle
+//       });
+
+
+//       // ===== Appliquer / hMaxCur=====
+//       const applyBtn = body.querySelector('#btn-apply');
+//       const clearBtn = body.querySelector('#btn-clear');
+//       applyBtn.addEventListener('click', () => {
+//         const newModel = {};
+//         columns.forEach(col => {
+//           const inp = body.querySelector(`#filter-${col.field}`);
+//           if (!inp) return;
+
+//           const valSan = (inp.value || '').trim();
+//           const rawDefault = inp.dataset.rawDefault || '';
+//           const modified = inp.dataset.modified === 'true';
+
+//           if (!valSan && !rawDefault) return;
+
+//           let filterVal = null;
+
+//           if (!modified && rawDefault) {
+//             // L’utilisateur n’a rien changé → réappliquer EXACTEMENT la valeur brute précédente
+//             filterVal = rawDefault;
+//           } else {
+//             // L’utilisateur a modifié (ou pas de rawDefault) → tenter de retrouver l’option correspondante
+//             const dl = body.querySelector(`#dl-${col.field}`);
+//             if (dl) {
+//               let matchedRaw = null;
+//               for (const opt of dl.options) {
+//                 if (opt.value === valSan) { matchedRaw = opt.dataset.raw || null; break; }
+//               }
+//               filterVal = matchedRaw ?? unescapeCRLF(valSan);
+//             } else {
+//               filterVal = unescapeCRLF(valSan);
+//             }
+//           }
+
+//           if (filterVal) newModel[col.field] = { type: 'contains', filter: filterVal };
+//         });
+
+//         gridApi.setFilterModel(newModel);
+//         gridApi.onFilterChanged?.();
+//         if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
+//         close();
+//       });
+
+//       clearBtn.addEventListener('click', () => {
+//         gridApi.setFilterModel({});
+//         gridApi.onFilterChanged?.();
+//         if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
+//         close();
+//       });
+
+//       // ===== iOS/iPadOS keyboard-safe: gérer la "zone morte" au repli du clavier =====
+//       // expose hauteur footer pour padding initial
+//       if (sheet) sheet.style.setProperty('--sheet-footer-h', `${footer?.offsetHeight || 0}px`);
+//       if (scrollEl && sheet) scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
+
+//       let kbOpen = false;
+//       const handlers = [];
+
+//       const onVVChange = () => {
+//         if (!sheet || !scrollEl || !vv) return;
+//         // heuristique d’ouverture clavier
+//         const isOpen = (window.innerHeight - vv.height) > 120;
+
+//         if (isOpen && !kbOpen) {
+//           kbOpen = true;
+//           const kb = Math.max(0, Math.round(window.innerHeight - vv.height));
+//           sheet.style.setProperty('--kb-inset', kb + 'px');
+//           scrollEl.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
+//           scrollEl.style.pointerEvents = 'auto';
+          
+//           // 🔹 NOUVEAU : quand le clavier s’ouvre, on s’assure que le footer est visible
+//           if (footer) {
+//             setTimeout(() => {
+//               scrollPageToRevealFooter(footer, { smooth: true });
+//             }, 30);
+//           }
+//         }
+//         if (!isOpen && kbOpen) {
+//           kbOpen = false;
+//           sheet.style.setProperty('--kb-inset', '0px');
+//           scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
+//           // force un léger repaint pour tuer la zone morte
+//           // eslint-disable-next-line no-unused-expressions
+//           sheet.offsetHeight;
+//           sheet.classList.add('repaint');
+//           requestAnimationFrame(() => sheet.classList.remove('repaint'));
+//           scrollEl.style.pointerEvents = 'auto';
+//           // poke scroll pour réveiller WebKit
+//           requestAnimationFrame(() => {
+//             const y = scrollEl.scrollTop;
+//             scrollEl.scrollTop = Math.max(0, y - 1);
+//             scrollEl.scrollTop = Math.max(0, y);
+//           });
+//         }
+//       };
+
+//       const focusoutHandler = () => setTimeout(onVVChange, 50);
+
+//       if (vv) {
+//         vv.addEventListener('resize', onVVChange);
+//         vv.addEventListener('scroll', onVVChange);
+//         handlers.push(() => { vv.removeEventListener('resize', onVVChange); vv.removeEventListener('scroll', onVVChange); });
+//       }
+//       document.addEventListener('focusout', focusoutHandler, true);
+//       handlers.push(() => document.removeEventListener('focusout', focusoutHandler, true));
+
+//       // cleanup quand la sheet disparaît (fermeture par swipe incluse)
+//       const mo = new MutationObserver(() => {
+//         if (sheet && !document.body.contains(sheet)) {
+//           handlers.forEach(fn => { try { fn(); } catch {} });
+//           mo.disconnect();
+//         }
+//       });
+//       mo.observe(document.body, { childList: true, subtree: true });
+
+//       // ===== styles visuels quand focus sur input (optionnel)
+//       document.querySelectorAll('.filter-input').forEach(inp => {
+//         inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
+//         inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
+//       });
+//     }
+//   });
+// }
 export function openSheetFiltres(gridId) {
   const gridApi = window.grids?.get?.(gridId)?.api;
   if (!gridApi) return;
@@ -1252,125 +2641,16 @@ export function openSheetFiltres(gridId) {
   const fields = columns.map(c => c.field);
 
   openSheetExclusive({
-    title: 'Filtres',
-    panelHeight: '50vh',
-    panelMaxHeight: '50vh',
+    title: "Filtres",
+    panelHeight: "50vh",
+    panelMaxHeight: "50vh",
     mount: (body, { close }) => {
-      // ===== Markup =====
-      const rowsHtml = columns.map(col => {
-        const colId = col.field;
-        const value = currentFilters[colId]?.filter || '';
-        const hasVal = value ? ' has-val' : '';
-        return `
-          <div class="form-row filter-row">
-            <label for="filter-${colId}">${col.headerName}</label>
-            <div class="input-wrap${hasVal}">
-              <button type="button" class="btn-clear" data-field="${colId}" aria-label="Effacer le filtre ${col.headerName}" title="Effacer">×</button>
-              <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}" class="filter-input">
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      body.innerHTML = `
-        <div class="form">
-          ${rowsHtml}
-        </div>
-        <div id="dl-container" hidden></div>
-        <div class="sheet-footer has-border">
-          <div class="form-actions">
-            <button id="btn-clear" class="bb-btn is-primary">Réinitialiser</button>
-            <button id="btn-apply" class="bb-btn is-primary">Appliquer</button>
-          </div>
-        </div>
-      `;
-
-      // ===== CSS inline minimal (une seule fois) =====
-      if (!document.getElementById('filters-inline-css')) {
-        const style = document.createElement('style');
-        style.id = 'filters-inline-css';
-        style.textContent = `
-          .filter-row .input-wrap { position: relative; display:flex; align-items:center; gap:.5rem; }
-          .filter-row .btn-clear {
-            width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
-            border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
-            background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
-            display: none; font-weight: 600; font-size: 1rem;
-          }
-          .filter-row .input-wrap.has-val .btn-clear { display: inline-block; }
-          .filter-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
-          @media (hover:hover) {
-            .filter-row .btn-clear:hover { background:#eee; }
-          }
-          /* Hook repaint pour casser les "zones mortes" iOS */
-          .sheet-wrap.repaint { transform: translateZ(0); }
-        `;
-        document.head.appendChild(style);
-      }
-
-      // Préremplir inputs avec la valeur SANITIZÉE + stocker la RAW d'origine
-      columns.forEach(col => {
-        const raw = currentFilters[col.field]?.filter ?? '';
-        const san = sanitizeDatalistValue(raw);
-        const inp = body.querySelector(`#filter-${col.field}`);
-        if (!inp) return;
-        inp.value = san;
-        inp.dataset.rawDefault = String(raw);
-        inp.dataset.modified = 'false';
-      });
-
-      // ===== Helpers list/datalist =====
-      function scrollPageToRevealFooter(footerEl, { margin = 12, smooth = true } = {}) {
-        if (!footerEl) return;
-        // viewport visible (en tenant compte d'un éventuel offset top du visualViewport)
-        const vpTop = vv ? vv.offsetTop : 0;
-        const vpH   = vv ? vv.height   : window.innerHeight;
-
-        const rect  = footerEl.getBoundingClientRect();
-        const bottomLimit = vpTop + vpH - margin; // limite basse utile
-
-        if (rect.bottom > bottomLimit) {
-          const delta = rect.bottom - bottomLimit;
-          window.scrollTo({
-            top: window.scrollY + delta,
-            behavior: smooth ? 'smooth' : 'auto'
-          });
-        }
-      }
-
-      // scrolle UNIQUEMENT si la row est masquée par clavier+footer
-      function scrollRowIfOccluded(input, { smooth = true } = {}) {
-        if (!sheetBody) return;
-        const row = input.closest('.form-row') || input;
-        const r = row.getBoundingClientRect();
-
-        const safeH = vv ? vv.height : window.innerHeight;
-        const footerH = footer?.getBoundingClientRect?.().height || 0;
-        const margin = 12;
-
-        // lim inf visible au-dessus du clavier et du footer
-        const bottomLimit = safeH - footerH - margin;
-
-        // si la row déborde sous la limite, on avance le scroll juste ce qu’il faut
-        if (r.bottom > bottomLimit) {
-          const delta = r.bottom - bottomLimit;
-          sheetBody.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
-        }
-      }
-      // Remplace CR/LF réels ET littéraux (\r\n, \n, \r) par un espace pour l’affichage
-      function sanitizeDatalistValue(s) {
-        return String(s)
-          .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-      }
-      // Si l’utilisateur tape "\r\n", on peut (optionnel) le retransformer en vrai saut de ligne
-      function unescapeCRLF(s) {
-        return String(s).replace(/\\r\\n|\\n|\\r/g, '\n');
-      }
-      function collectRowsFromGrid(api, mode = 'all') {
+      // ─────────────────────────────────────────────
+      // Helpers
+      // ─────────────────────────────────────────────
+      function collectRowsFromGrid(api, mode = "all") {
         const out = [];
-        if (mode === 'afterFilter' && api.forEachNodeAfterFilterAndSort) {
+        if (mode === "afterFilter" && api.forEachNodeAfterFilterAndSort) {
           api.forEachNodeAfterFilterAndSort(n => { if (n?.data) out.push(n.data); });
         } else if (api.forEachLeafNode) {
           api.forEachLeafNode(n => { if (n?.data) out.push(n.data); });
@@ -1383,20 +2663,26 @@ export function openSheetFiltres(gridId) {
         }
         return out;
       }
+
+      function sanitizeValue(s) {
+        return String(s)
+          .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
         const set = new Set();
         for (const r of rows || []) {
           let v = r?.[field];
-          if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
+          if (v == null || v === "") { if (!includeEmpty) continue; v = "∅"; }
           set.add(String(v));
           if (set.size >= max) break;
         }
-        return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
+        return [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true, sensitivity: "base" }));
       }
 
-      // Returns unique words extracted from values of a field.
-      // For each value (assumed possibly a CSV/list), split by `sep`, trim and collect unique tokens.
-      function uniqueWords(rows, field, { max = 500, includeEmpty = false, sep = ',' } = {}) {
+      function uniqueWords(rows, field, { max = 500, includeEmpty = false, sep = "," } = {}) {
         const rawVals = uniqueValues(rows, field, { max, includeEmpty });
         const set = new Set();
         for (const v of rawVals) {
@@ -1410,457 +2696,249 @@ export function openSheetFiltres(gridId) {
           }
           if (set.size >= max) break;
         }
-        return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
-      }
-      function wireDatalistForField(field, rows) {
-        const input = body.querySelector(`#filter-${field}`);
-        if (!input) return;
-        const listId = `dl-${field}`;
-        const dlContainer = body.querySelector('#dl-container');
-        let dl = body.querySelector(`#${listId}`);
-        if (!dl) {
-          dl = document.createElement('datalist');
-          dl.id = listId;
-          dlContainer.appendChild(dl);
-        }
-        input.setAttribute('list', listId);
-        const values = uniqueValues(rows, field);
-        dl.replaceChildren(...values.map(v => {
-          const o = document.createElement('option');
-          o.value = v;
-          return o;
-        }));
-      }
-      
-      function wireDatalistForField(field, rows) {
-        const input = body.querySelector(`#filter-${field}`);
-        if (!input) return;
-        const listId = `dl-${field}`;
-        const dlContainer = body.querySelector('#dl-container');
-        let dl = body.querySelector(`#${listId}`);
-        if (!dl) {
-          dl = document.createElement('datalist');
-          dl.id = listId;
-          dlContainer.appendChild(dl);
-        }
-        input.setAttribute('list', listId);
-
-        const rawValues = uniqueValues(rows, field);
-        dl.replaceChildren(); // reset
-
-        // éviter les doublons après sanitization
-        const seenSanitized = new Set();
-        for (const raw of rawValues) {
-          const san = sanitizeDatalistValue(raw);
-          if (!san) continue;
-          if (seenSanitized.has(san)) continue;
-          seenSanitized.add(san);
-
-          const o = document.createElement('option');
-          o.value = san;           // ce que voit/saisit l’utilisateur
-          o.dataset.raw = String(raw); // la valeur brute (avec éventuels \r\n réels)
-          dl.appendChild(o);
-        }
-      }
-      function wireDatalistForFieldWords(field, rows) {
-        const input = body.querySelector(`#filter-${field}`);
-        if (!input) return;
-        const listId = `dl-${field}`;
-        const dlContainer = body.querySelector('#dl-container');
-        let dl = body.querySelector(`#${listId}`);
-        if (!dl) {
-          dl = document.createElement('datalist');
-          dl.id = listId;
-          dlContainer.appendChild(dl);
-        }
-        input.setAttribute('list', listId);
-
-        const words = uniqueWords(rows, field);
-        dl.replaceChildren(); // reset
-        for (const w of words) {
-          const san = sanitizeDatalistValue(w);
-          if (!san) continue;
-          const o = document.createElement('option');
-          o.value = san;
-          o.dataset.raw = String(w);
-          dl.appendChild(o);
-        }
+        return [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true, sensitivity: "base" }));
       }
 
-      function buildFilterLists(rows, fields) {
-        fields.forEach(f => {
-          try {
-            if (String(f).toLowerCase() === 'mood') {
-              wireDatalistForFieldWords(f, rows);
-            } else {
-              wireDatalistForField(f, rows);
-            }
-          } catch (e) {
-            console.warn('buildFilterLists error for field', f, e);
+      function buildSuggestionsForField(field, rows) {
+        const isMood = String(field).toLowerCase() === "mood";
+        const raw = isMood ? uniqueWords(rows, field) : uniqueValues(rows, field);
+
+        const seen = new Set();
+        const out = [];
+        for (const v of raw) {
+          const san = sanitizeValue(v);
+          if (!san || seen.has(san)) continue;
+          seen.add(san);
+          out.push(san);
+        }
+        return out;
+      }
+
+      // ─────────────────────────────────────────────
+      // Markup
+      // ─────────────────────────────────────────────
+      const rowsHtml = columns.map(col => {
+        const colId = col.field;
+
+        // lecture du filtre courant (mode "set" attendu)
+        const cur = currentFilters[colId] || {};
+        const initial =
+          Array.isArray(cur.values) ? cur.values : (cur.filter ? [cur.filter] : []);
+
+        const hasVal = (initial && initial.length) ? " has-val" : "";
+
+        return `
+          <div class="form-row filter-row" data-field="${colId}">
+            <label>${col.headerName}</label>
+
+            <div class="input-wrap${hasVal}">
+              <button type="button" class="btn-clear" data-field="${colId}"
+                      aria-label="Effacer le filtre ${col.headerName}"
+                      title="Effacer">×</button>
+
+              <div class="chipbox" data-field="${colId}">
+                <div class="chipbox-inputwrap">
+                  <input type="text"
+                        id="filter-${colId}"
+                        placeholder="Ajouter ${col.headerName}"
+                        class="chipbox-input bb-input">
+                  <div class="chipbox-chips"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      body.innerHTML = `
+        <div class="form">
+          ${rowsHtml}
+        </div>
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button id="btn-clear" class="bb-btn is-primary">Réinitialiser</button>
+            <button id="btn-apply" class="bb-btn is-primary">Appliquer</button>
+          </div>
+        </div>
+      `;
+
+      // ─────────────────────────────────────────────
+      // CSS inline minimal (une seule fois)
+      // ─────────────────────────────────────────────
+      if (!document.getElementById("filters-chipbox-inline-css")) {
+        const style = document.createElement("style");
+        style.id = "filters-chipbox-inline-css";
+        style.textContent = `
+          .filter-row .input-wrap{
+            border: none !important;
+            position: relative;
+            display:flex;
+            align-items:center;
+            gap:.5rem;
+            width: 100%;
+          }
+          .filter-row .btn-clear{
+            width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
+            border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
+            background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
+            display: none; font-weight: 600; font-size: 1rem;
+          }
+          .filter-row .input-wrap.has-val .btn-clear{ display:inline-block; }
+
+          /* chipbox container */
+          .filter-row .chipbox{
+            display:flex;
+            flex-wrap: wrap;
+            align-items:center;
+            gap:.35rem;
+            flex: 1 1 auto;
+            min-width: 0;
+            padding:.25rem .35rem;
+            border: 1px solid var(--bb-border,#ccc);
+            border-radius:.5rem;
+            background: #fff;
+          }
+
+        `;
+        document.head.appendChild(style);
+      }
+          // /* chips */
+          // .filter-row .chipbox .chip{
+          //   display:inline-flex;
+          //   align-items:center;
+          //   padding:.12rem .45rem;
+          //   border-radius:.45rem;
+          //   border:1px solid rgba(0,0,0,.12);
+          //   background: rgba(0,0,0,.04);
+          //   cursor:pointer;
+          //   user-select:none;
+          //   white-space:nowrap;
+          // }
+
+          // /* input inside chipbox */
+          // .filter-row .chipbox input.filter-input{
+          //   border:none;
+          //   outline:none;
+          //   background:transparent;
+          //   flex: 1 1 8rem;
+          //   min-width: 6rem;
+          //   padding:.2rem .15rem;
+          // }
+
+      // ─────────────────────────────────────────────
+      // Init chipboxes
+      // ─────────────────────────────────────────────
+      const chipBoxes = new Map(); // field -> instance
+      const allRows = collectRowsFromGrid(gridApi, "all");
+
+      for (const col of columns) {
+        const field = col.field;
+
+        const inputEl = body.querySelector(`#filter-${field}`);
+        const boxEl = inputEl?.closest?.(".chipbox");
+        if (!boxEl || !inputEl) continue;
+
+        const cur = currentFilters[field] || {};
+        const initialRaw =
+          Array.isArray(cur.values) ? cur.values : (cur.filter ? [cur.filter] : []);
+        const initial = (initialRaw || []).map(sanitizeValue).filter(Boolean);
+
+        const suggestions = buildSuggestionsForField(field, allRows);
+
+        const inst = createChipBox({
+          boxEl,
+          inputEl,
+          datalistEl: null,
+          initial,
+          suggestions,
+          useCustomDropdown: true, // contourne iOS si ton implé le gère
+          scrollerEl: body.closest(".sheet-wrap")?.querySelector(".sheet-body") || null,
+          onChange: () => {
+            // sync has-val
+            const wrap = boxEl.closest(".input-wrap");
+            if (wrap) wrap.classList.toggle("has-val", inst.getValues().length > 0);
           }
         });
+
+        chipBoxes.set(field, inst);
       }
-      buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
 
-      const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
-      const sheetBody = sheet?.querySelector('.sheet-body') || body;
-      const footer    = sheet?.querySelector('.sheet-footer');
-      const vv        = window.visualViewport;
-      const scrollEl  = sheet?.querySelector('.sheet-body .form') || body;
-
-      // **************************************
-      // Section avec menus plutot que datalist
-      // Resoud le pb de détachement de la datalist de son champ input sur IPad 
-      // mais reste un pb de scroll insuffisant du menu sur IOS lorsque le clavier est affiché
-      // et des menus qui parfois ne se ferment pas lorsque l'on ferme la sheet
-      // function attachAutocomplete(inp, values, {max=300, minChars=0} = {}) {
-      //   let box = null, selIdx = -1, open = false;
-      //   const vv = window.visualViewport;
-
-      //   function makeBox() {
-      //     if (box) return box;
-      //     box = document.createElement('div');
-      //     box.className = 'bb-ac';
-      //     box.setAttribute('role','listbox');
-      //     box.hidden = true;
-      //     document.body.appendChild(box);
-      //     return box;
-      //   }
-      //   function posBox() {
-      //     if (!box) return;
-      //     const r = inp.getBoundingClientRect();
-      //     const gap = 4;
-      //     const top = r.bottom + gap + (vv ? vv.offsetTop : 0);
-      //     const left = r.left + (vv ? vv.offsetLeft : 0);
-      //     box.style.top = `${top}px`;
-      //     box.style.left = `${left}px`;
-      //     box.style.minWidth = `${r.width}px`;
-      //   }
-      //   function render(list) {
-      //     const b = makeBox();
-      //     b.innerHTML = '';
-      //     selIdx = -1;
-      //     const frag = document.createDocumentFragment();
-      //     list.slice(0, max).forEach((v, i) => {
-      //       const it = document.createElement('div');
-      //       it.className = 'bb-ac__item';
-      //       it.setAttribute('role','option');
-      //       it.textContent = v;
-      //       it.addEventListener('mousedown', (e) => {
-      //         e.preventDefault();          // empêche blur avant click
-      //         commit(v);
-      //       });
-      //       frag.appendChild(it);
-      //     });
-      //     b.appendChild(frag);
-      //     open = list.length > 0;
-      //     b.hidden = !open;
-      //     if (open) posBox();
-      //   }
-      //   function commit(val) {
-      //     inp.value = val;
-      //     hide();
-      //     // ferme le clavier pour libérer le footer, à la manière de ta sheet
-      //     inp.blur?.();
-      //     setTimeout(() => {
-      //       const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
-      //       if (!footer) return;
-      //       const r = footer.getBoundingClientRect();
-      //       const vh = window.innerHeight;
-      //       if (r.bottom > vh) {
-      //         window.scrollTo({ top: window.scrollY + (r.bottom - vh) + 8, behavior: 'smooth' });
-      //       }
-      //     }, 40);
-      //     // propage tes hooks existants
-      //     inp.dispatchEvent(new Event('input', { bubbles:true }));
-      //     inp.dispatchEvent(new Event('change', { bubbles:true }));
-      //   }
-      //   function hide() {
-      //     open = false;
-      //     if (box) box.hidden = true;
-      //   }
-      //   function items() { return box ? Array.from(box.querySelectorAll('.bb-ac__item')) : []; }
-      //   function highlight(idx) {
-      //     selIdx = idx;
-      //     items().forEach((el,i)=>el.setAttribute('aria-selected', String(i===idx)));
-      //   }
-      //   function move(delta) {
-      //     const it = items();
-      //     if (!it.length) return;
-      //     let n = selIdx + delta;
-      //     if (n < 0) n = it.length - 1;
-      //     if (n >= it.length) n = 0;
-      //     highlight(n);
-      //     it[n].scrollIntoView({ block:'nearest' });
-      //   }
-
-      //   // filtres (tu peux remplacer par ta sanitize/normalize)
-      //   const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      //   function filterNow() {
-      //     const q = normalize(inp.value);
-      //     if (q.length < minChars) { hide(); return; }
-      //     const out = [];
-      //     for (const v of values) {
-      //       if (normalize(v).includes(q)) out.push(v);
-      //     }
-      //     render(out);
-      //   }
-
-      //   // events
-      //   inp.addEventListener('focus', () => { filterNow(); posBox(); });
-      //   inp.addEventListener('input', filterNow);
-      //   inp.addEventListener('keydown', (e) => {
-      //     if (!open) return;
-      //     if (e.key === 'ArrowDown') { e.preventDefault(); move(+1); }
-      //     else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
-      //     else if (e.key === 'Enter') { 
-      //       if (selIdx >= 0) { e.preventDefault(); commit(items()[selIdx].textContent); }
-      //       else hide();
-      //     } else if (e.key === 'Escape') { hide(); }
-      //   });
-      //   inp.addEventListener('blur', () => setTimeout(hide, 100)); // laisse le click se faire
-
-      //   // suivre déplacements/clavier iOS
-      //   const rePos = () => { if (open) posBox(); };
-      //   window.addEventListener('scroll', rePos, true);
-      //   window.addEventListener('resize', rePos);
-      //   vv?.addEventListener('resize', rePos);
-      //   vv?.addEventListener('scroll', rePos);
-
-      //   return {
-      //     destroy() {
-      //       window.removeEventListener('scroll', rePos, true);
-      //       window.removeEventListener('resize', rePos);
-      //       vv?.removeEventListener('resize', rePos);
-      //       vv?.removeEventListener('scroll', rePos);
-      //       box?.remove();
-      //       box = null;
-      //     }
-      //   };
-      // }
-
-      // // 1️⃣ Récupère les valeurs uniques pour chaque champ filtrable
-      // const sourceRows = collectRowsFromGrid(gridApi, 'all');
-      // const valuesByField = Object.fromEntries(
-      //   fields.map(f => [f, uniqueValues(sourceRows, f)])
-      // );
-
-      // // 2️⃣ Attache un autocompléteur custom sur chaque input
-      // const acHandles = [];
-      // body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
-      //   const field = inp.id.replace(/^filter-/, '');
-      //   const values = valuesByField[field] || [];
-      //   const ac = attachAutocomplete(inp, values, { max: 500, minChars: 0 });
-      //   acHandles.push(ac);
-      // });
-
-      // // 3️⃣ Nettoyage à la fermeture de la sheet (optionnel)
-      // const sw = document.querySelector('.sheet-wrap.is-open');
-      // if (sw) {
-      //   sw.addEventListener('transitionend', (ev) => {
-      //     if (!sw.classList.contains('is-open')) {
-      //       acHandles.forEach(h => h.destroy());
-      //     }
-      //   });
-      // }
-      // **************************************
-
-      // hooks visualViewport (iOS)
-      // if (vv) {
-      //   const onVV = () => applyInsets();
-      //   vv.addEventListener('resize', onVV);
-      //   vv.addEventListener('scroll', onVV);
-      //   // cleanup quand la sheet est détruite
-      //   const mo = new MutationObserver(() => {
-      //     if (sheet && !document.body.contains(sheet)) {
-      //       vv.removeEventListener('resize', onVV);
-      //       vv.removeEventListener('scroll', onVV);
-      //       mo.disconnect();
-      //     }
-      //   });
-      //   mo.observe(document.body, { childList: true, subtree: true });
-      // }
-      // applyInsets();
-      
-      // ===== RAZ par champ (×) + sync has-val =====
-      body.addEventListener('click', (e) => {
-        const btn = e.target.closest('.btn-clear');
+      // ─────────────────────────────────────────────
+      // Clear par champ (×)
+      // ─────────────────────────────────────────────
+      body.addEventListener("click", (e) => {
+        const btn = e.target.closest(".btn-clear");
         if (!btn) return;
+
         const field = btn.dataset.field;
+        const inst = chipBoxes.get(field);
+        if (inst) inst.setValues([]);
+
+        const wrap = btn.closest(".input-wrap");
+        if (wrap) wrap.classList.remove("has-val");
+
         const input = body.querySelector(`#filter-${field}`);
-        if (!input) return;
-        input.value = '';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        btn.parentElement.classList.remove('has-val');
-        input.focus();
+        input?.focus?.();
       });
 
-      body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
-        const wrap = inp.closest('.input-wrap');
-        const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
-        const markModified = () => { inp.dataset.modified = 'true'; };
-        const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
+      // ─────────────────────────────────────────────
+      // Appliquer / Réinitialiser
+      // ─────────────────────────────────────────────
+      const applyBtn = body.querySelector("#btn-apply");
+      const clearBtn = body.querySelector("#btn-clear");
 
-        // Tape clavier → on ne scrolle PAS (évite les “sauts”)
-        inp.addEventListener('input', () => {
-          sync();
-          markModified();
-        });
-
-        // Focus → scroller la ROW si masquée
-        inp.addEventListener('focus', () => {
-          // applyInsets();
-          // petit rafraîchissement visuel avant calcul
-          requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: false }));
-        });
-
-        // Sélection via datalist → scroller la ROW si masquée
-        inp.addEventListener('change', () => {
-          sync();
-          markModified();
-          // applyInsets();
-          // requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
-          inp.blur();
-          setTimeout(() => {
-            scrollPageToRevealFooter(footer, { smooth: true });
-          }, 50);
-        });
-
-        // Enter : sécurise aussi
-        inp.addEventListener('keydown', (ev) => {
-          if (ev.key === 'Enter') {
-            requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
-          }
-          if (ev.key === 'Escape') {
-            inp.value = '';
-            inp.dispatchEvent(new Event('input', { bubbles: true }));
-          }
-        });
-
-        sync(); // init visuelle
-      });
-
-
-      // ===== Appliquer / hMaxCur=====
-      const applyBtn = body.querySelector('#btn-apply');
-      const clearBtn = body.querySelector('#btn-clear');
-      applyBtn.addEventListener('click', () => {
+      applyBtn.addEventListener("click", () => {
         const newModel = {};
-        columns.forEach(col => {
-          const inp = body.querySelector(`#filter-${col.field}`);
-          if (!inp) return;
 
-          const valSan = (inp.value || '').trim();
-          const rawDefault = inp.dataset.rawDefault || '';
-          const modified = inp.dataset.modified === 'true';
+        for (const col of columns) {
+          const field = col.field;
+          const inst = chipBoxes.get(field);
+          if (!inst) continue;
 
-          if (!valSan && !rawDefault) return;
+          const values = inst.getValues()
+            .map(sanitizeValue)
+            .filter(Boolean);
 
-          let filterVal = null;
-
-          if (!modified && rawDefault) {
-            // L’utilisateur n’a rien changé → réappliquer EXACTEMENT la valeur brute précédente
-            filterVal = rawDefault;
-          } else {
-            // L’utilisateur a modifié (ou pas de rawDefault) → tenter de retrouver l’option correspondante
-            const dl = body.querySelector(`#dl-${col.field}`);
-            if (dl) {
-              let matchedRaw = null;
-              for (const opt of dl.options) {
-                if (opt.value === valSan) { matchedRaw = opt.dataset.raw || null; break; }
-              }
-              filterVal = matchedRaw ?? unescapeCRLF(valSan);
-            } else {
-              filterVal = unescapeCRLF(valSan);
-            }
+          if (values.length) {
+            newModel[field] = {
+              filterType: "set",
+              values
+            };
           }
-
-          if (filterVal) newModel[col.field] = { type: 'contains', filter: filterVal };
-        });
+        }
 
         gridApi.setFilterModel(newModel);
         gridApi.onFilterChanged?.();
-        if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
+        if (typeof isProgrammeCalendarVisible === "function" && isProgrammeCalendarVisible()) {
+          if (typeof rerenderProgrammeCalendar === "function") rerenderProgrammeCalendar();
+        }
         close();
       });
 
-      clearBtn.addEventListener('click', () => {
+      clearBtn.addEventListener("click", () => {
         gridApi.setFilterModel({});
         gridApi.onFilterChanged?.();
-        if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
+        if (typeof isProgrammeCalendarVisible === "function" && isProgrammeCalendarVisible()) {
+          if (typeof rerenderProgrammeCalendar === "function") rerenderProgrammeCalendar();
+        }
         close();
       });
 
-      // ===== iOS/iPadOS keyboard-safe: gérer la "zone morte" au repli du clavier =====
-      // expose hauteur footer pour padding initial
-      if (sheet) sheet.style.setProperty('--sheet-footer-h', `${footer?.offsetHeight || 0}px`);
-      if (scrollEl && sheet) scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
-
-      let kbOpen = false;
+      // ─────────────────────────────────────────────
+      // Cleanup (fermeture sheet / swipe)
+      // ─────────────────────────────────────────────
       const handlers = [];
 
-      const onVVChange = () => {
-        if (!sheet || !scrollEl || !vv) return;
-        // heuristique d’ouverture clavier
-        const isOpen = (window.innerHeight - vv.height) > 120;
-
-        if (isOpen && !kbOpen) {
-          kbOpen = true;
-          const kb = Math.max(0, Math.round(window.innerHeight - vv.height));
-          sheet.style.setProperty('--kb-inset', kb + 'px');
-          scrollEl.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
-          scrollEl.style.pointerEvents = 'auto';
-          
-          // 🔹 NOUVEAU : quand le clavier s’ouvre, on s’assure que le footer est visible
-          if (footer) {
-            setTimeout(() => {
-              scrollPageToRevealFooter(footer, { smooth: true });
-            }, 30);
-          }
-        }
-        if (!isOpen && kbOpen) {
-          kbOpen = false;
-          sheet.style.setProperty('--kb-inset', '0px');
-          scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
-          // force un léger repaint pour tuer la zone morte
-          // eslint-disable-next-line no-unused-expressions
-          sheet.offsetHeight;
-          sheet.classList.add('repaint');
-          requestAnimationFrame(() => sheet.classList.remove('repaint'));
-          scrollEl.style.pointerEvents = 'auto';
-          // poke scroll pour réveiller WebKit
-          requestAnimationFrame(() => {
-            const y = scrollEl.scrollTop;
-            scrollEl.scrollTop = Math.max(0, y - 1);
-            scrollEl.scrollTop = Math.max(0, y);
-          });
-        }
-      };
-
-      const focusoutHandler = () => setTimeout(onVVChange, 50);
-
-      if (vv) {
-        vv.addEventListener('resize', onVVChange);
-        vv.addEventListener('scroll', onVVChange);
-        handlers.push(() => { vv.removeEventListener('resize', onVVChange); vv.removeEventListener('scroll', onVVChange); });
-      }
-      document.addEventListener('focusout', focusoutHandler, true);
-      handlers.push(() => document.removeEventListener('focusout', focusoutHandler, true));
-
-      // cleanup quand la sheet disparaît (fermeture par swipe incluse)
       const mo = new MutationObserver(() => {
+        const sheet = body.closest(".sheet-wrap");
         if (sheet && !document.body.contains(sheet)) {
           handlers.forEach(fn => { try { fn(); } catch {} });
+          chipBoxes.forEach(inst => { try { inst.destroy(); } catch {} });
+          chipBoxes.clear();
           mo.disconnect();
         }
       });
       mo.observe(document.body, { childList: true, subtree: true });
-
-      // ===== styles visuels quand focus sur input (optionnel)
-      document.querySelectorAll('.filter-input').forEach(inp => {
-        inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
-        inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
-      });
     }
   });
 }
@@ -3575,7 +4653,7 @@ export function openSheetAssistantProgrammation() {
                   <input id="prog-mood-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter un ton…">
                   <datalist id="dl-prog-mood"></datalist>
                 </div>
-                <div class="chipbox-chips" aria-label="moods sélectionnés"></div>
+                <div class="chipbox-chips" aria-label="tons sélectionnés"></div>
               </div>
             </div>
 
@@ -3597,6 +4675,18 @@ export function openSheetAssistantProgrammation() {
                      placeholder="">
             </div>
             
+            <div class="form-row">
+              <label>Priorités</label>
+
+              <div class="chipbox" id="prog-prio-chipbox">
+                <div class="chipbox-inputwrap">
+                  <input id="prog-prio-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter une priorité…">
+                  <datalist id="dl-prog-prio"></datalist>
+                </div>
+                <div class="chipbox-chips" aria-label="priorités sélectionnées"></div>
+              </div>
+            </div>
+
             <div class="form-row">
               <label for="prog-note-weight">
                 Influence de la note : 
@@ -3673,7 +4763,7 @@ export function openSheetAssistantProgrammation() {
         });
       }
 
-      // Initialisation des chipboxes (STYLE / MOOD)
+      // Initialisation des chipboxes (STYLE / MOOD / PRIO)
       const styleInput = body.querySelector("#prog-style-input");
       const styleBox   = body.querySelector("#prog-style-chipbox");
       const styleDL    = body.querySelector("#dl-prog-style");
@@ -3681,6 +4771,10 @@ export function openSheetAssistantProgrammation() {
       const moodInput  = body.querySelector("#prog-mood-input");
       const moodBox    = body.querySelector("#prog-mood-chipbox");
       const moodDL     = body.querySelector("#dl-prog-mood");
+
+      const prioInput  = body.querySelector("#prog-prio-input");
+      const prioBox    = body.querySelector("#prog-prio-chipbox");
+      const prioDL     = body.querySelector("#dl-prog-prio");
 
       let _prevStyles = (aiProg?.mots_cles_style || []).slice();
 
@@ -3711,14 +4805,24 @@ export function openSheetAssistantProgrammation() {
           scrollerEl: body,
           initial: aiProg?.mots_cles_mood || [],
           suggestions: moodSuggestions,
-          onChange: () => {
-            styleMixOnStylesChanged();
-          }
+          onChange: null,
+        });
+
+        const prioSuggestions = uniqueWordsFromRows(rows, 'Priorite', { max: 500, sep: ',' });
+        const chipPrio = createChipBox({
+          boxEl: prioBox,
+          inputEl: prioInput,
+          datalistEl: prioDL,
+          scrollerEl: body,
+          initial: aiProg?.prios || [],
+          suggestions: prioSuggestions,
+          onChange: null,
         });
 
         // Exposer pour buildConstraints()
         window._chipProgStyle = chipStyle;
         window._chipProgMood  = chipMood;
+        window._chipProgPrio  = chipPrio;
       }
 
       // Initialisation des dosages de styles
@@ -3984,6 +5088,23 @@ export function openSheetAssistantProgrammation() {
         }
       }
 
+      /** 
+       * Relit le styleMix à partir de l'UI
+       * @returns {{style:string, pct:number}[]} 
+       */
+      function readStyleMixFromUI() {
+        if (!elStyleMix) return [];
+        const rows = Array.from(elStyleMix.querySelectorAll("[data-style]"));
+        const out = [];
+        for (const row of rows) {
+          const style = row.getAttribute("data-style") || "";
+          const input = row.querySelector("input");
+          const pct = input ? Number(input.value) : NaN;
+          if (style) out.push({ style, pct: clampPct(pct) });
+        }
+        return out;
+      }
+
       /**
        * Ajuste automatiquement les autres % quand on change un style.
        * - Conserve la valeur du champ modifié.
@@ -4093,20 +5214,6 @@ export function openSheetAssistantProgrammation() {
         }
       }
 
-      /** @returns {{style:string, pct:number}[]} */
-      function readStyleMixFromUI() {
-        if (!elStyleMix) return [];
-        const rows = Array.from(elStyleMix.querySelectorAll("[data-style]"));
-        const out = [];
-        for (const row of rows) {
-          const style = row.getAttribute("data-style") || "";
-          const input = row.querySelector("input");
-          const pct = input ? Number(input.value) : NaN;
-          if (style) out.push({ style, pct: clampPct(pct) });
-        }
-        return out;
-      }
-
       // Listener : quand l’utilisateur change un %
       elStyleMix?.addEventListener("input", (ev) => {
         const t = /** @type {HTMLElement} */ (ev.target);
@@ -4119,22 +5226,6 @@ export function openSheetAssistantProgrammation() {
 
       // 1) rendu initial des dosages de styles
       renderStyleMixUI(window._chipProgStyle?.getValues() || [], aiProg?.style_mix || []);
-
-      // Normalisation token
-      function normToken(s) {
-        return String(s ?? "")
-          .trim()
-          .replace(/\s+/g, " ");
-      }
-
-      // Normalisation clef
-      function normKey(s) {
-        // pour dédoublonner : insensible casse + accents
-        return normToken(s)
-          .normalize("NFD")
-          .replace(/\p{Diacritic}/gu, "")
-          .toLowerCase();
-      }
 
       // Extrait les lignes uniques d'un tableau
       function uniqueValuesFromRows(rows, field, { max = 500, includeEmpty = false } = {}) {
@@ -4164,1040 +5255,6 @@ export function openSheetAssistantProgrammation() {
           if (set.size >= max) break;
         }
         return [...set].sort((a,b) => a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
-      }
-
-      /**
-       * createChipBox 
-       * - Mode natif : datalists natives
-       * - Mode custom : datalists natives remplacées par dropdown custom (pour contourner errances IOS)
-       *
-       * @param {{
-       *   boxEl: HTMLElement,
-       *   inputEl: HTMLInputElement,
-       *   datalistEl?: HTMLDataListElement|null,
-       *   initial?: string[],
-       *   suggestions?: string[],
-       *   onChange?: Function|null,
-       *   useCustomDropdown?: boolean,     // force custom (sinon auto iOS)
-       *   scrollerEl?: HTMLElement|null,
-       * }} args
-       */
-      function createChipBox({
-        boxEl,
-        inputEl,
-        datalistEl = null,
-        initial = [],
-        suggestions = [],
-        onChange = null,
-        useCustomDropdown = undefined,
-        scrollerEl = null,
-      }) {
-
-        /**
-         * Version avec datalists natives
-         */
-        function initChipBoxNative({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange = null }) {
-          const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
-          const map = new Map(); // key -> label (original)
-
-          function render() {
-            chipsEl.replaceChildren();
-            for (const label of map.values()) {
-              const chip = document.createElement("span");
-              chip.className = "chip";
-              chip.textContent = label;
-
-              const btn = document.createElement("button");
-              btn.type = "button";
-              btn.setAttribute("aria-label", `Supprimer ${label}`);
-              btn.textContent = "✕";
-              btn.addEventListener("click", (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                map.delete(normKey(label));
-                render();
-                renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-              });
-
-              chip.appendChild(btn);
-              chipsEl.appendChild(chip);
-            }
-          }
-
-          function addToken(raw) {
-            const label = normToken(raw);
-            if (!label) return;
-            const key = normKey(label);
-            if (!key) return;
-            if (map.has(key)) return; // anti doublon
-            map.set(key, label);
-            render();
-            renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-            if (typeof onChange === "function") {
-              try { onChange(getValues()); } catch {}
-            }
-          }
-
-          function removeToken(raw) {
-            const key = normKey(raw);
-            map.delete(key);
-            render();
-            renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-            if (typeof onChange === "function") {
-              try { onChange(getValues()); } catch {}
-            }
-          }
-
-          function setValues(arr) {
-            map.clear();
-            for (const v of (arr || [])) addToken(v);
-            render();
-            renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-            if (typeof onChange === "function") {
-              try { onChange(getValues()); } catch {}
-            }
-          }
-
-          function getValues() {
-            return Array.from(map.values());
-          }
-
-          function setSuggestions(arr) {
-            if (!datalistEl) return;
-
-            datalistEl.replaceChildren();
-
-            // 1) Normalise + dédoublonne
-            const uniq = new Map(); // key -> label
-            for (const s of arr || []) {
-              const label = normToken(s);
-              const key = normKey(label);
-              if (!label || !key) continue;
-              if (uniq.has(key)) continue;
-              uniq.set(key, label);
-            }
-
-            // 2) Enlève les déjà sélectionnés
-            for (const [k] of map) {
-              uniq.delete(k);
-            }
-
-            // 3) Remplit le datalist
-            for (const label of uniq.values()) {
-              const opt = document.createElement("option");
-              opt.value = label;
-              datalistEl.appendChild(opt);
-            }
-          }
-
-          function refreshSuggestionsForOpen() {
-            setSuggestions(suggestions);
-          }
-
-          // clic sur la box -> focus input
-          boxEl.addEventListener("click", (ev) => {
-            const t = /** @type {HTMLElement} */ (ev.target);
-            if (!t) return;
-
-            // Ne focus que si on tape sur input (ou dedans)
-            if (t === inputEl || t.closest?.("input") === inputEl)
-              inputEl.focus();
-          });
-
-          // Entrée ou virgule => créer chip
-          inputEl.addEventListener("keydown", (ev) => {
-            if (ev.key === "Enter" || ev.key === ",") {
-              ev.preventDefault();
-              addToken(inputEl.value);
-              inputEl.value = "";
-            } else if (ev.key === "Backspace" && !inputEl.value) {
-              // backspace dans champ vide => supprime la dernière chip
-              const last = Array.from(map.values()).pop();
-              if (last) removeToken(last);
-            }
-          });
-
-          // si l'utilisateur choisit une option du datalist, ça met la value dans l'input
-          // => on la convertit immédiatement en chip
-          inputEl.addEventListener("change", () => {
-            const v = inputEl.value;
-            if (!v) return;
-            addToken(v);
-            inputEl.value = "";
-          });
-
-          // Rafraîchir UNIQUEMENT au moment où le navigateur va potentiellement ouvrir le datalist
-          inputEl.addEventListener("pointerdown", refreshSuggestionsForOpen);
-          inputEl.addEventListener("focus", refreshSuggestionsForOpen);
-          inputEl.addEventListener("keydown", (ev) => {
-            if (ev.key === "ArrowDown") refreshSuggestionsForOpen();
-          });
-
-          // init
-          if (datalistEl) {
-            // relier input -> datalist
-            if (datalistEl.id) inputEl.setAttribute("list", datalistEl.id);
-            setSuggestions(suggestions);
-          }
-
-          return { addToken, setValues, getValues, setSuggestions };
-        }
-
-        /**
-         * Version custom avec datalists natives remplacées par dropdown custom
-         */
-        function initChipBoxCustom({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange = null, scrollerEl = null }) {
-          const chipsEl = /** @type {HTMLElement} */ (boxEl.querySelector(".chipbox-chips"));
-          const map = new Map(); // key -> label
-          // const NEED_PORTAL = isIOS && (isStandalone() || true);
-          const NEED_PORTAL = isIOS && isStandalone();
-
-          // --- Dropdown custom (si activé)
-          /** @type {HTMLElement | null} */
-          let dd = null;                // container
-          let isOpen = false;
-          let filtered = [];            // suggestions filtrées et non sélectionnées
-          let activeIndex = 0;
-
-          // Informe le enableKeyboardAutoScroll (auto scroller par défaut) de ne pas agir
-          inputEl.dataset.keyboardManaged = "true";
-
-          // ============ Helpers UI ============
-          function isStandalone() {
-            return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
-          }
-
-          function renderChips() {
-            chipsEl.replaceChildren();
-
-            for (const label of map.values()) {
-              const chip = document.createElement("span");
-              chip.className = "chip";
-              chip.textContent = label;
-
-              const btn = document.createElement("button");
-              btn.type = "button";
-              btn.setAttribute("aria-label", `Supprimer ${label}`);
-              btn.textContent = "✕";
-              btn.addEventListener("click", (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                map.delete(normKey(label));
-                renderChips();
-                // ton hook UI
-                renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-                if (typeof onChange === "function") {
-                  try { onChange(getValues()); } catch {}
-                }
-                // refresh suggestions
-                refreshSuggestions();
-              });
-
-              chip.appendChild(btn);
-              chipsEl.appendChild(chip);
-            }
-          }
-
-          function addToken(raw) {
-            const label = normToken(raw);
-            if (!label) return;
-            const key = normKey(label);
-            if (!key) return;
-            if (map.has(key)) return;
-
-            map.set(key, label);
-            renderChips();
-            renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-
-            if (typeof onChange === "function") {
-              try { onChange(getValues()); } catch {}
-            }
-            refreshSuggestions();
-          }
-
-          function removeToken(raw) {
-            map.delete(normKey(raw));
-            renderChips();
-            renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-
-            if (typeof onChange === "function") {
-              try { onChange(getValues()); } catch {}
-            }
-            refreshSuggestions();
-          }
-
-          function getValues() {
-            return Array.from(map.values());
-          }
-
-          function setValues(arr) {
-            map.clear();
-            for (const v of (arr || [])) {
-              const label = normToken(v);
-              const key = normKey(label);
-              if (!label || !key) continue;
-              if (!map.has(key)) map.set(key, label);
-            }
-            renderChips();
-            renderStyleMixUI(window._chipProgStyle?.getValues() || [], readStyleMixFromUI());
-
-            if (typeof onChange === "function") {
-              try { onChange(getValues()); } catch {}
-            }
-            refreshSuggestions();
-          }
-
-          // ============ Suggestions (source) ============
-          function normalizeSuggestionList(arr) {
-            const uniq = new Map(); // key -> label
-            for (const s of (arr || [])) {
-              const label = normToken(s);
-              const key = normKey(label);
-              if (!label || !key) continue;
-              if (!uniq.has(key)) uniq.set(key, label);
-            }
-            // enlever les déjà sélectionnés
-            for (const k of map.keys()) uniq.delete(k);
-            return Array.from(uniq.values());
-          }
-
-          function refreshSuggestions() {
-
-            // 1) calculer filtered (pour custom)
-            const all = normalizeSuggestionList(suggestions);
-            const q = normToken(inputEl.value || "").toLowerCase();
-
-            if (!q) {
-              filtered = all;
-            } else {
-              filtered = all.filter(x => x.toLowerCase().includes(q));
-            }
-
-            // reset active index propre
-            if (activeIndex >= filtered.length) activeIndex = 0;
-
-            // rendre la dropdown custom si présente
-            if (dd) renderDD();
-          }
-
-          function ensureDD() {
-            if (dd) return dd;
-
-            dd = document.createElement("div");
-            dd.className = "chipbox-dd";
-            dd.setAttribute("role", "listbox");
-            dd.setAttribute("aria-label", "Suggestions");
-
-            if (NEED_PORTAL) {
-              dd.style.position = "fixed";
-              dd.style.zIndex = "999999";
-              dd.hidden = true;
-              document.body.appendChild(dd);
-            } else {
-              dd.setAttribute("role", "listbox");
-              dd.setAttribute("aria-label", "Suggestions");
-
-              const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
-              wrap.appendChild(dd);
-            
-              const onPickFromDD = (ev) => {
-                // event delegation
-                const target = ev.target instanceof Element ? ev.target : null;
-                if (!target) return;
-
-                const item = target.closest(".chipbox-dditem");
-                if (!item || !dd.contains(item)) return;
-
-                // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
-                ev.preventDefault();
-                ev.stopPropagation();
-
-                const label = item.textContent || "";
-                if (!label) return;
-
-                addToken(label);
-                inputEl.value = "";
-
-                // tu choisis : fermer ou rester ouvert
-                closeDD();
-
-                // garder le focus (optionnel) — mais sans forcer des scrolls
-                try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
-              };
-
-            // Triple binding = robuste Android + émulation
-            dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
-            dd.addEventListener("touchstart", onPickFromDD, { passive: false });
-            dd.addEventListener("click", onPickFromDD);
-            }
-
-            return dd;
-          }
-
-          function positionDD() {
-            if (!dd || !NEED_PORTAL) return;
-            const r = inputEl.getBoundingClientRect();
-            const vv = window.visualViewport;
-            const offL = vv?.offsetLeft ?? 0;
-            const offT = vv?.offsetTop ?? 0;
-
-            dd.style.left = (r.left + offL) + "px";
-            dd.style.top = (r.bottom + offT) + "px";
-            dd.style.width = r.width + "px";
-          }
-
-          function openDD() {
-            if (!dd) return;
-            positionDD();
-            dd.hidden = false;
-            dd.classList.add("open");
-            isOpen = true;
-          }
-
-          function closeDD() {
-            if (!dd) return;
-            dd.classList.remove("open");
-            dd.hidden = true;
-            isOpen = false;
-          }
-
-          function renderDD() {
-            if (!dd) return;
-            dd.replaceChildren();
-
-            if (!filtered.length) { closeDD(); return; }
-
-            const list = document.createElement("div");
-            list.className = "chipbox-ddlist";
-
-            filtered.forEach((label, idx) => {
-              const it = document.createElement("div");
-              it.className = "chipbox-dditem" + (idx === activeIndex ? " is-active" : "");
-              it.textContent = label;
-
-              it.addEventListener("pointerenter", () => setActive(idx));
-              list.appendChild(it);
-            });
-
-            dd.appendChild(list);
-            positionDD(); // ✅
-          }
-
-          function refreshAndOpenDD() {
-              refreshSuggestions();
-              if (dd && filtered.length) openDD();
-          }
-
-          function setActive(idx) {
-            activeIndex = Math.max(0, Math.min(filtered.length - 1, idx));
-            if (dd) renderDD();
-          }
-
-          function selectLabel(label) {
-            addToken(label);
-            inputEl.value = "";
-
-            // ✅ IMPORTANT: empêcher le focus/retap de ré-ouvrir immédiatement (Android)
-            suppressAutoOpen(350);
-
-            refreshSuggestions();
-            closeDD();
-          }
-
-          function getScrollContainer() {
-            const sc =
-              scrollerEl ||
-              boxEl.closest(".sheet-body, .modal-body, .bb-sheet-body, .sheet-content, .sheet") ||
-              document.scrollingElement ||
-              document.documentElement;
-            return (sc instanceof HTMLElement) ? sc : null;
-          }
-
-          function getBottomBarHeight() {
-            // adapte le sélecteur si besoin
-            const bar = document.querySelector(".sheet-footer");
-            if (!bar) return 0;
-
-            // Si la bar est fixed/sticky, elle obstrue le viewport
-            const cs = getComputedStyle(bar);
-            const pos = cs.position;
-            if (pos !== "fixed" && pos !== "sticky") return 0;
-
-            return Math.ceil(bar.getBoundingClientRect().height || 0);
-          }
-
-let ignoreVVUntil = 0;
-
-function withIgnoreVV(ms = 180) {
-  ignoreVVUntil = Date.now() + ms;
-}
-
-function isIgnoringVV() {
-  return Date.now() < ignoreVVUntil;
-}
-
-          function ensureInputVisible({ tries = 4, marginTop = 10, marginBottom = 14 } = {}) {
-            const vv = window.visualViewport;
-            if (!vv) return;
-
-            let attempt = 0;
-
-            const EPS = 4;
-            let lastVV = {
-              height: window.visualViewport?.height,
-              top: window.visualViewport?.offsetTop
-            };
-
-            const tick = () => {
-              attempt++;
-
-              const vv = window.visualViewport;
-              if (!vv) return;
-
-              // viewport encore en mouvement ? on attend
-              const dv =
-                Math.abs(vv.height - lastVV.height) +
-                Math.abs(vv.offsetTop - lastVV.top);
-
-              if (dv > 2) {
-                lastVV.height = vv.height;
-                lastVV.top = vv.offsetTop;
-                if (attempt < tries) requestAnimationFrame(() => setTimeout(tick, 0));
-                return;
-              }
-
-              lastVV.height = vv.height;
-              lastVV.top = vv.offsetTop;
-
-              const r = inputEl.getBoundingClientRect();
-              const barH = getBottomBarHeight();
-
-              const minY = vv.offsetTop + marginTop;
-              const maxY = vv.offsetTop + vv.height - barH - marginBottom;
-
-              let dy = 0;
-              if (r.top < minY) dy = r.top - minY;
-              else if (r.bottom > maxY) dy = r.bottom - maxY;
-
-              if (Math.abs(dy) <= EPS) return; // ✅ convergence
-
-              window.scrollBy({ top: dy, behavior: "auto" });
-
-              if (attempt < tries) requestAnimationFrame(() => setTimeout(tick, 0));
-            };
-
-            requestAnimationFrame(() => setTimeout(tick, 0));
-          }
-
-          let lastEnsureAt = 0;
-          // function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
-          //   if (Date.now() - lastEnsureAt < 250) return;
-
-          //   const vv = window.visualViewport;
-          //   if (!vv) return;
-
-          //   const r = inputEl.getBoundingClientRect();
-          //   const barH = getBottomBarHeight();
-
-          //   const minY = vv.offsetTop + marginTop;
-          //   const maxY = (vv.offsetTop + vv.height) - barH - marginBottom;
-
-          //   let dy = 0;
-          //   if (r.top < minY) dy = r.top - minY;
-          //   else if (r.bottom > maxY) dy = r.bottom - maxY;
-
-          //   // dead-zone anti micro-jitter
-          //   if (Math.abs(dy) <= 4) return;
-
-          //   // ✅ un seul scroll (pas de boucle)
-          //   withIgnoreVV(220);
-          //   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
-          // }
-// function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 18 } = {}) {
-//   if (Date.now() - lastEnsureAt < 250) return;
-//   const vv = window.visualViewport;
-//   if (!vv) return;
-
-//   const r = inputEl.getBoundingClientRect();
-//   const barH = getBottomBarHeight();
-
-//   // ✅ Convertit le rect "layout viewport" -> repère "visual viewport"
-//   const topVV = r.top - (vv.offsetTop || 0);
-//   const bottomVV = r.bottom - (vv.offsetTop || 0);
-
-//   // zone utile dans le visual viewport
-//   const minY = marginTop;
-//   const maxY = vv.height - barH - marginBottom;
-
-//   let dy = 0;
-
-//   // Trop haut => on doit remonter la page (scrollY diminue)
-//   if (topVV < minY) {
-//     dy = topVV - minY;            // dy négatif
-//   }
-//   // Trop bas (sous le clavier / sous la barre) => on descend la page (scrollY augmente)
-//   else if (bottomVV > maxY) {
-//     dy = bottomVV - maxY;         // dy positif
-//   }
-
-//   // dead-zone anti micro jitter
-//   if (Math.abs(dy) <= 6) return;
-
-//   withIgnoreVV(220); // ton verrou anti-feedback
-//   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
-// }
-// function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 24 } = {}) {
-//   if (Date.now() - lastEnsureAt < 250) return;
-//   const vv = window.visualViewport;
-//   if (!vv) return;
-
-//   const r = inputEl.getBoundingClientRect();
-//   const barH = getBottomBarHeight();
-
-//   // rect -> repère visualViewport
-//   const offT = vv.offsetTop || 0;
-//   const topVV = r.top - offT;
-//   const bottomVV = r.bottom - offT;
-
-//   // fenêtre utile dans vv
-//   const minY = marginTop;
-//   let maxY = vv.height - barH - marginBottom;
-
-//   // ✅ garde-fou : fenêtre invalide => ne rien faire (sinon scroll fou)
-//   // (ça arrive si barH est trop grand / mauvais selector / vv.height petite)
-//   if (!Number.isFinite(maxY) || maxY <= minY + 30) return;
-
-//   // ✅ si l'élément est plus grand que la fenêtre, on aligne le HAUT (stratégie stable)
-//   const winH = maxY - minY;
-//   const elH = bottomVV - topVV;
-//   const alignTopOnly = elH > winH;
-
-//   let dy = 0;
-
-//   if (topVV < minY) {
-//     // trop haut -> scroll UP (dy négatif) pour descendre l’input
-//     dy = topVV - minY;
-//   } else if (!alignTopOnly && bottomVV > maxY) {
-//     // trop bas -> scroll DOWN (dy positif) pour remonter l’input
-//     dy = bottomVV - maxY;
-//   }
-
-//   // dead-zone anti-jitter
-//   if (Math.abs(dy) <= 6) return;
-
-//   withIgnoreVV(220);
-//   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
-// }
-function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 24 } = {}) {
-  if (Date.now() - lastEnsureAt < 250) return;
-  lastEnsureAt = Date.now();
-
-  const vv = window.visualViewport;
-  if (!vv) return;
-
-  const r = inputEl.getBoundingClientRect();
-  const barH = getBottomBarHeight();
-
-  // Bornes dans repère "layout":
-  // VV_top    = vv.offsetTop
-  // VV_bottom = vv.offsetTop + vv.height
-  //
-  // Contraintes voulues :
-  // r.top    - dy ≥ vv.offsetTop + marginTop
-  // r.bottom - dy ≤ vv.offsetTop + vv.height - barH - marginBottom
-  //
-  // => lower ≤ dy ≤ upper
-  const lower = r.bottom - vv.offsetTop - vv.height + barH + marginBottom;
-  const upper = r.top    - vv.offsetTop              - marginTop;
-
-  let dy = 0;
-
-  if (lower <= upper) {
-    // Cas nominal
-    dy = Math.max(lower, 0);
-  } else {
-    // Fallback stable : aligner le haut (marge nulle)
-    dy = r.top - vv.offsetTop;
-    dy = Math.max(dy, 0);
-  }
-
-  // dead-zone anti-jitter
-  if (Math.abs(dy) <= 6) return;
-
-  withIgnoreVV(220);
-  window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
-}
-          // function installKeyboardViewportFix() {
-          //   const noop = () => {};
-          //   const api = { apply: noop, reset: noop, cleanup: noop };
-
-          //   const vv = window.visualViewport;
-          //   if (!vv) return api;
-
-          //   const sc = getScrollContainer?.();
-          //   if (!sc) return api;
-
-          //   const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
-
-          //   api.apply = function apply() {
-          //     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
-          //     sc.style.paddingBottom = `${basePad + kb + 12}px`;
-          //     ensureInputVisible?.({ tries: 4, marginBottom: 18 });
-          //   };
-
-          //   api.reset = function reset() {
-          //     sc.style.paddingBottom = `${basePad}px`;
-          //   };
-
-          //   vv.addEventListener("resize", api.apply);
-          //   vv.addEventListener("scroll", api.apply);
-
-          //   api.cleanup = function cleanup() {
-          //     vv.removeEventListener("resize", api.apply);
-          //     vv.removeEventListener("scroll", api.apply);
-          //     api.reset();
-          //   };
-
-          //   return api;
-          // } 
-// function installKeyboardViewportFix() {
-//   const noop = () => {};
-//   const api = { apply: noop, reset: noop, cleanup: noop };
-
-//   const vv = window.visualViewport;
-//   if (!vv) return api;
-
-//   const sc = getScrollContainer?.();
-//   if (!sc) return api;
-
-//   const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
-
-//   let tEnsure = 0;
-
-//   function scheduleEnsure() {
-//     clearTimeout(tEnsure);
-//     // attendre que iOS finisse ses ajustements clavier/viewport
-//     tEnsure = window.setTimeout(() => {
-//       ensureInputVisibleOneShot({ marginBottom: 18 });
-//     }, 120);
-//   }
-
-//   api.apply = function apply() {
-//     const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
-//     sc.style.paddingBottom = `${basePad + kb + 12}px`;
-
-//     // ✅ pas d'ensure ici en direct
-//     scheduleEnsure();
-//   };
-
-//   api.reset = function reset() {
-//     clearTimeout(tEnsure);
-//     sc.style.paddingBottom = `${basePad}px`;
-//   };
-
-//   vv.addEventListener("resize", api.apply);
-//   vv.addEventListener("scroll", api.apply);
-
-//   api.cleanup = function cleanup() {
-//     clearTimeout(tEnsure);
-//     vv.removeEventListener("resize", api.apply);
-//     vv.removeEventListener("scroll", api.apply);
-//     api.reset();
-//   };
-
-//   return api;
-// }
-function installKeyboardViewportFix() {
-  const noop = () => {};
-  const api = { apply: noop, reset: noop, cleanup: noop };
-
-  const vv = window.visualViewport;
-  if (!vv) return api;
-
-  const sc = getScrollContainer?.();
-  if (!sc) return api;
-
-  const basePad = parseFloat(getComputedStyle(sc).paddingBottom || "0") || 0;
-
-  let tEnsure = 0;
-
-  function scheduleEnsure() {
-    clearTimeout(tEnsure);
-    tEnsure = window.setTimeout(() => {
-      // ✅ ne corrige que si l'input est encore focus (sinon ça bouge pour rien)
-      if (document.activeElement !== inputEl) return;
-      ensureInputVisibleOneShot({ marginBottom: 18 });
-    }, 120);
-  }
-
-  api.apply = function apply() {
-    if (isIgnoringVV()) return; // ✅ coupe la boucle
-
-    const kb = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
-    sc.style.paddingBottom = `${basePad + kb + 12}px`;
-
-    scheduleEnsure();
-  };
-
-  api.reset = function reset() {
-    clearTimeout(tEnsure);
-    sc.style.paddingBottom = `${basePad}px`;
-  };
-
-  vv.addEventListener("resize", api.apply);
-  vv.addEventListener("scroll", api.apply);
-
-  api.cleanup = function cleanup() {
-    clearTimeout(tEnsure);
-    vv.removeEventListener("resize", api.apply);
-    vv.removeEventListener("scroll", api.apply);
-    api.reset();
-  };
-
-  return api;
-}
-          function getClientXY(ev) {
-            // PointerEvent / MouseEvent
-            if (typeof ev.clientX === "number" && typeof ev.clientY === "number") {
-              return { x: ev.clientX, y: ev.clientY };
-            }
-            // TouchEvent (fallback)
-            const t = ev.changedTouches?.[0] || ev.touches?.[0];
-            if (t) return { x: t.clientX, y: t.clientY };
-            return null;
-          }
-
-          function onGlobalPick(ev) {
-            if (!isOpen) return;
-
-            const xy = getClientXY(ev);
-            if (!xy) { closeDD(); return; }
-
-            const hit = document.elementFromPoint(xy.x, xy.y);
-            if (!(hit instanceof Element)) { closeDD(); return; }
-
-            // 1) item dropdown => select
-            const item = hit.closest(".chipbox-dditem");
-            if (item && dd && dd.contains(item)) {
-              ev.preventDefault();
-              // ev.stopImmediatePropagation();
-              ev.stopPropagation();
-
-              selectLabel(item.textContent || "");
-              return;
-            }
-
-            if (hit === inputEl || inputEl.contains(hit)) {
-              // iOS: laisser le navigateur faire le focus / clavier
-              if (ev.type === "pointerup" || ev.type === "touchend") {
-                refreshAndOpenDD();
-              }
-              return;
-            }
-
-            // 3) tap dans le wrap input (mais pas input) => fermer
-            const wrap = hit.closest(".chipbox-inputwrap");
-            if (wrap && boxEl && boxEl.contains(wrap)) {
-              closeDD();
-              return;
-            }
-
-            // 4) inside chipbox => ne pas fermer
-            if (boxEl && boxEl.contains(hit)) return;
-            if (dd && dd.contains(hit)) return;
-
-            closeDD();
-          }
-
-          // ============ Remove datalist natif ============
-          inputEl.removeAttribute("list");
-
-          // ============ Listeners ============
-          let suppressAutoOpenUntil = 0;
-          function suppressAutoOpen(ms = 250) {
-            suppressAutoOpenUntil = Date.now() + ms;
-          }
-          function canAutoOpen() {
-            return Date.now() >= suppressAutoOpenUntil;
-          }
-
-          let posScheduled = false;
-          function schedulePositionDD() {
-            if (!NEED_PORTAL || !isOpen) return;
-            if (posScheduled) return;
-            posScheduled = true;
-            requestAnimationFrame(() => {
-              posScheduled = false;
-              positionDD();
-            });
-          }
-
-          window.visualViewport?.addEventListener("resize", schedulePositionDD);
-          window.visualViewport?.addEventListener("scroll", schedulePositionDD);
-          window.addEventListener("scroll", schedulePositionDD, { passive: true });
-          getScrollContainer()?.addEventListener("scroll", schedulePositionDD);
-
-          // click sur box => focus input si click sur input
-          boxEl.addEventListener("click", (ev) => {
-            const t = /** @type {HTMLElement} */ (ev.target);
-            if (!t) return;
-            if (t === inputEl || t.closest?.("input") === inputEl) {
-              inputEl.focus({ preventScroll: true });
-            }
-          });
-
-          const openFromInput = () => {
-            ensureDD();
-            refreshAndOpenDD(); // refreshSuggestions + openDD si filtered non vide
-          };
-
-          // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
-          inputEl.addEventListener("pointerup", openFromInput, { passive: true });
-
-          // fallback desktop/Android
-          inputEl.addEventListener("click", openFromInput);
-                  
-                  // input / focus : doit ouvrir la dropdown même sans taper 
-          inputEl.addEventListener("focus", () => {
-            // 1) viewport fix clavier
-            try { kbFix.apply(); } catch {}
-
-            // 2) dropdown logic
-            ensureDD();
-            refreshSuggestions();
-
-            // Android: ne pas auto-open sur focus (évite reopen après sélection)
-            // if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
-            if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
-
-            // 3) visibilité (au cas où)
-            // ensureInputVisible({ tries: 4 });
-          });
-
-          inputEl.addEventListener("blur", () => {
-            try { kbFix.reset?.(); } catch {}
-          });
-
-          inputEl.addEventListener("input", () => {
-            refreshSuggestions();
-            if (dd) openDD();
-          });
-
-          // Entrée / virgule => chip
-          inputEl.addEventListener("keydown", (ev) => {
-            // navigation dropdown custom si ouverte
-            if (dd && isOpen && filtered.length) {
-              if (ev.key === "ArrowDown") {
-                ev.preventDefault();
-                setActive(activeIndex + 1);
-                refreshAndOpenDD();
-                return;
-              }
-              if (ev.key === "ArrowUp") {
-                ev.preventDefault();
-                setActive(activeIndex - 1);
-                return;
-              }
-              if (ev.key === "Enter") {
-                ev.preventDefault();
-                const pick = filtered[activeIndex];
-                if (pick) selectLabel(pick);
-                return;
-              }
-              if (ev.key === "Escape") {
-                closeDD();
-                return;
-              }
-            }
-
-            // création chip (mode normal)
-            if (ev.key === "Enter" || ev.key === ",") {
-              ev.preventDefault();
-              if (inputEl.value) addToken(inputEl.value);
-              inputEl.value = "";
-              refreshSuggestions();
-              // if (dd) openDD();
-            } else if (ev.key === "Backspace" && !inputEl.value) {
-              const last = Array.from(map.values()).pop();
-              if (last) removeToken(last);
-            }
-          });
-
-          // natif datalist : change => chip
-          inputEl.addEventListener("change", () => {
-            // Si custom : “change” peut arriver, mais on ignore (on gère via dd)
-            if (dd) return;
-
-            const v = inputEl.value;
-            if (!v) return;
-            addToken(v);
-            inputEl.value = "";
-            refreshSuggestions();
-          });
-
-          // ⚠️ Important : écoute sur pointerup + touchend (pointerdown à eviter sur IOS)
-          // document.addEventListener("pointerdown", onGlobalPick, { capture: true, passive: false });
-          document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
-          document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
-
-          // ============ API / init ============
-          ensureDD(); // si custom => créé maintenant (sinon no-op)
-          refreshSuggestions();
-
-          const kbFix = installKeyboardViewportFix();
-
-          // init values
-          if (initial && initial.length) setValues(initial);
-
-          return {
-            addToken,
-            removeToken,
-            setValues,
-            getValues,
-            setSuggestions(arr) {
-              suggestions = Array.isArray(arr) ? arr.slice() : [];
-              refreshSuggestions();
-            },
-            destroy() {
-              try { kbFix.cleanup(); } catch {}
-              try { dd?.remove(); } catch {}
-              dd = null;
-              isOpen = false;
-            }
-          };
-        }
-
-        // --- iOS detection (simple & suffisante ici)
-        const isIOS =
-          /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-
-        const isAndroid = /Android/i.test(navigator.userAgent);
-
-        // --- Choix : custom vs dropdown ?
-        // Si non précisé => auto: iOS => custom, sinon natif
-        const useCustom = true; //(useCustomDropdown != null) ? !!useCustomDropdown : isIOS;
-
-        if (useCustom) {
-          return initChipBoxCustom({
-            boxEl,
-            inputEl,
-            datalistEl,
-            initial,
-            suggestions,
-            onChange,
-            scrollerEl,
-          });
-        }
-
-        else return initChipBoxNative({
-          boxEl,
-          inputEl,
-          datalistEl,
-          initial,
-          suggestions,
-          onChange,
-        });
       }
 
       btnApply.disabled = true;
@@ -5247,6 +5304,7 @@ function installKeyboardViewportFix() {
           mots_cles_mood:  window._chipProgMood?.getValues()  || [],
           mots_cles_distribution: parseKeywords(elDistKW),
           mots_cles_generaux: parseKeywords(elGenKW),
+          prios:  window._chipProgPrio?.getValues()  || [],
           note_weight: noteWeight,
           exclure_deja_programmes: true
         };
@@ -5387,8 +5445,22 @@ function installKeyboardViewportFix() {
           rows = activitesAPI.getActivitesNonProgrammees(df);
         }
 
+
         //
-        // 2) Mots-clés sur la colonne Style 
+        // 2) Mots-clés sur la colonne Priorite 
+        //
+        const prios = constraints.prios || [];
+        if (prios.length) {
+          const prioSet = new Set(
+            prios
+              .map(s => Number(String(s).trim()))
+              .filter(n => Number.isFinite(n))
+          );
+          rows = rows.filter(r => prioSet.has(Number(r.Priorite)));
+        }
+
+        //
+        // 3) Mots-clés sur la colonne Style 
         //    - mots_cles_style : au moins un doit apparaître dans Style
         //
         const sty = constraints.mots_cles_style || [];
@@ -5410,7 +5482,7 @@ function installKeyboardViewportFix() {
         }
 
         //
-        // 3) Fenêtre horaire Debut / Fin (en minutes)
+        // 4) Fenêtre horaire Debut / Fin (en minutes)
         //       df.Debut >= debut_min ET df.Fin <= fin_max
         //
         const minMinutes = debutMinToMinutes(constraints.debut_min); 
@@ -5431,7 +5503,7 @@ function installKeyboardViewportFix() {
         }
 
         //
-        // 4) on ne garde que les programmables :
+        // 5) on ne garde que les programmables :
         //    - Activites non programmées
         //    - éventuellement filtrées par la grille `grid-non-programmees`
         //    - filtrées par Style via les mots-clés

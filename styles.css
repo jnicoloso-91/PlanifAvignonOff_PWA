@@ -1463,7 +1463,7 @@ main, .page-wrap {
 }
 
 /* --- Champs à droite (valeurs) --- */
-.sheet-wrap .form-row input,
+.sheet-wrap .form-row input:not([type="checkbox"]):not([type="radio"]),
 .sheet-wrap .form-row select {
   flex: 0 0 auto;
   width: 14rem;                     /* largeur stable */
@@ -2063,11 +2063,11 @@ body.lock-page-scroll {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
+  min-width: 0;
 }
 
-.ai-checkbox span {
-  flex: 1;
+.ai-checkbox > input[type="checkbox"] {
+  margin: 0;
   font-size: 0.9rem;
 }
 
@@ -2447,6 +2447,18 @@ input[type="range"]:focus::-moz-range-thumb {
 .chipbox-dditem:active{
   background:rgba(0,0,0,.10);
 }
+
+/* Neutraliser le style des inputs de form dans les chipbox */
+.filter-row .chipbox {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+
+/* ============*/
+/* mix Style   */
+/* ============*/
 
 .mixbox{ display:flex; flex-direction:column; gap:8px; }
 
