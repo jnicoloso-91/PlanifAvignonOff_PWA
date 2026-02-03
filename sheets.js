@@ -4746,40 +4746,79 @@ function isIgnoringVV() {
 //   withIgnoreVV(220); // ton verrou anti-feedback
 //   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
 // }
+// function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 24 } = {}) {
+//   if (Date.now() - lastEnsureAt < 250) return;
+//   const vv = window.visualViewport;
+//   if (!vv) return;
+
+//   const r = inputEl.getBoundingClientRect();
+//   const barH = getBottomBarHeight();
+
+//   // rect -> repère visualViewport
+//   const offT = vv.offsetTop || 0;
+//   const topVV = r.top - offT;
+//   const bottomVV = r.bottom - offT;
+
+//   // fenêtre utile dans vv
+//   const minY = marginTop;
+//   let maxY = vv.height - barH - marginBottom;
+
+//   // ✅ garde-fou : fenêtre invalide => ne rien faire (sinon scroll fou)
+//   // (ça arrive si barH est trop grand / mauvais selector / vv.height petite)
+//   if (!Number.isFinite(maxY) || maxY <= minY + 30) return;
+
+//   // ✅ si l'élément est plus grand que la fenêtre, on aligne le HAUT (stratégie stable)
+//   const winH = maxY - minY;
+//   const elH = bottomVV - topVV;
+//   const alignTopOnly = elH > winH;
+
+//   let dy = 0;
+
+//   if (topVV < minY) {
+//     // trop haut -> scroll UP (dy négatif) pour descendre l’input
+//     dy = topVV - minY;
+//   } else if (!alignTopOnly && bottomVV > maxY) {
+//     // trop bas -> scroll DOWN (dy positif) pour remonter l’input
+//     dy = bottomVV - maxY;
+//   }
+
+//   // dead-zone anti-jitter
+//   if (Math.abs(dy) <= 6) return;
+
+//   withIgnoreVV(220);
+//   window.scrollTo({ top: window.scrollY + dy, left: 0, behavior: "auto" });
+// }
 function ensureInputVisibleOneShot({ marginTop = 10, marginBottom = 24 } = {}) {
   if (Date.now() - lastEnsureAt < 250) return;
+  lastEnsureAt = Date.now();
+
   const vv = window.visualViewport;
   if (!vv) return;
 
   const r = inputEl.getBoundingClientRect();
   const barH = getBottomBarHeight();
 
-  // rect -> repère visualViewport
-  const offT = vv.offsetTop || 0;
-  const topVV = r.top - offT;
-  const bottomVV = r.bottom - offT;
-
-  // fenêtre utile dans vv
-  const minY = marginTop;
-  let maxY = vv.height - barH - marginBottom;
-
-  // ✅ garde-fou : fenêtre invalide => ne rien faire (sinon scroll fou)
-  // (ça arrive si barH est trop grand / mauvais selector / vv.height petite)
-  if (!Number.isFinite(maxY) || maxY <= minY + 30) return;
-
-  // ✅ si l'élément est plus grand que la fenêtre, on aligne le HAUT (stratégie stable)
-  const winH = maxY - minY;
-  const elH = bottomVV - topVV;
-  const alignTopOnly = elH > winH;
+  // Bornes dans repère "layout":
+  // VV_top    = vv.offsetTop
+  // VV_bottom = vv.offsetTop + vv.height
+  //
+  // Contraintes voulues :
+  // r.top    - dy ≥ vv.offsetTop + marginTop
+  // r.bottom - dy ≤ vv.offsetTop + vv.height - barH - marginBottom
+  //
+  // => lower ≤ dy ≤ upper
+  const lower = r.bottom - vv.offsetTop - vv.height + barH + marginBottom;
+  const upper = r.top    - vv.offsetTop              - marginTop;
 
   let dy = 0;
 
-  if (topVV < minY) {
-    // trop haut -> scroll UP (dy négatif) pour descendre l’input
-    dy = topVV - minY;
-  } else if (!alignTopOnly && bottomVV > maxY) {
-    // trop bas -> scroll DOWN (dy positif) pour remonter l’input
-    dy = bottomVV - maxY;
+  if (lower <= upper) {
+    // Cas nominal
+    dy = Math.max(lower, 0);
+  } else {
+    // Fallback stable : aligner le haut (marge nulle)
+    dy = r.top - vv.offsetTop;
+    dy = Math.max(dy, 0);
   }
 
   // dead-zone anti-jitter
