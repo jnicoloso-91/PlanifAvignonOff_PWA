@@ -24,6 +24,8 @@ import {
   let dragging = false, engaged = false;
   let startX = 0, startY = 0, curX = 0;
   let pageW = computePageW() ; 
+  let roInstalled = false;
+  let pagerRO = null;
 
   function measure(){
     pageW = computePageW() ; 
@@ -35,6 +37,32 @@ import {
     return Math.round(rect.width * dpr) / dpr;
 	}
 
+  function installPagerObserver(){
+    if (roInstalled) return;
+    roInstalled = true;
+
+    pagerRO = new ResizeObserver(() => {
+      const w = computePageW();
+      if (!w) return;
+      if (Math.abs(w - pageW) < 0.5) return;
+      pageW = w;
+      goto(index, false);
+    });
+
+    pagerRO.observe(pager);
+
+    // boot Firefox : 2 rAF
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const w = computePageW();
+        if (w && Math.abs(w - pageW) >= 0.5) {
+          pageW = w;
+          goto(index, false);
+        }
+      });
+    });
+  }
+  
   function applyTransform(px, animate=false){
     track.style.transition = animate ? 'transform .25s ease' : 'none';
     track.style.transform  = `translate3d(${px}px,0,0)`;
@@ -70,6 +98,9 @@ import {
   // Init
   measure();
   goto(index, false);
+
+  // Observe les changements de largeur du pager induits par la scrollbar verticale qui apparait/disparait parfois au boot de l'appli
+  installPagerObserver();
 
   // boutons
   // btnPrev?.addEventListener('click', () => index === 0 ? goto(index+1, true) : goto(index-1, true));
