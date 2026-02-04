@@ -907,7 +907,7 @@ main, .page-wrap {
   right: 0;
   bottom: 0;
   height: calc(env(safe-area-inset-bottom, 0px) - 0px);   /* zone système iOS uniquement (-5px pour laisser la bordure) */
-  background: blue; /*var(--bg);                                  /* même couleur que le fond */
+  background: var(--bg);                                  /* même couleur que le fond */
   z-index: 5000;                                          /* Au dessus des autres y compris les sheets en 4000 */
   pointer-events: none;                                   /* ne bloque aucun geste système */
 }
@@ -1278,24 +1278,11 @@ main, .page-wrap {
   border-top: 1px solid #ddd;
 }
 
-/* peint la zone safe-area sous le footer */
-.sheet-footer::after{
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%; /* juste sous le footer */
-  height: env(safe-area-inset-bottom, 0px);
-  background: red; /* var(--bg); */
-  pointer-events: none;
-}
-
 /* état ouvert */
 .sheet-wrap.is-open .sheet-backdrop{ opacity: 1; }
 .sheet-wrap.is-open .sheet-panel{ transform: translateY(0); }
 
 .sheet-backdrop {
-  /* flex: 1; background: rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px); */
   background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);
 }
 /* petite poignée centrée, style iOS */
