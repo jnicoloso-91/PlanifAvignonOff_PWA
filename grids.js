@@ -1445,7 +1445,7 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   return Math.max(desired, hHeader + 8);
 }
 
-let autoSizePanelFromRowCountCalls = 0; 
+// let autoSizePanelFromRowCountCalls = 0; 
 
 // Retaille le expander-body en fonction du row count
 // Appelé en fin de refreshGrid
@@ -1463,9 +1463,9 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
   // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
   const h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows, nbRowsPred,  maxRows });
 
-  if (gridId === 'grid-non-programmees') {
-    console.log(gridId, autoSizePanelFromRowCountCalls++, h, nbRows, nbRowsPred,  maxRows);
-  }
+  // if (gridId === 'grid-non-programmees') {
+  //   console.log(gridId, autoSizePanelFromRowCountCalls++, h, nbRows, nbRowsPred,  maxRows);
+  // }
   
   if (h == null) return;
 

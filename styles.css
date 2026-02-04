@@ -1431,7 +1431,7 @@ main, .page-wrap {
 }
 
 /* --- Label à gauche --- */
-.sheet-wrap .form-row > label {
+.sheet-wrap .form-row label {
   flex: 1 1 auto;
   color: #333;
   font-weight: 500;
@@ -1440,7 +1440,7 @@ main, .page-wrap {
   font-size: 0.9rem;
 }
 @media (max-width: 812px) {
-  .sheet-wrap .form-row > label {
+  .sheet-wrap .form-row label {
     font-size: 0.85rem;
   }
 }
@@ -2454,7 +2454,11 @@ input[type="range"]:focus::-moz-range-thumb {
 /* mix Style   */
 /* ============*/
 
-.mixbox{ display:flex; flex-direction:column; gap:8px; }
+.mixbox{ 
+  display:flex; 
+  flex-direction:column; 
+  gap:8px; 
+}
 
 .mixbox-head{
   display:flex;
@@ -2463,18 +2467,34 @@ input[type="range"]:focus::-moz-range-thumb {
   gap:12px;
 }
 
-.mixbox-help{ font-size:12px; opacity:.7; }
+.mixbox-help{ 
+  font-size:12px; 
+  opacity:.7; 
+}
 
-.mixrows{ display:flex; flex-direction:column; gap:8px; }
+.mixrows{ 
+  display:flex; 
+  flex-direction:column; 
+  gap:8px; 
+}
 
 .mixrow{
   display:grid;
-  grid-template-columns: 1fr 96px;
-  gap:10px;
+  grid-template-columns: 1fr 14rem;
+  column-gap:8px;
   align-items:center;
 }
-.mixrow label{ font-size:13px; opacity:.9; }
-.mixrow input[type="number"]{ width:96px; }
+.mixrow label{ 
+  min-width: 0 !important;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity:.9; 
+}
+.mixrow input[type="number"]{ 
+  width:96px; 
+  justify-self: end;
+}
 
 /* =========================================================*/
 /* Gestion du scroll horizontal / vertical dans les grids   */

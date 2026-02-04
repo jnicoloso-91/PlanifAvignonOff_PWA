@@ -6140,53 +6140,49 @@ export function openSheetAssistantProgrammation() {
 
       // Version "intelligente" du shuffleArrayInPlace à appeler quand il y a scoring IA
       function shuffleArrayWithScore(arr, {
-        temperature = 0.35,   // 0.15 = très autoritaire | 0.6 = très exploratoire
-        scoreProp   = "_aiScore",
-        epsilon     = 1e-6
+        temperature = 0.35,
+        scoreProp = "_aiScore",
+        epsilon = 1e-6
       } = {}) {
-        if (!arr.length) return [];
+        const n = arr.length;
+        if (!n) return [];
 
-        // 1) Extraction des scores
         const scores = arr.map(r => Number(r[scoreProp] ?? 0));
-
-        // 2) Normalisation Z-score
-        const mean = scores.reduce((s,x) => s + x, 0) / scores.length;
-        const varPop = scores.reduce((s,x) => s + (x - mean) ** 2, 0) / scores.length;
+        const mean = scores.reduce((s,x)=>s+x,0)/n;
+        const varPop = scores.reduce((s,x)=>s+(x-mean)**2,0)/n;
         const sigma = Math.sqrt(varPop) || 1;
+        const z = scores.map(s => (s-mean)/sigma);
 
-        const zscores = scores.map(s => (s - mean) / sigma);
+        const weights = z.map(v => Math.exp(v / temperature) + epsilon);
 
-        // 3) Softmax avec température
-        const weights = zscores.map(z => Math.exp(z / temperature));
-        const sumW = weights.reduce((s,w) => s + w, 0) + epsilon;
-        const probs = weights.map(w => w / sumW);
+        // pool d'indices + poids
+        const idxs = Array.from({length:n}, (_,i)=>i);
+        const ws   = weights.slice();
 
-        // 4) Tirage pondéré sans remise
-        const shuffled = [];
-        const pool = arr.map((row, i) => ({
-          row,
-          p: probs[i]
-        }));
+        let sumW = ws.reduce((s,w)=>s+w,0);
+        const out = [];
 
-        while (pool.length) {
-          const r = Math.random();
+        while (idxs.length) {
+          const r = Math.random() * sumW;
           let acc = 0;
-          let idx = 0;
-
-          for (; idx < pool.length; idx++) {
-            acc += pool[idx].p;
+          let k = 0;
+          for (; k < ws.length; k++) {   // ws et idxs sont alignés
+            acc += ws[k];
             if (r <= acc) break;
           }
 
-          shuffled.push(pool[idx].row);
-          pool.splice(idx, 1);
+          out.push(arr[idxs[k]]);
+          sumW -= ws[k];
 
-          // renormalisation
-          const sum = pool.reduce((s,o) => s + o.p, 0);
-          for (const o of pool) o.p /= sum;
+          // remove k (swap-with-last pour éviter splice O(n))
+          const last = idxs.length - 1;
+          idxs[k] = idxs[last];
+          ws[k]   = ws[last];
+          idxs.pop();
+          ws.pop();
         }
 
-        return shuffled;
+        return out;
       }
 
       // log des candidats par style
