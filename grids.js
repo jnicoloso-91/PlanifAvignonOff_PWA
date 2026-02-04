@@ -1405,6 +1405,22 @@ function visibleRowsInPane(pane, gridEl){
   return Math.max(0, Math.floor(bodyH / rowH));
 }
 
+// calcul de la hauteur slider de grille
+function getAgGridHScrollReservedPx(gridEl) {
+  const hs = gridEl.querySelector(".ag-body-horizontal-scroll");
+  if (!hs) return 0;
+
+  // si AG Grid le cache (pas de scroll X), ne compte rien
+  const cs = getComputedStyle(hs);
+  if (cs.display === "none" || cs.visibility === "hidden") return 0;
+
+  // hauteur réellement réservée dans le layout
+  const h = hs.getBoundingClientRect().height;
+
+  // garde-fou
+  return Number.isFinite(h) ? Math.round(h) : 0;
+}
+
 // Calcul de la hauteur idéale : on ne dépasse pas rowCount et on autosize si rowCount < 5
 function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!gridEl) return null;
@@ -1417,8 +1433,8 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
     36;
 
   // hauteur slider
-  const bodyVp = gridEl.querySelector('.ag-body-viewport');
-  const sbH = bodyVp ? (bodyVp.offsetHeight - bodyVp.clientHeight) : 0;
+  const sbH = getAgGridHScrollReservedPx(gridEl);
+  console.log(sbH);
 
   // hauteur d’une ligne (via CSS var si dispo)
   let rowH = 28;
@@ -1443,7 +1459,7 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   if (nbRows > maxRows && nbRowsPred > maxRows) return null; // pas de resize auto si nbRows et nbRowsPred > 5 lignes
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
-  const paddingPane = (nbRows > n) ? 8 : 8;
+  const paddingPane = (nbRows > n) ? 0 : 0; 
 
   const desired = Math.round(hHeader + (rowH * n) + sbH + paddingPane);
   return Math.max(desired, hHeader + 8);
