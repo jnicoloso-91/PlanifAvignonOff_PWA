@@ -1409,12 +1409,16 @@ function visibleRowsInPane(pane, gridEl){
 function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!gridEl) return null;
 
-  // header
+  // hauteur header
   const headerEl = gridEl.querySelector('.ag-header');
   const hHeader =
     headerEl?.getBoundingClientRect()?.height ||
     api?.getHeaderHeight?.() ||
     36;
+
+  // hauteur slider
+  const bodyVp = gridEl.querySelector('.ag-body-viewport');
+  const sbH = bodyVp ? (bodyVp.offsetHeight - bodyVp.clientHeight) : 0;
 
   // hauteur d’une ligne (via CSS var si dispo)
   let rowH = 28;
@@ -1441,7 +1445,7 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 8 : 8;
 
-  const desired = Math.round(hHeader + (rowH * n) + paddingPane);
+  const desired = Math.round(hHeader + (rowH * n) + sbH + paddingPane);
   return Math.max(desired, hHeader + 8);
 }
 
