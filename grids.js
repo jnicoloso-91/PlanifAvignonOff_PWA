@@ -746,7 +746,6 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
   api.setGridOption('columnDefs', newColDefs);
   api.onColumnEverythingChanged?.();
   ensureWheelScrollOnGrid(handle);
-  // requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
 }
 
 // Met à jour la definition des colonnes sur les grilles qui affichent des activités
@@ -1446,7 +1445,7 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   return Math.max(desired, hHeader + 8);
 }
 
-// let i = 0; 
+let autoSizePanelFromRowCountCalls = 0; 
 
 // Retaille le expander-body en fonction du row count
 // Appelé en fin de refreshGrid
@@ -1464,9 +1463,9 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
   // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
   const h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows, nbRowsPred,  maxRows });
 
-  // if (gridId === 'grid-programmables') {
-  //   console.log(i++, h, nbRows, nbRowsPred,  maxRows);
-  // }
+  if (gridId === 'grid-non-programmees') {
+    console.log(gridId, autoSizePanelFromRowCountCalls++, h, nbRows, nbRowsPred,  maxRows);
+  }
   
   if (h == null) return;
 
@@ -1488,14 +1487,38 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
 }
 
 function gridOptionsCommon(gridId, el) {
+  const OR_SEP = "|";
   return {
     context: { gridId },                 
-    defaultColDef: { editable: true, resizable: true, sortable: true, filter: "agSetColumnFilter" },
+    defaultColDef: { 
+      editable: true, 
+      resizable: true, 
+      sortable: true, 
+      // filter: true,
+      filter: "agTextColumnFilter",
+      filterParams: {
+        textMatcher: ({ value, filterText }) => {
+          if (!filterText) return true;
+
+          const vv = (value == null ? "" : String(value)).toLocaleLowerCase();
+
+          const parts = String(filterText)
+            .split(OR_SEP)
+            .map(s => s.trim())
+            .filter(Boolean);
+
+          if (!parts.length) return true;
+
+          return parts.some(p => vv.includes(p.toLocaleLowerCase()));
+        }
+      }
+    },
     rowData: [],
     getRowId: p => p.data?.__uuid,
     popupParent: document.body, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
     suppressRowTransform: true, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
     onGridReady: async (p) => {
+      restoreGridStateFromMetaEarly(gridId);
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
@@ -1511,13 +1534,13 @@ function gridOptionsCommon(gridId, el) {
       const g = grids.get(gridId);
       const pane = g?.el?.closest('.st-expander-body');
       if (pane && g) autosizeFromGridSafe(g, pane);
-      restoreGridStateFromMeta(gridId);
+      restoreGridStateFromMetaLate(gridId);
     },
     onCellFocused: () => setActiveGridId(gridId),
     // onGridSizeChanged: () => safeSizeToFitFor(gridId),
     getRowStyle: p => {
       const bg = colorDate(p.data?.Date);
-      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
+      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : (activitesAPI.estActivitePriorisee(p.data) ? 'blue' : 'black');
       return { '--day-bg': bg, 'color': c };
     },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
@@ -1584,7 +1607,8 @@ function colorActiviteProgrammable(row) {
 const gridOptionsActivitesNonProgrammees = {
   getRowStyle: p => {
     const bg = colorActiviteProgrammable(p.data);
-    return bg ? { '--day-bg': bg } : {};
+    const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : (activitesAPI.estActivitePriorisee(p.data) ? 'blue' : 'black');
+    return (bg) ? { '--day-bg': bg, 'color': c } : { 'color': c };
   },
   onSelectionChanged: (p) => {
     const hasSel = !!p.api.getSelectedRows()?.length;
@@ -1700,7 +1724,8 @@ function saveGridStateToMeta(e, gridId) {
   ctx.setMetaParam('gridState', next);
 }
 
-function restoreGridStateFromMeta(gridId, { align = "middle" } = {}) {
+// A mettre dans OnGridReady
+function restoreGridStateFromMetaEarly(gridId, { align = "middle" } = {}) {
   const handle = window.grids?.get(gridId);
   if (!handle) return;
   const api = handle.api;
@@ -1726,6 +1751,22 @@ function restoreGridStateFromMeta(gridId, { align = "middle" } = {}) {
     api.setFilterModel?.(filterModel);
     api.onFilterChanged?.(); // pour forcer la prise en compte
   }
+
+}
+
+// A mettre dans OnFirstDataRendered
+function restoreGridStateFromMetaLate(gridId, { align = "middle" } = {}) {
+  const handle = window.grids?.get(gridId);
+  if (!handle) return;
+  const api = handle.api;
+  if (!api) return;
+
+  const meta = ctx.getMeta?.() || {};
+  const allStates = meta.gridState || {};
+  const state = allStates[gridId];
+  if (!state) return;
+
+  const { columnState, filterModel, selectedUuids } = state;
 
   // 3) Sélection (après colonnes+filtres)
   if (Array.isArray(selectedUuids) && selectedUuids.length) {
@@ -2165,7 +2206,6 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   const handle = { id: gridId, el, api, loader, columnsBuilder }; //, nbRowsPred: null };
   grids.set(gridId, handle);
   if (!getActiveGridId()) setActiveGridId(gridId);
-  // requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
   return handle;
 }
 
@@ -2186,11 +2226,15 @@ export async function refreshGrid(gridId) {
   } catch {}
 
   // 1) recharge les données
-  const nbRowsPred = api.getGridOption('rowData')?.length;
+  // const nbRowsPred = api.getGridOption('rowData')?.length;
+  const nbRowsPred = api.getDisplayedRowCount();
   const rows = await h.loader?.();
-  const nbRows = rows.length;
 
-  api.setGridOption?.('rowData', rows || []);
+  // api.setGridOption?.('rowData', rows || []);
+  api.setRowData(rows);
+
+  // const nbRows = rows.length;
+  const nbRows = api.getDisplayedRowCount();
 
   // 2) après peinture → reselect ou fallback 1ère ligne, puis resize + autosize pane
   const finish = () => {

@@ -39,6 +39,7 @@ import {
   getLigneVoisineUuid,
   enableTouchEdit,
   refreshAllGrids,
+  refreshGrid,
 } from './grids.js';
 
 import {
@@ -147,30 +148,35 @@ function createChipBox({
       for (const label of map.values()) {
         const chip = document.createElement("span");
         chip.className = "chip";
-        chip.textContent = `${label} ×`;
+        chip.setAttribute("role", "button");
+        chip.setAttribute("tabindex", "0");
 
-        chip.addEventListener("click", (ev) => {
+        const lab = document.createElement("span");
+        lab.className = "chip-label";
+        lab.textContent = label;
+
+        const x = document.createElement("span");
+        x.className = "chip-x";
+        x.setAttribute("aria-hidden", "true");
+        x.textContent = "×";
+
+        const remove = (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
           map.delete(normKey(label));
           renderChips();
           if (typeof refreshSuggestions === "function") refreshSuggestions();
           notifyChange();
+        };
+
+        // ✅ handler global : couvre label + X
+        chip.addEventListener("click", remove);
+        chip.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") remove(ev);
         });
 
-        // const btn = document.createElement("button");
-        // btn.type = "button";
-        // btn.setAttribute("aria-label", `Supprimer ${label}`);
-        // btn.textContent = "✕";
-        // btn.addEventListener("click", (ev) => {
-        //   ev.preventDefault();
-        //   ev.stopPropagation();
-        //   map.delete(normKey(label));
-        //   renderChips();
-        //   if (typeof refreshSuggestions === "function") refreshSuggestions();
-        //   notifyChange();
-        // });
-
+        chip.appendChild(lab);
+        chip.appendChild(x);
         chipsEl.appendChild(chip);
       }
     }
@@ -441,7 +447,6 @@ function createChipBox({
           addToken(label);
           inputEl.value = "";
 
-          // tu choisis : fermer ou rester ouvert
           closeDD();
 
           // garder le focus (optionnel) — mais sans forcer des scrolls
@@ -653,8 +658,8 @@ function createChipBox({
         return;
       }
 
-      // 4) inside chipbox => ne pas fermer
-      if (boxEl && boxEl.contains(hit)) return;
+      // 4) inside dd => ne pas fermer
+      // if (boxEl && boxEl.contains(hit)) return;
       if (dd && dd.contains(hit)) return;
 
       closeDD();
@@ -2645,6 +2650,7 @@ export function openSheetFiltres(gridId) {
     panelHeight: "50vh",
     panelMaxHeight: "50vh",
     mount: (body, { close }) => {
+
       // ─────────────────────────────────────────────
       // Helpers
       // ─────────────────────────────────────────────
@@ -2732,14 +2738,15 @@ export function openSheetFiltres(gridId) {
             <label>${col.headerName}</label>
 
             <div class="input-wrap${hasVal}">
-              <div class="chipbox" data-field="${colId}">
+              <div class="chipbox" id="prog-style-chipbox" data-field="${colId}">
                 <div class="chipbox-inputwrap">
                   <input type="text"
                         id="filter-${colId}"
                         placeholder="Ajouter ${col.headerName}"
                         class="chipbox-input bb-input">
-                  <div class="chipbox-chips"></div>
+                  <datalist id="dl-filter-style"></datalist>
                 </div>
+                <div class="chipbox-chips"></div>
               </div>
             </div>
           </div>
@@ -2765,61 +2772,9 @@ export function openSheetFiltres(gridId) {
         const style = document.createElement("style");
         style.id = "filters-chipbox-inline-css";
         style.textContent = `
-          .filter-row .input-wrap{
-            border: none !important;
-            position: relative;
-            display:flex;
-            align-items:center;
-            gap:.5rem;
-            width: 100%;
-          }
-          .filter-row .btn-clear{
-            width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
-            border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
-            background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
-            display: none; font-weight: 600; font-size: 1rem;
-          }
-          .filter-row .input-wrap.has-val .btn-clear{ display:inline-block; }
-
-          /* chipbox container */
-          .filter-row .chipbox{
-            display:flex;
-            flex-wrap: wrap;
-            align-items:center;
-            gap:.35rem;
-            flex: 1 1 auto;
-            min-width: 0;
-            padding:.25rem .35rem;
-            border: 1px solid var(--bb-border,#ccc);
-            border-radius:.5rem;
-            background: #fff;
-          }
-
         `;
         document.head.appendChild(style);
       }
-          // /* chips */
-          // .filter-row .chipbox .chip{
-          //   display:inline-flex;
-          //   align-items:center;
-          //   padding:.12rem .45rem;
-          //   border-radius:.45rem;
-          //   border:1px solid rgba(0,0,0,.12);
-          //   background: rgba(0,0,0,.04);
-          //   cursor:pointer;
-          //   user-select:none;
-          //   white-space:nowrap;
-          // }
-
-          // /* input inside chipbox */
-          // .filter-row .chipbox input.filter-input{
-          //   border:none;
-          //   outline:none;
-          //   background:transparent;
-          //   flex: 1 1 8rem;
-          //   min-width: 6rem;
-          //   padding:.2rem .15rem;
-          // }
 
       // ─────────────────────────────────────────────
       // Init chipboxes
@@ -2837,7 +2792,11 @@ export function openSheetFiltres(gridId) {
         const cur = currentFilters[field] || {};
         const initialRaw =
           Array.isArray(cur.values) ? cur.values : (cur.filter ? [cur.filter] : []);
-        const initial = (initialRaw || []).map(sanitizeValue).filter(Boolean);
+        // const initial = (initialRaw || []).map(sanitizeValue).filter(Boolean);
+        const initial = (cur.filter ? String(cur.filter).split("|") : [])
+          .map(s => s.trim())
+          .filter(Boolean);
+
 
         const suggestions = buildSuggestionsForField(field, allRows);
 
@@ -2860,54 +2819,64 @@ export function openSheetFiltres(gridId) {
       }
 
       // ─────────────────────────────────────────────
-      // Clear par champ (×)
-      // ─────────────────────────────────────────────
-      body.addEventListener("click", (e) => {
-        const btn = e.target.closest(".btn-clear");
-        if (!btn) return;
-
-        const field = btn.dataset.field;
-        const inst = chipBoxes.get(field);
-        if (inst) inst.setValues([]);
-
-        const wrap = btn.closest(".input-wrap");
-        if (wrap) wrap.classList.remove("has-val");
-
-        const input = body.querySelector(`#filter-${field}`);
-        input?.focus?.();
-      });
-
-      // ─────────────────────────────────────────────
       // Appliquer / Réinitialiser
       // ─────────────────────────────────────────────
       const applyBtn = body.querySelector("#btn-apply");
       const clearBtn = body.querySelector("#btn-clear");
 
+      // applyBtn.addEventListener("click", () => {
+      //   const newModel = {};
+
+      //   for (const col of columns) {
+      //     const field = col.field;
+      //     const inst = chipBoxes.get(field);
+      //     if (!inst) continue;
+
+      //     const values = inst.getValues()
+      //       .map(sanitizeValue)
+      //       .filter(Boolean);
+
+      //     if (values.length) {
+      //       newModel[field] = {
+      //         filterType: "set",
+      //         values
+      //       };
+      //     }
+      //   }
+
+      //   gridApi.setFilterModel(newModel);
+      //   gridApi.onFilterChanged?.();
+      //   if (typeof isProgrammeCalendarVisible === "function" && isProgrammeCalendarVisible()) {
+      //     if (typeof rerenderProgrammeCalendar === "function") rerenderProgrammeCalendar();
+      //   }
+      //   close();
+      // });
       applyBtn.addEventListener("click", () => {
+        const OR_SEP = "|";
         const newModel = {};
 
-        for (const col of columns) {
+        columns.forEach(col => {
           const field = col.field;
           const inst = chipBoxes.get(field);
-          if (!inst) continue;
+          if (!inst) return;
 
           const values = inst.getValues()
-            .map(sanitizeValue)
+            .map(v => String(v).trim())
             .filter(Boolean);
 
-          if (values.length) {
-            newModel[field] = {
-              filterType: "set",
-              values
-            };
-          }
-        }
+          if (!values.length) return;
+
+          newModel[field] = {
+            filterType: "text",
+            type: "contains",
+            filter: values.join(OR_SEP)
+          };
+        });
 
         gridApi.setFilterModel(newModel);
         gridApi.onFilterChanged?.();
-        if (typeof isProgrammeCalendarVisible === "function" && isProgrammeCalendarVisible()) {
-          if (typeof rerenderProgrammeCalendar === "function") rerenderProgrammeCalendar();
-        }
+        refreshGrid(gridId);
+
         close();
       });
 
@@ -4620,7 +4589,10 @@ export function openSheetAssistantProgrammation() {
 
               <div class="chipbox" id="prog-style-chipbox">
                 <div class="chipbox-inputwrap">
-                  <input id="prog-style-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter un style…">
+                  <input type="text"
+                        id="prog-style-input" 
+                        placeholder="Ajouter un style…"
+                        class="chipbox-input bb-input"> 
                   <datalist id="dl-prog-style"></datalist>
                 </div>
                 <div class="chipbox-chips" aria-label="styles sélectionnés"></div>

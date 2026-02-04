@@ -370,6 +370,15 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
+     * Indique si une activité est priorisée
+     * @param {*} activite 
+     * @returns 
+     */
+    estActivitePriorisee(activite) {
+      return _estActivitePriorisee(activite);
+    },
+
+    /**
      * Indique si une activité est une pause
      * @param {*} activite 
      * @returns 
@@ -1226,6 +1235,15 @@ function _estActiviteReservee(row) {
   return String(row?.Reserve ?? '')
     .trim()
     .toLowerCase() === 'oui';
+};
+
+/**
+ * Indique si une activité est priorisée
+ * @param {*} row 
+ * @returns 
+ */
+function _estActivitePriorisee(row) {
+  return Number.isInteger(row.Priorite);
 };
 
 /**

@@ -788,24 +788,13 @@ main, .page-wrap {
 /*    Bottom bar    */
 /*==================*/
 
-/* iOS 100vh bug guard (use --dvh instead of 100vh where needed) */
-/* .full-height-panel{
-  height: var(--dvh);
-} */
-
 /* Container */
 .bottom-bar {
   background: var(--bg);
   position: fixed;
-
-  /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
-  /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
-  /* bottom: var(--safe-gap, 0px); */
   bottom: env(safe-area-inset-bottom); 
   left: 0; right: 0;
   height: var(--bar-height);
-
-  left: 0; right: 0; /* bottom: 0; */
   padding: 10px 12px;
   backdrop-filter: blur(8px);               /* nice glass effect */
   border-top: 1px solid #d1d5db;
@@ -828,6 +817,10 @@ main, .page-wrap {
 .bottom-bar.hidden,
 .bar-toggle.hidden,
 .safe-bottom-mask.hidden { display: none !important; }
+
+.bottom-bar.hidden {
+  transform: translateY(100%);
+}
 
 .bottom-bar__scroller {
   display: flex;
@@ -856,8 +849,6 @@ main, .page-wrap {
   padding: 8px 12px;
   border: 1px solid #d1d5db;
   border-radius: 999px;         /* pill */
-  /* background: #1a1f27;
-  color: #e6edf3; */
   font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   cursor: pointer;
   transition: transform .08s ease, background .15s ease, border-color .15s ease;
@@ -872,13 +863,6 @@ main, .page-wrap {
 
 @media (max-width: 812px) {
   .bb-btn { min-width: 84px; padding: 10px 12px; font-size: 13px; }
-}
-
-/* Make sure content isn't hidden behind the bar */
-/* body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); } */
-
-.bottom-bar.hidden {
-  transform: translateY(100%);
 }
 
 /* toggle “languette” juste au-dessus */
@@ -1279,18 +1263,31 @@ main, .page-wrap {
 
 /* --- footer fixe --- */
 .sheet-footer {
+  background: var(--bg); 
   position: absolute;
-  left:0; right: 0; bottom: env(safe-area-inset-bottom, 0);
+  bottom: env(safe-area-inset-bottom, 0);
+  left:0; right: 0; 
+  height: var(--footer-h);
+  padding: 12px 16px;
   display: flex;
   justify-content: center;  /* centre horizontalement */
   align-items: center;      /* centre verticalement */
   gap: 10px;
-  padding: 12px 16px;
-  background: #fafafa;
-  height: var(--footer-h);
 }
 .has-border {
   border-top: 1px solid #ddd;
+}
+
+/* peint la zone safe-area sous le footer */
+.sheet-footer::after{
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%; /* juste sous le footer */
+  height: env(safe-area-inset-bottom, 0px);
+  background: var(--bg);
+  pointer-events: none;
 }
 
 /* état ouvert */
@@ -1674,8 +1671,37 @@ main, .page-wrap {
   justify-content: center;
 }
 
-.filter-row .input-wrap.has-val .btn-clear {
-  display: inline-flex;       /* visible seulement quand champ non vide */
+.filter-row .input-wrap{
+  border: none !important;
+  position: relative;
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  width: 100%;
+}
+
+.filter-row .input-wrap.has-val .btn-clear { 
+  display: inline-block; 
+}
+
+.filter-row .btn-clear{
+  width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
+  border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
+  background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
+  display: none; font-weight: 600; font-size: 1rem;
+}
+
+/* chipbox container */
+.filter-row .chipbox{
+  display:flex;
+  flex-wrap: wrap;
+  align-items:center;
+  gap:.35rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
 }
 
 @media (hover:hover) {
@@ -1694,18 +1720,6 @@ main, .page-wrap {
 }
 
 /* menu flottant ancré à l'input */
-/* .bb-ac {
-  position: fixed;           
-  z-index: 99999;
-  max-height: 40vh;
-  overflow: auto;
-  background: var(--bb-surface, #fff);
-  border: 1px solid var(--bb-border, #ccc);
-  border-radius: .5rem;
-  box-shadow: 0 6px 24px rgba(0,0,0,.18);
-  padding: .25rem;
-  font-size: 1rem;
-} */
 .bb-ac {
   position: fixed;
   z-index: 99999;
@@ -2344,10 +2358,6 @@ input[type="range"]:focus::-moz-range-thumb {
 .prog-row .prog-toggle-wrap { flex: 0 0 auto; }
 .prog-info-btn { margin-left: 0.5rem; flex: 0 0 auto; }
 
-/* ============*/
-/* Chipboxes   */
-/* ============*/
-
 /* Conteneur global */
 .chipbox{
   display:flex;
@@ -2398,6 +2408,7 @@ input[type="range"]:focus::-moz-range-thumb {
   background:rgba(0,0,0,.04);
   font-size:13px;
   line-height:1;
+  cursor: pointer;
 }
 
 .chip button{
@@ -2450,13 +2461,6 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .chipbox-dditem:active{
   background:rgba(0,0,0,.10);
-}
-
-/* Neutraliser le style des inputs de form dans les chipbox */
-.filter-row .chipbox {
-  border: none !important;
-  background: transparent !important;
-  padding: 0 !important;
 }
 
 
