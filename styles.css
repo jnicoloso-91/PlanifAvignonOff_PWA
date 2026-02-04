@@ -617,6 +617,7 @@ main, .page-wrap {
 .ag-body-viewport,
 .ag-center-cols-viewport,
 .ag-body-horizontal-scroll-viewport {
+  scrollbar-width: thin;
   -webkit-overflow-scrolling: touch !important;
 }
 
