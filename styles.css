@@ -907,7 +907,7 @@ main, .page-wrap {
   right: 0;
   bottom: 0;
   height: calc(env(safe-area-inset-bottom, 0px) - 0px);   /* zone système iOS uniquement (-5px pour laisser la bordure) */
-  background: var(--bg);                                  /* même couleur que le fond */
+  background: blue; /*var(--bg);                                  /* même couleur que le fond */
   z-index: 5000;                                          /* Au dessus des autres y compris les sheets en 4000 */
   pointer-events: none;                                   /* ne bloque aucun geste système */
 }
@@ -1286,7 +1286,7 @@ main, .page-wrap {
   right: 0;
   top: 100%; /* juste sous le footer */
   height: env(safe-area-inset-bottom, 0px);
-  background: var(--bg);
+  background: red; /* var(--bg); */
   pointer-events: none;
 }
 
@@ -1425,7 +1425,6 @@ main, .page-wrap {
   display: flex;
   flex-direction: column;
   padding: 1.2rem 1rem 1.6rem;
-  /* font-family: system-ui, -apple-system, sans-serif; */
   font-size: 1rem;
   color: #111;
   background: #f9f9fb;
