@@ -85,6 +85,7 @@ const _summaryCache = new Map(); // key = uuid
 
 /**
  * Enrichissement d'une row Activite avec __desc_summary, __avis_summary et Mood via worker AI
+ * A l'issue les champs Description, Distribution, Avis s'ils existent sont supprimés
  * @param {*} row 
  */
 export async function enrichWithAbstractPremiumOneRow(row) {
@@ -132,7 +133,8 @@ export async function enrichWithAbstractPremiumOneRow(row) {
 
 /**
  * Enrichissement d'un tableau de rows Activite avec __desc_summary, __avis_summary et Mood via worker AI
- * @param {Object} param - L'objet contenant les paramètres nécessaires.
+ * A l'issue les champs Description, Distribution, Avis s'ils existent sont supprimés
+ * @param {Object} param - L'objet contenant les paramètres rows et df.
  * @param {Array<any>} param.rows - Le tableau de lignes Activite à enrichir.
  * @param {Array<any>} param.df - Le tableau de données supplémentaires.
  */

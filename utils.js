@@ -122,7 +122,7 @@ export function mergeRowsNoDupMultiKey(arr1, arr2, keyCols, normalizer) {
  * Surcharge ou insère des lignes de arr2 dans arr1.
  *
  * - Pour chaque ligne de arr2 :
- *   - si arr1 contient une ligne qui matche sur keyCols → surcharge overloadCols
+ *   - si arr1 contient une ligne qui matche sur keyCols → surcharge cette ligne de arr1 avec les valeurs de arr2 sur les colonnes overloadCols
  *   - sinon → insertion
  *
  * @param {Array<object>} arr1

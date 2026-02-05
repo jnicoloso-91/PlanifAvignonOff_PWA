@@ -103,6 +103,65 @@ async function enrichDfWithMood(df, {
   return df;
 }
 
+// Enrichissement d'un df avec champ __distribution
+// A utiliser en mode console pour compléter un catalogue avec le champ Distribution du json si absent
+async function enrichDfWithDistribution(df, {
+  basePath = "./ai",          // chemin relatif depuis la page
+  overwrite = false,          // écraser un mood existant ?
+  log = true
+} = {}) {
+  if (!Array.isArray(df)) {
+    throw new Error("df doit être un tableau");
+  }
+
+  // 1) Chargement des fichiers
+  const all = await fetch(`${basePath}/index_avignon_2025.json`).then(r => r.json());
+
+  // 2) Construction map clé -> distribution
+  const distriMap = new Map();
+
+  for (const it of all) {
+    const key = makeFullKey(it);
+    if (!key) continue;
+    if (it.mood) {
+      distriMap.set(key, it.distribution);
+    }
+  }
+
+  // 3) Enrichissement du df
+  let copied = 0;
+  let skipped = 0;
+
+  for (const row of df) {
+    const key = makeFullKey(row);
+    if (!key) {
+      skipped++;
+      continue;
+    }
+
+    if (!overwrite && row.Mood) {
+      skipped++;
+      continue;
+    }
+
+    const distribution = distriMap.get(key);
+    if (distribution) {
+      row.__distribution = distribution;
+      copied++;
+    } else {
+      skipped++;
+    }
+  }
+
+  if (log) {
+    console.log(
+      `Distribution enrichi : ${copied} lignes | ignorées : ${skipped} | index moods : ${distriMap.size}`
+    );
+  }
+
+  return df;
+}
+
 // Enrichissement d'un df avec InfoPlus
 // A utiliser en mode console pour compléter un catalogue avec les champs desc_summary et avis_summary si absents
 async function enrichDfWithInfoPlus(df, {

@@ -70,6 +70,9 @@ const MANDATORY_COLS = new Set([
   'Hyperlien',
   'HyperlienGoogle',
   'HyperlienBR',
+  'Description',
+  'Distribution',
+  'Avis',
   '__desc_summary',
   '__avis_summary',
   '__uuid'

@@ -1246,7 +1246,7 @@ async function doExportExcel() {
     cleanData = cleanRows(cleanData, 
       ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances"],
       { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienGoogle: "Google" },
-      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Priorité", "Billet Réduc", "Google", "__desc_summary", "__avis_summary" ],
+      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Priorité", "Billet Réduc", "Google", "__desc_summary", "__avis_summary", "__distribution" ],
       false
     );
 
@@ -1694,15 +1694,19 @@ export async function importFromUrlOrTxt(raw, parser=null) {
         HyperlienGoogle: row.HyperlienGoogle || hyperlienGoogleDefault,
         HyperlienBR: row.HyperlienBR || hyperlienBRDefault,
         Mood: row?.Mood ?? null,
-        Description: row?.Description ?? null,
-        Distribution: row?.Distribution ?? null,
-        Avis: row?.Avis ?? null,
+        __distribution: row?.Distribution ?? null,
+
+        Description: row?.Description ?? null,    // champ supprimé apres passage par enrichWithAbstractPremium
+        Distribution: row?.Distribution ?? null,  // champ supprimé apres passage par enrichWithAbstractPremium
+        Avis: row?.Avis ?? null,                  // champ supprimé apres passage par enrichWithAbstractPremium
+        
       }
       nouvellesActivites.push(nouvelleActivite);
   }
 
   if (!nouvellesActivites || nouvellesActivites.length == 0) return;
-  
+
+  // Remplacement de Description, Distribution, Avis de nouvellesActivites avec __desc_summary, __avis_summary et Mood via worker AI
   await asyncCallAvecOverlayAttente(enrichWithAbstractPremium, { rows:nouvellesActivites, df: ctx.df }, 'Echec enrichissement résumé');
 
   if (mergeMode == 1) {
