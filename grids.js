@@ -1480,11 +1480,13 @@ bodyVp.addEventListener("touchmove", (e) => {
     const isVert  = ay > ax * RATIO;
 
     if (isHoriz) {
+      console.log("HORIZ");
       pending = false;
       horiz = true;
       vert  = false;
       // IMPORTANT: on ne fait PAS preventDefault ici, seulement à partir du move suivant
     } else if (isVert) {
+      console.log("VERT");
       pending = false;
       horiz = false;
       vert  = true;
