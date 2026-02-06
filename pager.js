@@ -369,6 +369,8 @@ import {
 
   let index = Number(pager.dataset.page || 0) || 0;
   let dragging = false, engaged = false, pending = false;
+let gestureActive = false;   // ce gesture est-il géré par le pager ?
+let gestureId = 0;           // juste pour debug/robustesse
   let startX = 0, startY = 0, curX = 0;
   let pageW = computePageW() ; 
   let roInstalled = false;
@@ -724,22 +726,45 @@ import {
 
   //   applyTransform(basePx + dx, false);
   // }
-  function onStart(ev){
-  // ✅ Reset systématique (même si on ignore ce start)
+//   function onStart(ev){
+//   // ✅ Reset systématique (même si on ignore ce start)
+//   dragging = false;
+//   engaged = false;
+//   pending = false;      // on le remet à true seulement si on accepte le start
+//   dragDir = 0;
+//   preparedRight = false;
+//   pager.classList.remove("is-dragging");
+//   track.style.transition = "none";
+
+//   // repos: [cur, other] visible, transform=0
+//   normalizeOrder();
+//   basePx = 0;
+//   applyTransform(0, false);
+
+//   // Ensuite seulement, décider si on ignore ce start
+//   if (isInNoSwipeZone(ev.target)) return;
+//   if (ev.defaultPrevented) return;
+
+//   const t = ev.touches ? ev.touches[0] : ev;
+//   startX = curX = t.clientX;
+//   startY = t.clientY;
+
+//   pending = true;
+// }  
+ function onStart(ev){
+  // reset dur à CHAQUE start (même si on ignore)
+  gestureActive = false;
+  gestureId++;
+
   dragging = false;
   engaged = false;
-  pending = false;      // on le remet à true seulement si on accepte le start
+  pending = false;
   dragDir = 0;
   preparedRight = false;
   pager.classList.remove("is-dragging");
   track.style.transition = "none";
 
-  // repos: [cur, other] visible, transform=0
-  normalizeOrder();
-  basePx = 0;
-  applyTransform(0, false);
-
-  // Ensuite seulement, décider si on ignore ce start
+  // Si ça démarre dans une zone interdite -> le pager ne gère PAS ce gesture.
   if (isInNoSwipeZone(ev.target)) return;
   if (ev.defaultPrevented) return;
 
@@ -747,10 +772,15 @@ import {
   startX = curX = t.clientX;
   startY = t.clientY;
 
+  // ✅ seul cas où le pager peut traiter les move/end
+  gestureActive = true;
+
+  // si tu utilises pending/axis-lock :
   pending = true;
-}  
+}
 
 function onMove(ev){
+if (!gestureActive) return;   // ✅ CRITIQUE : aucune fuite possible
   // si on n'a rien en cours → rien à faire
   if (!pending && !dragging) return;
 
@@ -821,6 +851,7 @@ function onMove(ev){
 }
 
   function onEnd(){
+if (!gestureActive) return;   // ✅ CRITIQUE : aucune fuite possible
     if (!dragging) return;
 
     dragging = false;
