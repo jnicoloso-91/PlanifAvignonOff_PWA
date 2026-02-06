@@ -611,6 +611,14 @@ main, .page-wrap {
   overscroll-behavior: contain;         /* évite le rebond qui “fait bouger” la page */
 }
 
+/* Assurer que le viewport vertical peut scroller au doigt sur Android */
+.ag-root-wrapper .ag-body-viewport,
+.ag-root-wrapper .ag-center-cols-viewport,
+.ag-root-wrapper .ag-viewport {
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Couches internes d'AG Grid qui gèrent le scroll */
 .ag-root-wrapper,
 .ag-root-wrapper-body,
@@ -622,7 +630,6 @@ main, .page-wrap {
 
 /* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
-
 
 /*=======================*/
 /* Sélection grilles     */
