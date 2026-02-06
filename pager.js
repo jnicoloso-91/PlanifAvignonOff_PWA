@@ -8,7 +8,7 @@ import {
   selectCurrentEventInCalendar, 
 } from './calendar.js';
 
-// Version originales avec bornes et bug sur mesure pageW à l'init
+// Version originale avec bornes et bug sur mesure pageW à l'init
 (function initTwoPagePager(){
   const pager = document.getElementById('pager');
   const track = /** @type {HTMLElement} */ (pager?.querySelector('.pager-track'));
@@ -109,6 +109,16 @@ import {
     track.style.transition = 'none';
   }
   function onMove(ev){
+    // ⛔ ne jamais intercepter les scrolls AG Grid
+    if (ev.target.closest?.('.ag-root, .ag-body-viewport')) {
+      return;
+    }
+
+    // ⛔ ne jamais intercepter un geste vertical
+    if (Math.abs(ev.clientY - startY) > Math.abs(ev.clientX - startX)) {
+      return;
+
+    }
     if (!dragging) return;
     const t  = ev.touches ? ev.touches[0] : ev;
     curX     = t.clientX;
@@ -234,6 +244,7 @@ import {
 })();
 
 // Version circulaire basique
+// Avec page observer pour résolution du pb de mesure de pageW à l'init
 // (function initTwoPagePager(){
 //   const pager = document.getElementById('pager');
 //   const track = /** @type {HTMLElement} */ (pager?.querySelector('.pager-track'));
@@ -581,7 +592,8 @@ import {
 
 // })();
 
-// Version Royal pour deux pages
+// Version circulaire avancée (pas de transitions vers vide) pour deux pages
+// Avec page observer pour résolution du pb de mesure de pageW à l'init
 // (function initTwoPagePager(){
 //   const pager = document.getElementById('pager');
 //   const track = /** @type {HTMLElement} */ (pager?.querySelector('.pager-track'));
