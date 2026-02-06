@@ -209,6 +209,7 @@ import {
 // 		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
 // 		'.st-expander-header',                         // headers
 // 		'#programme-panel #calA',                      // calendrier
+//    '.v-splitter',
 // 		// '.page--planning',							   // page planning 
 // 	].join(',');
 
@@ -597,13 +598,14 @@ import {
 	const NO_SWIPE_START = [
 		'.ag-root', '.ag-root-wrapper', '.ag-header', '.ag-header-cell', '.ag-cell',
 		'.ag-header-cell-resize', '.ag-column-resize', // poignées de resize colonnes
-		'.sheet-panel', '.sheet-header',               // si tu as des sheets
+		'.sheet-panel', '.sheet-header',               // sheets
 		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
 		'.st-expander-header',                         // headers
 		'#programme-panel #calA',                      // calendrier
     '.st-expander', '.st-expander-body',
     'input[type="range"]',
     '.slider', '.range', '.handle',
+    '.v-splitter',
 		// '.page--planning',							             // page planning 
 	].join(',');
 
