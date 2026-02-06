@@ -1537,12 +1537,12 @@ function gridOptionsCommon(gridId, el) {
     popupParent: document.body, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
     suppressRowTransform: true, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
     onGridReady: async (p) => {
-      restoreGridStateFromMetaEarly(gridId);
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
-      // requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
+      requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
+      restoreGridStateFromMetaEarly(gridId);
     },
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);
