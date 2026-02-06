@@ -8,7 +8,7 @@ import {
   selectCurrentEventInCalendar, 
 } from './calendar.js';
 
-// Version originales avec bornes
+// Version originales avec bornes et bug sur mesure pageW à l'init
 (function initTwoPagePager(){
   const pager = document.getElementById('pager');
   const track = /** @type {HTMLElement} */ (pager?.querySelector('.pager-track'));
