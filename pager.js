@@ -613,27 +613,27 @@ import {
 		return !!(evTarget && evTarget.closest && evTarget.closest(NO_SWIPE_START));
 	}
 
-  function onStart(ev){
-    if (isInNoSwipeZone(ev.target)) return;
-    if (ev.defaultPrevented) return;
+  // function onStart(ev){
+  //   if (isInNoSwipeZone(ev.target)) return;
+  //   if (ev.defaultPrevented) return;
 
-    const t = ev.touches ? ev.touches[0] : ev;
-    startX = curX = t.clientX;
-    startY = t.clientY;
+  //   const t = ev.touches ? ev.touches[0] : ev;
+  //   startX = curX = t.clientX;
+  //   startY = t.clientY;
 
-    dragging = false;
-    engaged = false;
-    pending = true;
-    dragDir = 0;
-    preparedRight = false;
+  //   dragging = false;
+  //   engaged = false;
+  //   pending = true;
+  //   dragDir = 0;
+  //   preparedRight = false;
 
-    track.style.transition = 'none';
+  //   track.style.transition = 'none';
 
-    // repos: [cur, other] visible, transform=0
-    normalizeOrder();
-    basePx = 0;
-    applyTransform(0, false);
-  }
+  //   // repos: [cur, other] visible, transform=0
+  //   normalizeOrder();
+  //   basePx = 0;
+  //   applyTransform(0, false);
+  // }
 
   // function onMove(ev){
   //   if (!dragging) return;
@@ -724,6 +724,32 @@ import {
 
   //   applyTransform(basePx + dx, false);
   // }
+  function onStart(ev){
+  // ✅ Reset systématique (même si on ignore ce start)
+  dragging = false;
+  engaged = false;
+  pending = false;      // on le remet à true seulement si on accepte le start
+  dragDir = 0;
+  preparedRight = false;
+  pager.classList.remove("is-dragging");
+  track.style.transition = "none";
+
+  // repos: [cur, other] visible, transform=0
+  normalizeOrder();
+  basePx = 0;
+  applyTransform(0, false);
+
+  // Ensuite seulement, décider si on ignore ce start
+  if (isInNoSwipeZone(ev.target)) return;
+  if (ev.defaultPrevented) return;
+
+  const t = ev.touches ? ev.touches[0] : ev;
+  startX = curX = t.clientX;
+  startY = t.clientY;
+
+  pending = true;
+}  
+
 function onMove(ev){
   // si on n'a rien en cours → rien à faire
   if (!pending && !dragging) return;
