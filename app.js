@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireExpanderSplitters();
   wireExpanderButtons();
   attachProgrammeCalendarHeightSync();
-  // enableCalAxisLock();
+  enableCalAxisLock();
   wireAppKebab();
   initSheetGrids();
   wireInfosPlusPopup();
