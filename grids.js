@@ -1343,62 +1343,6 @@ function wireAgTouchScrollRouter(gridId) {
   bodyVp.addEventListener("touchend", endGesture, { passive: true });
   bodyVp.addEventListener("touchcancel", endGesture, { passive: true });
 }
-// function wireAgTouchScrollRouter(gridId) {
-//   const h = grids.get(gridId);
-//   if (!h) return;
-
-//   const gridEl = h.el;
-//   const bodyVp = gridEl.querySelector(".ag-body-viewport");
-//   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
-//   if (!bodyVp || !xVp) return;
-
-//   if (gridEl.__bbTouchRouter) return;
-//   gridEl.__bbTouchRouter = true;
-
-//   let sx = 0, sy = 0, sl = 0;
-//   let mode = null; // null | "x" | "y"
-
-//   const DEADZONE = 10;   // px
-//   const RATIO    = 1.35; // durcir Android (1.25..1.5)
-
-//   bodyVp.addEventListener("touchstart", (e) => {
-//     if (!e.touches || e.touches.length !== 1) return;
-//     const t = e.touches[0];
-
-//     sx = t.clientX;
-//     sy = t.clientY;
-//     sl = xVp.scrollLeft;
-//     mode = null;
-//   }, { passive: true });
-
-//   bodyVp.addEventListener("touchmove", (e) => {
-//     if (!e.touches || e.touches.length !== 1) return;
-//     const t = e.touches[0];
-
-//     const dx = t.clientX - sx;
-//     const dy = t.clientY - sy;
-
-//     // 1) Tant qu’on n’a pas un mouvement clair, on ne fait RIEN
-//     if (!mode) {
-//       const ax = Math.abs(dx);
-//       const ay = Math.abs(dy);
-
-//       if (ax < DEADZONE && ay < DEADZONE) return;
-
-//       // ✅ décision stricte : sinon on attend (zone grise)
-//       if (ax > ay * RATIO) mode = "x";
-//       else if (ay > ax * RATIO) mode = "y";
-//       else return;
-//     }
-
-//     // 2) Vertical : laisser Ag-Grid gérer le scroll natif
-//     if (mode === "y") return;
-
-//     // 3) Horizontal : router vers le scroller X officiel
-//     e.preventDefault();
-//     xVp.scrollLeft = sl - dx;
-//   }, { passive: false });
-// }
 
 // Reajuste la taille du expander-body en fonction du nbre de lignes jusqu'à 5 lignes max
 // Appelé par onModelUpdated et onFirstDataRendered
@@ -1490,7 +1434,6 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
 
   // hauteur slider
   const sbH = getAgGridHScrollReservedPx(gridEl);
-  console.log(sbH);
 
   // hauteur d’une ligne (via CSS var si dispo)
   let rowH = 28;
@@ -1598,8 +1541,8 @@ function gridOptionsCommon(gridId, el) {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
-      // enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
-      requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
+      enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
+      // requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
     },
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);
