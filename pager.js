@@ -120,25 +120,25 @@ import {
     // }
 
     
-    // if (!dragging) return;
-    // const t  = ev.touches ? ev.touches[0] : ev;
-    // curX     = t.clientX;
-    // const dx = curX - startX;
-    // const dy = t.clientY - startY;
+    if (!dragging) return;
+    const t  = ev.touches ? ev.touches[0] : ev;
+    curX     = t.clientX;
+    const dx = curX - startX;
+    const dy = t.clientY - startY;
 
-    // if (!engaged){
-    //   if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
-    //   if (Math.abs(dx) > Math.abs(dy)){
-    //     engaged = true;
-    //     pager.classList.add('is-dragging');
-    //   } else {
-    //     dragging = false; // geste vertical
-    //     return;
-    //   }
-    // }
+    if (!engaged){
+      if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+      if (Math.abs(dx) > Math.abs(dy)){
+        engaged = true;
+        pager.classList.add('is-dragging');
+      } else {
+        dragging = false; // geste vertical
+        return;
+      }
+    }
 
-    // ev.preventDefault?.(); // bloque le scroll pendant le drag
-    // applyTransform((-index * pageW) + dx, false);
+    ev.preventDefault?.(); // bloque le scroll pendant le drag
+    applyTransform((-index * pageW) + dx, false);
   }
   function onEnd(){
     if (!dragging) return;
