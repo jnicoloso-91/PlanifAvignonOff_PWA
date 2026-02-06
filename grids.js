@@ -746,6 +746,7 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
   api.setGridOption('columnDefs', newColDefs);
   api.onColumnEverythingChanged?.();
   ensureWheelScrollOnGrid(handle);
+  // requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
 }
 
 // Met à jour la definition des colonnes sur les grilles qui affichent des activités
@@ -776,7 +777,6 @@ function buildColumnsActivitesCommon(){
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width },
-    { field:'Priorite', headerName: 'Prio', width:45, minWidth:45, valueParser: valueParserNumerique, cellEditor:IntCellEditor },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
@@ -784,6 +784,7 @@ function buildColumnsActivitesCommon(){
     { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
     { field:'Orga', headerName: 'Orga', width, minWidth:width },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
+    { field:'Priorite', headerName: 'Priorité', width, minWidth:width, valueParser: valueParserNumerique, cellEditor:"agTextCellEditor", cellEditorParams: { type: "tel", inputMode: "numeric", pattern: "[0-9]*"} },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
     { field:'HyperlienGoogle', headerName: 'Google', minWidth:120, flex:1, cellRenderer: AvisRenderer },
     { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
@@ -909,73 +910,6 @@ function buildColumnsActivitesProgrammables() {
     ...col,
     editable: false
   }));
-}
-
-// Cell Editors
-class IntCellEditor {
-  init(params) {
-    this.params = params;
-
-    const input = document.createElement("input");
-    input.className = "ag-input ag-text-field-input";
-
-    // 🔑 CLÉ : clavier numérique iOS / Android
-    input.type = "tel";
-    input.setAttribute("inputmode", "numeric");
-    input.setAttribute("pattern", "[0-9]*");
-    input.autocomplete = "off";
-
-    // valeur initiale
-    input.value = (params.value == null) ? "" : String(params.value);
-
-    // 🔒 Filtrage live (chiffres uniquement)
-    input.addEventListener("input", () => {
-      const cleaned = input.value.replace(/\D+/g, "");
-      if (input.value !== cleaned) input.value = cleaned;
-    });
-
-    // 🔒 Bloque lettres sur desktop (UX propre)
-    input.addEventListener("keydown", (e) => {
-      // touches autorisées
-      if (
-        e.key === "Backspace" ||
-        e.key === "Delete" ||
-        e.key === "Tab" ||
-        e.key === "ArrowLeft" ||
-        e.key === "ArrowRight"
-      ) return;
-
-      // chiffres seulement
-      if (!/^\d$/.test(e.key)) {
-        e.preventDefault();
-      }
-    });
-
-    this.eInput = input;
-  }
-
-  getGui() {
-    return this.eInput;
-  }
-
-  afterGuiAttached() {
-    // ⚠️ Important iOS : focus direct sans preventDefault
-    this.eInput.focus({ preventScroll: true });
-    this.eInput.select();
-  }
-
-  getValue() {
-    const v = this.eInput.value.replace(/\D+/g, "");
-    return v === "" ? null : parseInt(v, 10);
-  }
-
-  isCancelBeforeStart() {
-    return false;
-  }
-
-  isCancelAfterEnd() {
-    return false;
-  }
 }
 
 // ===== Parsers de grilles =====
@@ -1405,35 +1339,16 @@ function visibleRowsInPane(pane, gridEl){
   return Math.max(0, Math.floor(bodyH / rowH));
 }
 
-// calcul de la hauteur slider de grille
-function getAgGridHScrollReservedPx(gridEl) {
-  const hs = gridEl.querySelector(".ag-body-horizontal-scroll");
-  if (!hs) return 0;
-
-  // si AG Grid le cache (pas de scroll X), ne compte rien
-  const cs = getComputedStyle(hs);
-  if (cs.display === "none" || cs.visibility === "hidden") return 0;
-
-  // hauteur réellement réservée dans le layout
-  const h = hs.getBoundingClientRect().height;
-
-  // garde-fou
-  return Number.isFinite(h) ? Math.round(h) : 0;
-}
-
 // Calcul de la hauteur idéale : on ne dépasse pas rowCount et on autosize si rowCount < 5
 function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!gridEl) return null;
 
-  // hauteur header
+  // header
   const headerEl = gridEl.querySelector('.ag-header');
   const hHeader =
     headerEl?.getBoundingClientRect()?.height ||
     api?.getHeaderHeight?.() ||
     36;
-
-  // hauteur slider
-  const sbH = getAgGridHScrollReservedPx(gridEl);
 
   // hauteur d’une ligne (via CSS var si dispo)
   let rowH = 28;
@@ -1458,13 +1373,13 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   if (nbRows > maxRows && nbRowsPred > maxRows) return null; // pas de resize auto si nbRows et nbRowsPred > 5 lignes
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
-  const paddingPane = (nbRows > n) ? 0 : 0; 
+  const paddingPane = (nbRows > n) ? 8 : 8;
 
-  const desired = Math.round(hHeader + (rowH * n) + sbH + paddingPane);
+  const desired = Math.round(hHeader + (rowH * n) + paddingPane);
   return Math.max(desired, hHeader + 8);
 }
 
-// let autoSizePanelFromRowCountCalls = 0; 
+// let i = 0; 
 
 // Retaille le expander-body en fonction du row count
 // Appelé en fin de refreshGrid
@@ -1482,8 +1397,8 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
   // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
   const h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows, nbRowsPred,  maxRows });
 
-  // if (gridId === 'grid-non-programmees') {
-  //   console.log(gridId, autoSizePanelFromRowCountCalls++, h, nbRows, nbRowsPred,  maxRows);
+  // if (gridId === 'grid-programmables') {
+  //   console.log(i++, h, nbRows, nbRowsPred,  maxRows);
   // }
   
   if (h == null) return;
@@ -1506,43 +1421,19 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
 }
 
 function gridOptionsCommon(gridId, el) {
-  const OR_SEP = "|";
   return {
     context: { gridId },                 
-    defaultColDef: { 
-      editable: true, 
-      resizable: true, 
-      sortable: true, 
-      // filter: true,
-      filter: "agTextColumnFilter",
-      filterParams: {
-        textMatcher: ({ value, filterText }) => {
-          if (!filterText) return true;
-
-          const vv = (value == null ? "" : String(value)).toLocaleLowerCase();
-
-          const parts = String(filterText)
-            .split(OR_SEP)
-            .map(s => s.trim())
-            .filter(Boolean);
-
-          if (!parts.length) return true;
-
-          return parts.some(p => vv.includes(p.toLocaleLowerCase()));
-        }
-      }
-    },
+    defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
     rowData: [],
     getRowId: p => p.data?.__uuid,
     popupParent: document.body, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
     suppressRowTransform: true, // Nécessaire sur IPad pour assurer que les popup menus soient au dessus de la colo
     onGridReady: async (p) => {
-      restoreGridStateFromMetaEarly(gridId);
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
-      // requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
+      requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
     },
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);
@@ -1553,13 +1444,13 @@ function gridOptionsCommon(gridId, el) {
       const g = grids.get(gridId);
       const pane = g?.el?.closest('.st-expander-body');
       if (pane && g) autosizeFromGridSafe(g, pane);
-      restoreGridStateFromMetaLate(gridId);
+      restoreGridStateFromMeta(gridId);
     },
     onCellFocused: () => setActiveGridId(gridId),
     // onGridSizeChanged: () => safeSizeToFitFor(gridId),
     getRowStyle: p => {
       const bg = colorDate(p.data?.Date);
-      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : (activitesAPI.estActivitePriorisee(p.data) ? 'blue' : 'black');
+      const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : 'black';
       return { '--day-bg': bg, 'color': c };
     },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
@@ -1626,8 +1517,7 @@ function colorActiviteProgrammable(row) {
 const gridOptionsActivitesNonProgrammees = {
   getRowStyle: p => {
     const bg = colorActiviteProgrammable(p.data);
-    const c = activitesAPI.estActiviteReservee(p.data) ? 'red' : (activitesAPI.estActivitePriorisee(p.data) ? 'blue' : 'black');
-    return (bg) ? { '--day-bg': bg, 'color': c } : { 'color': c };
+    return bg ? { '--day-bg': bg } : {};
   },
   onSelectionChanged: (p) => {
     const hasSel = !!p.api.getSelectedRows()?.length;
@@ -1743,8 +1633,7 @@ function saveGridStateToMeta(e, gridId) {
   ctx.setMetaParam('gridState', next);
 }
 
-// A mettre dans OnGridReady
-function restoreGridStateFromMetaEarly(gridId, { align = "middle" } = {}) {
+function restoreGridStateFromMeta(gridId, { align = "middle" } = {}) {
   const handle = window.grids?.get(gridId);
   if (!handle) return;
   const api = handle.api;
@@ -1770,22 +1659,6 @@ function restoreGridStateFromMetaEarly(gridId, { align = "middle" } = {}) {
     api.setFilterModel?.(filterModel);
     api.onFilterChanged?.(); // pour forcer la prise en compte
   }
-
-}
-
-// A mettre dans OnFirstDataRendered
-function restoreGridStateFromMetaLate(gridId, { align = "middle" } = {}) {
-  const handle = window.grids?.get(gridId);
-  if (!handle) return;
-  const api = handle.api;
-  if (!api) return;
-
-  const meta = ctx.getMeta?.() || {};
-  const allStates = meta.gridState || {};
-  const state = allStates[gridId];
-  if (!state) return;
-
-  const { columnState, filterModel, selectedUuids } = state;
 
   // 3) Sélection (après colonnes+filtres)
   if (Array.isArray(selectedUuids) && selectedUuids.length) {
@@ -2225,6 +2098,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   const handle = { id: gridId, el, api, loader, columnsBuilder }; //, nbRowsPred: null };
   grids.set(gridId, handle);
   if (!getActiveGridId()) setActiveGridId(gridId);
+  // requestAnimationFrame(() => { restoreGridStateFromMeta(gridId); });  
   return handle;
 }
 
@@ -2245,15 +2119,11 @@ export async function refreshGrid(gridId) {
   } catch {}
 
   // 1) recharge les données
-  // const nbRowsPred = api.getGridOption('rowData')?.length;
-  const nbRowsPred = api.getDisplayedRowCount();
+  const nbRowsPred = api.getGridOption('rowData')?.length;
   const rows = await h.loader?.();
+  const nbRows = rows.length;
 
-  // api.setGridOption?.('rowData', rows || []);
-  api.setRowData(rows);
-
-  // const nbRows = rows.length;
-  const nbRows = api.getDisplayedRowCount();
+  api.setGridOption?.('rowData', rows || []);
 
   // 2) après peinture → reselect ou fallback 1ère ligne, puis resize + autosize pane
   const finish = () => {
