@@ -116,5 +116,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('✅ Application initialisée');
 
   // Pour DEBUG
-  logToPage('✅ Application initialisée');
+  // logToPage('✅ Application initialisée');
 });
