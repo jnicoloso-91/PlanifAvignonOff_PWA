@@ -1170,6 +1170,179 @@ export function enableTouchEdit(api, gridEl, opts = {}) {
 }
 
 // Scroll X mobile avec inertie (fling) - ne pas simplifier et revenir au scroll natif
+// function wireAgTouchScrollRouter(gridId) {
+//   const h = grids.get(gridId);
+//   if (!h) return;
+
+//   const gridEl = h.el;
+//   const bodyVp = gridEl.querySelector(".ag-body-viewport");
+//   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
+//   if (!bodyVp || !xVp) return;
+
+//   if (gridEl.__bbTouchRouter) return;
+//   gridEl.__bbTouchRouter = true;
+
+//   let sx=0, sy=0, lastX=0, engaged=false, horiz=false;
+
+//   const DEADZONE = 10;     // px
+//   const RATIO = 1.15;      // plus petit = plus facile de prendre X
+
+//   // ── inertie (fling)
+//   let flingRaf = 0;
+//   let vx = 0;                 // px/ms (vitesse du doigt)
+//   const samples = [];         // {t, x}
+//   const MAX_SAMPLES = 6;
+
+//   const MAX_V = 2.2;          // px/ms
+//   const BASE_FRICTION = 0.0038;
+//   const EDGE_ZONE = 80;
+//   const EDGE_BOOST = 0.010;
+
+//   function stopFling() {
+//     if (flingRaf) cancelAnimationFrame(flingRaf);
+//     flingRaf = 0;
+//     vx = 0;
+//     samples.length = 0;
+//   }
+
+//   function pushSample(t, x) {
+//     samples.push({ t, x });
+//     while (samples.length > MAX_SAMPLES) samples.shift();
+//   }
+
+//   function computeVelocity() {
+//     if (samples.length < 2) return 0;
+//     const last = samples[samples.length - 1];
+
+//     let i = samples.length - 2;
+//     while (i > 0 && (last.t - samples[i].t) < 40) i--;
+//     const a = samples[i];
+
+//     const dt = last.t - a.t;
+//     if (dt <= 0) return 0;
+
+//     const dx = last.x - a.x;
+//     return dx / dt; // dx>0 = doigt vers la droite
+//   }
+
+//   function startFling() {
+//     vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
+//     if (Math.abs(vx) < 0.05) return;
+
+//     let prevT = performance.now();
+
+//     const step = (now) => {
+//       const dt = now - prevT;
+//       prevT = now;
+
+//       const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//       const cur = xVp.scrollLeft;
+
+//       // vx > 0 => doigt à droite => scrollLeft veut diminuer (vers 0)
+//       // vx < 0 => doigt à gauche  => scrollLeft veut augmenter (vers max)
+//       const distToEdge = (vx > 0) ? cur : (maxScroll - cur);
+//       const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
+//       const friction = BASE_FRICTION + EDGE_BOOST * edgeFactor * edgeFactor;
+
+//       const dx = vx * dt;
+//       let next = cur - dx;
+
+//       if (next < 0) next = 0;
+//       if (next > maxScroll) next = maxScroll;
+
+//       xVp.scrollLeft = next;
+
+//       const decay = Math.exp(-friction * dt);
+//       vx *= decay;
+
+//       const atLeft  = next <= 0.5;
+//       const atRight = next >= (maxScroll - 0.5);
+
+//       if (Math.abs(vx) < 0.02 || (vx > 0 && atLeft) || (vx < 0 && atRight)) {
+//         stopFling();
+//         return;
+//       }
+
+//       flingRaf = requestAnimationFrame(step);
+//     };
+
+//     flingRaf = requestAnimationFrame(step);
+//   }
+
+//   bodyVp.addEventListener("touchstart", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     stopFling();
+
+//     const t = e.touches[0];
+//     sx = lastX = t.clientX;
+//     sy = t.clientY;
+//     engaged = false;
+//     horiz = false;
+
+//     const now = performance.now();
+//     pushSample(now, lastX);
+//   }, { passive: true });
+
+//   bodyVp.addEventListener("touchmove", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
+
+//     const dx0 = t.clientX - sx;
+//     const dy0 = t.clientY - sy;
+
+//     if (!engaged) {
+//       if (Math.abs(dx0) < DEADZONE && Math.abs(dy0) < DEADZONE) return;
+//       engaged = true;
+//       horiz = Math.abs(dx0) > Math.abs(dy0) * RATIO;
+//       if (!horiz) return; // vertical => on laisse le Y natif (bodyVp)
+//     }
+
+//     if (horiz) {
+//       const now = performance.now();
+//       const dx = t.clientX - lastX;
+//       lastX = t.clientX;
+
+//       const prev = xVp.scrollLeft;
+//       const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//       const next = Math.max(0, Math.min(maxScroll, prev - dx));
+
+//       if (next === prev) return; // butée
+
+//       e.preventDefault();
+//       e.stopPropagation();
+
+//       xVp.scrollLeft = next;
+
+//       pushSample(now, t.clientX);
+//     }
+//   }, { passive: false });
+
+//   function endGesture() {
+//     if (!horiz) {
+//       stopFling();
+//       return;
+//     }
+
+//     vx = computeVelocity();
+
+//     // si fling impossible (butée), ne pas lancer
+//     const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//     const cur = xVp.scrollLeft;
+//     const blocked =
+//       (vx > 0 && cur <= 0.5) ||
+//       (vx < 0 && cur >= maxScroll - 0.5);
+
+//     if (blocked) {
+//       stopFling();
+//       return;
+//     }
+
+//     startFling();
+//   }
+
+//   bodyVp.addEventListener("touchend", endGesture, { passive: true });
+//   bodyVp.addEventListener("touchcancel", endGesture, { passive: true });
+// }
 function wireAgTouchScrollRouter(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
@@ -1182,10 +1355,15 @@ function wireAgTouchScrollRouter(gridId) {
   if (gridEl.__bbTouchRouter) return;
   gridEl.__bbTouchRouter = true;
 
-  let sx=0, sy=0, lastX=0, engaged=false, horiz=false;
+  let sx=0, sy=0, lastX=0;
+  let pending = true;     // 👈 tant qu'on n'a pas décidé
+  let horiz = false;      // geste horizontal confirmé ?
+  let vert  = false;      // geste vertical confirmé ?
+
+  const AXIS_MIN = 14;    // 👈 plus dur à engager (12..18)
+  const RATIO    = 1.35;  // 👈 plus strict (1.25..1.5)
 
   const DEADZONE = 10;     // px
-  const RATIO = 1.15;      // plus petit = plus facile de prendre X
 
   // ── inertie (fling)
   let flingRaf = 0;
@@ -1269,53 +1447,75 @@ function wireAgTouchScrollRouter(gridId) {
     flingRaf = requestAnimationFrame(step);
   }
 
-  bodyVp.addEventListener("touchstart", (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    stopFling();
+bodyVp.addEventListener("touchstart", (e) => {
+  if (!e.touches || e.touches.length !== 1) return;
+  stopFling();
 
-    const t = e.touches[0];
-    sx = lastX = t.clientX;
-    sy = t.clientY;
-    engaged = false;
-    horiz = false;
+  const t = e.touches[0];
+  sx = lastX = t.clientX;
+  sy = t.clientY;
 
+  pending = true;
+  horiz = false;
+  vert  = false;
+
+  const now = performance.now();
+  pushSample(now, lastX);
+}, { passive: true });
+
+bodyVp.addEventListener("touchmove", (e) => {
+  if (!e.touches || e.touches.length !== 1) return;
+  const t = e.touches[0];
+
+  const dx0 = t.clientX - sx;
+  const dy0 = t.clientY - sy;
+  const ax = Math.abs(dx0);
+  const ay = Math.abs(dy0);
+
+  // 1) Tant qu'on n'a pas décidé, on attend un vrai mouvement + on tranche proprement
+  if (pending) {
+    if (ax < AXIS_MIN && ay < AXIS_MIN) return;
+
+    const isHoriz = ax > ay * RATIO;
+    const isVert  = ay > ax * RATIO;
+
+    if (isHoriz) {
+      pending = false;
+      horiz = true;
+      vert  = false;
+      // IMPORTANT: on ne fait PAS preventDefault ici, seulement à partir du move suivant
+    } else if (isVert) {
+      pending = false;
+      horiz = false;
+      vert  = true;
+      return; // laisser le scroll natif Y
+    } else {
+      return; // diagonale => on attend encore
+    }
+  }
+
+  // 2) Si c'est vertical, on ne touche à rien
+  if (vert) return;
+
+  // 3) Horizontal confirmé => on peut piloter X + preventDefault (si cancelable)
+  if (horiz) {
     const now = performance.now();
-    pushSample(now, lastX);
-  }, { passive: true });
+    const dx = t.clientX - lastX;
+    lastX = t.clientX;
 
-  bodyVp.addEventListener("touchmove", (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    const t = e.touches[0];
+    const prev = xVp.scrollLeft;
+    const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+    const next = Math.max(0, Math.min(maxScroll, prev - dx));
 
-    const dx0 = t.clientX - sx;
-    const dy0 = t.clientY - sy;
+    if (next === prev) return; // butée
 
-    if (!engaged) {
-      if (Math.abs(dx0) < DEADZONE && Math.abs(dy0) < DEADZONE) return;
-      engaged = true;
-      horiz = Math.abs(dx0) > Math.abs(dy0) * RATIO;
-      if (!horiz) return; // vertical => on laisse le Y natif (bodyVp)
-    }
+    if (e.cancelable) e.preventDefault();   // 👈 safe
+    // e.stopPropagation();  // 👈 enlève ça: ça fout le bordel avec AgGrid sur mobile
 
-    if (horiz) {
-      const now = performance.now();
-      const dx = t.clientX - lastX;
-      lastX = t.clientX;
-
-      const prev = xVp.scrollLeft;
-      const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
-      const next = Math.max(0, Math.min(maxScroll, prev - dx));
-
-      if (next === prev) return; // butée
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      xVp.scrollLeft = next;
-
-      pushSample(now, t.clientX);
-    }
-  }, { passive: false });
+    xVp.scrollLeft = next;
+    pushSample(now, t.clientX);
+  }
+}, { passive: false });
 
   function endGesture() {
     if (!horiz) {
@@ -1541,7 +1741,7 @@ function gridOptionsCommon(gridId, el) {
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
-      // requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
+      requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
       restoreGridStateFromMetaEarly(gridId);
     },
     onModelUpdated: (ev) => {
