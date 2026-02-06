@@ -605,8 +605,8 @@ import {
     '.st-expander', '.st-expander-body',
     'input[type="range"]',
     '.slider', '.range', '.handle',
-    '.v-splitter',
-		'.page--planning',							             // page planning 
+    // '.v-splitter',
+		// '.page--planning',							             // page planning 
 	].join(',');
 
 	function isInNoSwipeZone(evTarget){
