@@ -606,7 +606,7 @@ import {
     'input[type="range"]',
     '.slider', '.range', '.handle',
     '.v-splitter',
-		// '.page--planning',							             // page planning 
+		'.page--planning',							             // page planning 
 	].join(',');
 
 	function isInNoSwipeZone(evTarget){
