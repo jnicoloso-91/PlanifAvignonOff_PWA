@@ -367,7 +367,7 @@ import {
   }
 
   let index = Number(pager.dataset.page || 0) || 0;
-  let dragging = false, engaged = false;
+  let dragging = false, engaged = false, pending = false;
   let startX = 0, startY = 0, curX = 0;
   let pageW = computePageW() ; 
   let roInstalled = false;
@@ -619,8 +619,9 @@ import {
     startX = curX = t.clientX;
     startY = t.clientY;
 
-    dragging = true;
+    dragging = false;
     engaged = false;
+    pending = true;
     dragDir = 0;
     preparedRight = false;
 
@@ -668,64 +669,134 @@ import {
   //   ev.preventDefault?.();
   //   applyTransform(basePx + dx, false);
   // }
-  function onMove(ev){
-    if (!dragging) return;
+  // function onMove(ev){
+  //   if (!dragging) return;
 
-    const t  = ev.touches ? ev.touches[0] : ev;
-    curX     = t.clientX;
+  //   const t  = ev.touches ? ev.touches[0] : ev;
+  //   curX     = t.clientX;
 
-    const dx = curX - startX;
-    const dy = t.clientY - startY;
+  //   const dx = curX - startX;
+  //   const dy = t.clientY - startY;
 
-    // iOS: durcir l'arbitrage pour ne pas tuer le scroll vertical
-    const AXIS_MIN = Math.max(DEADZONE, 12); // px
-    const RATIO = 1.25;                      // 1.15..1.4 selon feeling
+  //   // iOS: durcir l'arbitrage pour ne pas tuer le scroll vertical
+  //   const AXIS_MIN = Math.max(DEADZONE, 12); // px
+  //   const RATIO = 1.25;                      // 1.15..1.4 selon feeling
 
-    if (!engaged){
-      // attendre un vrai mouvement (évite la prise en charge trop tôt)
-      if (Math.abs(dx) < AXIS_MIN && Math.abs(dy) < AXIS_MIN) return;
+  //   if (!engaged){
+  //     // attendre un vrai mouvement (évite la prise en charge trop tôt)
+  //     if (Math.abs(dx) < AXIS_MIN && Math.abs(dy) < AXIS_MIN) return;
 
-      const ax = Math.abs(dx);
-      const ay = Math.abs(dy);
+  //     const ax = Math.abs(dx);
+  //     const ay = Math.abs(dy);
 
-      const horiz = ax > ay * RATIO;
-      const vert  = ay > ax * RATIO;
+  //     const horiz = ax > ay * RATIO;
+  //     const vert  = ay > ax * RATIO;
 
-      if (horiz){
-        engaged = true;
-        pager.classList.add('is-dragging');
+  //     if (horiz){
+  //       engaged = true;
+  //       pager.classList.add('is-dragging');
 
-        dragDir = (dx < 0) ? -1 : +1;
+  //       dragDir = (dx < 0) ? -1 : +1;
 
-        if (dragDir === +1){
-          // drag vers la droite: rendre "other" disponible à gauche
-          prepareRight();
-          basePx = -pageW;         // cur reste visible (slot de droite)
-          applyTransform(basePx, false);
-        } else {
-          // drag vers la gauche: ordre normal
-          basePx = 0;
-        }
-      } else if (vert){
-        // geste vertical => laisser la page scroller, le pager lâche prise
-        dragging = false;
-        return;
-      } else {
-        // zone grise (diagonale) => on attend encore
-        return;
-      }
+  //       if (dragDir === +1){
+  //         // drag vers la droite: rendre "other" disponible à gauche
+  //         prepareRight();
+  //         basePx = -pageW;         // cur reste visible (slot de droite)
+  //         applyTransform(basePx, false);
+  //       } else {
+  //         // drag vers la gauche: ordre normal
+  //         basePx = 0;
+  //       }
+  //     } else if (vert){
+  //       // geste vertical => laisser la page scroller, le pager lâche prise
+  //       dragging = false;
+  //       return;
+  //     } else {
+  //       // zone grise (diagonale) => on attend encore
+  //       return;
+  //     }
+  //   }
+
+  //   // IMPORTANT: ne bloquer le scroll que quand on a vraiment pris le geste
+  //   if (engaged) ev.preventDefault?.();
+
+  //   applyTransform(basePx + dx, false);
+  // }
+function onMove(ev){
+  // si on n'a rien en cours → rien à faire
+  if (!pending && !dragging) return;
+
+  const t  = ev.touches ? ev.touches[0] : ev;
+  curX     = t.clientX;
+
+  const dx = curX - startX;
+  const dy = t.clientY - startY;
+
+  const AXIS_MIN = Math.max(DEADZONE, 12); // px
+  const RATIO = 1.25;
+
+  // 1) Phase d'arbitrage (pending)
+  if (pending){
+    // attendre un vrai mouvement
+    if (Math.abs(dx) < AXIS_MIN && Math.abs(dy) < AXIS_MIN) return;
+
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+
+    const horiz = ax > ay * RATIO;
+    const vert  = ay > ax * RATIO;
+
+    if (vert){
+      // ✅ geste vertical : on abandonne le pager et on laisse scroller
+      pending = false;
+      dragging = false;
+      engaged = false;
+      return;
     }
 
-    // IMPORTANT: ne bloquer le scroll que quand on a vraiment pris le geste
-    if (engaged) ev.preventDefault?.();
+    if (!horiz){
+      // zone grise : on attend encore
+      return;
+    }
 
-    applyTransform(basePx + dx, false);
+    // ✅ geste horizontal : on engage maintenant
+    pending = false;
+    dragging = true;
+    engaged = true;
+    pager.classList.add("is-dragging");
+    track.style.transition = "none";
+
+    dragDir = (dx < 0) ? -1 : +1;
+
+    if (dragDir === +1){
+      prepareRight();
+      basePx = -pageW;
+      applyTransform(basePx, false);
+
+      // important: "commit" visuel immédiat pour éviter glitch iOS
+      // eslint-disable-next-line no-unused-expressions
+      track.offsetHeight;
+    } else {
+      normalizeOrder?.(); // si tu as cette fonction (sinon enlève)
+      basePx = 0;
+      applyTransform(0, false);
+      // eslint-disable-next-line no-unused-expressions
+      track.offsetHeight;
+    }
   }
+
+  // 2) Phase drag réel
+  if (!dragging) return;
+
+  ev.preventDefault?.();
+  applyTransform(basePx + dx, false);
+}
 
   function onEnd(){
     if (!dragging) return;
 
     dragging = false;
+    pending = false;
     pager.classList.remove('is-dragging');
 
     const dx = curX - startX;
