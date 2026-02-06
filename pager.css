@@ -48,6 +48,7 @@ html, body {
   will-change: transform;
   transition: transform .4s ease;
   overscroll-behavior: contain;     /* évite propagation du scroll */
+  touch-action: pan-y;
 }
 
 /* Chaque page : 100vw x 100vh, pas de grow/shrink */

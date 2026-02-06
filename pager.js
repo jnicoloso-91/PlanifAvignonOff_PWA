@@ -494,6 +494,79 @@ import {
     setActive();
   }
 
+  let __pgAnimating = false;
+
+  /**
+   * 
+   * @param {number} px 
+   * @param {{ onDone?: Function }=} opts 
+   */
+  function animateTo(px, { onDone } = {}) {
+    // robuste: transitionend + fallback
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      track.removeEventListener("transitionend", onEnd);
+      __pgAnimating = false;
+      onDone?.();
+    };
+
+    const onEnd = (e) => {
+      if (e.propertyName !== "transform") return;
+      finish();
+    };
+
+    __pgAnimating = true;
+    track.addEventListener("transitionend", onEnd);
+
+    applyTransform(px, true);
+
+    // fallback (si transitionend ne fire pas)
+    setTimeout(finish, 350);
+  }
+
+  function swipePage(dir){
+    if (__pgAnimating) return;
+
+    // reset: on coupe les transitions pour préparer proprement
+    track.style.transition = "none";
+
+    if (dir === +1) {
+      // contenu part vers la droite => other à gauche, cur à droite
+      prepareRight();                 // DOM = [other, cur]
+
+      applyTransform(-pageW, false);  // état initial: cur visible
+
+      // 🔥 important: forcer un "commit" de l'état initial avant d'animer
+      // 1) reflow
+      // eslint-disable-next-line no-unused-expressions
+      track.offsetHeight;
+
+      // 2) double RAF (WebKit/Firefox aiment ça)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          animateTo(0, { onDone: commitSwap }); // anime vers 0, puis swap
+        });
+      });
+
+    } else {
+      // contenu part vers la gauche => ordre normal
+      normalizeOrder();              // DOM = [cur, other]
+      applyTransform(0, false);
+
+      // reflow + RAF pour symétrie
+      // eslint-disable-next-line no-unused-expressions
+      track.offsetHeight;
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          animateTo(-pageW, { onDone: commitSwap });
+        });
+      });
+    }
+  }
+
   track.addEventListener('transitionend', (e) => {
     if (e.propertyName === 'transform') doPendingSnap();
   });
@@ -509,13 +582,11 @@ import {
 
   // boutons
   btnNext?.addEventListener('click', () => {
-    applyTransform(-pageW, true);
-    setTimeout(() => { commitSwap(); }, 260);
+    swipePage(-1);
   });
 
   btnAppLogo?.addEventListener('click', () => {
-    applyTransform(-pageW, true);
-    setTimeout(() => { commitSwap(); }, 260);
+    swipePage(-1);
   });
 
 	// Drag
@@ -530,10 +601,10 @@ import {
 		'input', 'select', 'textarea', 'button', 'a',  // éléments interactifs
 		'.st-expander-header',                         // headers
 		'#programme-panel #calA',                      // calendrier
-		// '.page--planning',							   // page planning 
     '.st-expander', '.st-expander-body',
     'input[type="range"]',
     '.slider', '.range', '.handle',
+		// '.page--planning',							             // page planning 
 	].join(',');
 
 	function isInNoSwipeZone(evTarget){
@@ -561,6 +632,42 @@ import {
     applyTransform(0, false);
   }
 
+  // function onMove(ev){
+  //   if (!dragging) return;
+
+  //   const t  = ev.touches ? ev.touches[0] : ev;
+  //   curX     = t.clientX;
+
+  //   const dx = curX - startX;
+  //   const dy = t.clientY - startY;
+
+  //   if (!engaged){
+  //     if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+
+  //     if (Math.abs(dx) > Math.abs(dy)){
+  //       engaged = true;
+  //       pager.classList.add('is-dragging');
+
+  //       dragDir = (dx < 0) ? -1 : +1;
+
+  //       if (dragDir === +1){
+  //         // drag vers la droite: rendre "other" disponible à gauche
+  //         prepareRight();
+  //         basePx = -pageW;         // cur reste visible (dans le slot de droite)
+  //         applyTransform(basePx, false);
+  //       } else {
+  //         // drag vers la gauche: ordre normal
+  //         basePx = 0;
+  //       }
+  //     } else {
+  //       dragging = false;
+  //       return;
+  //     }
+  //   }
+
+  //   ev.preventDefault?.();
+  //   applyTransform(basePx + dx, false);
+  // }
   function onMove(ev){
     if (!dragging) return;
 
@@ -570,10 +677,21 @@ import {
     const dx = curX - startX;
     const dy = t.clientY - startY;
 
-    if (!engaged){
-      if (Math.abs(dx) < DEADZONE && Math.abs(dy) < DEADZONE) return;
+    // iOS: durcir l'arbitrage pour ne pas tuer le scroll vertical
+    const AXIS_MIN = Math.max(DEADZONE, 12); // px
+    const RATIO = 1.25;                      // 1.15..1.4 selon feeling
 
-      if (Math.abs(dx) > Math.abs(dy)){
+    if (!engaged){
+      // attendre un vrai mouvement (évite la prise en charge trop tôt)
+      if (Math.abs(dx) < AXIS_MIN && Math.abs(dy) < AXIS_MIN) return;
+
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+
+      const horiz = ax > ay * RATIO;
+      const vert  = ay > ax * RATIO;
+
+      if (horiz){
         engaged = true;
         pager.classList.add('is-dragging');
 
@@ -582,19 +700,25 @@ import {
         if (dragDir === +1){
           // drag vers la droite: rendre "other" disponible à gauche
           prepareRight();
-          basePx = -pageW;         // cur reste visible (dans le slot de droite)
+          basePx = -pageW;         // cur reste visible (slot de droite)
           applyTransform(basePx, false);
         } else {
           // drag vers la gauche: ordre normal
           basePx = 0;
         }
-      } else {
+      } else if (vert){
+        // geste vertical => laisser la page scroller, le pager lâche prise
         dragging = false;
+        return;
+      } else {
+        // zone grise (diagonale) => on attend encore
         return;
       }
     }
 
-    ev.preventDefault?.();
+    // IMPORTANT: ne bloquer le scroll que quand on a vraiment pris le geste
+    if (engaged) ev.preventDefault?.();
+
     applyTransform(basePx + dx, false);
   }
 
@@ -638,7 +762,12 @@ import {
   }
 
   // Écouteurs
-  if (window.PointerEvent){
+  const IS_IOS =
+    /iP(ad|hone|od)/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+if (!IS_IOS && window.PointerEvent){
+  // if (window.PointerEvent){
     pager.addEventListener('pointerdown', onStart, { passive:true });
     window.addEventListener('pointermove', onMove, { passive:false });
     window.addEventListener('pointerup',   onEnd,  { passive:true });
@@ -647,6 +776,7 @@ import {
     pager.addEventListener('touchstart', onStart, { passive:true });
     window.addEventListener('touchmove',  onMove, { passive:false });
     window.addEventListener('touchend',   onEnd,  { passive:true });
+    window.addEventListener('pointercancel', onEnd, { passive:true });
   }
 
   window.addEventListener('resize', () => { measure(); goto(index, false); });
@@ -719,14 +849,15 @@ import {
       // sélectionne l'event dans le calendrier
       selectCurrentEventInCalendar();
 
-      // si on est déjà sur le planning → rien à faire
-      if (curEl.classList.contains('page--planning')) return;
+      // // si on est déjà sur le planning → rien à faire
+      // if (curEl.classList.contains('page--planning')) return;
 
-      // sinon : avancer d’un cran (même anim que swipe gauche)
-      applyTransform(-pageW, true);
-      setTimeout(() => {
-        commitSwap(); // inverse curEl / otherEl + reset
-      }, 260);
+      // // sinon : avancer d’un cran (même anim que swipe gauche)
+      // applyTransform(-pageW, true);
+      // setTimeout(() => {
+      //   commitSwap(); // inverse curEl / otherEl + reset
+      // }, 260);
+      swipePage(-1);
     });
 	}
 
