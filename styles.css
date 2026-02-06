@@ -1334,7 +1334,8 @@ main, .page-wrap {
 }
 
 /* Évite que Safari “interprète” le double tap comme zoom */
-.sheet-body, .sheet-panel, .ag-root {
+/* .sheet-body, .sheet-panel, .ag-root { */
+.sheet-body, .sheet-panel {
   touch-action: manipulation;  /* important sur iOS */
 }
 
