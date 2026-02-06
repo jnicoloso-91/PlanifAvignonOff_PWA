@@ -1598,7 +1598,7 @@ function gridOptionsCommon(gridId, el) {
       await refreshGrid(gridId);
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
-      enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
+      // enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
       requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
     },
     onModelUpdated: (ev) => {
