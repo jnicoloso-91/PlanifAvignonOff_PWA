@@ -526,7 +526,6 @@ main, .page-wrap {
 }
 
 .ag-root, .ag-root * { -webkit-user-select: text; user-select: text; }
-/* [id^="grid"], #grid { touch-action: manipulation; } */
 
 /* la grille occupe 100% de la hauteur du panneau */
 .grid-host { height: 100%; min-height: 0; }
@@ -611,9 +610,17 @@ main, .page-wrap {
   overscroll-behavior: contain;         /* évite le rebond qui “fait bouger” la page */
 }
 
+/* Assurer que le viewport vertical peut scroller au doigt sur Android */
+.ag-root-wrapper .ag-body-viewport,
+.ag-root-wrapper .ag-center-cols-viewport,
+.ag-root-wrapper .ag-viewport {
+  touch-action: pan-y !important;
+}
+
 /* Couches internes d'AG Grid qui gèrent le scroll */
 .ag-root-wrapper,
 .ag-root-wrapper-body,
+.ag-viewport,
 .ag-body-viewport,
 .ag-center-cols-viewport,
 .ag-body-horizontal-scroll-viewport {
@@ -622,7 +629,6 @@ main, .page-wrap {
 
 /* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
-
 
 /*=======================*/
 /* Sélection grilles     */
@@ -788,24 +794,13 @@ main, .page-wrap {
 /*    Bottom bar    */
 /*==================*/
 
-/* iOS 100vh bug guard (use --dvh instead of 100vh where needed) */
-/* .full-height-panel{
-  height: var(--dvh);
-} */
-
 /* Container */
 .bottom-bar {
   background: var(--bg);
   position: fixed;
-
-  /* bottom: max(var(--safe-gap), env(safe-area-inset-bottom));  */
-  /* bottom: calc(env(safe-area-inset-bottom) + var(--safe-gap, 0px)); */
-  /* bottom: var(--safe-gap, 0px); */
   bottom: env(safe-area-inset-bottom); 
   left: 0; right: 0;
   height: var(--bar-height);
-
-  left: 0; right: 0; /* bottom: 0; */
   padding: 10px 12px;
   backdrop-filter: blur(8px);               /* nice glass effect */
   border-top: 1px solid #d1d5db;
@@ -828,6 +823,10 @@ main, .page-wrap {
 .bottom-bar.hidden,
 .bar-toggle.hidden,
 .safe-bottom-mask.hidden { display: none !important; }
+
+.bottom-bar.hidden {
+  transform: translateY(100%);
+}
 
 .bottom-bar__scroller {
   display: flex;
@@ -856,8 +855,6 @@ main, .page-wrap {
   padding: 8px 12px;
   border: 1px solid #d1d5db;
   border-radius: 999px;         /* pill */
-  /* background: #1a1f27;
-  color: #e6edf3; */
   font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   cursor: pointer;
   transition: transform .08s ease, background .15s ease, border-color .15s ease;
@@ -872,13 +869,6 @@ main, .page-wrap {
 
 @media (max-width: 812px) {
   .bb-btn { min-width: 84px; padding: 10px 12px; font-size: 13px; }
-}
-
-/* Make sure content isn't hidden behind the bar */
-/* body { padding-bottom: calc(56px + env(safe-area-inset-bottom)); } */
-
-.bottom-bar.hidden {
-  transform: translateY(100%);
 }
 
 /* toggle “languette” juste au-dessus */
@@ -922,9 +912,9 @@ main, .page-wrap {
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(env(safe-area-inset-bottom, 0px) - 0px);  /* zone système iOS uniquement (-5px pour laisser la bordure) */
+  height: calc(env(safe-area-inset-bottom, 0px) - 0px);   /* zone système iOS uniquement (-5px pour laisser la bordure) */
   background: var(--bg);                                  /* même couleur que le fond */
-  z-index: 1002;                                          /* sur la bottom bar et le toggle */
+  z-index: 5000;                                          /* Au dessus des autres y compris les sheets en 4000 */
   pointer-events: none;                                   /* ne bloque aucun geste système */
 }
 
@@ -1279,15 +1269,16 @@ main, .page-wrap {
 
 /* --- footer fixe --- */
 .sheet-footer {
+  background: var(--bg); 
   position: absolute;
-  left:0; right: 0; bottom: env(safe-area-inset-bottom, 0);
+  bottom: env(safe-area-inset-bottom, 0);
+  left:0; right: 0; 
+  height: var(--footer-h);
+  padding: 12px 16px;
   display: flex;
   justify-content: center;  /* centre horizontalement */
   align-items: center;      /* centre verticalement */
   gap: 10px;
-  padding: 12px 16px;
-  background: #fafafa;
-  height: var(--footer-h);
 }
 .has-border {
   border-top: 1px solid #ddd;
@@ -1298,7 +1289,6 @@ main, .page-wrap {
 .sheet-wrap.is-open .sheet-panel{ transform: translateY(0); }
 
 .sheet-backdrop {
-  /* flex: 1; background: rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px); */
   background:rgba(231, 231, 231, 0.3);backdrop-filter:blur(0px);
 }
 /* petite poignée centrée, style iOS */
@@ -1343,8 +1333,21 @@ main, .page-wrap {
 }
 
 /* Évite que Safari “interprète” le double tap comme zoom */
-.sheet-body, .sheet-panel, .ag-root {
-  touch-action: manipulation;  /* important sur iOS */
+/* .sheet-body, .sheet-panel, .ag-root { */
+/*  touch-action: manipulation;  important sur iOS
+/* } */
+/* ✅ OK: éléments “tapables” */
+button, a, .btn, .icon-btn, .sheet-header, .bottom-bar, .toggle, .chip, .chip button {
+  touch-action: manipulation;
+}
+
+/* ✅ OK: zones qui doivent scroller */
+.page--planning,
+.st-expander-body,
+.ag-root,
+.ag-body-viewport,
+.cal-days-scroll {
+  touch-action: pan-y;
 }
 
 /* le header + la poignée ne doivent pas scroller ni propager le scroll */
@@ -1428,7 +1431,6 @@ main, .page-wrap {
   display: flex;
   flex-direction: column;
   padding: 1.2rem 1rem 1.6rem;
-  /* font-family: system-ui, -apple-system, sans-serif; */
   font-size: 1rem;
   color: #111;
   background: #f9f9fb;
@@ -1448,7 +1450,7 @@ main, .page-wrap {
 }
 
 /* --- Label à gauche --- */
-.sheet-wrap .form-row > label {
+.sheet-wrap .form-row label {
   flex: 1 1 auto;
   color: #333;
   font-weight: 500;
@@ -1457,13 +1459,13 @@ main, .page-wrap {
   font-size: 0.9rem;
 }
 @media (max-width: 812px) {
-  .sheet-wrap .form-row > label {
+  .sheet-wrap .form-row label {
     font-size: 0.85rem;
   }
 }
 
 /* --- Champs à droite (valeurs) --- */
-.sheet-wrap .form-row input,
+.sheet-wrap .form-row input:not([type="checkbox"]):not([type="radio"]),
 .sheet-wrap .form-row select {
   flex: 0 0 auto;
   width: 14rem;                     /* largeur stable */
@@ -1674,8 +1676,37 @@ main, .page-wrap {
   justify-content: center;
 }
 
-.filter-row .input-wrap.has-val .btn-clear {
-  display: inline-flex;       /* visible seulement quand champ non vide */
+.filter-row .input-wrap{
+  border: none !important;
+  position: relative;
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  width: 100%;
+}
+
+.filter-row .input-wrap.has-val .btn-clear { 
+  display: inline-block; 
+}
+
+.filter-row .btn-clear{
+  width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
+  border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
+  background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
+  display: none; font-weight: 600; font-size: 1rem;
+}
+
+/* chipbox container */
+.filter-row .chipbox{
+  display:flex;
+  flex-wrap: wrap;
+  align-items:center;
+  gap:.35rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
 }
 
 @media (hover:hover) {
@@ -1694,18 +1725,6 @@ main, .page-wrap {
 }
 
 /* menu flottant ancré à l'input */
-/* .bb-ac {
-  position: fixed;           
-  z-index: 99999;
-  max-height: 40vh;
-  overflow: auto;
-  background: var(--bb-surface, #fff);
-  border: 1px solid var(--bb-border, #ccc);
-  border-radius: .5rem;
-  box-shadow: 0 6px 24px rgba(0,0,0,.18);
-  padding: .25rem;
-  font-size: 1rem;
-} */
 .bb-ac {
   position: fixed;
   z-index: 99999;
@@ -2063,11 +2082,11 @@ body.lock-page-scroll {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
+  min-width: 0;
 }
 
-.ai-checkbox span {
-  flex: 1;
+.ai-checkbox > input[type="checkbox"] {
+  margin: 0;
   font-size: 0.9rem;
 }
 
@@ -2394,6 +2413,7 @@ input[type="range"]:focus::-moz-range-thumb {
   background:rgba(0,0,0,.04);
   font-size:13px;
   line-height:1;
+  cursor: pointer;
 }
 
 .chip button{
@@ -2448,7 +2468,16 @@ input[type="range"]:focus::-moz-range-thumb {
   background:rgba(0,0,0,.10);
 }
 
-.mixbox{ display:flex; flex-direction:column; gap:8px; }
+
+/* ============*/
+/* mix Style   */
+/* ============*/
+
+.mixbox{ 
+  display:flex; 
+  flex-direction:column; 
+  gap:8px; 
+}
 
 .mixbox-head{
   display:flex;
@@ -2457,18 +2486,34 @@ input[type="range"]:focus::-moz-range-thumb {
   gap:12px;
 }
 
-.mixbox-help{ font-size:12px; opacity:.7; }
+.mixbox-help{ 
+  font-size:12px; 
+  opacity:.7; 
+}
 
-.mixrows{ display:flex; flex-direction:column; gap:8px; }
+.mixrows{ 
+  display:flex; 
+  flex-direction:column; 
+  gap:8px; 
+}
 
 .mixrow{
   display:grid;
-  grid-template-columns: 1fr 96px;
-  gap:10px;
+  grid-template-columns: 1fr 14rem;
+  column-gap:8px;
   align-items:center;
 }
-.mixrow label{ font-size:13px; opacity:.9; }
-.mixrow input[type="number"]{ width:96px; }
+.mixrow label{ 
+  min-width: 0 !important;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity:.9; 
+}
+.mixrow input[type="number"]{ 
+  width:96px; 
+  justify-self: end;
+}
 
 /* =========================================================*/
 /* Gestion du scroll horizontal / vertical dans les grids   */
