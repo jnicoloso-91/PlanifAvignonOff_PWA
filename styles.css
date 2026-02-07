@@ -1333,21 +1333,8 @@ main, .page-wrap {
 }
 
 /* Évite que Safari “interprète” le double tap comme zoom */
-/* .sheet-body, .sheet-panel, .ag-root { */
-/*  touch-action: manipulation;  important sur iOS
-/* } */
-/* ✅ OK: éléments “tapables” */
-button, a, .btn, .icon-btn, .sheet-header, .bottom-bar, .toggle, .chip, .chip button {
-  touch-action: manipulation;
-}
-
-/* ✅ OK: zones qui doivent scroller */
-.page--planning,
-.st-expander-body,
-.ag-root,
-.ag-body-viewport,
-.cal-days-scroll {
-  touch-action: pan-y;
+.sheet-body, .sheet-panel {
+  touch-action: manipulation;  /* important sur iOS */
 }
 
 /* le header + la poignée ne doivent pas scroller ni propager le scroll */
@@ -1857,9 +1844,9 @@ body.lock-page-scroll {
    À n’activer que si on n’a pas besoin du scroll horizontal au doigt. */
 /* .ag-body-viewport, .ag-center-cols-viewport { touch-action: pan-y; } */
 
-/* ========================================================================================================*/
-/* Résolution du pb de disparition de la page planning au basculement Iphone si sheet affichée (bug IOS)   */
-/* ========================================================================================================*/
+/* =============================================================================================================*/
+/* Résolution du pb de disparition de la page planning au basculement de l'Iphone si sheet affichée (bug IOS)   */
+/* =============================================================================================================*/
 
 /* Évite 100vh qui casse au rotate */
 .grid-page, .page-wrap {
@@ -2520,8 +2507,15 @@ input[type="range"]:focus::-moz-range-thumb {
 /* =========================================================*/
 
 /* 1) évite les scrollers concurrents */
-.ag-root-wrapper-body { overflow: hidden !important; }
-.grid-host { overflow: hidden !important; }
+/* .ag-root-wrapper-body { overflow: hidden !important; }
+.grid-host { overflow: hidden !important; } */
+.ag-root-wrapper-body,
+.grid-host { 
+  overflow-x: hidden !important; 
+  overflow-y: visible !important; 
+  min-height: 0 !important;
+  min-width: 0 !important;
+}
 
 /* 2) Y : le scroller vertical (celui-ci doit rester scrollable) */
 .ag-body-viewport{
