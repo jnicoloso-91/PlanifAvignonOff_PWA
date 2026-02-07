@@ -46,7 +46,7 @@ function downloadJson(data, filename = 'export.json') {
 
 // Enrichissement d'un df avec champ Mood
 // A utiliser en mode console pour compléter un catalogue avec le champ Mood si absent
-async function enrichDfWithMood(df, {
+export async function enrichDfWithMood(df, {
   basePath = "./ai",          // chemin relatif depuis la page
   overwrite = false,          // écraser un mood existant ?
   log = true
@@ -96,7 +96,7 @@ async function enrichDfWithMood(df, {
 
   if (log) {
     console.log(
-      `Mood enrichi : ${copied} lignes | ignorées : ${skipped} | index moods : ${moodMap.size}`
+      `Ajout champ Mood : ${copied} lignes | ignorées : ${skipped} | index moods : ${moodMap.size}`
     );
   }
 
@@ -105,9 +105,9 @@ async function enrichDfWithMood(df, {
 
 // Enrichissement d'un df avec champ __distribution
 // A utiliser en mode console pour compléter un catalogue avec le champ Distribution du json si absent
-async function enrichDfWithDistribution(df, {
+export async function enrichDfWithDistribution(df, {
   basePath = "./ai",          // chemin relatif depuis la page
-  overwrite = false,          // écraser un mood existant ?
+  overwrite = false,          // écraser une __distribution existante ?
   log = true
 } = {}) {
   if (!Array.isArray(df)) {
@@ -139,7 +139,7 @@ async function enrichDfWithDistribution(df, {
       continue;
     }
 
-    if (!overwrite && row.Mood) {
+    if (!overwrite && row.__distribution) {
       skipped++;
       continue;
     }
@@ -155,7 +155,7 @@ async function enrichDfWithDistribution(df, {
 
   if (log) {
     console.log(
-      `Distribution enrichi : ${copied} lignes | ignorées : ${skipped} | index moods : ${distriMap.size}`
+      `Ajout champ __distribution : ${copied} lignes | ignorées : ${skipped} | index moods : ${distriMap.size}`
     );
   }
 
@@ -164,7 +164,7 @@ async function enrichDfWithDistribution(df, {
 
 // Enrichissement d'un df avec InfoPlus
 // A utiliser en mode console pour compléter un catalogue avec les champs desc_summary et avis_summary si absents
-async function enrichDfWithInfoPlus(df, {
+export async function enrichDfWithInfoPlus(df, {
   basePath = "./ai",          // chemin relatif depuis la page
   overwrite = false,          // écraser un mood existant ?
   log = true
@@ -229,7 +229,7 @@ async function enrichDfWithInfoPlus(df, {
  * @param {*} rows     tableau de rows activité
  * @param {*} polite   tempo entre chaque interrogation web
  */
-async function enrichWithDetailsAndAvis(
+export async function enrichWithDetailsAndAvis(
   rows,
   { polite = true } = {}
 ) {
@@ -365,7 +365,7 @@ function buildAiExportFromDf(df, sectionLabel, editionYear = null) {
  * Exemple Avis: "Note 9/10 (35 avis) — Commentaires: ..."
  * -> "9 (35 avis)"
  */
-function extractNoteFromAvis(avisRaw) {
+export function extractNoteFromAvis(avisRaw) {
   if (!avisRaw) return null;
   const s = String(avisRaw);
 
@@ -392,7 +392,7 @@ function extractNoteFromAvis(avisRaw) {
  * @param {*} orga          doit valoir 'in' ou 'off' 
  * @param {*} editionYear   année de l'édition (2025 par défaut)
  */
-async function exportJsonForAi(orga, editionYear = 2025) {
+export async function exportJsonForAi(orga, editionYear = 2025) {
   const df = ctx.df;
   const jsonData = buildAiExportFromDf(df, orga, editionYear);
   await enrichWithDetailsAndAvis(jsonData, { polite: true });
@@ -407,7 +407,7 @@ async function exportJsonForAi(orga, editionYear = 2025) {
  * et met à jour df.Note à partir du champ Avis du JSON,
  * en faisant le matching via makeFullKey(row).
  */
-function importNotesFromAiJson() {
+export function importNotesFromAiJson() {
 
   const input = document.createElement("input");
   input.type = "file";
