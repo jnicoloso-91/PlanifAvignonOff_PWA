@@ -451,6 +451,58 @@ function scrollToExpanderAsync(expId) {
   scrollExpanderIntoViewCenteredAsync(exp);
 }
 
+// Force les grilles contenues à se recalculer quand la hauteur du pane est disponible
+function wakeAgGridsWhenPaneSized(exp) {
+  const pane = exp?.querySelector?.(".st-expander-body");
+  if (!pane) return;
+
+  // Trouve les grids hosts dans cet expander
+  const hosts = exp.querySelectorAll(".grid-host, [id^=\"grid\"], .ag-root");
+  if (!hosts.length) return;
+
+  const findHandles = () => {
+    const out = [];
+    for (const node of hosts) {
+      const host = node.classList.contains("ag-root")
+        ? node.closest(".grid-host, [id^=\"grid\"]")
+        : node;
+      if (!host) continue;
+
+      // match par identité DOM (le plus fiable)
+      for (const [, v] of grids) {
+        if (v?.el === host && v?.api) { out.push(v); break; }
+      }
+    }
+    return out;
+  };
+
+  const handles = findHandles();
+  if (!handles.length) return;
+
+  // on attend que la height devienne "non ridicule"
+  const MIN_H = 60;
+  let tries = 0;
+  const MAX_TRIES = 30; // ~30 frames = 0.5s
+
+  const tick = () => {
+    tries++;
+    const h = pane.getBoundingClientRect().height;
+
+    if (h >= MIN_H || tries >= MAX_TRIES) {
+      for (const g of handles) {
+        try {
+          g.api.doLayout();
+          // g.api.refreshCells({ force: true }); // optionnel
+        } catch {}
+      }
+      return;
+    }
+    requestAnimationFrame(tick);
+  };
+
+  requestAnimationFrame(tick);
+}
+
 // Ouvre un expander
 export function openExpander(expId){
   const exp = document.getElementById(expId);
@@ -458,6 +510,7 @@ export function openExpander(expId){
   if (!exp.classList.contains('open')) {
     if (typeof openExp === 'function') openExp(exp);
     else exp.classList.add('open');
+    wakeAgGridsWhenPaneSized();
   }
 }
 
@@ -472,6 +525,7 @@ export function openExpanderAsync(id){
     const onEnd = (ev) => {
       if (ev.propertyName !== 'height') return;
       pane.removeEventListener('transitionend', onEnd);
+      wakeAgGridsWhenPaneSized();
       resolve();
     };
     pane.addEventListener('transitionend', onEnd);
