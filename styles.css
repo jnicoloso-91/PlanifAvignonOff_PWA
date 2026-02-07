@@ -2517,15 +2517,32 @@ input[type="range"]:focus::-moz-range-thumb {
   min-width: 0 !important;
 } */
 /* ANDROID DEBUG: enlever les trucs qui créent un layer de compositing */
-.st-expander.open .st-expander-body{
+/* .st-expander.open .st-expander-body{
   overflow: visible !important;
   will-change: auto !important;
   transform: none !important;
   filter: none !important;
   contain: none !important;
   opacity: 1 !important;
+} */
+/* L’élément animé NE CLIPPE PAS */
+.st-expander-body{
+  overflow: visible !important;
+  min-height: 0;
 }
 
+/* Le wrapper interne gère le clipping */
+.st-expander-body > .pane-inner{
+  height: 100%;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* AG Grid vit ici, pas dans le body animé */
+.grid-host{
+  height: 100%;
+  min-height: 0;
+}
 /* 2) Y : le scroller vertical (celui-ci doit rester scrollable) */
 /* .ag-body-viewport{
   overflow-y: auto !important;
