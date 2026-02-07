@@ -2516,13 +2516,16 @@ input[type="range"]:focus::-moz-range-thumb {
   min-height: 0 !important;
   min-width: 0 !important;
 }
-/* Android: ne pas clipper le contenu scrollable quand l’expander est ouvert */
+/* ANDROID DEBUG: enlever les trucs qui créent un layer de compositing */
 .st-expander.open .st-expander-body{
-  overflow-y: visible !important;
-  overflow-x: hidden !important;
-  min-height: 0 !important;
-  min-width: 0 !important;
+  overflow: visible !important;
+  will-change: auto !important;
+  transform: none !important;
+  filter: none !important;
+  contain: none !important;
+  opacity: 1 !important;
 }
+
 /* 2) Y : le scroller vertical (celui-ci doit rester scrollable) */
 .ag-body-viewport{
   overflow-y: auto !important;
