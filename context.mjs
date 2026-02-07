@@ -1,4 +1,5 @@
 // context.mjs
+import { genUUID } from './utils.js';
 import { sortDf } from './activites.js';
 import { sortCarnet } from './carnet.js';
 import { df_getAllOrdered, df_putMany, df_clear, meta_get, meta_put } from './db.mjs';
@@ -291,7 +292,7 @@ export class AppContext {
   dfUpsert(row) {
     this.#withHistory('upsert', () => {
       if (!row) return;
-      const id = row.__uuid || genUuid();
+      const id = row.__uuid || genUUID();
       let found = false;
       this.#df = this.#df.map(r => {
         if (r.__uuid === id) { found = true; return { ...r, ...row, __uuid: id }; }
@@ -325,7 +326,7 @@ export class AppContext {
   carnetUpsert(row) {
     this.#withHistory('upsert', () => {
       if (!row) return;
-      const id = row.__uuid || genUuid();
+      const id = row.__uuid || genUUID();
       let found = false;
       this.#carnet = this.#carnet.map(r => {
         if (r.__uuid === id) { found = true; return { ...r, ...row, __uuid: id }; }
@@ -507,12 +508,9 @@ export class AppContext {
 
 
 // ---------- Helpers internes ----------
-function genUuid() {
-  return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 function normalizeUuid(rows) {
   return (rows||[]).map((r, i) => {
-    if (r && !r.__uuid) r.__uuid = genUuid();
+    if (r && !r.__uuid) r.__uuid = genUUID();
     return r;
   });
 }

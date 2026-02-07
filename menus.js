@@ -3,6 +3,7 @@
 // ===============================
 
 import { 
+  genUUID,
   isIOS,
   looksLikeUrl, 
   mergeRowsNoDupMultiKey, 
@@ -604,7 +605,7 @@ function normalizeImportedRows(rows) {
     let id = o.__uuid;
     const bad = id == null || id === '' || (typeof id === 'number' && Number.isNaN(id));
     if (bad) {
-      id = (crypto?.randomUUID?.()) || `${Date.now()}-${i}-${Math.random().toString(16).slice(2)}`;
+      id = genUUID();
     }
     o.__uuid = String(id);
     return o;
@@ -707,7 +708,7 @@ async function importFromXlsxFile(f, {add=false} = {}) {
 
       // 7) __uuid garanti
       if (!o.__uuid) {
-        o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
+        o.__uuid = genUUID();
       }
       return o;
     });
@@ -729,7 +730,7 @@ async function importFromXlsxFile(f, {add=false} = {}) {
           const o = { ...r };
           // __uuid garanti
           if (!o.__uuid) {
-            o.__uuid = (crypto.randomUUID?.()) || `${Date.now()}_${i}`;
+            o.__uuid = genUUID();
           }
           return o;
         });
@@ -1162,13 +1163,13 @@ async function doImportExcel() {
 
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
-  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=112249550');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=336819867');
   importFromXlsxFile(f, {add:true});
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
-  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=1588321450');
+  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=781555543');
   importFromXlsxFile(f, {add:true});
 }
 
@@ -1677,7 +1678,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
     const note = getNoteFromAvis(row.Avis);
 
     const nouvelleActivite = {
-        __uuid: crypto.randomUUID?.() || String(Date.now()),
+        __uuid: genUUID(),
         Date: null, 
         Debut: row.Debut || null, 
         Duree: row.Duree || null,

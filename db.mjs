@@ -1,4 +1,5 @@
 // db.mjs
+import { genUUID } from './utils.js';
 import { openDB } from './lib/idb.mjs';
 
 export const DB_NAME = 'avignon';
@@ -79,9 +80,7 @@ export async function df_putMany(rows) {
 
     // UUID
     if (!obj.__uuid) {
-      obj.__uuid =
-        (crypto.randomUUID && crypto.randomUUID()) ||
-        (`${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+      obj.__uuid = genUUID();
     }
 
     // Order : toujours numérique
@@ -149,9 +148,7 @@ export async function carnet_putMany(rows) {
 
     // UUID unique
     if (!obj.__uuid) {
-      obj.__uuid =
-        (crypto.randomUUID && crypto.randomUUID()) ||
-        (`${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+      obj.__uuid = genUUID();
     }
 
     // Ordre (si absent)

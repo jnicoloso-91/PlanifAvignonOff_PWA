@@ -2,10 +2,12 @@
 //  EXPORT .ICS — Date: YYYYMMDD + Debut + __uuid
 // ===============================
 
+import { genUUID } from './utils.js';
+
 const pad2 = n => String(n).padStart(2, '0');
 
 const toICSDateUTC = (d) => {
-  if (!(d instanceof Date) || isNaN(d)) return '';
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
   return (
     d.getUTCFullYear() +
     pad2(d.getUTCMonth() + 1) +
@@ -65,7 +67,7 @@ function addMinutes(date, mins=0) {
 // UID RFC 5545
 function makeUID() {
   // UID globalement unique, conforme RFC5545
-  return `${crypto.randomUUID()}@in-off`;
+  return `${genUUID()}@in-off`;
 }
 
 export function rowsToICS(rows, {
@@ -172,9 +174,6 @@ function parisVTZ() {
     'END:VTIMEZONE'
   ];
 }
-
-// // UID global (RFC5545)
-// const makeUID = () => `${crypto.randomUUID()}@in-off`;
 
 // ===== Export principal =====
 export function rowsToICS_TZID(rows, {

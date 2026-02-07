@@ -3,6 +3,7 @@
 // ===============================
 
 import { 
+  genUUID,
   waitAF,
 } from './utils.js';
 
@@ -1544,8 +1545,7 @@ async function doProgrammerActivite() {
     } else {
       // ✅ ajoute une nouvelle ligne (assure un __uuid)
       if (!payload.__uuid) {
-        payload.__uuid = crypto.randomUUID?.()
-          || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        payload.__uuid = genUUID();
       }
       next.push(payload);
     }

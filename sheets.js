@@ -3,6 +3,7 @@
 // ===============================
 
 import {
+  genUUID,
   escapeHtml,
   escapeAttr,
 } from './utils.js';
@@ -1542,7 +1543,7 @@ export function openSheetCarnet() {
       }
 
       btnAddC.addEventListener('click', () => {
-        const row = { __uuid: crypto.randomUUID(), Nom: getNouveauNom(ctx.carnet), Adresse:'', Tel:'', Web:'' };
+        const row = { __uuid: genUUID(), Nom: getNouveauNom(ctx.carnet), Adresse:'', Tel:'', Web:'' };
         ctx?.mutateCarnet?.(rows => [...(rows||[]), row]);
         setTimeout(() => selectRow(row.__uuid), 0);
       });
@@ -4360,7 +4361,7 @@ export function openSheetAssistantChat() {
           Reserve:  "Non",
           Date:     null,
 
-          __uuid: crypto.randomUUID(),
+          __uuid: genUUID(),
           __desc_summary: r.desc_summary,
           __avis_summary: r.avis_summary,
         };
@@ -6442,7 +6443,7 @@ export function openSheetAssistantProgrammation() {
             Date: dateInt,
             Reserve: 'Non',
             Relache: null,
-            __uuid: crypto.randomUUID(),
+            __uuid: genUUID(),
           };
 
           selectedForDay.push({

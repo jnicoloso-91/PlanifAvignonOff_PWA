@@ -3,6 +3,7 @@
 // ===============================
 
 import { 
+  genUUID,
   afterFrames,
 } from './utils.js'; 
 
@@ -1458,7 +1459,7 @@ function addMinutes(date, mins=0) {
 // UID RFC 5545
 function makeUID() {
   // UID globalement unique, conforme RFC5545
-  return `${crypto.randomUUID()}@in-off`;
+  return `${genUUID()}@in-off`;
 }
 
 // Date locale (sans Z) pour DTSTART/DTEND

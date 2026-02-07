@@ -16,6 +16,7 @@ import {
 } from './utils-date.js';
 
 import {
+  genUUID,
   richValueGetValue,
 } from './utils.js';
 
@@ -452,7 +453,7 @@ export function creerActivitesAPI(ctx) {
     async creerActivite(df) {
       const nouveauNom = _getNouveauNomActivite(df);
       const nouvelleActivite =     {
-          __uuid: crypto.randomUUID?.() || String(Date.now()),
+          __uuid: genUUID(),
           Date: null, 
           Debut: "09h00", 
           Duree: "1h00",
@@ -1550,7 +1551,7 @@ function _creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
     'Activité-après': apres || '',
     __type_creneau: typeCreneau,           // "Avant" | "Après" | "Journée"
     __srcUuid: row.__uuid,
-    __uuid: crypto.randomUUID(),
+    __uuid: genUUID(),
   };
 }
 
@@ -2040,7 +2041,7 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
         Duree:  dureeStr(DUREE_REPAS),
         Activite: `Pause ${typeRepas}`,
         __type_activite: typeRepas,
-        __uuid: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+        __uuid: genUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
       });
     };
 
@@ -2353,7 +2354,7 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
           Duree:  dureeStr(DUREE_REPAS),
           Activite: `Pause ${type_repas}`,
           __type_activite: type_repas,
-          __uuid: crypto.randomUUID()
+          __uuid: genUUID()
         }));
       }
 
@@ -2371,7 +2372,7 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
           Duree:  dureeStr(DUREE_REPAS),
           Activite: `Pause ${type_repas}`,
           __type_activite: type_repas,
-          __uuid: crypto.randomUUID()
+          __uuid: genUUID()
         }));
       }
     }
@@ -2398,7 +2399,7 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
             Duree: dureeStr(DUREE_CAFE),
             Activite: 'Pause café',
             __type_activite: 'café',
-            __uuid: crypto.randomUUID()
+            __uuid: genUUID()
           }));
         }
       } else {
@@ -2410,7 +2411,7 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
             Duree: dureeStr(DUREE_CAFE),
             Activite: 'Pause café',
             __type_activite: 'café',
-            __uuid: crypto.randomUUID()
+            __uuid: genUUID()
           }));
         }
       }
@@ -2427,7 +2428,7 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
             Duree: dureeStr(DUREE_CAFE),
             Activite: 'Pause café',
             __type_activite: 'café',
-            __uuid: crypto.randomUUID()
+            __uuid: genUUID()
           }));
         }
       } else {
@@ -2440,7 +2441,7 @@ function _ajouterPauses(proposables, activites_programmees, ligne_ref, type_cren
             Duree: dureeStr(DUREE_CAFE),
             Activite: 'Pause café',
             __type_activite: 'café',
-            __uuid: crypto.randomUUID()
+            __uuid: genUUID()
           }));
         }
       }

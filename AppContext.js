@@ -1,4 +1,5 @@
 // context.mjs
+import { genUUID } from './utils.js';
 import { sortDf } from './activites.js';
 import { sortCarnet } from './carnet.js';
 import { df_getAllOrdered, df_putMany, df_clear, meta_get, meta_put } from './db.mjs';
@@ -481,7 +482,7 @@ export class AppContext {
 
 // ---------- Helpers internes ----------
 function genUuid() {
-  return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return genUUID();
 }
 function normalizeUuid(rows) {
   return (rows||[]).map((r, i) => {

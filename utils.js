@@ -8,6 +8,25 @@ export function afterFrames(n, fn) {
   requestAnimationFrame(() => afterFrames(n - 1, fn));
 }
 
+// Attend la fin de deux frames
+export const waitAF = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+// Renvoie un identifiant unique universel
+export function genUUID() {
+  if (crypto?.randomUUID) return crypto.randomUUID();
+
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+
+  let s = '';
+  for (let i = 0; i < 16; i++) {
+    if (i === 4 || i === 6 || i === 8 || i === 10) s += '-';
+    s += b[i].toString(16).padStart(2, '0');
+  }
+  return s;
+} 
+
 // helper pour éviter les surprises dans les innerHTML
 export function escapeHtml(s) {
   return String(s)
@@ -25,9 +44,6 @@ export function escapeAttr(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
-
-// Attend la fin de deux frames
-export const waitAF = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
 // Enlève la partie origin d'une URL
 export function stripOrigin(url) {
