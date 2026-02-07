@@ -1929,6 +1929,91 @@ export function enableTouchEdit(api, gridEl, opts = {}) {
 //   bodyVp.addEventListener("touchend", onEnd, { passive: true });
 //   bodyVp.addEventListener("touchcancel", onEnd, { passive: true });
 // }
+function wireAgTouchScrollRouter(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return;
+
+  const gridEl = h.el;
+  const bodyVp = gridEl.querySelector(".ag-body-viewport");
+  const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
+  if (!bodyVp || !xVp) return;
+
+  if (gridEl.__bbTouchRouterXY) return;
+  gridEl.__bbTouchRouterXY = true;
+
+  let sx=0, sy=0, lastX=0, lastY=0;
+  let pending = true;
+  let mode = null; // "x" | "y"
+
+  const AXIS_MIN = 12;
+  const RATIO    = 1.2;
+
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+  bodyVp.addEventListener("touchstart", (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    sx = lastX = t.clientX;
+    sy = lastY = t.clientY;
+    pending = true;
+    mode = null;
+  }, { passive: true });
+
+  bodyVp.addEventListener("touchmove", (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+
+    const dx0 = t.clientX - sx;
+    const dy0 = t.clientY - sy;
+    const ax = Math.abs(dx0);
+    const ay = Math.abs(dy0);
+
+    if (pending) {
+      if (ax < AXIS_MIN && ay < AXIS_MIN) return;
+
+      const wantX = ax > ay * RATIO;
+      const wantY = ay > ax * RATIO;
+
+      if (wantX) { mode = "x"; pending = false; }
+      else if (wantY) { mode = "y"; pending = false; }
+      else return; // diagonale -> attend encore
+
+      // IMPORTANT Android: prendre la main tout de suite
+      if (e.cancelable) e.preventDefault();
+    }
+
+    if (mode === "x") {
+      const dx = t.clientX - lastX;
+      lastX = t.clientX;
+
+      const prev = xVp.scrollLeft;
+      const max  = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+      const next = clamp(prev - dx, 0, max);
+
+      if (next === prev) return;
+      if (e.cancelable) e.preventDefault();
+      xVp.scrollLeft = next;
+      return;
+    }
+
+    if (mode === "y") {
+      const dy = t.clientY - lastY;
+      lastY = t.clientY;
+
+      const prev = bodyVp.scrollTop;
+      const max  = Math.max(0, bodyVp.scrollHeight - bodyVp.clientHeight);
+      const next = clamp(prev - dy, 0, max);
+
+      if (next === prev) return;
+      if (e.cancelable) e.preventDefault();
+      bodyVp.scrollTop = next;
+      return;
+    }
+  }, { passive: false });
+
+  bodyVp.addEventListener("touchend", () => { pending = true; mode = null; }, { passive: true });
+  bodyVp.addEventListener("touchcancel", () => { pending = true; mode = null; }, { passive: true });
+}
 
 // Reajuste la taille du expander-body en fonction du nbre de lignes jusqu'à 5 lignes max
 // Appelé par onModelUpdated et onFirstDataRendered
@@ -2127,7 +2212,7 @@ function gridOptionsCommon(gridId, el) {
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
-      // requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
+      requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
       restoreGridStateFromMetaEarly(gridId);
     },
     onModelUpdated: (ev) => {
