@@ -1348,7 +1348,7 @@ function onProgrammeSelectionChanged() {
 function lockPageScrollInCalendar(scrollerEl) {
   if (!scrollerEl) return () => {};
 
-  // iOS Safari: passive listeners par défaut => il faut {passive:false}
+  // iOS Safari: passive listeners par défaut => il faut {passive: false}
   let active = false;
   let startX = 0, startY = 0;
   const THRESH = 6; // px avant de décider l’axe

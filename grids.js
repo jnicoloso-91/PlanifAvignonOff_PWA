@@ -638,7 +638,7 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
       e.preventDefault();
     };
 
-    // Important : passive:false pour pouvoir preventDefault
+    // Important : passive: false pour pouvoir preventDefault
     // viewport.addEventListener('wheel', onWheel, { passive: false }); BIGBUG
     handle._wheelPatched = true;
   }

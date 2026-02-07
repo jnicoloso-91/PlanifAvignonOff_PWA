@@ -1261,8 +1261,8 @@ export function openSheetExclusive({
       if (isInteractive(target) || isAgGridArea(target)) return;
       startY = t.clientY; moved=0; dragging=true;
       root.classList.add(classes.dragging);
-      window.addEventListener('touchmove', onMove, { passive:false });
-      window.addEventListener('mousemove', onMove, { passive:false });
+      // window.addEventListener('touchmove', onMove, { passive: false }); BIGBUG
+      // window.addEventListener('mousemove', onMove, { passive: false }); BIGBUG
       window.addEventListener('touchend', onEnd);
       window.addEventListener('mouseup', onEnd);
     };
