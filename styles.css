@@ -2528,24 +2528,23 @@ input[type="range"]:focus::-moz-range-thumb {
 /* L’élément animé NE CLIPPE PAS */
 .st-expander-body{
   /* overflow: visible !important; */
+  display: flex ! important;
+  flex-direction: column !important;;
   min-height: 0;
 }
 
 /* Le wrapper interne gère le clipping */
 .st-expander-body > .pane-inner{
   /* overflow: hidden; */
-  height: 100%;
+  flex: 1 1 auto !important;
   min-height: 0;
-  min-width: 0;
-  display: block;
 }
 
 /* AG Grid vit ici, pas dans le body animé */
 .pane-inner > .grid-host,
 .pane-inner > .program-cal{
-  height: 100%;
+  flex: 1 1 auto !important;
   min-height: 0;
-  min-width: 0;
 }
 /* 2) Y : le scroller vertical (celui-ci doit rester scrollable) */
 /* .ag-body-viewport{
