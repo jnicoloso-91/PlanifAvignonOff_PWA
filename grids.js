@@ -1675,10 +1675,12 @@ function wireAgTouchScrollRouter(gridId) {
       const isVert  = ay > ax * RATIO;
 
       if (isHoriz) {
+        console.log("HORIZ");
         pending = false; horiz = true; vert = false;
         armHorizontal();
         // pas de preventDefault ici (passif) → à partir du prochain move actif
       } else if (isVert) {
+        console.log("VERT");
         pending = false; horiz = false; vert = true;
         // on laisse complètement le scroll natif Y
       } else {
