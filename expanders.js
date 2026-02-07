@@ -256,7 +256,7 @@ function pickTargetHeight(pane, exp) {
 //   //   }
 //   // }));
 // }
-function openExp(exp){
+function openExp(exp) {
   const pane = exp.querySelector(".st-expander-body");
   if (!pane) return;
 
@@ -264,20 +264,17 @@ function openExp(exp){
 
   exp.classList.add("open");
 
-  pane.style.display = "block";
-  pane.style.height = "0px";
+  // départ : hauteur actuelle (souvent 0)
+  const fromH = pane.getBoundingClientRect().height || 0;
+
+  // mesure cible
+  const toH = inner.scrollHeight;
+
+  pane.style.height = fromH + "px";
 
   requestAnimationFrame(() => {
-    const target = inner.scrollHeight;   // 👈 clé
-    pane.style.height = target + "px";
+    pane.style.height = toH + "px";   // ✅ reste en px (pas "auto")
   });
-
-  const onEnd = (ev) => {
-    if (ev.propertyName !== "height") return;
-    pane.removeEventListener("transitionend", onEnd);
-    pane.style.height = "auto";          // 👈 indispensable
-  };
-  pane.addEventListener("transitionend", onEnd);
 }
 
 // Fermeture Expander 
