@@ -2509,13 +2509,13 @@ input[type="range"]:focus::-moz-range-thumb {
 /* 1) évite les scrollers concurrents */
 /* .ag-root-wrapper-body { overflow: hidden !important; }
 .grid-host { overflow: hidden !important; } */
-.ag-root-wrapper-body,
+/* .ag-root-wrapper-body,
 .grid-host { 
   overflow-x: hidden !important; 
   overflow-y: visible !important; 
   min-height: 0 !important;
   min-width: 0 !important;
-}
+} */
 /* ANDROID DEBUG: enlever les trucs qui créent un layer de compositing */
 .st-expander.open .st-expander-body{
   overflow: visible !important;
