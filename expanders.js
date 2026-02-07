@@ -70,9 +70,7 @@ const MANDATORY_COLS = new Set([
   'Hyperlien',
   'HyperlienGoogle',
   'HyperlienBR',
-  'Description',
-  'Distribution',
-  'Avis',
+  '__distribution',
   '__desc_summary',
   '__avis_summary',
   '__uuid'
@@ -433,30 +431,111 @@ function scrollToExpanderAsync(expId) {
   scrollExpanderIntoViewCenteredAsync(exp);
 }
 
-// Ouvre un expander
+// // Ouvre un expander
+// export function openExpander(expId){
+//   const exp = document.getElementById(expId);
+//   if (!exp) return;
+//   if (!exp.classList.contains('open')) {
+//     if (typeof openExp === 'function') openExp(exp);
+//     else exp.classList.add('open');
+//   }
+// }
+
+// // Ouvre un expander (async)
+// export function openExpanderAsync(id){
+//   const exp  = document.getElementById(id);
+//   if (!exp) return Promise.resolve();
+//   if (exp.classList.contains('open')) return Promise.resolve();
+
+//   return new Promise(resolve => {
+//     const pane = exp.querySelector('.st-expander-body');
+//     const onEnd = (ev) => {
+//       if (ev.propertyName !== 'height') return;
+//       pane.removeEventListener('transitionend', onEnd);
+//       resolve();
+//     };
+//     pane.addEventListener('transitionend', onEnd);
+//     openExp(exp); // ← ta fonction existante
+//   });
+// }
+function relayoutAgGridsIn(rootEl) {
+  if (!rootEl) return;
+
+  // On cible les "hosts" possibles de tes grilles
+  const hosts = rootEl.querySelectorAll(".grid-host, [id^=\"grid\"], .ag-root");
+
+  hosts.forEach((node) => {
+    // On remonte au host si on est tombé sur .ag-root
+    const host = node.classList.contains("ag-root") ? node.closest(".grid-host, [id^=\"grid\"]") : node;
+    if (!host) return;
+
+    // Trouve le handle correspondant dans ta Map `grids`
+    // Hypothèse: grids = Map(gridId -> { el, api, ... }) et `el` pointe vers le host DOM
+    let h = null;
+
+    // (A) Recherche directe par identité DOM (le plus fiable)
+    for (const [, v] of grids) {
+      if (v?.el === host) { h = v; break; }
+    }
+
+    // (B) Fallback: si host a un id, parfois c'est la clé
+    if (!h && host.id && grids.has(host.id)) h = grids.get(host.id);
+
+    if (!h?.api) return;
+
+    // Force AG Grid à recalculer tailles / viewports après anim height
+    h.api.doLayout();
+
+    // Optionnel mais souvent utile si des cellules restent “blanches”
+    // h.api.refreshCells({ force: true });
+  });
+}
+
 export function openExpander(expId){
   const exp = document.getElementById(expId);
   if (!exp) return;
-  if (!exp.classList.contains('open')) {
-    if (typeof openExp === 'function') openExp(exp);
-    else exp.classList.add('open');
+
+  if (!exp.classList.contains("open")) {
+    if (typeof openExp === "function") openExp(exp);
+    else exp.classList.add("open");
+
+    // Après le début de l'ouverture, on attend la fin de l'anim height
+    const pane = exp.querySelector(".st-expander-body");
+    if (pane) {
+      const onEnd = (ev) => {
+        if (ev.propertyName !== "height") return;
+        pane.removeEventListener("transitionend", onEnd);
+        relayoutAgGridsIn(exp);
+      };
+      pane.addEventListener("transitionend", onEnd);
+    } else {
+      // Fallback (au cas où)
+      setTimeout(() => relayoutAgGridsIn(exp), 330);
+    }
   }
 }
 
-// Ouvre un expander (async)
 export function openExpanderAsync(id){
   const exp  = document.getElementById(id);
   if (!exp) return Promise.resolve();
-  if (exp.classList.contains('open')) return Promise.resolve();
+  if (exp.classList.contains("open")) {
+    // Même déjà ouvert: si tu veux, tu peux relayout quand même
+    relayoutAgGridsIn(exp);
+    return Promise.resolve();
+  }
 
-  return new Promise(resolve => {
-    const pane = exp.querySelector('.st-expander-body');
+  return new Promise((resolve) => {
+    const pane = exp.querySelector(".st-expander-body");
     const onEnd = (ev) => {
-      if (ev.propertyName !== 'height') return;
-      pane.removeEventListener('transitionend', onEnd);
+      if (ev.propertyName !== "height") return;
+      pane.removeEventListener("transitionend", onEnd);
+
+      // ✅ le fix
+      relayoutAgGridsIn(exp);
+
       resolve();
     };
-    pane.addEventListener('transitionend', onEnd);
+    pane.addEventListener("transitionend", onEnd);
     openExp(exp); // ← ta fonction existante
   });
 }
