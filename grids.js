@@ -1170,179 +1170,181 @@ export function enableTouchEdit(api, gridEl, opts = {}) {
 }
 
 // Scroll X mobile avec inertie (fling) - ne pas simplifier et revenir au scroll natif
-function wireAgTouchScrollRouter(gridId) {
-  const h = grids.get(gridId);
-  if (!h) return;
+// function wireAgTouchScrollRouter(gridId) {
+//   const h = grids.get(gridId);
+//   if (!h) return;
 
-  const gridEl = h.el;
-  const bodyVp = gridEl.querySelector(".ag-body-viewport");
-  const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
-  if (!bodyVp || !xVp) return;
+//   const gridEl = h.el;
+//   const bodyVp = gridEl.querySelector(".ag-body-viewport");
+//   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
+//   if (!bodyVp || !xVp) return;
 
-  if (gridEl.__bbTouchRouter) return;
-  gridEl.__bbTouchRouter = true;
+//   if (gridEl.__bbTouchRouter) return;
+//   gridEl.__bbTouchRouter = true;
 
-  let sx=0, sy=0, lastX=0, engaged=false, horiz=false;
+//   let sx=0, sy=0, lastX=0, engaged=false, horiz=false;
 
-  const DEADZONE = 10;     // px
-  const RATIO = 1.15;      // plus petit = plus facile de prendre X
+//   const DEADZONE = 10;     // px
+//   const RATIO = 1.15;      // plus petit = plus facile de prendre X
 
-  // ── inertie (fling)
-  let flingRaf = 0;
-  let vx = 0;                 // px/ms (vitesse du doigt)
-  const samples = [];         // {t, x}
-  const MAX_SAMPLES = 6;
+//   // ── inertie (fling)
+//   let flingRaf = 0;
+//   let vx = 0;                 // px/ms (vitesse du doigt)
+//   const samples = [];         // {t, x}
+//   const MAX_SAMPLES = 6;
 
-  const MAX_V = 2.2;          // px/ms
-  const BASE_FRICTION = 0.0038;
-  const EDGE_ZONE = 80;
-  const EDGE_BOOST = 0.010;
+//   const MAX_V = 2.2;          // px/ms
+//   const BASE_FRICTION = 0.0038;
+//   const EDGE_ZONE = 80;
+//   const EDGE_BOOST = 0.010;
 
-  function stopFling() {
-    if (flingRaf) cancelAnimationFrame(flingRaf);
-    flingRaf = 0;
-    vx = 0;
-    samples.length = 0;
-  }
+//   function stopFling() {
+//     if (flingRaf) cancelAnimationFrame(flingRaf);
+//     flingRaf = 0;
+//     vx = 0;
+//     samples.length = 0;
+//   }
 
-  function pushSample(t, x) {
-    samples.push({ t, x });
-    while (samples.length > MAX_SAMPLES) samples.shift();
-  }
+//   function pushSample(t, x) {
+//     samples.push({ t, x });
+//     while (samples.length > MAX_SAMPLES) samples.shift();
+//   }
 
-  function computeVelocity() {
-    if (samples.length < 2) return 0;
-    const last = samples[samples.length - 1];
+//   function computeVelocity() {
+//     if (samples.length < 2) return 0;
+//     const last = samples[samples.length - 1];
 
-    let i = samples.length - 2;
-    while (i > 0 && (last.t - samples[i].t) < 40) i--;
-    const a = samples[i];
+//     let i = samples.length - 2;
+//     while (i > 0 && (last.t - samples[i].t) < 40) i--;
+//     const a = samples[i];
 
-    const dt = last.t - a.t;
-    if (dt <= 0) return 0;
+//     const dt = last.t - a.t;
+//     if (dt <= 0) return 0;
 
-    const dx = last.x - a.x;
-    return dx / dt; // dx>0 = doigt vers la droite
-  }
+//     const dx = last.x - a.x;
+//     return dx / dt; // dx>0 = doigt vers la droite
+//   }
 
-  function startFling() {
-    vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
-    if (Math.abs(vx) < 0.05) return;
+//   function startFling() {
+//     vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
+//     if (Math.abs(vx) < 0.05) return;
 
-    let prevT = performance.now();
+//     let prevT = performance.now();
 
-    const step = (now) => {
-      const dt = now - prevT;
-      prevT = now;
+//     const step = (now) => {
+//       const dt = now - prevT;
+//       prevT = now;
 
-      const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
-      const cur = xVp.scrollLeft;
+//       const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//       const cur = xVp.scrollLeft;
 
-      // vx > 0 => doigt à droite => scrollLeft veut diminuer (vers 0)
-      // vx < 0 => doigt à gauche  => scrollLeft veut augmenter (vers max)
-      const distToEdge = (vx > 0) ? cur : (maxScroll - cur);
-      const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
-      const friction = BASE_FRICTION + EDGE_BOOST * edgeFactor * edgeFactor;
+//       // vx > 0 => doigt à droite => scrollLeft veut diminuer (vers 0)
+//       // vx < 0 => doigt à gauche  => scrollLeft veut augmenter (vers max)
+//       const distToEdge = (vx > 0) ? cur : (maxScroll - cur);
+//       const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
+//       const friction = BASE_FRICTION + EDGE_BOOST * edgeFactor * edgeFactor;
 
-      const dx = vx * dt;
-      let next = cur - dx;
+//       const dx = vx * dt;
+//       let next = cur - dx;
 
-      if (next < 0) next = 0;
-      if (next > maxScroll) next = maxScroll;
+//       if (next < 0) next = 0;
+//       if (next > maxScroll) next = maxScroll;
 
-      xVp.scrollLeft = next;
+//       xVp.scrollLeft = next;
 
-      const decay = Math.exp(-friction * dt);
-      vx *= decay;
+//       const decay = Math.exp(-friction * dt);
+//       vx *= decay;
 
-      const atLeft  = next <= 0.5;
-      const atRight = next >= (maxScroll - 0.5);
+//       const atLeft  = next <= 0.5;
+//       const atRight = next >= (maxScroll - 0.5);
 
-      if (Math.abs(vx) < 0.02 || (vx > 0 && atLeft) || (vx < 0 && atRight)) {
-        stopFling();
-        return;
-      }
+//       if (Math.abs(vx) < 0.02 || (vx > 0 && atLeft) || (vx < 0 && atRight)) {
+//         stopFling();
+//         return;
+//       }
 
-      flingRaf = requestAnimationFrame(step);
-    };
+//       flingRaf = requestAnimationFrame(step);
+//     };
 
-    flingRaf = requestAnimationFrame(step);
-  }
+//     flingRaf = requestAnimationFrame(step);
+//   }
 
-  bodyVp.addEventListener("touchstart", (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    stopFling();
+//   bodyVp.addEventListener("touchstart", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     stopFling();
 
-    const t = e.touches[0];
-    sx = lastX = t.clientX;
-    sy = t.clientY;
-    engaged = false;
-    horiz = false;
+//     const t = e.touches[0];
+//     sx = lastX = t.clientX;
+//     sy = t.clientY;
+//     engaged = false;
+//     horiz = false;
 
-    const now = performance.now();
-    pushSample(now, lastX);
-  }, { passive: true });
+//     const now = performance.now();
+//     pushSample(now, lastX);
+//   }, { passive: true });
 
-  bodyVp.addEventListener("touchmove", (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    const t = e.touches[0];
+//   bodyVp.addEventListener("touchmove", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
 
-    const dx0 = t.clientX - sx;
-    const dy0 = t.clientY - sy;
+//     const dx0 = t.clientX - sx;
+//     const dy0 = t.clientY - sy;
 
-    if (!engaged) {
-      if (Math.abs(dx0) < DEADZONE && Math.abs(dy0) < DEADZONE) return;
-      engaged = true;
-      horiz = Math.abs(dx0) > Math.abs(dy0) * RATIO;
-      if (!horiz) return; // vertical => on laisse le Y natif (bodyVp)
-    }
+//     if (!engaged) {
+//       if (Math.abs(dx0) < DEADZONE && Math.abs(dy0) < DEADZONE) return;
+//       engaged = true;
+//       horiz = Math.abs(dx0) > Math.abs(dy0) * RATIO;
+//       if (!horiz) return; // vertical => on laisse le Y natif (bodyVp)
+//     }
 
-    if (horiz) {
-      const now = performance.now();
-      const dx = t.clientX - lastX;
-      lastX = t.clientX;
+//     if (horiz) {
+//       const now = performance.now();
+//       const dx = t.clientX - lastX;
+//       lastX = t.clientX;
 
-      const prev = xVp.scrollLeft;
-      const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
-      const next = Math.max(0, Math.min(maxScroll, prev - dx));
+//       const prev = xVp.scrollLeft;
+//       const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//       const next = Math.max(0, Math.min(maxScroll, prev - dx));
 
-      if (next === prev) return; // butée
+//       if (next === prev) return; // butée
 
-      e.preventDefault();
-      e.stopPropagation();
+//       e.preventDefault();
+//       e.stopPropagation();
 
-      xVp.scrollLeft = next;
+//       xVp.scrollLeft = next;
 
-      pushSample(now, t.clientX);
-    }
-  }, { passive: false });
+//       pushSample(now, t.clientX);
+//     }
+//   }, { passive: false });
 
-  function endGesture() {
-    if (!horiz) {
-      stopFling();
-      return;
-    }
+//   function endGesture() {
+//     if (!horiz) {
+//       stopFling();
+//       return;
+//     }
 
-    vx = computeVelocity();
+//     vx = computeVelocity();
 
-    // si fling impossible (butée), ne pas lancer
-    const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
-    const cur = xVp.scrollLeft;
-    const blocked =
-      (vx > 0 && cur <= 0.5) ||
-      (vx < 0 && cur >= maxScroll - 0.5);
+//     // si fling impossible (butée), ne pas lancer
+//     const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//     const cur = xVp.scrollLeft;
+//     const blocked =
+//       (vx > 0 && cur <= 0.5) ||
+//       (vx < 0 && cur >= maxScroll - 0.5);
 
-    if (blocked) {
-      stopFling();
-      return;
-    }
+//     if (blocked) {
+//       stopFling();
+//       return;
+//     }
 
-    startFling();
-  }
+//     startFling();
+//   }
 
-  bodyVp.addEventListener("touchend", endGesture, { passive: true });
-  bodyVp.addEventListener("touchcancel", endGesture, { passive: true });
-}
+//   bodyVp.addEventListener("touchend", endGesture, { passive: true });
+//   bodyVp.addEventListener("touchcancel", endGesture, { passive: true });
+// }
+
+
 // function wireAgTouchScrollRouter(gridId) {
 //   const h = grids.get(gridId);
 //   if (!h) return;
@@ -1399,6 +1401,91 @@ function wireAgTouchScrollRouter(gridId) {
 //     xVp.scrollLeft = sl - dx;
 //   }, { passive: false });
 // }
+function wireAgTouchScrollRouter(gridId) {
+  const h = grids.get(gridId);
+  if (!h) return;
+
+  const gridEl = h.el;
+  const bodyVp = gridEl.querySelector(".ag-body-viewport");
+  const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
+  if (!bodyVp || !xVp) return;
+
+  if (gridEl.__bbTouchRouterXY) return;
+  gridEl.__bbTouchRouterXY = true;
+
+  let sx=0, sy=0, lastX=0, lastY=0;
+  let pending = true;
+  let mode = null; // "x" | "y"
+
+  const AXIS_MIN = 12;
+  const RATIO    = 1.2;
+
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+  bodyVp.addEventListener("touchstart", (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    sx = lastX = t.clientX;
+    sy = lastY = t.clientY;
+    pending = true;
+    mode = null;
+  }, { passive: true });
+
+  bodyVp.addEventListener("touchmove", (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    const t = e.touches[0];
+
+    const dx0 = t.clientX - sx;
+    const dy0 = t.clientY - sy;
+    const ax = Math.abs(dx0);
+    const ay = Math.abs(dy0);
+
+    if (pending) {
+      if (ax < AXIS_MIN && ay < AXIS_MIN) return;
+
+      const wantX = ax > ay * RATIO;
+      const wantY = ay > ax * RATIO;
+
+      if (wantX) { mode = "x"; pending = false; }
+      else if (wantY) { mode = "y"; pending = false; }
+      else return; // diagonale -> attend encore
+
+      // IMPORTANT Android: prendre la main tout de suite
+      if (e.cancelable) e.preventDefault();
+    }
+
+    if (mode === "x") {
+      const dx = t.clientX - lastX;
+      lastX = t.clientX;
+
+      const prev = xVp.scrollLeft;
+      const max  = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+      const next = clamp(prev - dx, 0, max);
+
+      if (next === prev) return;
+      if (e.cancelable) e.preventDefault();
+      xVp.scrollLeft = next;
+      return;
+    }
+
+    if (mode === "y") {
+      const dy = t.clientY - lastY;
+      lastY = t.clientY;
+
+      const prev = bodyVp.scrollTop;
+      const max  = Math.max(0, bodyVp.scrollHeight - bodyVp.clientHeight);
+      const next = clamp(prev - dy, 0, max);
+
+      if (next === prev) return;
+      if (e.cancelable) e.preventDefault();
+      bodyVp.scrollTop = next;
+      return;
+    }
+  }, { passive: false });
+
+  bodyVp.addEventListener("touchend", () => { pending = true; mode = null; }, { passive: true });
+  bodyVp.addEventListener("touchcancel", () => { pending = true; mode = null; }, { passive: true });
+}
 
 // Reajuste la taille du expander-body en fonction du nbre de lignes jusqu'à 5 lignes max
 // Appelé par onModelUpdated et onFirstDataRendered
