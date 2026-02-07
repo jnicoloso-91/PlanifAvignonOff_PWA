@@ -78,6 +78,10 @@ import {
   rowsToICS,
 } from './calendar.js';
 
+import {
+  enrichDfWithDistribution,
+} from './utils-json.js';
+
 const $ = id => document.getElementById(id);
 const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
 
@@ -451,7 +455,7 @@ function openFileSheet() {
   // NB: pas de touch-action:none sur panel pour laisser le scroll à l’intérieur
   panel.addEventListener('touchstart', onPointerDown, { passive: true });
   panel.addEventListener('mousedown',  onPointerDown);
-  window.addEventListener('touchmove', onPointerMove, { passive: false }); // iOS: on veut pouvoir preventDefault
+  // window.addEventListener('touchmove', onPointerMove, { passive: false }); // iOS: on veut pouvoir preventDefault  BIGBUG
   window.addEventListener('mousemove', onPointerMove);
   window.addEventListener('touchend',  onPointerUp);
   window.addEventListener('mouseup',   onPointerUp);
@@ -1074,6 +1078,7 @@ export function wireAppKebab() {
         { id:'infosPlus', label:'Assistant infos+',         onClick: ()=>openSheetInfosPlus() },
         { id:'settings',  label:'Paramètres',               onClick: ()=>openSheetParams() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
+        { id:'json',      label:'enrichDfWithDistribution', onClick: async ()=> { ctx.setDf(await enrichDfWithDistribution(ctx.df)); } },
       ]
     });
   }, { passive: true });
@@ -1699,7 +1704,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
         Description: row?.Description ?? null,    // champ supprimé apres passage par enrichWithAbstractPremium
         Distribution: row?.Distribution ?? null,  // champ supprimé apres passage par enrichWithAbstractPremium
         Avis: row?.Avis ?? null,                  // champ supprimé apres passage par enrichWithAbstractPremium
-        
+
       }
       nouvellesActivites.push(nouvelleActivite);
   }

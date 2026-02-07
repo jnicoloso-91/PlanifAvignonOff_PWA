@@ -798,8 +798,8 @@ function createChipBox({
 
     // ⚠️ Important : écoute sur pointerup + touchend (pointerdown à eviter sur IOS)
     // document.addEventListener("pointerdown", onGlobalPick, { capture: true, passive: false });
-    document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
-    document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
+    // document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false }); BIGBUG
+    // document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false }); BIGBUG
 
     // ============ API / init ============
     // Informe le enableKeyboardAutoScroll (auto scroller par défaut) de ne pas agir
@@ -1020,7 +1020,7 @@ function openSheet({
     });
   }
 
-  attachSwipeToClose(wrap, panel, handle, header, backdrop, closeSmoothFrom);
+  // attachSwipeToClose(wrap, panel, handle, header, backdrop, closeSmoothFrom); BIGBUG
 
   backdrop.addEventListener('click', destroy);
   closeBtn.addEventListener('click', destroy);
