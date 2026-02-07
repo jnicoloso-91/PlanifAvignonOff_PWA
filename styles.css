@@ -2540,24 +2540,24 @@ input[type="range"]:focus::-moz-range-thumb {
 /*===================================*/
 
 /* L’élément animé NE CLIPPE PAS */
-/* .st-expander-body{
+.st-expander-body{
   display: flex ! important;
   flex-direction: column !important;;
   min-height: 0;
-} */
+}
 
 /* Le wrapper interne gère le clipping */
-/* .st-expander-body > .pane-inner{
+.st-expander-body > .pane-inner{
   flex: 1 1 auto !important;
   min-height: 0;
-} */
+}
 
 /* AG Grid vit ici, pas dans le body animé */
-/* .pane-inner > .grid-host,
+.pane-inner > .grid-host,
 .pane-inner > .program-cal{
   flex: 1 1 auto !important;
   min-height: 0; 
-}*/
+}
 
 /*======================================*/
 /* Y: autoriser le scroll vertical natif depuis la zone réellement touchée */
