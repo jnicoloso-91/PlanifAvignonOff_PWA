@@ -8,7 +8,7 @@ import {
   selectCurrentEventInCalendar, 
 } from './calendar.js';
 
-// Version originales avec bornes
+// Version originale avec bornes et bug sur mesure pageW à l'init
 // (function initTwoPagePager(){
 //   const pager = document.getElementById('pager');
 //   const track = /** @type {HTMLElement} */ (pager?.querySelector('.pager-track'));
@@ -109,7 +109,20 @@ import {
 //     track.style.transition = 'none';
 //   }
 //   function onMove(ev){
+//     // // ⛔ ne jamais intercepter les scrolls AG Grid
+//     // if (ev.target.closest?.('.ag-root, .ag-body-viewport')) {
+//     //   return;
+//     // }
+
+//     // // ⛔ ne jamais intercepter un geste vertical
+//     // if (Math.abs(ev.clientY - startY) > Math.abs(ev.clientX - startX)) {
+//     //   return;
+//     // }
+
+    
 //     if (!dragging) return;
+
+//     console.log("Début onMove pager");
 //     const t  = ev.touches ? ev.touches[0] : ev;
 //     curX     = t.clientX;
 //     const dx = curX - startX;
@@ -146,14 +159,14 @@ import {
 
 //   // Écouteurs
 //   if (window.PointerEvent){
-//     pager.addEventListener('pointerdown', onStart, { passive:true });
-//     window.addEventListener('pointermove', onMove, { passive:false });
-//     window.addEventListener('pointerup',   onEnd,  { passive:true });
-//     window.addEventListener('pointercancel', onEnd, { passive:true });
+//     pager.addEventListener('pointerdown', onStart, { passive: true });
+//     // window.addEventListener('pointermove', onMove, { passive: false }); BIGBUG
+//     window.addEventListener('pointerup',   onEnd,  { passive: true });
+//     window.addEventListener('pointercancel', onEnd, { passive: true });
 //   } else {
-//     pager.addEventListener('touchstart', onStart, { passive:true });
-//     window.addEventListener('touchmove',  onMove, { passive:false });
-//     window.addEventListener('touchend',   onEnd,  { passive:true });
+//     pager.addEventListener('touchstart', onStart, { passive: true });
+//     // window.addEventListener('touchmove',  onMove, { passive: false }); BIGBUG
+//     window.addEventListener('touchend',   onEnd,  { passive: true });
 //   }
 
 //   window.addEventListener('resize', () => { measure(); goto(index, false); });
@@ -234,6 +247,7 @@ import {
 // })();
 
 // Version circulaire basique
+// Avec page observer pour résolution du pb de mesure de pageW à l'init
 // (function initTwoPagePager(){
 //   const pager = document.getElementById('pager');
 //   const track = /** @type {HTMLElement} */ (pager?.querySelector('.pager-track'));
@@ -493,14 +507,14 @@ import {
 
 //   // Écouteurs
 //   if (window.PointerEvent){
-//     pager.addEventListener('pointerdown', onStart, { passive:true });
-//     window.addEventListener('pointermove', onMove, { passive:false });
-//     window.addEventListener('pointerup',   onEnd,  { passive:true });
-//     window.addEventListener('pointercancel', onEnd, { passive:true });
+//     pager.addEventListener('pointerdown', onStart, { passive: true });
+//     window.addEventListener('pointermove', onMove, { passive: false });
+//     window.addEventListener('pointerup',   onEnd,  { passive: true });
+//     window.addEventListener('pointercancel', onEnd, { passive: true });
 //   } else {
-//     pager.addEventListener('touchstart', onStart, { passive:true });
-//     window.addEventListener('touchmove',  onMove, { passive:false });
-//     window.addEventListener('touchend',   onEnd,  { passive:true });
+//     pager.addEventListener('touchstart', onStart, { passive: true });
+//     window.addEventListener('touchmove',  onMove, { passive: false });
+//     window.addEventListener('touchend',   onEnd,  { passive: true });
 //   }
 
 //   window.addEventListener('resize', () => { measure(); goto(index, false); });
@@ -581,7 +595,8 @@ import {
 
 // })();
 
-// Version Royal pour deux pages
+// Version circulaire avancée (pas de transitions vers vide) pour deux pages
+// Avec page observer pour résolution du pb de mesure de pageW à l'init
 (function initTwoPagePager(){
   const pager = document.getElementById('pager');
   const track = /** @type {HTMLElement} */ (pager?.querySelector('.pager-track'));
@@ -1125,15 +1140,15 @@ if (!gestureActive) return;   // ✅ CRITIQUE : aucune fuite possible
 
 if (!IS_IOS && window.PointerEvent){
   // if (window.PointerEvent){
-    pager.addEventListener('pointerdown', onStart, { passive:true });
-    window.addEventListener('pointermove', onMove, { passive:false });
-    window.addEventListener('pointerup',   onEnd,  { passive:true });
-    window.addEventListener('pointercancel', onEnd, { passive:true });
+    pager.addEventListener('pointerdown', onStart, { passive: true });
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup',   onEnd,  { passive: true });
+    window.addEventListener('pointercancel', onEnd, { passive: true });
   } else {
-    pager.addEventListener('touchstart', onStart, { passive:true });
-    window.addEventListener('touchmove',  onMove, { passive:false });
-    window.addEventListener('touchend',   onEnd,  { passive:true });
-    window.addEventListener('pointercancel', onEnd, { passive:true });
+    pager.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove',  onMove, { passive: false });
+    window.addEventListener('touchend',   onEnd,  { passive: true });
+    window.addEventListener('pointercancel', onEnd, { passive: true });
   }
 
   window.addEventListener('resize', () => { measure(); goto(index, false); });
