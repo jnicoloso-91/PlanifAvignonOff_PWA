@@ -181,80 +181,103 @@ function pickTargetHeight(pane, exp) {
 }
 
 // Ouverture Expander 
-export function openExp(exp) {
-  if (!exp) return;
-  const pane = exp.querySelector('.st-expander-body');
-  if (!pane) { exp.classList.add('open'); return; }
+// export function openExp(exp) {
+//   if (!exp) return;
+//   const pane = exp.querySelector('.st-expander-body');
+//   if (!pane) { exp.classList.add('open'); return; }
 
-  // si anim en cours, on ignore ce clic
-  if (exp.dataset.animating === '1') return;
+//   // si anim en cours, on ignore ce clic
+//   if (exp.dataset.animating === '1') return;
 
-  // déjà ouvert et pas en fermeture → rien à faire
-  if (exp.classList.contains('open') && !exp.classList.contains('is-closing')) return;
+//   // déjà ouvert et pas en fermeture → rien à faire
+//   if (exp.classList.contains('open') && !exp.classList.contains('is-closing')) return;
 
-  exp.classList.remove('is-closing');
-  exp.classList.add('open');
-  exp.dataset.animating = '1';
-  pane.classList.remove('no-anim');
+//   exp.classList.remove('is-closing');
+//   exp.classList.add('open');
+//   exp.dataset.animating = '1';
+//   pane.classList.remove('no-anim');
 
-  // point de départ = hauteur actuelle (nudgé à 1px si 0 pour forcer transition)
-  const cur = Math.round(pane.getBoundingClientRect().height) || 0;
-  const start = cur > 0 ? cur : 1;
-  pane.style.height = `${start}px`;
+//   // point de départ = hauteur actuelle (nudgé à 1px si 0 pour forcer transition)
+//   const cur = Math.round(pane.getBoundingClientRect().height) || 0;
+//   const start = cur > 0 ? cur : 1;
+//   pane.style.height = `${start}px`;
 
-  // force reflow
-  // eslint-disable-next-line no-unused-expressions
-  pane.offsetHeight;
+//   // force reflow
+//   // eslint-disable-next-line no-unused-expressions
+//   pane.offsetHeight;
 
-  // cible “safe”
-  let target = pickTargetHeight(pane, exp);
+//   // cible “safe”
+//   let target = pickTargetHeight(pane, exp);
 
-  // si start == target → nudger de 1px pour garantir transitionend
-  if (target === start) target += 1;
+//   // si start == target → nudger de 1px pour garantir transitionend
+//   if (target === start) target += 1;
 
-  let ended = false;
-  const cleanup = () => {
-    if (ended) return;
-    ended = true;
-    pane.removeEventListener('transitionend', onEnd);
-    delete pane.dataset.pendingAutoHeight;
-    delete exp.dataset.animating;
-    // mémorise une bonne hauteur pour la prochaine ouverture
-    const hNow = Math.round(pane.getBoundingClientRect().height);
-    if (hNow >= MIN_OPEN_PX) {
-      localStorage.setItem(`paneHeight:${exp.id}`, String(hNow));
-    }
-  };
-  const onEnd = (ev) => { if (ev.propertyName === 'height') cleanup(); };
-  pane.addEventListener('transitionend', onEnd);
-  setTimeout(cleanup, ANIM_TIMEOUT_OPEN); // fallback Safari/iOS
+//   let ended = false;
+//   const cleanup = () => {
+//     if (ended) return;
+//     ended = true;
+//     pane.removeEventListener('transitionend', onEnd);
+//     delete pane.dataset.pendingAutoHeight;
+//     delete exp.dataset.animating;
+//     // mémorise une bonne hauteur pour la prochaine ouverture
+//     const hNow = Math.round(pane.getBoundingClientRect().height);
+//     if (hNow >= MIN_OPEN_PX) {
+//       localStorage.setItem(`paneHeight:${exp.id}`, String(hNow));
+//     }
+//   };
+//   const onEnd = (ev) => { if (ev.propertyName === 'height') cleanup(); };
+//   pane.addEventListener('transitionend', onEnd);
+//   setTimeout(cleanup, ANIM_TIMEOUT_OPEN); // fallback Safari/iOS
 
-  // lance l’anim
-  requestAnimationFrame(() => { 
-    pane.style.height = `${target}px`; 
+//   // lance l’anim
+//   requestAnimationFrame(() => { 
+//     pane.style.height = `${target}px`; 
+//   });
+
+//   // La code ci-dessous est désactivé car le contenu n'est pas nécessairement rendu à temps
+//   // et dans ce cas l'ouverture se fait à une hauteur trop petite. C'est autoresizeFromGridSafe()
+//   // qui se charge de réajuster après coup si besoin.
+
+//   // 2 frames plus tard, on re-mesure (AG Grid a pu peindre) et on corrige si besoin
+//   // requestAnimationFrame(() => requestAnimationFrame(() => {
+//   //   if (exp.dataset.animating !== '1') {
+//   //     console.log('anim open already ended');
+//   //     return;           // déjà fini
+//   //   }
+//   //   if (pane.dataset.userSized === '1') {
+//   //     console.log('anim open user sized, skip adjust');
+//   //     return;          // l’utilisateur contrôle
+//   //   }
+//   //   const contentH = pane.scrollHeight|0;
+//   //   if (contentH >= MIN_OPEN_PX && Math.abs(contentH - target) > 2) {
+//   //     pane.style.height = `${contentH}px`;
+//   //     localStorage.setItem(`paneHeight:${exp.id}`, String(contentH));
+//   //     console.log('anim open adjust to content height', contentH);
+//   //   }
+//   // }));
+// }
+function openExp(exp){
+  const pane = exp.querySelector(".st-expander-body");
+  if (!pane) return;
+
+  const inner = pane.querySelector(".pane-inner") || pane;
+
+  exp.classList.add("open");
+
+  pane.style.display = "block";
+  pane.style.height = "0px";
+
+  requestAnimationFrame(() => {
+    const target = inner.scrollHeight;   // 👈 clé
+    pane.style.height = target + "px";
   });
 
-  // La code ci-dessous est désactivé car le contenu n'est pas nécessairement rendu à temps
-  // et dans ce cas l'ouverture se fait à une hauteur trop petite. C'est autoresizeFromGridSafe()
-  // qui se charge de réajuster après coup si besoin.
-
-  // 2 frames plus tard, on re-mesure (AG Grid a pu peindre) et on corrige si besoin
-  // requestAnimationFrame(() => requestAnimationFrame(() => {
-  //   if (exp.dataset.animating !== '1') {
-  //     console.log('anim open already ended');
-  //     return;           // déjà fini
-  //   }
-  //   if (pane.dataset.userSized === '1') {
-  //     console.log('anim open user sized, skip adjust');
-  //     return;          // l’utilisateur contrôle
-  //   }
-  //   const contentH = pane.scrollHeight|0;
-  //   if (contentH >= MIN_OPEN_PX && Math.abs(contentH - target) > 2) {
-  //     pane.style.height = `${contentH}px`;
-  //     localStorage.setItem(`paneHeight:${exp.id}`, String(contentH));
-  //     console.log('anim open adjust to content height', contentH);
-  //   }
-  // }));
+  const onEnd = (ev) => {
+    if (ev.propertyName !== "height") return;
+    pane.removeEventListener("transitionend", onEnd);
+    pane.style.height = "auto";          // 👈 indispensable
+  };
+  pane.addEventListener("transitionend", onEnd);
 }
 
 // Fermeture Expander 
@@ -431,111 +454,30 @@ function scrollToExpanderAsync(expId) {
   scrollExpanderIntoViewCenteredAsync(exp);
 }
 
-// // Ouvre un expander
-// export function openExpander(expId){
-//   const exp = document.getElementById(expId);
-//   if (!exp) return;
-//   if (!exp.classList.contains('open')) {
-//     if (typeof openExp === 'function') openExp(exp);
-//     else exp.classList.add('open');
-//   }
-// }
-
-// // Ouvre un expander (async)
-// export function openExpanderAsync(id){
-//   const exp  = document.getElementById(id);
-//   if (!exp) return Promise.resolve();
-//   if (exp.classList.contains('open')) return Promise.resolve();
-
-//   return new Promise(resolve => {
-//     const pane = exp.querySelector('.st-expander-body');
-//     const onEnd = (ev) => {
-//       if (ev.propertyName !== 'height') return;
-//       pane.removeEventListener('transitionend', onEnd);
-//       resolve();
-//     };
-//     pane.addEventListener('transitionend', onEnd);
-//     openExp(exp); // ← ta fonction existante
-//   });
-// }
-function relayoutAgGridsIn(rootEl) {
-  if (!rootEl) return;
-
-  // On cible les "hosts" possibles de tes grilles
-  const hosts = rootEl.querySelectorAll(".grid-host, [id^=\"grid\"], .ag-root");
-
-  hosts.forEach((node) => {
-    // On remonte au host si on est tombé sur .ag-root
-    const host = node.classList.contains("ag-root") ? node.closest(".grid-host, [id^=\"grid\"]") : node;
-    if (!host) return;
-
-    // Trouve le handle correspondant dans ta Map `grids`
-    // Hypothèse: grids = Map(gridId -> { el, api, ... }) et `el` pointe vers le host DOM
-    let h = null;
-
-    // (A) Recherche directe par identité DOM (le plus fiable)
-    for (const [, v] of grids) {
-      if (v?.el === host) { h = v; break; }
-    }
-
-    // (B) Fallback: si host a un id, parfois c'est la clé
-    if (!h && host.id && grids.has(host.id)) h = grids.get(host.id);
-
-    if (!h?.api) return;
-
-    // Force AG Grid à recalculer tailles / viewports après anim height
-    h.api.doLayout();
-
-    // Optionnel mais souvent utile si des cellules restent “blanches”
-    // h.api.refreshCells({ force: true });
-  });
-}
-
+// Ouvre un expander
 export function openExpander(expId){
   const exp = document.getElementById(expId);
   if (!exp) return;
-
-  if (!exp.classList.contains("open")) {
-    if (typeof openExp === "function") openExp(exp);
-    else exp.classList.add("open");
-
-    // Après le début de l'ouverture, on attend la fin de l'anim height
-    const pane = exp.querySelector(".st-expander-body");
-    if (pane) {
-      const onEnd = (ev) => {
-        if (ev.propertyName !== "height") return;
-        pane.removeEventListener("transitionend", onEnd);
-        relayoutAgGridsIn(exp);
-      };
-      pane.addEventListener("transitionend", onEnd);
-    } else {
-      // Fallback (au cas où)
-      setTimeout(() => relayoutAgGridsIn(exp), 330);
-    }
+  if (!exp.classList.contains('open')) {
+    if (typeof openExp === 'function') openExp(exp);
+    else exp.classList.add('open');
   }
 }
 
+// Ouvre un expander (async)
 export function openExpanderAsync(id){
   const exp  = document.getElementById(id);
   if (!exp) return Promise.resolve();
-  if (exp.classList.contains("open")) {
-    // Même déjà ouvert: si tu veux, tu peux relayout quand même
-    relayoutAgGridsIn(exp);
-    return Promise.resolve();
-  }
+  if (exp.classList.contains('open')) return Promise.resolve();
 
-  return new Promise((resolve) => {
-    const pane = exp.querySelector(".st-expander-body");
+  return new Promise(resolve => {
+    const pane = exp.querySelector('.st-expander-body');
     const onEnd = (ev) => {
-      if (ev.propertyName !== "height") return;
-      pane.removeEventListener("transitionend", onEnd);
-
-      // ✅ le fix
-      relayoutAgGridsIn(exp);
-
+      if (ev.propertyName !== 'height') return;
+      pane.removeEventListener('transitionend', onEnd);
       resolve();
     };
-    pane.addEventListener("transitionend", onEnd);
+    pane.addEventListener('transitionend', onEnd);
     openExp(exp); // ← ta fonction existante
   });
 }
