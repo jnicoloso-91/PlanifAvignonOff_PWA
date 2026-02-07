@@ -639,7 +639,7 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
     };
 
     // Important : passive:false pour pouvoir preventDefault
-    viewport.addEventListener('wheel', onWheel, { passive: false });
+    // viewport.addEventListener('wheel', onWheel, { passive: false }); BIGBUG
     handle._wheelPatched = true;
   }
 

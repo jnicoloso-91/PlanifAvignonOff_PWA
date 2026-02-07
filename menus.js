@@ -848,21 +848,21 @@ function lockHorizontalScroll() {
     lock = null;
   }, { passive: true });
 
-  scroller.addEventListener('touchmove', (e) => {
-    const te = /** @type {TouchEvent} */ (e);
-    const t = te.touches[0];
-    const dx = t.clientX - startX;
-    const dy = t.clientY - startY;
+  // scroller.addEventListener('touchmove', (e) => {
+  //   const te = /** @type {TouchEvent} */ (e);
+  //   const t = te.touches[0];
+  //   const dx = t.clientX - startX;
+  //   const dy = t.clientY - startY;
 
-    if (lock === null) lock = (Math.abs(dx) > Math.abs(dy)) ? 'x' : 'y';
+  //   if (lock === null) lock = (Math.abs(dx) > Math.abs(dy)) ? 'x' : 'y';
 
-    if (lock === 'x') {
-      scroller.scrollLeft = startLeft - dx;
-      // ✅ NE PAS bloquer si le geste n’est pas dans la bottom bar
-      // (ici on est bien dans scroller -> OK)
-      e.preventDefault();
-    }
-  }, { passive: false }); // on a besoin du preventDefault uniquement ici, pas ailleurs
+  //   if (lock === 'x') {
+  //     scroller.scrollLeft = startLeft - dx;
+  //     // ✅ NE PAS bloquer si le geste n’est pas dans la bottom bar
+  //     // (ici on est bien dans scroller -> OK)
+  //     e.preventDefault();
+  //   }
+  // }, { passive: false }); // on a besoin du preventDefault uniquement ici, pas ailleurs BIGBUG
 }
 
 function getSafeBottom() {

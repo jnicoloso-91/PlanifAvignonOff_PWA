@@ -766,19 +766,19 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       if (hasInfo) {
         const btn = ev.querySelector(".cal-ev__info");
         if (btn) {
-          btn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation(); // ne pas déclencher la sélection / double tap / lien
+          // btn.addEventListener("click", (e) => {
+          //   e.preventDefault();
+          //   e.stopPropagation(); // ne pas déclencher la sélection / double tap / lien
 
-            openPopoverNear(btn, {
-              title: r.Activite || r.activite || "Détails",
-              style: r.Style,
-              desc: r.__desc_summary,
-              avis: r.__avis_summary,
-              mood: r.Mood,
-              note: r?.Note || null,
-            });
-          }, { passive: false });
+          //   openPopoverNear(btn, {
+          //     title: r.Activite || r.activite || "Détails",
+          //     style: r.Style,
+          //     desc: r.__desc_summary,
+          //     avis: r.__avis_summary,
+          //     mood: r.Mood,
+          //     note: r?.Note || null,
+          //   });
+          // }, { passive: false }); BIGBUG
         }
       }
 
@@ -1209,7 +1209,7 @@ export function enableCalAxisLock() {
       pushSample(now, t.clientX);
       lastMoveT = now;
     }  
-  }, { capture: true, passive: false });
+  }, { capture: true, passive: false }); // BIGBUG
 
   const reset = (e) => {
     if (!isInCal(e.target)) return;

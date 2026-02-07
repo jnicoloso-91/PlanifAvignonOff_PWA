@@ -454,8 +454,8 @@ function createChipBox({
         };
 
       // Triple binding = robuste Android + émulation
-      dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
-      dd.addEventListener("touchstart", onPickFromDD, { passive: false });
+      // dd.addEventListener("pointerdown", onPickFromDD, { passive: false }); BIGBUG
+      // dd.addEventListener("touchstart", onPickFromDD, { passive: false }); BIGBUG
       dd.addEventListener("click", onPickFromDD);
       }
 
