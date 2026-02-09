@@ -14,6 +14,7 @@ import {
   parseHHhMM, 
   prettyToDateint, 
   dateintToPretty, 
+  dateintStrToPretty,
   safeDateint, 
   recalcFin,
 } from './utils-date.js';
@@ -64,6 +65,8 @@ const COULEUR_ACTIVITE_PROGRAMMABLE = "#d9fcd9"  // ("#ccffcc" autre vert clair 
 
 const AUTOSIZED_COLS = ['Session', 'Relache'];
 
+const OR_SEP = "|";
+
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
 window.grids = grids;
@@ -73,7 +76,6 @@ export let activeGridId = null;
 let selectedSlot = null;
 
 // ------- Helpers -------
-const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 const $ = id => document.getElementById(id);
 
 const ROW_H=32, HEADER_H=32, PAD=4;                            // valeurs en pixels
@@ -759,6 +761,12 @@ export function rebuildColumnsForActiviteGrids(dfRows) {
 function buildColumnsActivitesCommon(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 80;
   let widthSR = window.matchMedia("(max-width: 750px)").matches ? 70 : 90;
+
+  // Colonnes “texte” cachées pour recherche / filtre
+  const HIDDEN_TEXT_COLS = [
+    { field: '__distribution',      headerName: 'Distribution',    hide: true },
+  ];
+
   return [
     { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
       valueFormatter:p=>dateintToPretty(p.value),
@@ -772,7 +780,25 @@ function buildColumnsActivitesCommon(){
       }
     },
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer },
-    { field:'__desc_summary', headerName: '', width:30, minWidth:30, filter: false, sortable: false ,  editable: false, cellClass: "col-padding-tight", cellRenderer: infosPlusPopoverCellRenderer },
+    { field:'__desc_summary', headerName: '', width:30, minWidth:30, sortable: false ,  editable: false, cellClass: "col-padding-tight", cellRenderer: infosPlusPopoverCellRenderer },
+    ...HIDDEN_TEXT_COLS.map(c => ({
+      ...c,
+
+      // ✅ garder filtrable / triable si besoin
+      filter: "agTextColumnFilter",
+      sortable: false,
+
+      // ✅ éviter que l’utilisateur les voie via menus/panneaux
+      suppressColumnsToolPanel: true,
+      suppressHeaderMenuButton: true,
+      suppressMenu: true,
+
+      // optionnel : si jamais autoSizeColsManual, évite qu’elles entrent dedans
+      suppressSizeToFit: true,
+
+      // par défaut quick filter prend toutes les cols, mais certains setups filtrent
+      getQuickFilterText: (p) => (p.value ?? ""),
+    })),
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width },
@@ -843,7 +869,7 @@ function buildColumnsActivitesNonProgrammees() {
   let iDuree = cols.findIndex(c => c.field === 'Duree');
 
   cols[iDate] = {
-    ...cols[0],
+    ...cols[iDate],
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
@@ -853,6 +879,8 @@ function buildColumnsActivitesNonProgrammees() {
       return { values: values.map(String) };   // 👈 must be an array
     },
     onCellValueChanged: onNonProgGridDateCommitted,
+    filter: CustomDateFilter,
+    filterParams: null,
   };
 
   cols[iDebut] = {
@@ -893,16 +921,24 @@ function buildColumnsCreneaux(){
 }
 
 function buildColumnsActivitesProgrammables() {
-  // récupère la définition standard
+  /** @type {Array<Record<string, any>>} */
   const cols = buildColumnsActivitesCommon();
   let iDate = cols.findIndex(c => c.field === 'Date');
 
   // Dans ActivitesProgrammables Date est en string et non en dateint
-  cols[iDate].valueFormatter = p=>dateintStrToPretty(p.value);  
-  cols[iDate].cellStyle = {
-    fontStyle: 'italic',
-    color: '#777'       // gris moyen
-  }
+  cols[iDate] = {
+    ...cols[iDate],
+    valueFormatter: p=>dateintStrToPretty(p.value),
+    cellStyle: {
+      fontStyle: 'italic',
+      color: '#777'       // gris moyen
+    },
+  };
+  // cols[iDate].valueFormatter = p=>dateintStrToPretty(p.value);  
+  // cols[iDate].cellStyle = {
+  //   fontStyle: 'italic',
+  //   color: '#777'       // gris moyen
+  // }
   
   // force toutes les colonnes non éditables
   return cols.map(col => ({
@@ -911,7 +947,7 @@ function buildColumnsActivitesProgrammables() {
   }));
 }
 
-// Cell Editors
+// Cell Editors & Filters
 class IntCellEditor {
   init(params) {
     this.params = params;
@@ -975,6 +1011,53 @@ class IntCellEditor {
 
   isCancelAfterEnd() {
     return false;
+  }
+}
+
+class CustomDateFilter {
+  init(params) {
+    this.params = params;
+    this.dates = [];
+    this.eGui = document.createElement("div");
+    this.eGui.style.display = "none";
+  }
+
+  getGui() { return this.eGui; }
+
+  isFilterActive() { return this.dates.length > 0; }
+
+  getModel() {
+    return this.isFilterActive() ? { filter: this.dates.slice().join(OR_SEP) } : null;
+  }
+
+  setModel(model) {
+    const v = model?.filter;
+
+    if (Array.isArray(v)) {
+      this.dates = v.map(x => String(x).trim()).filter(Boolean);
+      return;
+    }
+
+    if (typeof v === "string") {
+      // si jamais tu passes une string OR (fallback)
+      this.dates = v.split(OR_SEP).map(s => s.trim()).filter(Boolean);
+      return;
+    }
+
+    this.dates = [];
+  }
+
+  doesFilterPass(p) {
+    if (!this.isFilterActive()) return true;
+
+    const row = p.data;
+    const sessionVal = row?.Session ?? null;
+    const relacheVal = row?.Relache ?? null;
+    if (sessionVal == null) return false;
+
+    return this.dates.some(token =>
+      activitesAPI.datesMatchesSessionRelache(token, sessionVal, relacheVal)
+    );
   }
 }
 
@@ -1533,7 +1616,6 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
 
   // hauteur slider
   const sbH = getAgGridHScrollReservedPx(gridEl);
-  console.log(sbH);
 
   // hauteur d’une ligne (via CSS var si dispo)
   let rowH = 28;
@@ -1606,7 +1688,6 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
 }
 
 function gridOptionsCommon(gridId, el) {
-  const OR_SEP = "|";
   return {
     context: { gridId },                 
     defaultColDef: { 
@@ -1687,6 +1768,35 @@ function gridOptionsCommon(gridId, el) {
       ensureRowVisibleAndGetEl(gridId, getSelectedRowUuid(gridId));
     },
   
+    quickFilterMatcher: (quickFilter, rowQuickFilterAggregateText) => {
+      // quickFilter peut être string OU array (déjà parsé)
+      let parts = [];
+
+      if (Array.isArray(quickFilter)) {
+        // déjà parsé par AG Grid
+        parts = quickFilter
+          .map(x => (x ?? "").toString().trim().toLowerCase())
+          .filter(Boolean);
+      } else {
+        const q = (quickFilter ?? "").toString().trim();
+        if (!q) return true;
+
+        // OR avec séparateur "|"
+        parts = q
+          .split("|")
+          .map(s => s.trim().toLowerCase())
+          .filter(Boolean);
+      }
+
+      if (!parts.length) return true;
+
+      const hay = (rowQuickFilterAggregateText ?? "").toString().toLowerCase();
+
+      // OR : au moins un match
+      return parts.some(p => hay.includes(p));
+    }
+
+    
     // floatingFilter: true,
     // suppressMenuHide: false,
     // suppressColumnVirtualisation: false,
@@ -1823,6 +1933,7 @@ function saveGridStateToMeta(e, gridId) {
 
   const columnState = api.getColumnState?.() || [];
   const filterModel = api.getFilterModel?.() || null;
+  const quickFilter = api.getQuickFilter?.() || null;
 
   // sélection : liste des __uuid
   const selectedUuids = (api.getSelectedRows?.() || [])
@@ -1836,6 +1947,7 @@ function saveGridStateToMeta(e, gridId) {
     [gridId]: {
       columnState,
       filterModel,
+      quickFilter,
       selectedUuids,
     },
   };
@@ -1855,7 +1967,7 @@ function restoreGridStateFromMetaEarly(gridId, { align = "middle" } = {}) {
   const state = allStates[gridId];
   if (!state) return;
 
-  const { columnState, filterModel, selectedUuids } = state;
+  const { columnState, filterModel, quickFilter, selectedUuids } = state;
 
   // 1) Colonnes : ordre, tri, pinning, visibilité
   if (columnState && Array.isArray(columnState) && columnState.length) {
@@ -1871,6 +1983,9 @@ function restoreGridStateFromMetaEarly(gridId, { align = "middle" } = {}) {
     api.onFilterChanged?.(); // pour forcer la prise en compte
   }
 
+  if (quickFilter) {
+    api.setQuickFilter?.(quickFilter);
+  }
 }
 
 // A mettre dans OnFirstDataRendered
@@ -1885,7 +2000,7 @@ function restoreGridStateFromMetaLate(gridId, { align = "middle" } = {}) {
   const state = allStates[gridId];
   if (!state) return;
 
-  const { columnState, filterModel, selectedUuids } = state;
+  const { columnState, filterModel, quickFilter, selectedUuids } = state;
 
   // 3) Sélection (après colonnes+filtres)
   if (Array.isArray(selectedUuids) && selectedUuids.length) {
@@ -2329,7 +2444,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
  // colonnes propres à la grille
   const columnDefs = columnsBuilder?.() || [];
 
-  //merge superficiel : base + overrides + champs calculés
+  // merge superficiel : base + overrides + champs calculés
   const common = gridOptionsCommon(gridId, el);
   const gridOptions = {
     ...common,
@@ -2340,6 +2455,10 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
+
+  // pour que le quick filter prenne en compte les colonnes masquées
+  api.setGridOption('includeHiddenColumnsInQuickFilter', true); 
+
   autoOpenSelectOnEdit(api);
   (/** @type {any} */ (el)).__agApi = api; // ⟵ pour retrouver l’API depuis le pane
   const handle = { id: gridId, el, api, loader, columnsBuilder }; //, nbRowsPred: null };
