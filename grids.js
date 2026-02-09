@@ -14,6 +14,7 @@ import {
   parseHHhMM, 
   prettyToDateint, 
   dateintToPretty, 
+  dateintStrToPretty,
   safeDateint, 
   recalcFin,
 } from './utils-date.js';
@@ -64,6 +65,8 @@ const COULEUR_ACTIVITE_PROGRAMMABLE = "#d9fcd9"  // ("#ccffcc" autre vert clair 
 
 const AUTOSIZED_COLS = ['Session', 'Relache'];
 
+const OR_SEP = "|";
+
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
 window.grids = grids;
@@ -73,7 +76,6 @@ export let activeGridId = null;
 let selectedSlot = null;
 
 // ------- Helpers -------
-const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
 const $ = id => document.getElementById(id);
 
 const ROW_H=32, HEADER_H=32, PAD=4;                            // valeurs en pixels
@@ -759,6 +761,12 @@ export function rebuildColumnsForActiviteGrids(dfRows) {
 function buildColumnsActivitesCommon(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 80;
   let widthSR = window.matchMedia("(max-width: 750px)").matches ? 70 : 90;
+
+  // Colonnes “texte” cachées pour recherche / filtre
+  const HIDDEN_TEXT_COLS = [
+    { field: '__distribution',      headerName: 'Distribution',    hide: true },
+  ];
+
   return [
     { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
       valueFormatter:p=>dateintToPretty(p.value),
@@ -772,7 +780,25 @@ function buildColumnsActivitesCommon(){
       }
     },
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer },
-    { field:'__desc_summary', headerName: '', width:30, minWidth:30, filter: false, sortable: false ,  editable: false, cellClass: "col-padding-tight", cellRenderer: infosPlusPopoverCellRenderer },
+    { field:'__desc_summary', headerName: '', width:30, minWidth:30, sortable: false ,  editable: false, cellClass: "col-padding-tight", cellRenderer: infosPlusPopoverCellRenderer },
+    ...HIDDEN_TEXT_COLS.map(c => ({
+      ...c,
+
+      // ✅ garder filtrable / triable si besoin
+      filter: "agTextColumnFilter",
+      sortable: false,
+
+      // ✅ éviter que l’utilisateur les voie via menus/panneaux
+      suppressColumnsToolPanel: true,
+      suppressHeaderMenuButton: true,
+      suppressMenu: true,
+
+      // optionnel : si jamais autoSizeColsManual, évite qu’elles entrent dedans
+      suppressSizeToFit: true,
+
+      // par défaut quick filter prend toutes les cols, mais certains setups filtrent
+      getQuickFilterText: (p) => (p.value ?? ""),
+    })),
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width },
@@ -843,7 +869,7 @@ function buildColumnsActivitesNonProgrammees() {
   let iDuree = cols.findIndex(c => c.field === 'Duree');
 
   cols[iDate] = {
-    ...cols[0],
+    ...cols[iDate],
     editable: true,
     valueFormatter: p => dateintToPretty(p.value),
     valueParser: p => prettyToDateint(p.newValue) ?? p.oldValue ?? null,
@@ -853,6 +879,8 @@ function buildColumnsActivitesNonProgrammees() {
       return { values: values.map(String) };   // 👈 must be an array
     },
     onCellValueChanged: onNonProgGridDateCommitted,
+    filter: CustomDateFilter,
+    filterParams: null,
   };
 
   cols[iDebut] = {
@@ -893,16 +921,24 @@ function buildColumnsCreneaux(){
 }
 
 function buildColumnsActivitesProgrammables() {
-  // récupère la définition standard
+  /** @type {Array<Record<string, any>>} */
   const cols = buildColumnsActivitesCommon();
   let iDate = cols.findIndex(c => c.field === 'Date');
 
   // Dans ActivitesProgrammables Date est en string et non en dateint
-  cols[iDate].valueFormatter = p=>dateintStrToPretty(p.value);  
-  cols[iDate].cellStyle = {
-    fontStyle: 'italic',
-    color: '#777'       // gris moyen
-  }
+  cols[iDate] = {
+    ...cols[iDate],
+    valueFormatter: p=>dateintStrToPretty(p.value),
+    cellStyle: {
+      fontStyle: 'italic',
+      color: '#777'       // gris moyen
+    },
+  };
+  // cols[iDate].valueFormatter = p=>dateintStrToPretty(p.value);  
+  // cols[iDate].cellStyle = {
+  //   fontStyle: 'italic',
+  //   color: '#777'       // gris moyen
+  // }
   
   // force toutes les colonnes non éditables
   return cols.map(col => ({
@@ -911,7 +947,7 @@ function buildColumnsActivitesProgrammables() {
   }));
 }
 
-// Cell Editors
+// Cell Editors & Filters
 class IntCellEditor {
   init(params) {
     this.params = params;
@@ -975,6 +1011,53 @@ class IntCellEditor {
 
   isCancelAfterEnd() {
     return false;
+  }
+}
+
+class CustomDateFilter {
+  init(params) {
+    this.params = params;
+    this.dates = [];
+    this.eGui = document.createElement("div");
+    this.eGui.style.display = "none";
+  }
+
+  getGui() { return this.eGui; }
+
+  isFilterActive() { return this.dates.length > 0; }
+
+  getModel() {
+    return this.isFilterActive() ? { filter: this.dates.slice().join(OR_SEP) } : null;
+  }
+
+  setModel(model) {
+    const v = model?.filter;
+
+    if (Array.isArray(v)) {
+      this.dates = v.map(x => String(x).trim()).filter(Boolean);
+      return;
+    }
+
+    if (typeof v === "string") {
+      // si jamais tu passes une string OR (fallback)
+      this.dates = v.split(OR_SEP).map(s => s.trim()).filter(Boolean);
+      return;
+    }
+
+    this.dates = [];
+  }
+
+  doesFilterPass(p) {
+    if (!this.isFilterActive()) return true;
+
+    const row = p.data;
+    const sessionVal = row?.Session ?? null;
+    const relacheVal = row?.Relache ?? null;
+    if (sessionVal == null) return false;
+
+    return this.dates.some(token =>
+      activitesAPI.datesMatchesSessionRelache(token, sessionVal, relacheVal)
+    );
   }
 }
 
@@ -1169,14 +1252,238 @@ export function enableTouchEdit(api, gridEl, opts = {}) {
   log('listeners attached on', gridEl);
 }
 
-// Router gérant le momemtum scrolling en x ey y sur les grilles.
-// Les handlers actifs (passive: false) du pager et autres éléments de la page planning
-// qui agissent sur touchmove ou pointermove en coactivité ne permettent pas en effet de passer 
-// par le scrolling natif (notamment sur Android). Cette fonction installe donc les handlers 
-// permettant de gérer par JS le scrolling en x et y des grilles sur iOS Safari + Android Chrome.
-// Ne pas "simplifier".
-// Ne pas "nettoyer".
-// Ne pas "optimiser".
+// Scroll X mobile avec inertie (fling) - ne pas simplifier et revenir au scroll natif
+// function wireAgTouchScrollRouter(gridId) {
+//   const h = grids.get(gridId);
+//   if (!h) return;
+
+//   const gridEl = h.el;
+//   const bodyVp = gridEl.querySelector(".ag-body-viewport");
+//   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
+//   if (!bodyVp || !xVp) return;
+
+//   if (gridEl.__bbTouchRouter) return;
+//   gridEl.__bbTouchRouter = true;
+
+//   let sx=0, sy=0, lastX=0, engaged=false, horiz=false;
+
+//   const DEADZONE = 10;     // px
+//   const RATIO = 1.15;      // plus petit = plus facile de prendre X
+
+//   // ── inertie (fling)
+//   let flingRaf = 0;
+//   let vx = 0;                 // px/ms (vitesse du doigt)
+//   const samples = [];         // {t, x}
+//   const MAX_SAMPLES = 6;
+
+//   const MAX_V = 2.2;          // px/ms
+//   const BASE_FRICTION = 0.0038;
+//   const EDGE_ZONE = 80;
+//   const EDGE_BOOST = 0.010;
+
+//   function stopFling() {
+//     if (flingRaf) cancelAnimationFrame(flingRaf);
+//     flingRaf = 0;
+//     vx = 0;
+//     samples.length = 0;
+//   }
+
+//   function pushSample(t, x) {
+//     samples.push({ t, x });
+//     while (samples.length > MAX_SAMPLES) samples.shift();
+//   }
+
+//   function computeVelocity() {
+//     if (samples.length < 2) return 0;
+//     const last = samples[samples.length - 1];
+
+//     let i = samples.length - 2;
+//     while (i > 0 && (last.t - samples[i].t) < 40) i--;
+//     const a = samples[i];
+
+//     const dt = last.t - a.t;
+//     if (dt <= 0) return 0;
+
+//     const dx = last.x - a.x;
+//     return dx / dt; // dx>0 = doigt vers la droite
+//   }
+
+//   function startFling() {
+//     vx = Math.max(-MAX_V, Math.min(MAX_V, vx));
+//     if (Math.abs(vx) < 0.05) return;
+
+//     let prevT = performance.now();
+
+//     const step = (now) => {
+//       const dt = now - prevT;
+//       prevT = now;
+
+//       const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//       const cur = xVp.scrollLeft;
+
+//       // vx > 0 => doigt à droite => scrollLeft veut diminuer (vers 0)
+//       // vx < 0 => doigt à gauche  => scrollLeft veut augmenter (vers max)
+//       const distToEdge = (vx > 0) ? cur : (maxScroll - cur);
+//       const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
+//       const friction = BASE_FRICTION + EDGE_BOOST * edgeFactor * edgeFactor;
+
+//       const dx = vx * dt;
+//       let next = cur - dx;
+
+//       if (next < 0) next = 0;
+//       if (next > maxScroll) next = maxScroll;
+
+//       xVp.scrollLeft = next;
+
+//       const decay = Math.exp(-friction * dt);
+//       vx *= decay;
+
+//       const atLeft  = next <= 0.5;
+//       const atRight = next >= (maxScroll - 0.5);
+
+//       if (Math.abs(vx) < 0.02 || (vx > 0 && atLeft) || (vx < 0 && atRight)) {
+//         stopFling();
+//         return;
+//       }
+
+//       flingRaf = requestAnimationFrame(step);
+//     };
+
+//     flingRaf = requestAnimationFrame(step);
+//   }
+
+//   bodyVp.addEventListener("touchstart", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     stopFling();
+
+//     const t = e.touches[0];
+//     sx = lastX = t.clientX;
+//     sy = t.clientY;
+//     engaged = false;
+//     horiz = false;
+
+//     const now = performance.now();
+//     pushSample(now, lastX);
+//   }, { passive: true });
+
+//   bodyVp.addEventListener("touchmove", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
+
+//     const dx0 = t.clientX - sx;
+//     const dy0 = t.clientY - sy;
+
+//     if (!engaged) {
+//       if (Math.abs(dx0) < DEADZONE && Math.abs(dy0) < DEADZONE) return;
+//       engaged = true;
+//       horiz = Math.abs(dx0) > Math.abs(dy0) * RATIO;
+//       if (!horiz) return; // vertical => on laisse le Y natif (bodyVp)
+//     }
+
+//     if (horiz) {
+//       const now = performance.now();
+//       const dx = t.clientX - lastX;
+//       lastX = t.clientX;
+
+//       const prev = xVp.scrollLeft;
+//       const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//       const next = Math.max(0, Math.min(maxScroll, prev - dx));
+
+//       if (next === prev) return; // butée
+
+//       e.preventDefault();
+//       e.stopPropagation();
+
+//       xVp.scrollLeft = next;
+
+//       pushSample(now, t.clientX);
+//     }
+//   }, { passive: false });
+
+//   function endGesture() {
+//     if (!horiz) {
+//       stopFling();
+//       return;
+//     }
+
+//     vx = computeVelocity();
+
+//     // si fling impossible (butée), ne pas lancer
+//     const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+//     const cur = xVp.scrollLeft;
+//     const blocked =
+//       (vx > 0 && cur <= 0.5) ||
+//       (vx < 0 && cur >= maxScroll - 0.5);
+
+//     if (blocked) {
+//       stopFling();
+//       return;
+//     }
+
+//     startFling();
+//   }
+
+//   bodyVp.addEventListener("touchend", endGesture, { passive: true });
+//   bodyVp.addEventListener("touchcancel", endGesture, { passive: true });
+// }
+
+
+// function wireAgTouchScrollRouter(gridId) {
+//   const h = grids.get(gridId);
+//   if (!h) return;
+
+//   const gridEl = h.el;
+//   const bodyVp = gridEl.querySelector(".ag-body-viewport");
+//   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
+//   if (!bodyVp || !xVp) return;
+
+//   if (gridEl.__bbTouchRouter) return;
+//   gridEl.__bbTouchRouter = true;
+
+//   let sx = 0, sy = 0, sl = 0;
+//   let mode = null; // null | "x" | "y"
+
+//   const DEADZONE = 10;   // px
+//   const RATIO    = 1.35; // durcir Android (1.25..1.5)
+
+//   bodyVp.addEventListener("touchstart", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
+
+//     sx = t.clientX;
+//     sy = t.clientY;
+//     sl = xVp.scrollLeft;
+//     mode = null;
+//   }, { passive: true });
+
+//   bodyVp.addEventListener("touchmove", (e) => {
+//     if (!e.touches || e.touches.length !== 1) return;
+//     const t = e.touches[0];
+
+//     const dx = t.clientX - sx;
+//     const dy = t.clientY - sy;
+
+//     // 1) Tant qu’on n’a pas un mouvement clair, on ne fait RIEN
+//     if (!mode) {
+//       const ax = Math.abs(dx);
+//       const ay = Math.abs(dy);
+
+//       if (ax < DEADZONE && ay < DEADZONE) return;
+
+//       // ✅ décision stricte : sinon on attend (zone grise)
+//       if (ax > ay * RATIO) mode = "x";
+//       else if (ay > ax * RATIO) mode = "y";
+//       else return;
+//     }
+
+//     // 2) Vertical : laisser Ag-Grid gérer le scroll natif
+//     if (mode === "y") return;
+
+//     // 3) Horizontal : router vers le scroller X officiel
+//     e.preventDefault();
+//     xVp.scrollLeft = sl - dx;
+//   }, { passive: false });
+// }
 function wireAgTouchScrollRouter(gridId) {
   const h = grids.get(gridId);
   if (!h) return;
@@ -1186,179 +1493,25 @@ function wireAgTouchScrollRouter(gridId) {
   const xVp    = gridEl.querySelector(".ag-body-horizontal-scroll-viewport");
   if (!bodyVp || !xVp) return;
 
-  if (gridEl.__bbTouchRouter) return;
-  gridEl.__bbTouchRouter = true;
+  if (gridEl.__bbTouchRouterXY) return;
+  gridEl.__bbTouchRouterXY = true;
 
-  // ─────────────────────────────────────────────
-  // Paramètres (à tuner au feeling)
-  // ─────────────────────────────────────────────
-  const AXIS_MIN = 14;     // px avant décision
-  const RATIO    = 1.35;   // ax > ay*RATIO => X, ay > ax*RATIO => Y
-
-  const MAX_SAMPLES = 6;
-
-  const MAX_VX = 2.2;      // px/ms
-  const MAX_VY = 2.2;      // px/ms 
-
-  const BASE_FRICTION_X = 0.0038; // baisser pour moins de friction
-  const BASE_FRICTION_Y = 0.0038; // baisser pour moins de friction
-
-  const EDGE_ZONE  = 80;
-  const EDGE_BOOST = 0.010;
-
-  // ─────────────────────────────────────────────
-  // State gesture
-  // ─────────────────────────────────────────────
   let sx=0, sy=0, lastX=0, lastY=0;
-  let pending = true, horiz = false, vert = false;
+  let pending = true;
+  let mode = null; // "x" | "y"
 
-  // ─────────────────────────────────────────────
-  // Inertie commune
-  // ─────────────────────────────────────────────
-  let flingRaf = 0;
-  let v = 0;                 // px/ms (sur l'axe actif)
-  const samples = [];         // {t, x} ou {t, y} selon l'axe
+  const AXIS_MIN = 12;
+  const RATIO    = 1.2;
 
-  function stopFling() {
-    if (flingRaf) cancelAnimationFrame(flingRaf);
-    flingRaf = 0;
-    v = 0;
-    samples.length = 0;
-  }
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
 
-  function pushSample(t, value) {
-    samples.push({ t, value });
-    while (samples.length > MAX_SAMPLES) samples.shift();
-  }
-
-  function computeVelocity() {
-    if (samples.length < 2) return 0;
-    const last = samples[samples.length - 1];
-
-    let i = samples.length - 2;
-    while (i > 0 && (last.t - samples[i].t) < 40) i--;
-    const a = samples[i];
-
-    const dt = last.t - a.t;
-    if (dt <= 0) return 0;
-
-    const d = last.value - a.value;
-    return d / dt; // >0 = doigt vers + (droite ou bas)
-  }
-
-  function startFlingAxis({
-    getPos, setPos, getMax,
-    maxV, baseFriction
-  }) {
-    v = Math.max(-maxV, Math.min(maxV, v));
-    if (Math.abs(v) < 0.05) { stopFling(); return; }
-
-    let prevT = performance.now();
-
-    const step = (now) => {
-      const dt = now - prevT;
-      prevT = now;
-
-      const maxScroll = Math.max(0, getMax());
-      const cur = getPos();
-
-      // v > 0 => doigt vers + => scroll veut diminuer (comme ton X)
-      // v < 0 => doigt vers - => scroll veut augmenter
-      const distToEdge = (v > 0) ? cur : (maxScroll - cur);
-      const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
-      const friction = baseFriction + EDGE_BOOST * edgeFactor * edgeFactor;
-
-      const d = v * dt;
-      let next = cur - d;
-
-      if (next < 0) next = 0;
-      if (next > maxScroll) next = maxScroll;
-
-      setPos(next);
-
-      const decay = Math.exp(-friction * dt);
-      v *= decay;
-
-      const atStart = next <= 0.5;
-      const atEnd   = next >= (maxScroll - 0.5);
-
-      if (Math.abs(v) < 0.02 || (v > 0 && atStart) || (v < 0 && atEnd)) {
-        stopFling();
-        return;
-      }
-
-      flingRaf = requestAnimationFrame(step);
-    };
-
-    flingRaf = requestAnimationFrame(step);
-  }
-
-  function endGesture() {
-    // si pas d'axe confirmé → rien
-    if (!(horiz || vert)) { stopFling(); return; }
-
-    v = computeVelocity();
-
-    if (horiz) {
-      const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
-      const cur = xVp.scrollLeft;
-
-      const blocked =
-        (v > 0 && cur <= 0.5) ||
-        (v < 0 && cur >= maxScroll - 0.5);
-
-      if (blocked) { stopFling(); return; }
-
-      startFlingAxis({
-        getPos: () => xVp.scrollLeft,
-        setPos: (x) => { xVp.scrollLeft = x; },
-        getMax: () => xVp.scrollWidth - xVp.clientWidth,
-        maxV: MAX_VX,
-        baseFriction: BASE_FRICTION_X,
-      });
-      return;
-    }
-
-    if (vert) {
-      const maxScroll = Math.max(0, bodyVp.scrollHeight - bodyVp.clientHeight);
-      const cur = bodyVp.scrollTop;
-
-      const blocked =
-        (v > 0 && cur <= 0.5) ||
-        (v < 0 && cur >= maxScroll - 0.5);
-
-      if (blocked) { stopFling(); return; }
-
-      startFlingAxis({
-        getPos: () => bodyVp.scrollTop,
-        setPos: (y) => { bodyVp.scrollTop = y; },
-        getMax: () => bodyVp.scrollHeight - bodyVp.clientHeight,
-        maxV: MAX_VY,
-        baseFriction: BASE_FRICTION_Y,
-      });
-      return;
-    }
-  }
-
-  // ─────────────────────────────────────────────
-  // Touch handlers
-  // ─────────────────────────────────────────────
   bodyVp.addEventListener("touchstart", (e) => {
     if (!e.touches || e.touches.length !== 1) return;
-    stopFling();
-
     const t = e.touches[0];
     sx = lastX = t.clientX;
     sy = lastY = t.clientY;
-
     pending = true;
-    horiz = false;
-    vert  = false;
-
-    const now = performance.now();
-    // on ne sait pas encore si on track X ou Y : on push le “value” au moment de la décision
-    samples.length = 0;
-    pushSample(now, 0);
+    mode = null;
   }, { passive: true });
 
   bodyVp.addEventListener("touchmove", (e) => {
@@ -1367,80 +1520,54 @@ function wireAgTouchScrollRouter(gridId) {
 
     const dx0 = t.clientX - sx;
     const dy0 = t.clientY - sy;
-    const ax  = Math.abs(dx0);
-    const ay  = Math.abs(dy0);
+    const ax = Math.abs(dx0);
+    const ay = Math.abs(dy0);
 
     if (pending) {
       if (ax < AXIS_MIN && ay < AXIS_MIN) return;
 
-      const isHoriz = ax > ay * RATIO;
-      const isVert  = ay > ax * RATIO;
+      const wantX = ax > ay * RATIO;
+      const wantY = ay > ax * RATIO;
 
-      if (isHoriz) {
-        pending = false;
-        horiz = true;
-        vert  = false;
+      if (wantX) { mode = "x"; pending = false; }
+      else if (wantY) { mode = "y"; pending = false; }
+      else return; // diagonale -> attend encore
 
-        samples.length = 0;
-        const now = performance.now();
-        pushSample(now, t.clientX);
-        lastX = t.clientX;
-        // IMPORTANT : pas de preventDefault sur ce move “décision”
-        return;
-      }
-
-      if (isVert) {
-        pending = false;
-        horiz = false;
-        vert  = true;
-
-        samples.length = 0;
-        const now = performance.now();
-        pushSample(now, t.clientY);
-        lastY = t.clientY;
-        return; // on laisse faire, preventDefault seulement après confirmation (move suivant)
-      }
-
-      return; // diagonale → attendre
+      // IMPORTANT Android: prendre la main tout de suite
+      if (e.cancelable) e.preventDefault();
     }
 
-    // Axe déjà choisi :
-    const now = performance.now();
-
-    if (horiz) {
+    if (mode === "x") {
       const dx = t.clientX - lastX;
       lastX = t.clientX;
 
       const prev = xVp.scrollLeft;
-      const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
-      const next = Math.max(0, Math.min(maxScroll, prev - dx));
-      if (next === prev) return;
+      const max  = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
+      const next = clamp(prev - dx, 0, max);
 
+      if (next === prev) return;
       if (e.cancelable) e.preventDefault();
       xVp.scrollLeft = next;
-      pushSample(now, t.clientX);
       return;
     }
 
-    if (vert) {
+    if (mode === "y") {
       const dy = t.clientY - lastY;
       lastY = t.clientY;
 
       const prev = bodyVp.scrollTop;
-      const maxScroll = Math.max(0, bodyVp.scrollHeight - bodyVp.clientHeight);
-      const next = Math.max(0, Math.min(maxScroll, prev - dy));
-      if (next === prev) return;
+      const max  = Math.max(0, bodyVp.scrollHeight - bodyVp.clientHeight);
+      const next = clamp(prev - dy, 0, max);
 
+      if (next === prev) return;
       if (e.cancelable) e.preventDefault();
       bodyVp.scrollTop = next;
-      pushSample(now, t.clientY);
       return;
     }
-
   }, { passive: false });
 
-  bodyVp.addEventListener("touchend", endGesture, { passive: true });
-  bodyVp.addEventListener("touchcancel", endGesture, { passive: true });
+  bodyVp.addEventListener("touchend", () => { pending = true; mode = null; }, { passive: true });
+  bodyVp.addEventListener("touchcancel", () => { pending = true; mode = null; }, { passive: true });
 }
 
 // Reajuste la taille du expander-body en fonction du nbre de lignes jusqu'à 5 lignes max
@@ -1533,7 +1660,6 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
 
   // hauteur slider
   const sbH = getAgGridHScrollReservedPx(gridEl);
-  console.log(sbH);
 
   // hauteur d’une ligne (via CSS var si dispo)
   let rowH = 28;
@@ -1606,7 +1732,6 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
 }
 
 function gridOptionsCommon(gridId, el) {
-  const OR_SEP = "|";
   return {
     context: { gridId },                 
     defaultColDef: { 
@@ -1687,6 +1812,35 @@ function gridOptionsCommon(gridId, el) {
       ensureRowVisibleAndGetEl(gridId, getSelectedRowUuid(gridId));
     },
   
+    quickFilterMatcher: (quickFilter, rowQuickFilterAggregateText) => {
+      // quickFilter peut être string OU array (déjà parsé)
+      let parts = [];
+
+      if (Array.isArray(quickFilter)) {
+        // déjà parsé par AG Grid
+        parts = quickFilter
+          .map(x => (x ?? "").toString().trim().toLowerCase())
+          .filter(Boolean);
+      } else {
+        const q = (quickFilter ?? "").toString().trim();
+        if (!q) return true;
+
+        // OR avec séparateur "|"
+        parts = q
+          .split("|")
+          .map(s => s.trim().toLowerCase())
+          .filter(Boolean);
+      }
+
+      if (!parts.length) return true;
+
+      const hay = (rowQuickFilterAggregateText ?? "").toString().toLowerCase();
+
+      // OR : au moins un match
+      return parts.some(p => hay.includes(p));
+    }
+
+    
     // floatingFilter: true,
     // suppressMenuHide: false,
     // suppressColumnVirtualisation: false,
@@ -1823,6 +1977,7 @@ function saveGridStateToMeta(e, gridId) {
 
   const columnState = api.getColumnState?.() || [];
   const filterModel = api.getFilterModel?.() || null;
+  const quickFilter = api.getQuickFilter?.() || null;
 
   // sélection : liste des __uuid
   const selectedUuids = (api.getSelectedRows?.() || [])
@@ -1836,6 +1991,7 @@ function saveGridStateToMeta(e, gridId) {
     [gridId]: {
       columnState,
       filterModel,
+      quickFilter,
       selectedUuids,
     },
   };
@@ -1855,7 +2011,7 @@ function restoreGridStateFromMetaEarly(gridId, { align = "middle" } = {}) {
   const state = allStates[gridId];
   if (!state) return;
 
-  const { columnState, filterModel, selectedUuids } = state;
+  const { columnState, filterModel, quickFilter, selectedUuids } = state;
 
   // 1) Colonnes : ordre, tri, pinning, visibilité
   if (columnState && Array.isArray(columnState) && columnState.length) {
@@ -1871,6 +2027,9 @@ function restoreGridStateFromMetaEarly(gridId, { align = "middle" } = {}) {
     api.onFilterChanged?.(); // pour forcer la prise en compte
   }
 
+  if (quickFilter) {
+    api.setQuickFilter?.(quickFilter);
+  }
 }
 
 // A mettre dans OnFirstDataRendered
@@ -1885,7 +2044,7 @@ function restoreGridStateFromMetaLate(gridId, { align = "middle" } = {}) {
   const state = allStates[gridId];
   if (!state) return;
 
-  const { columnState, filterModel, selectedUuids } = state;
+  const { columnState, filterModel, quickFilter, selectedUuids } = state;
 
   // 3) Sélection (après colonnes+filtres)
   if (Array.isArray(selectedUuids) && selectedUuids.length) {
@@ -2329,7 +2488,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
  // colonnes propres à la grille
   const columnDefs = columnsBuilder?.() || [];
 
-  //merge superficiel : base + overrides + champs calculés
+  // merge superficiel : base + overrides + champs calculés
   const common = gridOptionsCommon(gridId, el);
   const gridOptions = {
     ...common,
@@ -2340,6 +2499,10 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
+
+  // pour que le quick filter prenne en compte les colonnes masquées
+  api.setGridOption('includeHiddenColumnsInQuickFilter', true); 
+
   autoOpenSelectOnEdit(api);
   (/** @type {any} */ (el)).__agApi = api; // ⟵ pour retrouver l’API depuis le pane
   const handle = { id: gridId, el, api, loader, columnsBuilder }; //, nbRowsPred: null };
