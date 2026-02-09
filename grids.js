@@ -1955,6 +1955,26 @@ async function loadGridActivitesProgrammables(){
   return activitesAPI.getActivitesProgrammables(activites, selectedSlot, traiterPauses()).map(r => ({...r}));
 }
 
+export function ensurePrioColumnVisible(api, colName) {
+  if (!api) return;
+
+  // colKey peut être field ou colId
+  const colKey = api.getColumn(colName)?.getColId() || colName;
+
+  if (typeof api.ensureColumnVisible === "function") {
+    api.ensureColumnVisible(colKey);
+    return;
+  }
+
+  // fallback (rare) : essayer columnApi / state
+  if (api.columnApi?.ensureColumnVisible) {
+    api.columnApi.ensureColumnVisible(colKey);
+    return;
+  }
+
+  console.warn("[ensurePrioColumnVisible] ensureColumnVisible indisponible");
+} 
+
 // Sélectionne + rend visible + retourne DOM de la ligne si possible
 async function ensureRowVisibleAndGetEl(gridId, uuid) {
   const h = grids.get(gridId);
