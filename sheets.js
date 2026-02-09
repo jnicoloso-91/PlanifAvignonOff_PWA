@@ -410,6 +410,59 @@ function createChipBox({
       if (dd) renderDD();
     }
 
+    // function ensureDD() {
+    //   if (dd) return dd;
+
+    //   dd = document.createElement("div");
+    //   dd.className = "chipbox-dd";
+    //   dd.setAttribute("role", "listbox");
+    //   dd.setAttribute("aria-label", "Suggestions");
+
+    //   if (NEED_PORTAL) {
+    //     dd.style.position = "fixed";
+    //     dd.style.zIndex = "999999";
+    //     dd.hidden = true;
+    //     document.body.appendChild(dd);
+    //   } else {
+    //     dd.setAttribute("role", "listbox");
+    //     dd.setAttribute("aria-label", "Suggestions");
+
+    //     const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
+    //     wrap.appendChild(dd);
+      
+    //     const onPickFromDD = (ev) => {
+    //       // event delegation
+    //       const target = ev.target instanceof Element ? ev.target : null;
+    //       if (!target) return;
+
+    //       const item = target.closest(".chipbox-dditem");
+    //       if (!item || !dd.contains(item)) return;
+
+    //       // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
+    //       ev.preventDefault();
+    //       ev.stopPropagation();
+
+    //       const label = item.textContent || "";
+    //       if (!label) return;
+
+    //       addToken(label);
+    //       inputEl.value = "";
+
+    //       closeDD();
+
+    //       // garder le focus (optionnel) — mais sans forcer des scrolls
+    //       try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
+    //     };
+
+    //   // Triple binding = robuste Android + émulation
+    //   dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
+    //   dd.addEventListener("touchstart", onPickFromDD, { passive: false });
+    //   dd.addEventListener("click", onPickFromDD);
+    //   }
+
+    //   return dd;
+    // }    
+    let lastPick = 0;
     function ensureDD() {
       if (dd) return dd;
 
@@ -418,46 +471,47 @@ function createChipBox({
       dd.setAttribute("role", "listbox");
       dd.setAttribute("aria-label", "Suggestions");
 
+      const onPickFromDD = (ev) => {
+        const now = Date.now();
+        if (now - lastPick < 200) return; // anti double pick (surtout iOS qui peut envoyer plusieurs events)
+        lastPick = now;
+
+        // event delegation
+        const target = ev.target instanceof Element ? ev.target : null;
+        if (!target) return;
+
+        const item = target.closest(".chipbox-dditem");
+        if (!item || !dd.contains(item)) return;
+
+        // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
+        if (ev.cancelable) ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation();
+
+        const label = item.textContent || "";
+        if (!label) return;
+
+        addToken(label);
+        inputEl.value = "";
+        closeDD();
+
+        // garder le focus (optionnel) — mais sans forcer des scrolls
+        try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
+      };
+
+      // Triple binding = robuste Android + émulation
+      dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
+      dd.addEventListener("touchstart", onPickFromDD, { passive: false });
+      dd.addEventListener("click", onPickFromDD);
+      
       if (NEED_PORTAL) {
         dd.style.position = "fixed";
         dd.style.zIndex = "999999";
         dd.hidden = true;
         document.body.appendChild(dd);
       } else {
-        dd.setAttribute("role", "listbox");
-        dd.setAttribute("aria-label", "Suggestions");
-
         const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
         wrap.appendChild(dd);
-      
-        const onPickFromDD = (ev) => {
-          // event delegation
-          const target = ev.target instanceof Element ? ev.target : null;
-          if (!target) return;
-
-          const item = target.closest(".chipbox-dditem");
-          if (!item || !dd.contains(item)) return;
-
-          // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
-          ev.preventDefault();
-          ev.stopPropagation();
-
-          const label = item.textContent || "";
-          if (!label) return;
-
-          addToken(label);
-          inputEl.value = "";
-
-          closeDD();
-
-          // garder le focus (optionnel) — mais sans forcer des scrolls
-          try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
-        };
-
-      // Triple binding = robuste Android + émulation
-      dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
-      dd.addEventListener("touchstart", onPickFromDD, { passive: false });
-      dd.addEventListener("click", onPickFromDD);
       }
 
       return dd;
@@ -719,7 +773,7 @@ function createChipBox({
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
             
-            // input / focus : doit ouvrir la dropdown même sans taper 
+    // input / focus : doit ouvrir la dropdown même sans taper 
     inputEl.addEventListener("focus", () => {
       // 1) viewport fix clavier
       try { kbFix.apply(); } catch {}
@@ -802,6 +856,17 @@ function createChipBox({
     document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
     document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
 
+    function cleanupGlobalListeners() {
+      document.removeEventListener("pointerup", onGlobalPick, true);
+      document.removeEventListener("touchend",  onGlobalPick, true);
+
+      window.visualViewport?.removeEventListener("resize", schedulePositionDD);
+      window.visualViewport?.removeEventListener("scroll", schedulePositionDD);
+
+      window.removeEventListener("scroll", schedulePositionDD);
+      getScrollContainer()?.removeEventListener("scroll", schedulePositionDD);
+    }
+
     // ============ API / init ============
     // Informe le enableKeyboardAutoScroll (auto scroller par défaut) de ne pas agir
     inputEl.dataset.keyboardManaged = "true";
@@ -811,7 +876,6 @@ function createChipBox({
 
     const kbFix = installKeyboardViewportFix();
     const { addToken, removeToken, setValues, getValues } = initChipBoxCore(refreshSuggestions);
-
     ensureDD(); 
     refreshSuggestions();
 
@@ -826,6 +890,7 @@ function createChipBox({
         refreshSuggestions();
       },
       destroy() {
+        try { cleanupGlobalListeners(); } catch {}
         try { kbFix.cleanup(); } catch {}
         try { dd?.remove(); } catch {}
         dd = null;
@@ -2648,8 +2713,8 @@ export function openSheetFiltres(gridId) {
 
   openSheetExclusive({
     title: "Filtres",
-    panelHeight: "50vh",
-    panelMaxHeight: "50vh",
+    panelHeight: "auto",
+    panelMaxHeight: "85vh",
     mount: (body, { close }) => {
 
       // ─────────────────────────────────────────────
@@ -2721,6 +2786,10 @@ export function openSheetFiltres(gridId) {
         return out;
       }
 
+      function getColName(col) {
+        return (col.colId == "__desc_summary") ? "Description" : col.headerName || col.field || "";
+      }
+
       // ─────────────────────────────────────────────
       // Markup
       // ─────────────────────────────────────────────
@@ -2736,14 +2805,14 @@ export function openSheetFiltres(gridId) {
 
         return `
           <div class="form-row filter-row" data-field="${colId}">
-            <label>${col.headerName}</label>
+            <label>${getColName(col)}</label>
 
             <div class="input-wrap${hasVal}">
               <div class="chipbox" id="prog-style-chipbox" data-field="${colId}">
                 <div class="chipbox-inputwrap">
                   <input type="text"
                         id="filter-${colId}"
-                        placeholder="Ajouter ${col.headerName}"
+                        placeholder="Ajouter ${getColName(col)}"
                         class="chipbox-input bb-input">
                   <datalist id="dl-filter-style"></datalist>
                 </div>
@@ -2785,21 +2854,22 @@ export function openSheetFiltres(gridId) {
 
       for (const col of columns) {
         const field = col.field;
-
+        
         const inputEl = body.querySelector(`#filter-${field}`);
         const boxEl = inputEl?.closest?.(".chipbox");
         if (!boxEl || !inputEl) continue;
 
         const cur = currentFilters[field] || {};
-        const initialRaw =
-          Array.isArray(cur.values) ? cur.values : (cur.filter ? [cur.filter] : []);
-        // const initial = (initialRaw || []).map(sanitizeValue).filter(Boolean);
         const initial = (cur.filter ? String(cur.filter).split("|") : [])
           .map(s => s.trim())
           .filter(Boolean);
 
 
-        const suggestions = buildSuggestionsForField(field, allRows);
+        let suggestions = [];
+        const noSggestionCols = ["__desc_summary", "__distribution"];
+        if (!noSggestionCols.includes(field)) {
+          suggestions = buildSuggestionsForField(field, allRows);
+        }
 
         const inst = createChipBox({
           boxEl,
@@ -2807,7 +2877,7 @@ export function openSheetFiltres(gridId) {
           datalistEl: null,
           initial,
           suggestions,
-          useCustomDropdown: true, // contourne iOS si ton implé le gère
+          useCustomDropdown: true, // contourne datalist iOS 
           scrollerEl: body.closest(".sheet-wrap")?.querySelector(".sheet-body") || null,
           onChange: () => {
             // sync has-val
