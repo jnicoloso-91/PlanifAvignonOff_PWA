@@ -10,10 +10,12 @@ import {
 
 import { 
   dateToDateint,
+  dateintStrToPretty,
   mmFromHHhMM,
   mmToHHhMM,
   isoDateToLocalDate,
   localDateToIsoDate,
+  prettyToDateint,
 } from './utils-date.js';
 
 import { 
@@ -281,9 +283,10 @@ function createChipBox({
         inputEl.focus();
     });
 
-    // Entrée ou virgule => créer chip
+    // Entrée => créer chip (pas virgule)
     inputEl.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" || ev.key === ",") {
+      // if (ev.key === "Enter" || ev.key === ",") {
+      if (ev.key === "Enter") {
         ev.preventDefault();
         addToken(inputEl.value);
         inputEl.value = "";
@@ -410,6 +413,21 @@ function createChipBox({
       if (dd) renderDD();
     }
 
+    let lastCommitAt = 0;
+
+    function commitInputAsChip() {
+      const now = Date.now();
+      if (now - lastCommitAt < 200) return;
+      lastCommitAt = now;
+
+      const v = normToken(inputEl.value || "");
+      if (!v) return;
+
+      addToken(v);
+      inputEl.value = "";
+      refreshSuggestions();
+    }
+
     // function ensureDD() {
     //   if (dd) return dd;
 
@@ -493,7 +511,7 @@ function createChipBox({
 
         addToken(label);
         inputEl.value = "";
-        closeDD();
+        closeDD({ reason: "pick" });
 
         // garder le focus (optionnel) — mais sans forcer des scrolls
         try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
@@ -537,11 +555,18 @@ function createChipBox({
       isOpen = true;
     }
 
-    function closeDD() {
+    function closeDD({ reason = "manual" } = {}) {
       if (!dd) return;
       dd.classList.remove("open");
       dd.hidden = true;
       isOpen = false;
+
+      // ✅ commit “standard input” (même si suggestions existent)
+      // mais PAS si on ferme suite à un pick ou un focus input.
+      const shouldCommit =
+        (reason === "outside" || reason === "blur" || reason === "escape");
+
+      if (shouldCommit) commitInputAsChip();
     }
 
     function renderDD() {
@@ -682,10 +707,10 @@ function createChipBox({
       if (!isOpen) return;
 
       const xy = getClientXY(ev);
-      if (!xy) { closeDD(); return; }
+      if (!xy) { closeDD({ reason: "abort" }); return; }
 
       const hit = document.elementFromPoint(xy.x, xy.y);
-      if (!(hit instanceof Element)) { closeDD(); return; }
+      if (!(hit instanceof Element)) { closeDD({ reason: "abort" }); return; }
 
       // 1) item dropdown => select
       const item = hit.closest(".chipbox-dditem");
@@ -709,7 +734,7 @@ function createChipBox({
       // 3) tap dans le wrap input (mais pas input) => fermer
       const wrap = hit.closest(".chipbox-inputwrap");
       if (wrap && boxEl && boxEl.contains(wrap)) {
-        closeDD();
+        closeDD({ reason: "outside" });
         return;
       }
 
@@ -717,7 +742,7 @@ function createChipBox({
       // if (boxEl && boxEl.contains(hit)) return;
       if (dd && dd.contains(hit)) return;
 
-      closeDD();
+      closeDD({ reason: "outside" });
     }
 
     let ignoreVVUntil = 0;
@@ -811,7 +836,7 @@ function createChipBox({
       if (dd) openDD();
     });
 
-    // Entrée / virgule => chip
+    // Entrée => chip (pas virgule)
     inputEl.addEventListener("keydown", (ev) => {
       // navigation dropdown custom si ouverte
       if (dd && isOpen && filtered.length) {
@@ -839,7 +864,8 @@ function createChipBox({
       }
 
       // création chip (mode normal)
-      if (ev.key === "Enter" || ev.key === ",") {
+      // if (ev.key === "Enter" || ev.key === ",") {
+      if (ev.key === "Enter") {
         ev.preventDefault();
         if (inputEl.value) addToken(inputEl.value);
         inputEl.value = "";
@@ -2094,633 +2120,13 @@ export function openSheetCoherence(rows, {
 }
 
 // Feuille Filtres 
-// export function openSheetFiltres(gridId) {
-//   const gridApi = window.grids?.get?.(gridId)?.api;
-//   if (!gridApi) return;
-
-//   const currentFilters = gridApi.getFilterModel?.() || {};
-//   const columns = (gridApi.getColumnDefs?.() || []).filter(col => col.filter);
-//   const fields = columns.map(c => c.field);
-
-//   openSheetExclusive({
-//     title: 'Filtres',
-//     panelHeight: '50vh',
-//     panelMaxHeight: '50vh',
-//     mount: (body, { close }) => {
-//       // ===== Markup =====
-//       const rowsHtml = columns.map(col => {
-//         const colId = col.field;
-//         const value = currentFilters[colId]?.filter || '';
-//         const hasVal = value ? ' has-val' : '';
-//         return `
-//           <div class="form-row filter-row">
-//             <label for="filter-${colId}">${col.headerName}</label>
-//             <div class="input-wrap${hasVal}">
-//               <button type="button" class="btn-clear" data-field="${colId}" aria-label="Effacer le filtre ${col.headerName}" title="Effacer">×</button>
-//               <input type="text" id="filter-${colId}" value="${value}" placeholder="Filtrer ${col.headerName}" class="filter-input">
-//             </div>
-//           </div>
-//         `;
-//       }).join('');
-
-//       body.innerHTML = `
-//         <div class="form">
-//           ${rowsHtml}
-//         </div>
-//         <div id="dl-container" hidden></div>
-//         <div class="sheet-footer has-border">
-//           <div class="form-actions">
-//             <button id="btn-clear" class="bb-btn is-primary">Réinitialiser</button>
-//             <button id="btn-apply" class="bb-btn is-primary">Appliquer</button>
-//           </div>
-//         </div>
-//       `;
-
-//       // ===== CSS inline minimal (une seule fois) =====
-//       if (!document.getElementById('filters-inline-css')) {
-//         const style = document.createElement('style');
-//         style.id = 'filters-inline-css';
-//         style.textContent = `
-//           .filter-row .input-wrap { position: relative; display:flex; align-items:center; gap:.5rem; }
-//           .filter-row .btn-clear {
-//             width: 1.8rem; height: 1.8rem; line-height: 1.6rem;
-//             border: 1px solid var(--bb-border,#ccc); border-radius:.4rem;
-//             background: var(--bb-bg,#f5f5f5); cursor: pointer; flex: 0 0 auto;
-//             display: none; font-weight: 600; font-size: 1rem;
-//           }
-//           .filter-row .input-wrap.has-val .btn-clear { display: inline-block; }
-//           .filter-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
-//           @media (hover:hover) {
-//             .filter-row .btn-clear:hover { background:#eee; }
-//           }
-//           /* Hook repaint pour casser les "zones mortes" iOS */
-//           .sheet-wrap.repaint { transform: translateZ(0); }
-//         `;
-//         document.head.appendChild(style);
-//       }
-
-//       // Préremplir inputs avec la valeur SANITIZÉE + stocker la RAW d'origine
-//       columns.forEach(col => {
-//         const raw = currentFilters[col.field]?.filter ?? '';
-//         const san = sanitizeDatalistValue(raw);
-//         const inp = body.querySelector(`#filter-${col.field}`);
-//         if (!inp) return;
-//         inp.value = san;
-//         inp.dataset.rawDefault = String(raw);
-//         inp.dataset.modified = 'false';
-//       });
-
-//       // ===== Helpers list/datalist =====
-//       function scrollPageToRevealFooter(footerEl, { margin = 12, smooth = true } = {}) {
-//         if (!footerEl) return;
-//         // viewport visible (en tenant compte d'un éventuel offset top du visualViewport)
-//         const vpTop = vv ? vv.offsetTop : 0;
-//         const vpH   = vv ? vv.height   : window.innerHeight;
-
-//         const rect  = footerEl.getBoundingClientRect();
-//         const bottomLimit = vpTop + vpH - margin; // limite basse utile
-
-//         if (rect.bottom > bottomLimit) {
-//           const delta = rect.bottom - bottomLimit;
-//           window.scrollTo({
-//             top: window.scrollY + delta,
-//             behavior: smooth ? 'smooth' : 'auto'
-//           });
-//         }
-//       }
-
-//       // scrolle UNIQUEMENT si la row est masquée par clavier+footer
-//       function scrollRowIfOccluded(input, { smooth = true } = {}) {
-//         if (!sheetBody) return;
-//         const row = input.closest('.form-row') || input;
-//         const r = row.getBoundingClientRect();
-
-//         const safeH = vv ? vv.height : window.innerHeight;
-//         const footerH = footer?.getBoundingClientRect?.().height || 0;
-//         const margin = 12;
-
-//         // lim inf visible au-dessus du clavier et du footer
-//         const bottomLimit = safeH - footerH - margin;
-
-//         // si la row déborde sous la limite, on avance le scroll juste ce qu’il faut
-//         if (r.bottom > bottomLimit) {
-//           const delta = r.bottom - bottomLimit;
-//           sheetBody.scrollBy({ top: delta, behavior: smooth ? 'smooth' : 'auto' });
-//         }
-//       }
-//       // Remplace CR/LF réels ET littéraux (\r\n, \n, \r) par un espace pour l’affichage
-//       function sanitizeDatalistValue(s) {
-//         return String(s)
-//           .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, ' ')
-//           .replace(/\s+/g, ' ')
-//           .trim();
-//       }
-//       // Si l’utilisateur tape "\r\n", on peut (optionnel) le retransformer en vrai saut de ligne
-//       function unescapeCRLF(s) {
-//         return String(s).replace(/\\r\\n|\\n|\\r/g, '\n');
-//       }
-//       function collectRowsFromGrid(api, mode = 'all') {
-//         const out = [];
-//         if (mode === 'afterFilter' && api.forEachNodeAfterFilterAndSort) {
-//           api.forEachNodeAfterFilterAndSort(n => { if (n?.data) out.push(n.data); });
-//         } else if (api.forEachLeafNode) {
-//           api.forEachLeafNode(n => { if (n?.data) out.push(n.data); });
-//         } else if (api.getDisplayedRowCount) {
-//           const cnt = api.getDisplayedRowCount();
-//           for (let i = 0; i < cnt; i++) {
-//             const rowNode = api.getDisplayedRowAtIndex(i);
-//             if (rowNode?.data) out.push(rowNode.data);
-//           }
-//         }
-//         return out;
-//       }
-//       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
-//         const set = new Set();
-//         for (const r of rows || []) {
-//           let v = r?.[field];
-//           if (v == null || v === '') { if (!includeEmpty) continue; v = '∅'; }
-//           set.add(String(v));
-//           if (set.size >= max) break;
-//         }
-//         return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
-//       }
-
-//       // Returns unique words extracted from values of a field.
-//       // For each value (assumed possibly a CSV/list), split by `sep`, trim and collect unique tokens.
-//       function uniqueWords(rows, field, { max = 500, includeEmpty = false, sep = ',' } = {}) {
-//         const rawVals = uniqueValues(rows, field, { max, includeEmpty });
-//         const set = new Set();
-//         for (const v of rawVals) {
-//           if (!v) continue;
-//           const parts = String(v).split(sep);
-//           for (const p of parts) {
-//             const w = p.trim();
-//             if (!w) continue;
-//             set.add(w);
-//             if (set.size >= max) break;
-//           }
-//           if (set.size >= max) break;
-//         }
-//         return [...set].sort((a,b)=>a.localeCompare(b,'fr',{numeric:true,sensitivity:'base'}));
-//       }
-//       function wireDatalistForField(field, rows) {
-//         const input = body.querySelector(`#filter-${field}`);
-//         if (!input) return;
-//         const listId = `dl-${field}`;
-//         const dlContainer = body.querySelector('#dl-container');
-//         let dl = body.querySelector(`#${listId}`);
-//         if (!dl) {
-//           dl = document.createElement('datalist');
-//           dl.id = listId;
-//           dlContainer.appendChild(dl);
-//         }
-//         input.setAttribute('list', listId);
-//         const values = uniqueValues(rows, field);
-//         dl.replaceChildren(...values.map(v => {
-//           const o = document.createElement('option');
-//           o.value = v;
-//           return o;
-//         }));
-//       }
-      
-//       function wireDatalistForField(field, rows) {
-//         const input = body.querySelector(`#filter-${field}`);
-//         if (!input) return;
-//         const listId = `dl-${field}`;
-//         const dlContainer = body.querySelector('#dl-container');
-//         let dl = body.querySelector(`#${listId}`);
-//         if (!dl) {
-//           dl = document.createElement('datalist');
-//           dl.id = listId;
-//           dlContainer.appendChild(dl);
-//         }
-//         input.setAttribute('list', listId);
-
-//         const rawValues = uniqueValues(rows, field);
-//         dl.replaceChildren(); // reset
-
-//         // éviter les doublons après sanitization
-//         const seenSanitized = new Set();
-//         for (const raw of rawValues) {
-//           const san = sanitizeDatalistValue(raw);
-//           if (!san) continue;
-//           if (seenSanitized.has(san)) continue;
-//           seenSanitized.add(san);
-
-//           const o = document.createElement('option');
-//           o.value = san;           // ce que voit/saisit l’utilisateur
-//           o.dataset.raw = String(raw); // la valeur brute (avec éventuels \r\n réels)
-//           dl.appendChild(o);
-//         }
-//       }
-//       function wireDatalistForFieldWords(field, rows) {
-//         const input = body.querySelector(`#filter-${field}`);
-//         if (!input) return;
-//         const listId = `dl-${field}`;
-//         const dlContainer = body.querySelector('#dl-container');
-//         let dl = body.querySelector(`#${listId}`);
-//         if (!dl) {
-//           dl = document.createElement('datalist');
-//           dl.id = listId;
-//           dlContainer.appendChild(dl);
-//         }
-//         input.setAttribute('list', listId);
-
-//         const words = uniqueWords(rows, field);
-//         dl.replaceChildren(); // reset
-//         for (const w of words) {
-//           const san = sanitizeDatalistValue(w);
-//           if (!san) continue;
-//           const o = document.createElement('option');
-//           o.value = san;
-//           o.dataset.raw = String(w);
-//           dl.appendChild(o);
-//         }
-//       }
-
-//       function buildFilterLists(rows, fields) {
-//         fields.forEach(f => {
-//           try {
-//             if (String(f).toLowerCase() === 'mood') {
-//               wireDatalistForFieldWords(f, rows);
-//             } else {
-//               wireDatalistForField(f, rows);
-//             }
-//           } catch (e) {
-//             console.warn('buildFilterLists error for field', f, e);
-//           }
-//         });
-//       }
-//       buildFilterLists(collectRowsFromGrid(gridApi, 'all'), fields);
-
-//       const sheet     = body.closest('.sheet-wrap') || document.querySelector('.sheet-wrap.is-open');
-//       const sheetBody = sheet?.querySelector('.sheet-body') || body;
-//       const footer    = sheet?.querySelector('.sheet-footer');
-//       const vv        = window.visualViewport;
-//       const scrollEl  = sheet?.querySelector('.sheet-body .form') || body;
-
-//       // **************************************
-//       // Section avec menus plutot que datalist
-//       // Resoud le pb de détachement de la datalist de son champ input sur IPad 
-//       // mais reste un pb de scroll insuffisant du menu sur IOS lorsque le clavier est affiché
-//       // et des menus qui parfois ne se ferment pas lorsque l'on ferme la sheet
-//       // function attachAutocomplete(inp, values, {max=300, minChars=0} = {}) {
-//       //   let box = null, selIdx = -1, open = false;
-//       //   const vv = window.visualViewport;
-
-//       //   function makeBox() {
-//       //     if (box) return box;
-//       //     box = document.createElement('div');
-//       //     box.className = 'bb-ac';
-//       //     box.setAttribute('role','listbox');
-//       //     box.hidden = true;
-//       //     document.body.appendChild(box);
-//       //     return box;
-//       //   }
-//       //   function posBox() {
-//       //     if (!box) return;
-//       //     const r = inp.getBoundingClientRect();
-//       //     const gap = 4;
-//       //     const top = r.bottom + gap + (vv ? vv.offsetTop : 0);
-//       //     const left = r.left + (vv ? vv.offsetLeft : 0);
-//       //     box.style.top = `${top}px`;
-//       //     box.style.left = `${left}px`;
-//       //     box.style.minWidth = `${r.width}px`;
-//       //   }
-//       //   function render(list) {
-//       //     const b = makeBox();
-//       //     b.innerHTML = '';
-//       //     selIdx = -1;
-//       //     const frag = document.createDocumentFragment();
-//       //     list.slice(0, max).forEach((v, i) => {
-//       //       const it = document.createElement('div');
-//       //       it.className = 'bb-ac__item';
-//       //       it.setAttribute('role','option');
-//       //       it.textContent = v;
-//       //       it.addEventListener('mousedown', (e) => {
-//       //         e.preventDefault();          // empêche blur avant click
-//       //         commit(v);
-//       //       });
-//       //       frag.appendChild(it);
-//       //     });
-//       //     b.appendChild(frag);
-//       //     open = list.length > 0;
-//       //     b.hidden = !open;
-//       //     if (open) posBox();
-//       //   }
-//       //   function commit(val) {
-//       //     inp.value = val;
-//       //     hide();
-//       //     // ferme le clavier pour libérer le footer, à la manière de ta sheet
-//       //     inp.blur?.();
-//       //     setTimeout(() => {
-//       //       const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
-//       //       if (!footer) return;
-//       //       const r = footer.getBoundingClientRect();
-//       //       const vh = window.innerHeight;
-//       //       if (r.bottom > vh) {
-//       //         window.scrollTo({ top: window.scrollY + (r.bottom - vh) + 8, behavior: 'smooth' });
-//       //       }
-//       //     }, 40);
-//       //     // propage tes hooks existants
-//       //     inp.dispatchEvent(new Event('input', { bubbles:true }));
-//       //     inp.dispatchEvent(new Event('change', { bubbles:true }));
-//       //   }
-//       //   function hide() {
-//       //     open = false;
-//       //     if (box) box.hidden = true;
-//       //   }
-//       //   function items() { return box ? Array.from(box.querySelectorAll('.bb-ac__item')) : []; }
-//       //   function highlight(idx) {
-//       //     selIdx = idx;
-//       //     items().forEach((el,i)=>el.setAttribute('aria-selected', String(i===idx)));
-//       //   }
-//       //   function move(delta) {
-//       //     const it = items();
-//       //     if (!it.length) return;
-//       //     let n = selIdx + delta;
-//       //     if (n < 0) n = it.length - 1;
-//       //     if (n >= it.length) n = 0;
-//       //     highlight(n);
-//       //     it[n].scrollIntoView({ block:'nearest' });
-//       //   }
-
-//       //   // filtres (tu peux remplacer par ta sanitize/normalize)
-//       //   const normalize = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-//       //   function filterNow() {
-//       //     const q = normalize(inp.value);
-//       //     if (q.length < minChars) { hide(); return; }
-//       //     const out = [];
-//       //     for (const v of values) {
-//       //       if (normalize(v).includes(q)) out.push(v);
-//       //     }
-//       //     render(out);
-//       //   }
-
-//       //   // events
-//       //   inp.addEventListener('focus', () => { filterNow(); posBox(); });
-//       //   inp.addEventListener('input', filterNow);
-//       //   inp.addEventListener('keydown', (e) => {
-//       //     if (!open) return;
-//       //     if (e.key === 'ArrowDown') { e.preventDefault(); move(+1); }
-//       //     else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
-//       //     else if (e.key === 'Enter') { 
-//       //       if (selIdx >= 0) { e.preventDefault(); commit(items()[selIdx].textContent); }
-//       //       else hide();
-//       //     } else if (e.key === 'Escape') { hide(); }
-//       //   });
-//       //   inp.addEventListener('blur', () => setTimeout(hide, 100)); // laisse le click se faire
-
-//       //   // suivre déplacements/clavier iOS
-//       //   const rePos = () => { if (open) posBox(); };
-//       //   window.addEventListener('scroll', rePos, true);
-//       //   window.addEventListener('resize', rePos);
-//       //   vv?.addEventListener('resize', rePos);
-//       //   vv?.addEventListener('scroll', rePos);
-
-//       //   return {
-//       //     destroy() {
-//       //       window.removeEventListener('scroll', rePos, true);
-//       //       window.removeEventListener('resize', rePos);
-//       //       vv?.removeEventListener('resize', rePos);
-//       //       vv?.removeEventListener('scroll', rePos);
-//       //       box?.remove();
-//       //       box = null;
-//       //     }
-//       //   };
-//       // }
-
-//       // // 1️⃣ Récupère les valeurs uniques pour chaque champ filtrable
-//       // const sourceRows = collectRowsFromGrid(gridApi, 'all');
-//       // const valuesByField = Object.fromEntries(
-//       //   fields.map(f => [f, uniqueValues(sourceRows, f)])
-//       // );
-
-//       // // 2️⃣ Attache un autocompléteur custom sur chaque input
-//       // const acHandles = [];
-//       // body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
-//       //   const field = inp.id.replace(/^filter-/, '');
-//       //   const values = valuesByField[field] || [];
-//       //   const ac = attachAutocomplete(inp, values, { max: 500, minChars: 0 });
-//       //   acHandles.push(ac);
-//       // });
-
-//       // // 3️⃣ Nettoyage à la fermeture de la sheet (optionnel)
-//       // const sw = document.querySelector('.sheet-wrap.is-open');
-//       // if (sw) {
-//       //   sw.addEventListener('transitionend', (ev) => {
-//       //     if (!sw.classList.contains('is-open')) {
-//       //       acHandles.forEach(h => h.destroy());
-//       //     }
-//       //   });
-//       // }
-//       // **************************************
-
-//       // hooks visualViewport (iOS)
-//       // if (vv) {
-//       //   const onVV = () => applyInsets();
-//       //   vv.addEventListener('resize', onVV);
-//       //   vv.addEventListener('scroll', onVV);
-//       //   // cleanup quand la sheet est détruite
-//       //   const mo = new MutationObserver(() => {
-//       //     if (sheet && !document.body.contains(sheet)) {
-//       //       vv.removeEventListener('resize', onVV);
-//       //       vv.removeEventListener('scroll', onVV);
-//       //       mo.disconnect();
-//       //     }
-//       //   });
-//       //   mo.observe(document.body, { childList: true, subtree: true });
-//       // }
-//       // applyInsets();
-      
-//       // ===== RAZ par champ (×) + sync has-val =====
-//       body.addEventListener('click', (e) => {
-//         const btn = e.target.closest('.btn-clear');
-//         if (!btn) return;
-//         const field = btn.dataset.field;
-//         const input = body.querySelector(`#filter-${field}`);
-//         if (!input) return;
-//         input.value = '';
-//         input.dispatchEvent(new Event('input', { bubbles: true }));
-//         btn.parentElement.classList.remove('has-val');
-//         input.focus();
-//       });
-
-//       body.querySelectorAll('.filter-row .filter-input').forEach(inp => {
-//         const wrap = inp.closest('.input-wrap');
-//         const sync = () => wrap.classList.toggle('has-val', !!inp.value.trim());
-//         const markModified = () => { inp.dataset.modified = 'true'; };
-//         const footer = document.querySelector('.sheet-wrap.is-open .sheet-footer');
-
-//         // Tape clavier → on ne scrolle PAS (évite les “sauts”)
-//         inp.addEventListener('input', () => {
-//           sync();
-//           markModified();
-//         });
-
-//         // Focus → scroller la ROW si masquée
-//         inp.addEventListener('focus', () => {
-//           // applyInsets();
-//           // petit rafraîchissement visuel avant calcul
-//           requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: false }));
-//         });
-
-//         // Sélection via datalist → scroller la ROW si masquée
-//         inp.addEventListener('change', () => {
-//           sync();
-//           markModified();
-//           // applyInsets();
-//           // requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
-//           inp.blur();
-//           setTimeout(() => {
-//             scrollPageToRevealFooter(footer, { smooth: true });
-//           }, 50);
-//         });
-
-//         // Enter : sécurise aussi
-//         inp.addEventListener('keydown', (ev) => {
-//           if (ev.key === 'Enter') {
-//             requestAnimationFrame(() => scrollRowIfOccluded(inp, { smooth: true }));
-//           }
-//           if (ev.key === 'Escape') {
-//             inp.value = '';
-//             inp.dispatchEvent(new Event('input', { bubbles: true }));
-//           }
-//         });
-
-//         sync(); // init visuelle
-//       });
-
-
-//       // ===== Appliquer / hMaxCur=====
-//       const applyBtn = body.querySelector('#btn-apply');
-//       const clearBtn = body.querySelector('#btn-clear');
-//       applyBtn.addEventListener('click', () => {
-//         const newModel = {};
-//         columns.forEach(col => {
-//           const inp = body.querySelector(`#filter-${col.field}`);
-//           if (!inp) return;
-
-//           const valSan = (inp.value || '').trim();
-//           const rawDefault = inp.dataset.rawDefault || '';
-//           const modified = inp.dataset.modified === 'true';
-
-//           if (!valSan && !rawDefault) return;
-
-//           let filterVal = null;
-
-//           if (!modified && rawDefault) {
-//             // L’utilisateur n’a rien changé → réappliquer EXACTEMENT la valeur brute précédente
-//             filterVal = rawDefault;
-//           } else {
-//             // L’utilisateur a modifié (ou pas de rawDefault) → tenter de retrouver l’option correspondante
-//             const dl = body.querySelector(`#dl-${col.field}`);
-//             if (dl) {
-//               let matchedRaw = null;
-//               for (const opt of dl.options) {
-//                 if (opt.value === valSan) { matchedRaw = opt.dataset.raw || null; break; }
-//               }
-//               filterVal = matchedRaw ?? unescapeCRLF(valSan);
-//             } else {
-//               filterVal = unescapeCRLF(valSan);
-//             }
-//           }
-
-//           if (filterVal) newModel[col.field] = { type: 'contains', filter: filterVal };
-//         });
-
-//         gridApi.setFilterModel(newModel);
-//         gridApi.onFilterChanged?.();
-//         if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
-//         close();
-//       });
-
-//       clearBtn.addEventListener('click', () => {
-//         gridApi.setFilterModel({});
-//         gridApi.onFilterChanged?.();
-//         if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
-//         close();
-//       });
-
-//       // ===== iOS/iPadOS keyboard-safe: gérer la "zone morte" au repli du clavier =====
-//       // expose hauteur footer pour padding initial
-//       if (sheet) sheet.style.setProperty('--sheet-footer-h', `${footer?.offsetHeight || 0}px`);
-//       if (scrollEl && sheet) scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
-
-//       let kbOpen = false;
-//       const handlers = [];
-
-//       const onVVChange = () => {
-//         if (!sheet || !scrollEl || !vv) return;
-//         // heuristique d’ouverture clavier
-//         const isOpen = (window.innerHeight - vv.height) > 120;
-
-//         if (isOpen && !kbOpen) {
-//           kbOpen = true;
-//           const kb = Math.max(0, Math.round(window.innerHeight - vv.height));
-//           sheet.style.setProperty('--kb-inset', kb + 'px');
-//           scrollEl.style.paddingBottom = `calc(var(--sheet-footer-h, 0px) + var(--kb-inset, 0px))`;
-//           scrollEl.style.pointerEvents = 'auto';
-          
-//           // 🔹 NOUVEAU : quand le clavier s’ouvre, on s’assure que le footer est visible
-//           if (footer) {
-//             setTimeout(() => {
-//               scrollPageToRevealFooter(footer, { smooth: true });
-//             }, 30);
-//           }
-//         }
-//         if (!isOpen && kbOpen) {
-//           kbOpen = false;
-//           sheet.style.setProperty('--kb-inset', '0px');
-//           scrollEl.style.paddingBottom = `var(--sheet-footer-h, 0px)`;
-//           // force un léger repaint pour tuer la zone morte
-//           // eslint-disable-next-line no-unused-expressions
-//           sheet.offsetHeight;
-//           sheet.classList.add('repaint');
-//           requestAnimationFrame(() => sheet.classList.remove('repaint'));
-//           scrollEl.style.pointerEvents = 'auto';
-//           // poke scroll pour réveiller WebKit
-//           requestAnimationFrame(() => {
-//             const y = scrollEl.scrollTop;
-//             scrollEl.scrollTop = Math.max(0, y - 1);
-//             scrollEl.scrollTop = Math.max(0, y);
-//           });
-//         }
-//       };
-
-//       const focusoutHandler = () => setTimeout(onVVChange, 50);
-
-//       if (vv) {
-//         vv.addEventListener('resize', onVVChange);
-//         vv.addEventListener('scroll', onVVChange);
-//         handlers.push(() => { vv.removeEventListener('resize', onVVChange); vv.removeEventListener('scroll', onVVChange); });
-//       }
-//       document.addEventListener('focusout', focusoutHandler, true);
-//       handlers.push(() => document.removeEventListener('focusout', focusoutHandler, true));
-
-//       // cleanup quand la sheet disparaît (fermeture par swipe incluse)
-//       const mo = new MutationObserver(() => {
-//         if (sheet && !document.body.contains(sheet)) {
-//           handlers.forEach(fn => { try { fn(); } catch {} });
-//           mo.disconnect();
-//         }
-//       });
-//       mo.observe(document.body, { childList: true, subtree: true });
-
-//       // ===== styles visuels quand focus sur input (optionnel)
-//       document.querySelectorAll('.filter-input').forEach(inp => {
-//         inp.addEventListener('focus', () => sheet?.classList.add('sheet-filters-open'));
-//         inp.addEventListener('blur',  () => sheet?.classList.remove('sheet-filters-open'));
-//       });
-//     }
-//   });
-// }
 export function openSheetFiltres(gridId) {
   const gridApi = window.grids?.get?.(gridId)?.api;
   if (!gridApi) return;
 
   const currentFilters = gridApi.getFilterModel?.() || {};
-  const columns = (gridApi.getColumnDefs?.() || []).filter(col => col.filter);
+  let columns = (gridApi.getColumnDefs?.() || []).filter(col => col.filter);
+  if (gridId === "grid-programmables") columns = columns.filter(el => el.field.toLowerCase() !== "date");
   const fields = columns.map(c => c.field);
 
   openSheetExclusive({
@@ -2785,12 +2191,15 @@ export function openSheetFiltres(gridId) {
 
       function buildSuggestionsForField(field, rows) {
         const isMood = String(field).toLowerCase() === "mood";
+        const isDate = String(field).toLowerCase() === "date";
+
         const raw = isMood ? uniqueWords(rows, field) : uniqueValues(rows, field);
 
         const seen = new Set();
         const out = [];
         for (const v of raw) {
-          const san = sanitizeValue(v);
+          let san = sanitizeValue(v);
+          if (isDate) san = dateintStrToPretty(san);
           if (!san || seen.has(san)) continue;
           seen.add(san);
           out.push(san);
@@ -2800,6 +2209,43 @@ export function openSheetFiltres(gridId) {
 
       function getColName(col) {
         return (col.colId == "__desc_summary") ? "Description" : col.headerName || col.field || "";
+      }
+
+      function wireQuickFilterChipbox(gridId) {
+
+        function parseQuickFilter(qf) {
+          if (!qf) return [];
+
+          return qf
+            .split(" ")
+            .map(s => s.trim())
+            .filter(Boolean);
+        }
+
+        const h = window.grids.get(gridId);
+        const api = h?.api;
+        if (!api) return;
+
+        const boxEl = document.getElementById("qfBox");
+        const inputEl = /** @type {HTMLInputElement | null} */ (document.getElementById("qfInput"));
+
+        if (!boxEl || !inputEl) return;
+
+        // lecture du filtre courant (mode "set" attendu)
+        const initial = parseQuickFilter(api?.getQuickFilter?.() || "");
+
+        // chipbox SANS liste => suggestions=[]
+        const cb = createChipBox({
+          boxEl,
+          inputEl,
+          datalistEl: null,
+          initial,
+          suggestions: [],   // 👈 pas de dropdown
+          useCustomDropdown: true, // contourne datalist iOS 
+          scrollerEl: body.closest(".sheet-wrap")?.querySelector(".sheet-body") || null,
+        });
+
+        return cb;
       }
 
       // ─────────────────────────────────────────────
@@ -2837,6 +2283,20 @@ export function openSheetFiltres(gridId) {
 
       body.innerHTML = `
         <div class="form">
+          <div class="form-row" id="row-qf">
+            <label>Recherche toutes colonnes</label>
+            <div class="chipbox" id="qfBox">
+              <div class="chipbox-inputwrap">
+                <input type="search"
+                      id="qfInput"
+                      placeholder="Tape un mot"
+                      autocomplete="off" 
+                      class="chipbox-input bb-input">
+                <datalist id="dl-filter-style"></datalist>
+              </div>
+              <div class="chipbox-chips"></div>
+            </div>
+          </div>
           ${rowsHtml}
         </div>
         <div class="sheet-footer has-border">
@@ -2864,6 +2324,8 @@ export function openSheetFiltres(gridId) {
       const chipBoxes = new Map(); // field -> instance
       const allRows = collectRowsFromGrid(gridApi, "all");
 
+      const quickChip = wireQuickFilterChipbox(gridId);
+      
       for (const col of columns) {
         const field = col.field;
         
@@ -2872,10 +2334,11 @@ export function openSheetFiltres(gridId) {
         if (!boxEl || !inputEl) continue;
 
         const cur = currentFilters[field] || {};
-        const initial = (cur.filter ? String(cur.filter).split("|") : [])
+        let initial = (cur.filter ? String(cur.filter).split("|") : [])
           .map(s => s.trim())
           .filter(Boolean);
 
+        if (gridId !== "grid-non-programmees" && field.toLowerCase() === "date") initial = initial.map(dateintStrToPretty);
 
         let suggestions = [];
         const noSggestionCols = ["__desc_summary", "__distribution"];
@@ -2907,48 +2370,33 @@ export function openSheetFiltres(gridId) {
       const applyBtn = body.querySelector("#btn-apply");
       const clearBtn = body.querySelector("#btn-clear");
 
-      // applyBtn.addEventListener("click", () => {
-      //   const newModel = {};
-
-      //   for (const col of columns) {
-      //     const field = col.field;
-      //     const inst = chipBoxes.get(field);
-      //     if (!inst) continue;
-
-      //     const values = inst.getValues()
-      //       .map(sanitizeValue)
-      //       .filter(Boolean);
-
-      //     if (values.length) {
-      //       newModel[field] = {
-      //         filterType: "set",
-      //         values
-      //       };
-      //     }
-      //   }
-
-      //   gridApi.setFilterModel(newModel);
-      //   gridApi.onFilterChanged?.();
-      //   if (typeof isProgrammeCalendarVisible === "function" && isProgrammeCalendarVisible()) {
-      //     if (typeof rerenderProgrammeCalendar === "function") rerenderProgrammeCalendar();
-      //   }
-      //   close();
-      // });
       applyBtn.addEventListener("click", () => {
         const OR_SEP = "|";
         const newModel = {};
+
+        const q = (quickChip.getValues?.() || []).join(" ").trim();
+        gridApi.setQuickFilter?.(q);
 
         columns.forEach(col => {
           const field = col.field;
           const inst = chipBoxes.get(field);
           if (!inst) return;
 
-          const values = inst.getValues()
+          let values = inst.getValues()
             .map(v => String(v).trim())
             .filter(Boolean);
 
           if (!values.length) return;
 
+          if (gridId == "grid-non-programmees" && field.toLowerCase() === "date") {
+            newModel[field] = { 
+              filter: values.join(OR_SEP) 
+            };
+            return;
+          }
+
+          if (field.toLowerCase() === "date") values = values.map(prettyToDateint);
+          
           newModel[field] = {
             filterType: "text",
             type: "contains",
@@ -2964,6 +2412,8 @@ export function openSheetFiltres(gridId) {
       });
 
       clearBtn.addEventListener("click", () => {
+        quickChip.setValues?.([]);
+        gridApi.setQuickFilter?.("");
         gridApi.setFilterModel({});
         gridApi.onFilterChanged?.();
         if (typeof isProgrammeCalendarVisible === "function" && isProgrammeCalendarVisible()) {

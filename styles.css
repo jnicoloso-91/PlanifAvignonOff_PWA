@@ -1152,7 +1152,7 @@ main, .page-wrap {
   isolation: isolate;
   position: fixed;
   z-index: 4000;
-  min-width: 180px;
+  min-width: 100px;
   background: #fff;
   color: #111 !important;
   border: 1px solid rgba(0,0,0,.08);

@@ -977,7 +977,7 @@ export function attachProgrammeCalendarHeightSync() {
   const ro = new ResizeObserver(() => apply());
   ro.observe(body);
 
-  // si ton expander anime sa height via transition, un petit "rappel"
+  // si expander anime sa height via transition, un petit "rappel"
   body.addEventListener("transitionend", (e) => {
     if (e.propertyName === "height") apply();
   });

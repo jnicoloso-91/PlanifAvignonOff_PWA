@@ -191,6 +191,8 @@ export function dateintToPretty(di) {
   return '';
 }
 
+export const dateintStrToPretty = (d) => dateintToPretty(Number(d)); 
+
 export function ymdToDateint({ y, m, d }) { return y*10000 + m*100 + d; }
 
 export function safeDateint(v) {

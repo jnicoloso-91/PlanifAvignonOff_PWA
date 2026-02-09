@@ -20,20 +20,22 @@ import {
   sortDf, 
 } from './activites.js'; 
 
-import {
-  openKebabMenu,
-} from './menus.js';
+// import {
+//   openKebabMenu,
+//   doAjouterColonne,
+//   doSupprimerColonne,
+// } from './menus.js';
 
 import {
   grids,
   getSelectedRowSafe,
   getSelectedRow,
-  getRowsFromGridId,
   selectRowByUuid,
   getLigneVoisineUuid,
-  rebuildColumnsForActiviteGrids,
   refreshGrid,
   dropRowFromSrcGridToDstGrid,
+  refreshAllGrids,
+  ensurePrioColumnVisible,
 } from './grids.js';
 
 import {
@@ -51,33 +53,6 @@ const $ = id => document.getElementById(id);
 const MIN_OPEN_PX = 16;          // jamais ouvrir en dessous de ça
 const ANIM_TIMEOUT_OPEN  = 900;  // fallback Safari si pas de transitionend
 const ANIM_TIMEOUT_CLOSE = 700;
-
-// Colonnes obligatoires d'un tableau d'activités
-const MANDATORY_COLS = new Set([
-  'Activite',
-  'Date',
-  'Debut',
-  'Duree',
-  'Fin',
-  'Lieu',
-  'Session',
-  'Relache',
-  'Style',
-  'Mood',
-  'Orga',
-  'Reserve',
-  'Priorite',
-  'Note',
-  'Hyperlien',
-  'HyperlienGoogle',
-  'HyperlienBR',
-  'Description',
-  'Distribution',
-  'Avis',
-  '__desc_summary',
-  '__avis_summary',
-  '__uuid'
-]);
 
 // =======================
 // Expanders
@@ -579,6 +554,9 @@ export function wireExpanders(){
 
 export function wireExpanderButtons() {
 
+  // Toggle Vue Programme (Grid <-> Calendrier Jour) sur exp-programmees
+  wireProgrammeCalendarToggle();
+
   // Bouton Filtres sur Activités Programmées
   if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
     expanderId: 'exp-programmees',
@@ -625,9 +603,6 @@ export function wireExpanderButtons() {
     onClick: async () => {await doDeprogrammerActivite();},
   });
   
-  // Toggle Vue Programme (Grid <-> Calendrier Jour) sur exp-programmees
-  wireProgrammeCalendarToggle();
-
   // Bouton Filtres sur Activités Programmables
   if (agGridHasHeaderFilters('grid-programmables')) addExpanderButton({
     expanderId: 'exp-programmables',
@@ -672,31 +647,50 @@ export function wireExpanderButtons() {
   });
 
   // Bouton Colonnes sur Activités Non Programmées
+  // if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
+  //   expanderId: 'exp-non-programmees',
+  //   id: 'btn-col-non-prog',
+  //   title: 'Colonnes', 
+  //   innerHTML: `
+  //     <span class="exp-icon" aria-hidden="true">
+  //       <!-- Icône Colonnes -->
+  //       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+  //           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  //         <path d="M12 8a4 4 0 1 1 0 8a4 4 0 0 1 0-8z" />
+  //         <path d="M3 12h2m14 0h2M12 3v2m0 14v2
+  //                 M5.6 5.6l1.4 1.4M17 17l1.4 1.4
+  //                 M17 7l1.4-1.4M5.6 18.4L7 17" />
+  //       </svg>
+  //     </span>
+  //     <span class="exp-label">Colonnes</span>
+  //   `,
+  //   onClick: () => {
+  //     openKebabMenu($('btn-col-non-prog'), {
+  //       items: [
+  //         { id:'add-column',       label:"Ajouter",        onClick: ()=>doAjouterColonne() },
+  //         { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
+  //       ]
+  //     });
+  //   },
+  // });
+
+  // Bouton Prio sur Activités Non Programmées
   if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
     expanderId: 'exp-non-programmees',
-    id: 'btn-col-non-prog',
-    title: 'Colonnes', 
+    id: 'btn-setprio-non-prog',
+    title: 'SetPrio', 
     innerHTML: `
       <span class="exp-icon" aria-hidden="true">
-        <!-- Icône Colonnes -->
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 8a4 4 0 1 1 0 8a4 4 0 0 1 0-8z" />
-          <path d="M3 12h2m14 0h2M12 3v2m0 14v2
-                  M5.6 5.6l1.4 1.4M17 17l1.4 1.4
-                  M17 7l1.4-1.4M5.6 18.4L7 17" />
+        <!-- Icône étoile fine (priorité) -->
+        <svg viewBox="0 0 24 24" width="18" height="18"
+            fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 17.8 6.8 19.5l1-5.8-4.2-4.1 5.8-.8L12 3.5z"></path>
         </svg>
       </span>
-      <span class="exp-label">Colonnes</span>
+      <span class="exp-label">SetPrio</span>
     `,
-    onClick: () => {
-      openKebabMenu($('btn-col-non-prog'), {
-        items: [
-          { id:'add-column',       label:"Ajouter",        onClick: ()=>doAjouterColonne() },
-          { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
-        ]
-      });
-    },
+    onClick: () => { doSetPrio(); },
   });
 
   // Bouton Filtres sur Activités Non Programmées
@@ -796,7 +790,7 @@ export function wireExpanderButtons() {
 
     function renderAvecPausesInnerHTML(isOn) {
       const icon = isOn ? ICON_PAUSE_ON : ICON_PAUSE_OFF;
-      const label = isOn ? 'Avec pauses' : 'Sans pauses';
+      const label = isOn ? 'Avec pauses' : 'Avec pauses';
       return `
         <span class="exp-icon">${icon}</span>
         <span class="exp-label">${label}</span>
@@ -1240,262 +1234,166 @@ export function wireExpanderSplitters() {
 // Actions des boutons d'expanders
 // =======================
 
-// Ajout d'une colonne
-function doAjouterColonne() {
-  const df  = ctx.df || [];
+function showPrioMenuUnderButton(btnEl, { onPick }) {
+  let cleaned = false;
 
-  openSheetExclusive({
-    title: 'Ajouter une colonne',
-    panelHeight: 'auto',
-    panelMaxHeight: '40vh',
-// !@ts-ignore
-    mount: (body, { close }) => {
-      body.innerHTML = `
-        <div class="form">
-          <div class="form-row">
-            <label for="new-col-name">Nom de la nouvelle colonne</label>
-            <input id="new-col-name"
-                   type="text"
-                   class="bb-input"
-                   placeholder="Ex. Commentaire, Classement…"
-                   autocomplete="off" />
-          </div>
-          <p class="form-error" id="new-col-error" style="display:none;color:#c00;font-size:0.85rem;"></p>
-        </div>
-        <div class="sheet-footer has-border">
-          <div class="form-actions">
-            <button type="button" id="btn-cancel-add-col" class="bb-btn">Annuler</button>
-            <button type="button" id="btn-apply-add-col" class="bb-btn is-primary">Ajouter</button>
-          </div>
-        </div>
-      `;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
 
-      const input = body.querySelector('#new-col-name');
-      const errEl = body.querySelector('#new-col-error');
-      const btnCancel = body.querySelector('#btn-cancel-add-col');
-      const btnApply  = body.querySelector('#btn-apply-add-col');
+    document.removeEventListener("pointerdown", onDocPointerDown, true);
+    document.removeEventListener("keydown", onKeyDown, true);
+    window.visualViewport?.removeEventListener("resize", onViewportChange);
+    window.visualViewport?.removeEventListener("scroll", onViewportChange);
 
-      const showError = (msg) => {
-        if (!errEl) return;
-        errEl.textContent = msg || '';
-        errEl.style.display = msg ? 'block' : 'none';
-      };
+    menu.remove();
+  };
 
-      const clearError = () => showError('');
-
-      // Ensemble des colonnes existantes (insensible à la casse)
-      const existingFields = (() => {
-        const s = new Set();
-
-        // helper normalisation : " Nom " -> "nom"
-        const add = (name) => {
-          if (!name) return;
-          const norm = String(name).trim().toLowerCase();
-          if (!norm) return;
-          s.add(norm);
-        };
-
-        // 1) Noms de champs du DF
-        const rows = ctx.df || [];
-        for (const r of rows) {
-          if (!r || typeof r !== 'object') continue;
-          for (const k of Object.keys(r)) {
-            if (!k) continue;
-            add(k);              // nom de champ (field)
-          }
-        }
-
-        // 2) Noms de colonnes dans la grille (field + headerName)
-        const handle = window.grids?.get('grid-programmees');    // ou une autre grille de référence
-        const colDefs = handle?.api?.getColumnDefs?.() || [];
-        for (const col of colDefs) {
-          if (!col) continue;
-          if (col.field)      add(col.field);       // champ interne
-          if (col.headerName) add(col.headerName);  // titre visible
-        }
-
-        return s;
-      })();
-
-      function apply() {
-        clearError();
-        let name = (input.value || '').trim();
-
-        // validations de base
-        if (!name) {
-          showError('Veuillez saisir un nom de colonne.');
-          input.focus();
-          return;
-        }
-
-        // on déconseille fortement de commencer par "__"
-        if (name.startsWith('__')) {
-          showError('Le préfixe "__" est réservé aux colonnes techniques.');
-          input.focus();
-          return;
-        }
-
-        // éviter les doublons (insensible à la casse)
-        if (existingFields.has(name.toLowerCase())) {
-          showError('Une colonne portant ce nom existe déjà.');
-          input.focus();
-          input.select();
-          return;
-        }
-
-        // facultatif : limiter les caractères exotiques
-        const sanitized = name.replace(/\s+/g, ' ').trim();
-        name = sanitized;
-
-        // On va construire le nouveau df et le garder pour rebuild
-        let newDf = null;
-        ctx.mutateDf?.(rows => {
-          const src = rows || [];
-
-          // on duplique chaque row en ajoutant la nouvelle clé
-          const next = src.map(r => ({
-            ...r,
-            [name]: null,   
-          }));
-
-          // si df était vide : on crée une ligne vide pour que la colonne existe
-          if (!next.length) {
-            next.push({ [name]: null });
-          }
-
-          newDf = next;
-          return next;
-        });
-
-        try {
-          if (typeof rebuildColumnsForActiviteGrids === 'function') {
-            rebuildColumnsForActiviteGrids(newDf || ctx.df || []);
-          }
-        } catch (e) {
-          console.error('rebuildColumnsForActiviteGrids error:', e);
-        }
-
-        close();
-      }
-
-      btnCancel?.addEventListener('click', () => close());
-      btnApply?.addEventListener('click', apply);
-
-      input?.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') {
-          ev.preventDefault();
-          apply();
-        }
-        if (ev.key === 'Escape') {
-          ev.preventDefault();
-          close();
-        }
-      });
-
-      // focus initial
-      setTimeout(() => input?.focus(), 20);
-    }
+  // --- menu
+  const menu = document.createElement("div");
+  // menu.className = "kebab-menu";
+  Object.assign(menu.style, {
+    position: "fixed",
+    zIndex: "999999",
+    minWidth: "80px",
+    background: "white",
+    border: "1px solid rgba(0,0,0,0.12)",
+    borderRadius: "10px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+    padding: "6px",
   });
+
+  const values = ["Aucune", "1", "2", "3", "4", "5"];
+  for (const v of values) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.textContent = v;
+    item.className = 'kebab-menu__item';
+
+    // Object.assign(item.style, {
+    //   display: "flex",
+    //   width: "100%",
+    //   padding: "10px 12px",
+    //   border: "0",
+    //   background: "transparent",
+    //   textAlign: "left",
+    //   borderRadius: "8px",
+    //   cursor: "pointer",
+    //   fontSize: "14px",
+    // });
+
+    item.addEventListener("pointerenter", () => item.style.background = "rgba(0,0,0,0.06)");
+    item.addEventListener("pointerleave", () => item.style.background = "transparent");
+
+    item.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      cleanup();
+      const prioVal = (v === "Aucune") ? null : parseInt(v, 10);
+      try { onPick?.(prioVal); } catch {}
+    });
+
+    menu.appendChild(item);
+  }
+
+  document.body.appendChild(menu);
+
+  // --- position
+  const r = btnEl.getBoundingClientRect();
+  const margin = 6;
+
+  let left = r.left;
+  let top = r.bottom + margin;
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const mw = menu.offsetWidth;
+  const mh = menu.offsetHeight;
+
+  if (left + mw > vw - 8) left = Math.max(8, vw - mw - 8);
+  if (top + mh > vh - 8) top = Math.max(8, r.top - mh - margin);
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+
+  // --- handlers (fermés sur cleanup)
+  function onDocPointerDown(ev) {
+    const t = ev.target;
+    if (t instanceof Node && (menu.contains(t) || btnEl.contains(t))) return;
+    cleanup();
+  }
+
+  function onKeyDown(ev) {
+    if (ev.key === "Escape") cleanup();
+  }
+
+  function onViewportChange() {
+    cleanup();
+  }
+
+  document.addEventListener("pointerdown", onDocPointerDown, true);
+  document.addEventListener("keydown", onKeyDown, true);
+  window.visualViewport?.addEventListener("resize", onViewportChange);
+  window.visualViewport?.addEventListener("scroll", onViewportChange);
+
+  // retourner cleanup au caller
+  return cleanup;
 }
 
-// Suppression d'une colonne
-function doSupprimerColonne() {
-  const df = window.ctx?.df || [];
-  if (!Array.isArray(df) || df.length === 0) {
-    alert('Aucune donnée chargée : impossible de supprimer une colonne.');
+function applyPrioriteToUuids(df, uuidsSet, prioVal) {
+  if (!Array.isArray(df) || !uuidsSet?.size) return df;
+
+  let changed = false;
+  const out = df.slice(); // copie du tableau
+
+  for (let i = 0; i < out.length; i++) {
+    const row = out[i];
+    const id = row?.__uuid;
+    if (!id || !uuidsSet.has(id)) continue;
+
+    // copie row + modif
+    const next = { ...row, Priorite: prioVal };
+    out[i] = next;
+    changed = true;
+  }
+
+  return changed ? out : df;
+}
+
+let closePrioMenu = null;
+
+function doSetPrio() {
+  const btnEl = document.getElementById('btn-setprio-non-prog');
+  const h = grids.get('grid-non-programmees');
+  const gridApi = h?.api;
+
+  if (!btnEl || !gridApi) return;
+
+  // toggle : si déjà ouvert → fermer
+  if (closePrioMenu) {
+    closePrioMenu();
+    closePrioMenu = null;
     return;
   }
 
-  // Récupère la liste des colonnes à partir de la première ligne
-  const sample = df[0] || {};
-  const allFields = Object.keys(sample);
+  closePrioMenu = showPrioMenuUnderButton(btnEl, {
+    onPick: (prioVal) => {
+      closePrioMenu = null;
 
-  // Colonnes candidates à la suppression : non techniques et non obligatoires
-  const removable = allFields.filter(f =>
-    f &&
-    !MANDATORY_COLS.has(f) &&
-    !f.startsWith('__')
-  );
-
-  if (!removable.length) {
-    alert('Aucune colonne facultative à supprimer.');
-    return;
-  }
-
-  openSheetExclusive({
-    title: 'Supprimer une colonne',
-    panelHeight: 'auto',
-    panelMaxHeight: '40vh',
-    mount: (body, { close }) => {
-      const optionsHtml = removable
-        .map(name => `<option value="${name}">${name}</option>`)
-        .join('');
-
-      body.innerHTML = `
-        <div class="form">
-          <div class="form-row">
-            <label for="col-to-remove">Colonne à supprimer</label>
-            <select id="col-to-remove" class="bb-input">
-              ${optionsHtml}
-            </select>
-          </div>
-        </div>
-        <div class="sheet-footer has-border">
-          <div class="form-actions">
-            <button type="button" id="btn-cancel" class="bb-btn">Annuler</button>
-            <button type="button" id="btn-apply" class="bb-btn is-primary">Supprimer</button>
-          </div>
-        </div>
-      `;
-
-      const sel   = body.querySelector('#col-to-remove');
-      const btnOk = body.querySelector('#btn-apply');
-      const btnKo = body.querySelector('#btn-cancel');
-
-      btnKo.addEventListener('click', () => close());
-
-      btnOk.addEventListener('click', () => {
-        const col = sel.value?.trim();
-        if (!col) {
-          alert('Veuillez choisir une colonne à supprimer.');
-          return;
-        }
-        if (MANDATORY_COLS.has(col)) {
-          alert(`La colonne "${col}" est obligatoire et ne peut pas être supprimée.`);
-          return;
-        }
-
-        // Confirmation de confort
-        if (!confirm(`Supprimer la colonne "${col}" ?`)) return;
-
-        if (!window.ctx?.mutateDf) {
-          console.error('ctx.mutateDf est introuvable');
-          return;
-        }
-
-        // Mise à jour du df (immutabilité "façon ctx.mutateDf")
-        window.ctx.mutateDf(rows => {
-          if (!Array.isArray(rows)) return rows;
-
-          const next = rows.map(r => {
-            if (!r || typeof r !== 'object') return r;
-            const copy = { ...r };
-            delete copy[col];
-            return copy;
-          });
-
-          // Rebuild des colonnes des grilles d’activités avec le nouveau df
-          try {
-            rebuildColumnsForActiviteGrids?.(next);
-          } catch (e) {
-            console.error('rebuildColumnsForActiviteGrids error:', e);
-          }
-
-          return next;
-        });
-
-        close();
+      const uuids = new Set();
+      gridApi.forEachNodeAfterFilter((n) => {
+        const id = n?.data?.__uuid;
+        if (id) uuids.add(id);
       });
+
+      ctx.mutateDf((df) => {
+        return applyPrioriteToUuids(df, uuids, prioVal);
+      });
+
+      ensurePrioColumnVisible(gridApi, "Priorite");
+
+      refreshAllGrids?.();
     }
   });
 }

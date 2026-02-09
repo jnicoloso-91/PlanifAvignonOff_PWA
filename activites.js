@@ -6,12 +6,14 @@ import {
   MIN_DAY, 
   MAX_DAY, 
   dateintToDate, 
+  dateintToPretty,
   dateToDateint,
+  dateToInt,
   mmToHHhMM, 
   mmFromHHhMM,
   heureMinute, 
   dureeMinute, 
-  dateintToPretty,
+  prettyToDateint,
   recalcFin,
 } from './utils-date.js';
 
@@ -359,6 +361,38 @@ export function creerActivitesAPI(ctx) {
      */
     estDateValide(dateVal, sessionVal, relacheVal) {
       return _estDateValide(dateVal, sessionVal, relacheVal);
+    },
+
+    /**
+     * Détermine si une date in intervalle de dates ou une suite de dates sont valides, ie. dans Session et pas dans Relache.
+     * @param {*} dates 
+     * @param {*} sessionVal 
+     * @param {*} relacheVal 
+     * @returns 
+     */
+    datesMatchesSessionRelache(dates, sessionVal, relacheVal) {
+      // 1) intervalle [d1-d2]
+      const range = _getMinMaxFromPrettyRange(dates);
+      if (range) {
+        const [d1, d2] = range;
+        const dates = _expandRangeToDateintList(d1, d2);
+        return dates.some(dateVal => _estDateValide(dateVal, sessionVal, relacheVal));
+      }
+
+      // 2) date simple "dd/mm" ou "dd/mm/yyyy"
+      const d = prettyToDateint(dates);
+      if (d != null) {
+        return _estDateValide(d, sessionVal, relacheVal);
+      }
+
+      // 3) jour de semaine "jeudi", "lun", ...
+      const wd = _parseWeekdayFR(dates);
+      if (wd != null) {
+        const dates = _expandWeekdayToDateInts(wd);
+        return dates.some(dateVal => _estDateValide(dateVal, sessionVal, relacheVal));
+      }
+
+      return false;
     },
 
     /**
@@ -2085,55 +2119,6 @@ function _isIntInRange(x, min, max) {
 }
 
 /**
- * @param {string} tok
- * @param {{ defaultMonth?: number, defaultYear?: number }} [opts]
- */
-// function _parseOneToken(tok, { defaultMonth, defaultYear } = {}) {
-//   const t = String(tok || '').toLowerCase().trim();
-//   if (!t) return false;
-
-//   // 1) Parité
-//   if (/^jours?\s+(pairs?|impairs?)$/.test(t)) return true;
-
-//   // 2) Jour isolé: "23" ou "23/7"
-//   {
-//     const m = t.match(/^(\d{1,2})(?:\/(0?[1-9]|1[0-2]))?$/);
-//     if (m) {
-//       const [, d, mm] = m;
-//       const M = mm ? Number(mm) : (defaultMonth ?? null);
-//       return _isIntInRange(d, 1, 31) && (M == null || _isIntInRange(M, 1, 12));
-//     }
-//   }
-
-//   // 3) Liste: "(9,16,23)" ou "(9,16,23)/7"
-//   {
-//     const m = t.match(/^\(\s*([0-9,\s]+)\s*\)(?:\/(0?[1-9]|1[0-2]))?$/);
-//     if (m) {
-//       const [, list, mm] = m;
-//       const M = mm ? Number(mm) : (defaultMonth ?? null);
-//       const days = list.split(',').map(s => s.trim()).filter(Boolean);
-//       if (!days.length) return false;
-//       if (M != null && !_isIntInRange(M, 1, 12)) return false;
-//       return days.every(d => _isIntInRange(d, 1, 31));
-//     }
-//   }
-
-//   // 4) Intervalle: "[5-26]", "[5-26]/7"
-//   {
-//     const m = t.match(/^\[\s*(\d{1,2})\s*-\s*(\d{1,2})\s*\](?:\/(0?[1-9]|1[0-2]))?$/);    
-//     if (m) {
-//       const [, d1, d2, mm] = m;
-//       const M = mm ? Number(mm) : (defaultMonth ?? null);
-//       const okDays = _isIntInRange(d1, 1, 31) && _isIntInRange(d2, 1, 31) && Number(d1) <= Number(d2);
-//       const okMonth = (M == null) || _isIntInRange(M, 1, 12);
-//       return okDays && okMonth;
-//     }
-//   }
-
-//   return false;
-// }
-
-/**
  * Valide un "token" de Session / Relâche.
  * Gère notamment :
  *  - parité : "jours pairs", "jours impairs"
@@ -2594,4 +2579,100 @@ function _getPeriodeProgrammation() {
     debut: _ctx?.getMetaParam("periode_a_programmer_debut") ?? null,
     fin:   _ctx?.getMetaParam("periode_a_programmer_fin") ?? null
   };
+}
+
+// renvoie sous forme de dateint les bornes d'un intervalle de type [d1-d2] avec d1 et d2 pretty ou [10-13]/08 ou [10-13]/08/25
+// function _getMinMaxFromPrettyRange(chip) {
+//   const s = String(chip || "").trim();
+//   const inside = s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1).trim() : s;
+//   const m = inside.match(/^(.+?)\s*-\s*(.+)$/);
+//   if (!m) return null;
+//   const a = prettyToDateint(m[1]);
+//   const b = prettyToDateint(m[2]);
+//   if (a == null || b == null) return null;
+//   return [a, b];
+// }
+function _getMinMaxFromPrettyRange(chip) {
+  const s = String(chip || "").trim();
+
+  // 1) Nouveau format : [15-16]/07 ou [15-16]/07/26 ou [15-16]/07/2026
+  {
+    const m = s.match(/^\[\s*(\d{1,2})\s*-\s*(\d{1,2})\s*\]\s*\/\s*(\d{1,2})(?:\s*\/\s*(\d{2}|\d{4}))?\s*$/);
+    if (m) {
+      const d1 = parseInt(m[1], 10);
+      const d2 = parseInt(m[2], 10);
+      const mm = parseInt(m[3], 10);
+      const yyRaw = m[4];
+
+      // normalise année si 2 chiffres
+      let year = null;
+      if (yyRaw) {
+        const y = parseInt(yyRaw, 10);
+        year = (yyRaw.length === 2) ? (2000 + y) : y;
+      }
+
+      // deux pretty compatibles avec prettyToDateint
+      const p1 = `${d1}/${mm}${year ? `/${year}` : ""}`;
+      const p2 = `${d2}/${mm}${year ? `/${year}` : ""}`;
+
+      const a = prettyToDateint(p1);
+      const b = prettyToDateint(p2);
+      if (a == null || b == null) return null;
+
+      return [Math.min(a, b), Math.max(a, b)];
+    }
+  }
+
+  // 2) Format existant : [d1-d2] ou d1-d2 (en pretty)
+  const inside = s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1).trim() : s;
+  const m = inside.match(/^(.+?)\s*-\s*(.+)$/);
+  if (!m) return null;
+
+  const a = prettyToDateint(m[1]);
+  const b = prettyToDateint(m[2]);
+  if (a == null || b == null) return null;
+
+  return [Math.min(a, b), Math.max(a, b)];
+}
+
+// renvoie liste de dateInt entre deux dateint a et b inclus (a/b en YYYYMMDD int)
+function _expandRangeToDateintList(a, b) {
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  const out = [];
+  let d = dateintToDate(lo);
+  const end = dateintToDate(hi);
+
+  // garde-fou (évite boucle infinie si date invalide)
+  for (let i = 0; i < 370; i++) {
+    const di = dateToInt(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    out.push(di);
+    if (di === hi) break;
+    d.setDate(d.getDate() + 1);
+    if (d > end && di !== hi) break;
+  }
+  return out;
+}
+
+// jour de semaine en FR -> 0..6 (0=dimanche)
+function _parseWeekdayFR(s) {
+  const t = String(s || "").trim().toLowerCase();
+  const map = {
+    "dimanche": 0, "dim": 0,
+    "lundi": 1, "lun": 1,
+    "mardi": 2, "mar": 2,
+    "mercredi": 3, "mer": 3,
+    "jeudi": 4, "jeu": 4,
+    "vendredi": 5, "ven": 5,
+    "samedi": 6, "sam": 6,
+  };
+  return (t in map) ? map[t] : null;
+}
+
+// toutes les dates du weekday entre meta.dateMinInt et meta.dateMaxInt
+function _expandWeekdayToDateInts(weekday) {
+  const {debut, fin} = _getPeriodeProgrammation();
+  if (!debut || !fin) return []; // il faut un bornage 
+  const days = _expandRangeToDateintList(dateToDateint(debut), dateToDateint(fin));
+  return days.filter(di => dateintToDate(di).getDay() === weekday);
 }
