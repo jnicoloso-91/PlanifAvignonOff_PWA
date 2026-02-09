@@ -752,6 +752,15 @@ function createChipBox({
       refreshAndOpenDD(); // refreshSuggestions + openDD si filtered non vide
     };
 
+    function moveCaretToEnd(input) {
+      try {
+        const len = input.value.length;
+        input.setSelectionRange(len, len);
+      } catch {
+        // vieux Android / input non text
+      }
+    }
+
     // ============ Listeners ============
     window.visualViewport?.addEventListener("resize", schedulePositionDD);
     window.visualViewport?.addEventListener("scroll", schedulePositionDD);
@@ -785,6 +794,9 @@ function createChipBox({
       // Android: ne pas auto-open sur focus (évite reopen après sélection)
       // if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
       if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
+
+      // Assure que le caret se mette à la fin du texte
+      requestAnimationFrame(() => moveCaretToEnd(inputEl));
 
       // 3) visibilité (au cas où)
       // ensureInputVisible({ tries: 4 });
