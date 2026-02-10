@@ -104,8 +104,8 @@ function handleVisibilityChange() {
     );
   }
 
-  document.addEventListener("pageshow", () => handleReturnToApp());
-  document.addEventListener("focus", () => handleReturnToApp());
+  window.addEventListener("pageshow", () => handleReturnToApp());
+  window.addEventListener("focus", () => handleReturnToApp());
   document.addEventListener("visibilitychange", () => handleReturnToApp());
 }
 
