@@ -2048,7 +2048,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
   }
   else {
     recalcFinForAll(nouvellesActivites);
-    ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(rows, nouvellesActivites, ['Activite', 'Lieu', 'Debut', 'Session'])));
+    ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(rows, nouvellesActivites, ['Activite', 'Lieu', 'Debut'])));
   }
 
   // Maj des sélections

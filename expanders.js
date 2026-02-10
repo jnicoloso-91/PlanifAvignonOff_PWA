@@ -1234,168 +1234,370 @@ export function wireExpanderSplitters() {
 // Actions des boutons d'expanders
 // =======================
 
-function showPrioMenuUnderButton(btnEl, { onPick }) {
-  let cleaned = false;
+function createWheelPicker(wrapEl) {
+  const wheel = wrapEl.querySelector(".wheel");
 
-  const cleanup = () => {
-    if (cleaned) return;
-    cleaned = true;
+  function installWheelSmart(wheelEl, { itemPx = 36 } = {}) {
+    let locked = false;
 
-    document.removeEventListener("pointerdown", onDocPointerDown, true);
-    document.removeEventListener("keydown", onKeyDown, true);
-    window.visualViewport?.removeEventListener("resize", onViewportChange);
-    window.visualViewport?.removeEventListener("scroll", onViewportChange);
+    wheelEl.addEventListener("wheel", (ev) => {
+      if (ev.ctrlKey) return;
 
-    menu.remove();
-  };
+      const isMouseLike = Math.abs(ev.deltaY) >= 50; // seuil à ajuster
+      if (!isMouseLike) return; // trackpad => scroll natif
 
-  // --- menu
-  const menu = document.createElement("div");
-  // menu.className = "kebab-menu";
-  Object.assign(menu.style, {
-    position: "fixed",
-    zIndex: "999999",
-    minWidth: "80px",
-    background: "white",
-    border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: "10px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-    padding: "6px",
-  });
-
-  const values = ["Aucune", "1", "2", "3", "4", "5"];
-  for (const v of values) {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.textContent = v;
-    item.className = 'kebab-menu__item';
-
-    // Object.assign(item.style, {
-    //   display: "flex",
-    //   width: "100%",
-    //   padding: "10px 12px",
-    //   border: "0",
-    //   background: "transparent",
-    //   textAlign: "left",
-    //   borderRadius: "8px",
-    //   cursor: "pointer",
-    //   fontSize: "14px",
-    // });
-
-    item.addEventListener("pointerenter", () => item.style.background = "rgba(0,0,0,0.06)");
-    item.addEventListener("pointerleave", () => item.style.background = "transparent");
-
-    item.addEventListener("click", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      cleanup();
-      const prioVal = (v === "Aucune") ? null : parseInt(v, 10);
-      try { onPick?.(prioVal); } catch {}
-    });
 
-    menu.appendChild(item);
+      if (locked) return;
+      locked = true;
+
+      const dir = ev.deltaY > 0 ? 1 : -1;
+      wheelEl.scrollTo({ top: wheelEl.scrollTop + dir * itemPx, behavior: "smooth" });
+
+      setTimeout(() => { locked = false; }, 140);
+    }, { passive: false });
   }
 
-  document.body.appendChild(menu);
-
-  // --- position
-  const r = btnEl.getBoundingClientRect();
-  const margin = 6;
-
-  let left = r.left;
-  let top = r.bottom + margin;
-
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
-  const mw = menu.offsetWidth;
-  const mh = menu.offsetHeight;
-
-  if (left + mw > vw - 8) left = Math.max(8, vw - mw - 8);
-  if (top + mh > vh - 8) top = Math.max(8, r.top - mh - margin);
-
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
-
-  // --- handlers (fermés sur cleanup)
-  function onDocPointerDown(ev) {
-    const t = ev.target;
-    if (t instanceof Node && (menu.contains(t) || btnEl.contains(t))) return;
-    cleanup();
+  function getCenteredItem() {
+    const r = wheel.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const el = document.elementFromPoint(cx, cy);
+    return el?.closest?.(".wheel-item") || null;
   }
 
-  function onKeyDown(ev) {
-    if (ev.key === "Escape") cleanup();
+  function getValue() {
+    const it = /** @type {HTMLElement} */ (getCenteredItem());
+    const v = it?.dataset?.v ?? "";
+    return v === "" ? null : parseInt(v, 10);
   }
 
-  function onViewportChange() {
-    cleanup();
+  function setValue(v) {
+    const target = [...wheel.querySelectorAll(".wheel-item")]
+      .find(el => (el.dataset.v ?? "") === String(v ?? ""));
+    if (!target) return;
+
+    const top =
+      target.offsetTop -
+      (wheel.clientHeight / 2 - target.clientHeight / 2);
+
+    wheel.scrollTo({ top, behavior: "instant" });
   }
 
-  document.addEventListener("pointerdown", onDocPointerDown, true);
-  document.addEventListener("keydown", onKeyDown, true);
-  window.visualViewport?.addEventListener("resize", onViewportChange);
-  window.visualViewport?.addEventListener("scroll", onViewportChange);
-
-  // retourner cleanup au caller
-  return cleanup;
+  installWheelSmart(wheel);
+  return { getValue, setValue };
 }
 
-function applyPrioriteToUuids(df, uuidsSet, prioVal) {
-  if (!Array.isArray(df) || !uuidsSet?.size) return df;
+function getUuidsFromSelection(gridApi) {
+  return new Set(
+    gridApi.getSelectedNodes()
+      .map(n => n?.data?.__uuid)
+      .filter(Boolean)
+  );
+}
 
+function getUuidsFromFilter(gridApi) {
+  const s = new Set();
+  gridApi.forEachNodeAfterFilter(n => {
+    const id = n?.data?.__uuid;
+    if (id) s.add(id);
+  });
+  return s;
+}
+
+function applyPrioriteImmutable(df, uuids, prioVal) {
+  if (!uuids.size) return df;
   let changed = false;
-  const out = df.slice(); // copie du tableau
+  const out = df.slice();
 
   for (let i = 0; i < out.length; i++) {
-    const row = out[i];
-    const id = row?.__uuid;
-    if (!id || !uuidsSet.has(id)) continue;
-
-    // copie row + modif
-    const next = { ...row, Priorite: prioVal };
-    out[i] = next;
-    changed = true;
+    const r = out[i];
+    if (uuids.has(r?.__uuid)) {
+      out[i] = { ...r, Priorite: prioVal };
+      changed = true;
+    }
   }
-
   return changed ? out : df;
 }
 
-let closePrioMenu = null;
+let _prioPopup = null;
 
-function doSetPrio() {
-  const btnEl = document.getElementById('btn-setprio-non-prog');
-  const h = grids.get('grid-non-programmees');
-  const gridApi = h?.api;
+function getOrCreatePrioPopup() {
+  if (_prioPopup) return _prioPopup;
 
-  if (!btnEl || !gridApi) return;
+  // 1) créer DOM une fois
+  const backdrop = document.createElement("div");
+  backdrop.className = "prio-popup-backdrop";
+  backdrop.hidden = true;
 
-  // toggle : si déjà ouvert → fermer
-  if (closePrioMenu) {
-    closePrioMenu();
-    closePrioMenu = null;
-    return;
+  backdrop.innerHTML = `
+    <div class="prio-popup" role="dialog" aria-modal="true">
+      <div class="prio-title">Priorité</div>
+
+      <div class="wheel-wrap">
+        <div class="wheel">
+          <div class="wheel-spacer"></div>
+          <div class="wheel-item" data-v="">Aucune</div>
+          <div class="wheel-item" data-v="1">1</div>
+          <div class="wheel-item" data-v="2">2</div>
+          <div class="wheel-item" data-v="3">3</div>
+          <div class="wheel-item" data-v="4">4</div>
+          <div class="wheel-item" data-v="5">5</div>
+          <div class="wheel-spacer"></div>
+        </div>
+        <div class="wheel-indicator"></div>
+      </div>
+
+      <div class="prio-actions">
+        <button type="button" class="bb-btn is-primary" data-action="filter">
+          Appliquer à filtre
+        </button>
+        <button type="button" class="bb-btn is-primary" data-action="selection">
+          Appliquer à sélection
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(backdrop);
+
+  const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".prio-popup"));
+  const picker = createWheelPicker(popup.querySelector(".wheel-wrap"));
+
+  // 2) état dynamique (mis à jour à chaque open)
+  let gridApi = null;
+  let ctx = null;
+
+  function close() {
+    backdrop.hidden = true;
   }
 
-  closePrioMenu = showPrioMenuUnderButton(btnEl, {
-    onPick: (prioVal) => {
-      closePrioMenu = null;
+  function onKey(ev) {
+    if (ev.key === "Escape" && !backdrop.hidden) close();
+  }
 
-      const uuids = new Set();
-      gridApi.forEachNodeAfterFilter((n) => {
-        const id = n?.data?.__uuid;
-        if (id) uuids.add(id);
-      });
+  function onBackdrop(ev) {
+    // ferme si clic hors popup (fond)
+    if (popup.contains(ev.target)) return;
+    close();
+  }
 
-      ctx.mutateDf((df) => {
-        return applyPrioriteToUuids(df, uuids, prioVal);
-      });
+  // 3) listeners installés UNE FOIS
+  document.addEventListener("keydown", onKey, true);
+  backdrop.addEventListener("pointerdown", onBackdrop, true);
 
-      ensurePrioColumnVisible(gridApi, "Priorite");
+  popup.querySelectorAll("button[data-action]").forEach((b) => {
+    /** @type {HTMLButtonElement} */
+    const btn = /** @type {any} */ (b);
 
-      refreshAllGrids?.();
-    }
+    // pointerdown > click (plus fiable avec swipe/drag)
+    btn.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+
+      if (!gridApi || !ctx) { close(); return; }
+
+      const prioVal = picker.getValue();
+      const mode = btn.dataset.action;
+
+      const uuids =
+        mode === "selection"
+          ? getUuidsFromSelection(gridApi)
+          : getUuidsFromFilter(gridApi);
+
+      ctx.mutateDf((df) => applyPrioriteImmutable(df, uuids, prioVal));
+
+      if (mode === "selection") {
+        // si on applique à la sélection, on peut se retrouver avec des lignes déplacées hors de la page courante → scroll pour les rendre visibles
+        const node = gridApi.getSelectedNodes?.()[0];
+        const rowIdx = node?.rowIndex ?? null;
+        gridApi.ensureIndexVisible(rowIdx, 'middle');
+      }
+
+      // visible à l'écran (scroll horizontal). Si tu veux aussi dé-hider, c'est autre chose.
+      gridApi.ensureColumnVisible?.("Priorite");
+
+      close();
+    }, true);
   });
+
+  _prioPopup = {
+    open({ gridApi: ga, ctx: c, defaultValue = null }) {
+      gridApi = ga;
+      ctx = c;
+      const btnSel = /** @type {HTMLButtonElement} */ (popup.querySelector('button[data-action="selection"]'));
+      if (btnSel) {
+        const hasSelection = gridApi?.getSelectedNodes?.().length > 0;
+        btnSel.disabled = !hasSelection;
+      }
+      picker.setValue(defaultValue);
+      backdrop.hidden = false;
+    },
+    close
+  };
+
+  return _prioPopup;
+}
+
+function openPrioPopup({ gridApi, ctx, defaultValue = null }) {
+  getOrCreatePrioPopup().open({ gridApi, ctx, defaultValue });
+}
+
+// function showPrioMenuUnderButton(btnEl, { onPick }) {
+//   let cleaned = false;
+
+//   const cleanup = () => {
+//     if (cleaned) return;
+//     cleaned = true;
+
+//     document.removeEventListener("pointerdown", onDocPointerDown, true);
+//     document.removeEventListener("keydown", onKeyDown, true);
+//     window.visualViewport?.removeEventListener("resize", onViewportChange);
+//     window.visualViewport?.removeEventListener("scroll", onViewportChange);
+
+//     menu.remove();
+//   };
+
+//   // --- menu
+//   const menu = document.createElement("div");
+//   Object.assign(menu.style, {
+//     position: "fixed",
+//     zIndex: "999999",
+//     minWidth: "80px",
+//     background: "white",
+//     border: "1px solid rgba(0,0,0,0.12)",
+//     borderRadius: "10px",
+//     boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+//     padding: "6px",
+//   });
+
+//   const values = ["Aucune", "1", "2", "3", "4", "5"];
+//   for (const v of values) {
+//     const item = document.createElement("button");
+//     item.type = "button";
+//     item.textContent = v;
+//     item.className = 'kebab-menu__item';
+
+//     item.addEventListener("pointerenter", () => item.style.background = "rgba(0,0,0,0.06)");
+//     item.addEventListener("pointerleave", () => item.style.background = "transparent");
+
+//     item.addEventListener("click", (ev) => {
+//       ev.preventDefault();
+//       ev.stopPropagation();
+//       cleanup();
+//       const prioVal = (v === "Aucune") ? null : parseInt(v, 10);
+//       try { onPick?.(prioVal); } catch {}
+//     });
+
+//     menu.appendChild(item);
+//   }
+
+//   document.body.appendChild(menu);
+
+//   // --- position
+//   const r = btnEl.getBoundingClientRect();
+//   const margin = 6;
+
+//   let left = r.left;
+//   let top = r.bottom + margin;
+
+//   const vw = window.innerWidth;
+//   const vh = window.innerHeight;
+
+//   const mw = menu.offsetWidth;
+//   const mh = menu.offsetHeight;
+
+//   if (left + mw > vw - 8) left = Math.max(8, vw - mw - 8);
+//   if (top + mh > vh - 8) top = Math.max(8, r.top - mh - margin);
+
+//   menu.style.left = `${left}px`;
+//   menu.style.top = `${top}px`;
+
+//   // --- handlers (fermés sur cleanup)
+//   function onDocPointerDown(ev) {
+//     const t = ev.target;
+//     if (t instanceof Node && (menu.contains(t) || btnEl.contains(t))) return;
+//     cleanup();
+//   }
+
+//   function onKeyDown(ev) {
+//     if (ev.key === "Escape") cleanup();
+//   }
+
+//   function onViewportChange() {
+//     cleanup();
+//   }
+
+//   document.addEventListener("pointerdown", onDocPointerDown, true);
+//   document.addEventListener("keydown", onKeyDown, true);
+//   window.visualViewport?.addEventListener("resize", onViewportChange);
+//   window.visualViewport?.addEventListener("scroll", onViewportChange);
+
+//   // retourner cleanup au caller
+//   return cleanup;
+// }
+
+// function applyPrioriteToUuids(df, uuidsSet, prioVal) {
+//   if (!Array.isArray(df) || !uuidsSet?.size) return df;
+
+//   let changed = false;
+//   const out = df.slice(); // copie du tableau
+
+//   for (let i = 0; i < out.length; i++) {
+//     const row = out[i];
+//     const id = row?.__uuid;
+//     if (!id || !uuidsSet.has(id)) continue;
+
+//     // copie row + modif
+//     const next = { ...row, Priorite: prioVal };
+//     out[i] = next;
+//     changed = true;
+//   }
+
+//   return changed ? out : df;
+// }
+
+// let closePrioMenu = null;
+
+// function doSetPrio() {
+//   const btnEl = document.getElementById('btn-setprio-non-prog');
+//   const h = grids.get('grid-non-programmees');
+//   const gridApi = h?.api;
+
+//   if (!btnEl || !gridApi) return;
+
+//   toggle : si déjà ouvert → fermer
+//   if (closePrioMenu) {
+//     closePrioMenu();
+//     closePrioMenu = null;
+//     return;
+//   }
+
+//   closePrioMenu = showPrioMenuUnderButton(btnEl, {
+//     onPick: (prioVal) => {
+//       closePrioMenu = null;
+
+//       const uuids = new Set();
+//       gridApi.forEachNodeAfterFilter((n) => {
+//         const id = n?.data?.__uuid;
+//         if (id) uuids.add(id);
+//       });
+
+//       ctx.mutateDf((df) => {
+//         return applyPrioriteToUuids(df, uuids, prioVal);
+//       });
+
+//       ensurePrioColumnVisible(gridApi, "Priorite");
+
+//       refreshAllGrids?.();
+//     }
+//   });
+// }
+
+function doSetPrio() {
+  const h = grids.get("grid-non-programmees");
+  const gridApi = h?.api;
+  openPrioPopup({ gridApi, ctx, defaultValue: null });
 }
 
 // Suppression d'une activité

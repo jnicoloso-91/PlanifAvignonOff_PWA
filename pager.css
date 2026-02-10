@@ -351,9 +351,9 @@ html, body {
 }
 
 
-/*============================
-  Empêche la sélection grids pb le swipe
-  ============================*/
+/*===========================================
+  Empêche la sélection grids pendant le swipe
+  ===========================================*/
 
 /* classe utilisée pendant le swipe */
 .pager.is-dragging {

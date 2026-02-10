@@ -2533,9 +2533,9 @@ input[type="range"]:focus::-moz-range-thumb {
 
 
 
-/* =========================
+/* ==============================
    Programme – Calendrier (#calA)
-   ========================= */
+   ============================== */
 
 /* calA doit remplir la hauteur du body */
 #programme-panel #calA{
@@ -2733,3 +2733,106 @@ input[type="range"]:focus::-moz-range-thumb {
   #programme-panel #calA .cal-day{ flex-basis: 280px; }
   #programme-panel #calA .cal-ev__title{ font-size: 11px; }
 }
+
+/* =========================
+   SetPrio
+   ========================= */
+
+.prio-popup-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.prio-popup-backdrop[hidden]{
+  display: none;
+}
+
+.prio-popup{
+  width: 280px;
+  background: white;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.25);
+}
+
+.prio-title{
+  text-align: center;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* Wheel */
+.wheel-wrap{
+  position: relative;
+  height: 180px;
+  margin: 8px 0 8px;
+
+  border: 1px solid var(--bb-border-color, #ddd);
+  border-radius: 12px;
+  background: var(--bb-panel-bg, #fff);
+}
+
+.wheel{
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.wheel::-webkit-scrollbar{ display:none; }
+
+.wheel-item,
+.wheel-spacer{
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  user-select: none;
+}
+
+.wheel-spacer{ height: 72px; }
+
+.wheel-indicator{
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 36px;
+  margin-top: -18px;
+  border-top: 1px solid rgba(0,0,0,.3);
+  border-bottom: 1px solid rgba(0,0,0,.3);
+}
+
+.prio-actions{
+  display: flex;
+  justify-content: center;     
+  gap: 1.6rem;
+  padding-top: 1rem; 
+}
+
+/* .prio-actions{
+  display: flex;
+  gap: 10px;
+} */
+.prio-actions button{
+  flex: 1;
+  padding: 10px;
+  /* border-radius: 10px; */
+  /* border: none; */
+  /* font-size: 14px; */
+}
+
+/* .btn-primary{
+  background: #1f6feb;
+  color: white;
+}
+
+.btn-secondary{
+  background: #e5e7eb;
+} */

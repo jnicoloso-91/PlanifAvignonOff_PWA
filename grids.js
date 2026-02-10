@@ -1765,7 +1765,7 @@ function gridOptionsCommon(gridId, el) {
     onColumnVisible: (p) => saveGridStateToMeta(p, gridId),
     onSortChanged: (p) => {
       saveGridStateToMeta(p, gridId); 
-      ensureRowVisibleAndGetEl(gridId, getSelectedRowUuid(gridId));
+      ensureRowVisible(gridId, getSelectedRowUuid(gridId));
     },
   
     quickFilterMatcher: (quickFilter, rowQuickFilterAggregateText) => {
@@ -2091,7 +2091,7 @@ export function ensurePrioColumnVisible(api, colName) {
 } 
 
 // Sélectionne + rend visible + retourne DOM de la ligne si possible
-async function ensureRowVisibleAndGetEl(gridId, uuid) {
+export async function ensureRowVisible(gridId, uuid) {
   const h = grids.get(gridId);
   if (!h) return { api:null, node:null, rowEl:null };
 
@@ -2252,7 +2252,7 @@ async function doPhantomFlight (gridOrigine, gridCible, expCible) {
   // 2) animer vers la VRAIE ligne si possible, sinon flash-only
   const dstRow = getSelectedRow(gridCible);
   if (!dstRow) return;
-  const dst = await ensureRowVisibleAndGetEl(gridCible, dstRow.__uuid);
+  const dst = await ensureRowVisible(gridCible, dstRow.__uuid);
 
   if (fromRect && dst.rowEl) {
     const toRect = dst.rowEl.getBoundingClientRect();
@@ -2294,7 +2294,7 @@ export async function dropRowFromSrcGridToDstGrid(srcGrid, dstGrid, dstExp, srcU
   selectRowByUuid(dstGrid, dstUuid, { ensure: null, flash: false });
 
   // 4) centre VRAIMENT la ligne dans la grille et récupère son élément DOM
-  const { rowEl } = await ensureRowVisibleAndGetEl(dstGrid, dstUuid);
+  const { rowEl } = await ensureRowVisible(dstGrid, dstUuid);
   await waitAF(); // laisse le layout se stabiliser
 
   // 5) lance le phantom flight vers l’élément centré
@@ -2372,7 +2372,7 @@ async function onProgGridDateCommitted(params) {
     dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, { scroll:false });
   }
   else {
-    await ensureRowVisibleAndGetEl("grid-programmees", uuid);
+    await ensureRowVisible("grid-programmees", uuid);
   }
 }
 

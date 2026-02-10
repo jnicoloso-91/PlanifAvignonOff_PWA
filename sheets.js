@@ -55,6 +55,8 @@ import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 import { logToPage } from './debug.js';
 
+const OR_SEP = "|";
+
 const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
 
 // lock/unlock scroll (iOS-safe)
@@ -2217,7 +2219,7 @@ export function openSheetFiltres(gridId) {
           if (!qf) return [];
 
           return qf
-            .split(" ")
+            .split(OR_SEP)
             .map(s => s.trim())
             .filter(Boolean);
         }
@@ -2371,10 +2373,9 @@ export function openSheetFiltres(gridId) {
       const clearBtn = body.querySelector("#btn-clear");
 
       applyBtn.addEventListener("click", () => {
-        const OR_SEP = "|";
         const newModel = {};
 
-        const q = (quickChip.getValues?.() || []).join(" ").trim();
+        const q = (quickChip.getValues?.() || []).join(OR_SEP).trim();
         gridApi.setQuickFilter?.(q);
 
         columns.forEach(col => {
