@@ -79,6 +79,10 @@ import {
   rowsToICS,
 } from './calendar.js';
 
+import {
+  openSheetExclusive,
+} from './sheets.js';
+
 const $ = id => document.getElementById(id);
 const overlayAttente = document.getElementById('overlay-attente'); // overlay d'attente
 
@@ -961,8 +965,8 @@ function createKebabSep() {
   return d;
 }
 
-export function openKebabMenu(anchorBtn, { items = [] } = {}) {
-  if (!anchorBtn) return;
+export function openKebabMenu(anchorBtn, { items = [], side = false } = {}) {
+  if (!anchorBtn) return null;
 
   // prevent double-open on the same button
   if (anchorBtn.__menuOpen) {
@@ -973,6 +977,8 @@ export function openKebabMenu(anchorBtn, { items = [] } = {}) {
   // 1) Build the menu (initially invisible so we can measure/position)
   const menu = document.createElement('div');
   menu.className = 'kebab-menu';
+
+  let submenuCurrent = null;
 
   // Stop the click bubbling so outside-closer doesn’t fire
   menu.addEventListener('click', (e)=> e.stopPropagation());
@@ -985,7 +991,11 @@ export function openKebabMenu(anchorBtn, { items = [] } = {}) {
     btn.addEventListener('mouseleave', ()=> btn.style.background = 'transparent');
     btn.addEventListener('click', (e)=> {
       e.stopPropagation();
-      try { it.onClick?.(); } finally { closeMenu(); }
+      if (it.submenu) submenuCurrent = openKebabMenu(btn, { items: it.submenu, side: true });
+      else try { 
+        it.onClick?.(); 
+        if (submenuCurrent) submenuCurrent.close(); 
+      } finally { closeMenu(); }
     });
     // menu.append(sep, btn);
     menu.appendChild(btn);
@@ -997,30 +1007,55 @@ export function openKebabMenu(anchorBtn, { items = [] } = {}) {
   const pos = () => {
     const r = anchorBtn.getBoundingClientRect();
     const vw = window.innerWidth, vh = window.innerHeight;
+
+    // IMPORTANT: menu doit être dans le DOM pour mesurer
     const m = menu.getBoundingClientRect();
+    const PAD = 8;     // marge viewport
+    const GAP = 6;     // espace entre anchor et menu
 
-    // Prefer under the button, align right edge to button’s right
-    let top = r.bottom + 8;
-    let left = r.right - m.width;
+    let top, left;
 
-    // Keep within viewport
-    if (left < 8) left = 8;
-    if (left + m.width > vw - 8) left = vw - 8 - m.width;
+    if (!side) {
+      // Menu principal : sous le bouton, aligné à droite
+      top  = r.bottom + GAP;
+      left = r.right - m.width;
 
-    // If not enough room below, open above
-    if (top + m.height > vh - 8) {
-      top = r.top - 8 - m.height;
-      if (top < 8) top = 8;
+      // flip vertical si déborde en bas
+      if (top + m.height > vh - PAD) {
+        top = r.top - GAP - m.height;
+      }
+
+      // clamp viewport
+      top  = Math.max(PAD, Math.min(top,  vh - PAD - m.height));
+      left = Math.max(PAD, Math.min(left, vw - PAD - m.width));
+
+      menu.style.left = `${Math.round(left)}px`;
+      menu.style.top  = `${Math.round(top)}px`;
+      menu.style.right = ""; // au cas où
+    } else {
+      // Sous-menu : à droite de l’item parent (sinon à gauche)
+      top  = r.top;
+      left = r.right + GAP;
+
+      // si ça déborde à droite, ouvre à gauche
+      if (left + m.width > vw - PAD) {
+        left = r.left - GAP - m.width;
+      }
+
+      // clamp viewport (vertical + horizontal)
+      top  = Math.max(PAD, Math.min(top,  vh - PAD - m.height));
+      left = Math.max(PAD, Math.min(left, vw - PAD - m.width));
+
+      menu.style.left = `${Math.round(left)}px`;
+      menu.style.top  = `${Math.round(top)}px`;
+      menu.style.right = ""; // IMPORTANT: on positionne en "left/top"
     }
 
-    menu.style.left = `${Math.round(left)}px`;
-    menu.style.top  = `${Math.round(top)}px`;
-    menu.style.visibility = 'visible';
+    menu.style.visibility = "visible";
 
-    // animate in
-    requestAnimationFrame(()=> {
-      menu.style.opacity = '1';
-      menu.style.transform = 'translateY(0)';
+    requestAnimationFrame(() => {
+      menu.style.opacity = "1";
+      menu.style.transform = "translateY(0)";
     });
   };
 
@@ -1042,7 +1077,7 @@ export function openKebabMenu(anchorBtn, { items = [] } = {}) {
 
   // Important: defer outside-click to avoid closing immediately
   const onDocClick = (e) => {
-    if (menu.contains(e.target) || e.target === anchorBtn) return;
+    if (menu.contains(e.target) || e.target === anchorBtn) return menu;
     closeMenu();
   };
 
@@ -1059,6 +1094,7 @@ export function openKebabMenu(anchorBtn, { items = [] } = {}) {
   // Position now (after in-DOM to get proper size)
   pos();
   anchorBtn.__menuOpen = menu;
+  return { close: closeMenu };
 }
 
 export function wireAppKebab() {
@@ -1074,6 +1110,12 @@ export function wireAppKebab() {
         { id:'chat',      label:"Assistant chat",           onClick: ()=>openSheetAssistantChat() },
         { id:'infosPlus', label:'Assistant infos+',         onClick: ()=>openSheetInfosPlus() },
         { id:'settings',  label:'Paramètres',               onClick: ()=>openSheetParams() },
+        { id:'colonnes',  label:'Colonnes',                 submenu: 
+          [
+            { id:'add-column',       label:"Ajouter",        onClick: ()=>doAjouterColonne() },
+            { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
+          ]
+        },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
       ]
     });
@@ -1081,6 +1123,293 @@ export function wireAppKebab() {
 }
 
 // ===== Actions =====
+
+// Colonnes obligatoires d'un tableau d'activités
+const MANDATORY_COLS = new Set([
+  'Activite',
+  'Date',
+  'Debut',
+  'Duree',
+  'Fin',
+  'Lieu',
+  'Session',
+  'Relache',
+  'Style',
+  'Mood',
+  'Orga',
+  'Reserve',
+  'Priorite',
+  'Note',
+  'Hyperlien',
+  'HyperlienGoogle',
+  'HyperlienBR',
+  'Description',
+  'Distribution',
+  'Avis',
+  '__desc_summary',
+  '__avis_summary',
+  '__uuid'
+]);
+
+// Ajout d'une colonne
+export function doAjouterColonne() {
+  const df  = ctx.df || [];
+
+  openSheetExclusive({
+    title: 'Ajouter une colonne',
+    panelHeight: 'auto',
+    panelMaxHeight: '40vh',
+// !@ts-ignore
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="form">
+          <div class="form-row">
+            <label for="new-col-name">Nom de la nouvelle colonne</label>
+            <input id="new-col-name"
+                   type="text"
+                   class="bb-input"
+                   placeholder="Ex. Commentaire, Classement…"
+                   autocomplete="off" />
+          </div>
+          <p class="form-error" id="new-col-error" style="display:none;color:#c00;font-size:0.85rem;"></p>
+        </div>
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button type="button" id="btn-cancel-add-col" class="bb-btn">Annuler</button>
+            <button type="button" id="btn-apply-add-col" class="bb-btn is-primary">Ajouter</button>
+          </div>
+        </div>
+      `;
+
+      const input = body.querySelector('#new-col-name');
+      const errEl = body.querySelector('#new-col-error');
+      const btnCancel = body.querySelector('#btn-cancel-add-col');
+      const btnApply  = body.querySelector('#btn-apply-add-col');
+
+      const showError = (msg) => {
+        if (!errEl) return;
+        errEl.textContent = msg || '';
+        errEl.style.display = msg ? 'block' : 'none';
+      };
+
+      const clearError = () => showError('');
+
+      // Ensemble des colonnes existantes (insensible à la casse)
+      const existingFields = (() => {
+        const s = new Set();
+
+        // helper normalisation : " Nom " -> "nom"
+        const add = (name) => {
+          if (!name) return;
+          const norm = String(name).trim().toLowerCase();
+          if (!norm) return;
+          s.add(norm);
+        };
+
+        // 1) Noms de champs du DF
+        const rows = ctx.df || [];
+        for (const r of rows) {
+          if (!r || typeof r !== 'object') continue;
+          for (const k of Object.keys(r)) {
+            if (!k) continue;
+            add(k);              // nom de champ (field)
+          }
+        }
+
+        // 2) Noms de colonnes dans la grille (field + headerName)
+        const handle = window.grids?.get('grid-programmees');    // ou une autre grille de référence
+        const colDefs = handle?.api?.getColumnDefs?.() || [];
+        for (const col of colDefs) {
+          if (!col) continue;
+          if (col.field)      add(col.field);       // champ interne
+          if (col.headerName) add(col.headerName);  // titre visible
+        }
+
+        return s;
+      })();
+
+      function apply() {
+        clearError();
+        let name = (input.value || '').trim();
+
+        // validations de base
+        if (!name) {
+          showError('Veuillez saisir un nom de colonne.');
+          input.focus();
+          return;
+        }
+
+        // on déconseille fortement de commencer par "__"
+        if (name.startsWith('__')) {
+          showError('Le préfixe "__" est réservé aux colonnes techniques.');
+          input.focus();
+          return;
+        }
+
+        // éviter les doublons (insensible à la casse)
+        if (existingFields.has(name.toLowerCase())) {
+          showError('Une colonne portant ce nom existe déjà.');
+          input.focus();
+          input.select();
+          return;
+        }
+
+        // facultatif : limiter les caractères exotiques
+        const sanitized = name.replace(/\s+/g, ' ').trim();
+        name = sanitized;
+
+        // On va construire le nouveau df et le garder pour rebuild
+        let newDf = null;
+        ctx.mutateDf?.(rows => {
+          const src = rows || [];
+
+          // on duplique chaque row en ajoutant la nouvelle clé
+          const next = src.map(r => ({
+            ...r,
+            [name]: null,   
+          }));
+
+          // si df était vide : on crée une ligne vide pour que la colonne existe
+          if (!next.length) {
+            next.push({ [name]: null });
+          }
+
+          newDf = next;
+          return next;
+        });
+
+        try {
+          if (typeof rebuildColumnsForActiviteGrids === 'function') {
+            rebuildColumnsForActiviteGrids(newDf || ctx.df || []);
+          }
+        } catch (e) {
+          console.error('rebuildColumnsForActiviteGrids error:', e);
+        }
+
+        close();
+      }
+
+      btnCancel?.addEventListener('click', () => close());
+      btnApply?.addEventListener('click', apply);
+
+      input?.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          apply();
+        }
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          close();
+        }
+      });
+
+      // focus initial
+      setTimeout(() => input?.focus(), 20);
+    }
+  });
+}
+
+// Suppression d'une colonne
+export function doSupprimerColonne() {
+  const df = window.ctx?.df || [];
+  if (!Array.isArray(df) || df.length === 0) {
+    alert('Aucune donnée chargée : impossible de supprimer une colonne.');
+    return;
+  }
+
+  // Récupère la liste des colonnes à partir de la première ligne
+  const sample = df[0] || {};
+  const allFields = Object.keys(sample);
+
+  // Colonnes candidates à la suppression : non techniques et non obligatoires
+  const removable = allFields.filter(f =>
+    f &&
+    !MANDATORY_COLS.has(f) &&
+    !f.startsWith('__')
+  );
+
+  if (!removable.length) {
+    alert('Aucune colonne facultative à supprimer.');
+    return;
+  }
+
+  openSheetExclusive({
+    title: 'Supprimer une colonne',
+    panelHeight: 'auto',
+    panelMaxHeight: '40vh',
+    mount: (body, { close }) => {
+      const optionsHtml = removable
+        .map(name => `<option value="${name}">${name}</option>`)
+        .join('');
+
+      body.innerHTML = `
+        <div class="form">
+          <div class="form-row">
+            <label for="col-to-remove">Colonne à supprimer</label>
+            <select id="col-to-remove" class="bb-input">
+              ${optionsHtml}
+            </select>
+          </div>
+        </div>
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button type="button" id="btn-cancel" class="bb-btn">Annuler</button>
+            <button type="button" id="btn-apply" class="bb-btn is-primary">Supprimer</button>
+          </div>
+        </div>
+      `;
+
+      const sel   = body.querySelector('#col-to-remove');
+      const btnOk = body.querySelector('#btn-apply');
+      const btnKo = body.querySelector('#btn-cancel');
+
+      btnKo.addEventListener('click', () => close());
+
+      btnOk.addEventListener('click', () => {
+        const col = sel.value?.trim();
+        if (!col) {
+          alert('Veuillez choisir une colonne à supprimer.');
+          return;
+        }
+        if (MANDATORY_COLS.has(col)) {
+          alert(`La colonne "${col}" est obligatoire et ne peut pas être supprimée.`);
+          return;
+        }
+
+        // Confirmation de confort
+        if (!confirm(`Supprimer la colonne "${col}" ?`)) return;
+
+        if (!window.ctx?.mutateDf) {
+          console.error('ctx.mutateDf est introuvable');
+          return;
+        }
+
+        // Mise à jour du df (immutabilité "façon ctx.mutateDf")
+        window.ctx.mutateDf(rows => {
+          if (!Array.isArray(rows)) return rows;
+
+          const next = rows.map(r => {
+            if (!r || typeof r !== 'object') return r;
+            const copy = { ...r };
+            delete copy[col];
+            return copy;
+          });
+
+          // Rebuild des colonnes des grilles d’activités avec le nouveau df
+          try {
+            rebuildColumnsForActiviteGrids?.(next);
+          } catch (e) {
+            console.error('rebuildColumnsForActiviteGrids error:', e);
+          }
+
+          return next;
+        });
+
+        close();
+      });
+    }
+  });
+}
 
 // Reset du contexte
 async function doNouveauContexte() {

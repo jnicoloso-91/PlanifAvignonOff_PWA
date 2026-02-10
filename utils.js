@@ -56,38 +56,42 @@ export function openUrl(u, IosPwaMode=true){
   if (!u) return;
   const url = /^https?:\/\//i.test(u) ? u : ('https://' + u);
 
-  if (IosPwaMode) {
-    // Vérifie si on est dans une PWA iOS
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-// @ts-ignore
-    const isStandalone = window.navigator.standalone === true
-      || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  try {
+    if (IosPwaMode) {
+      // Vérifie si on est dans une PWA iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      // @ts-ignore
+      const isStandalone = window.navigator.standalone === true
+        || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 
-    // Cas iOS PWA → créer un lien temporaire pour forcer Safari
-    if (isIOS && isStandalone) {
-      // logToPage('Début openUrl en mode PWA')
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener,noreferrer';
-      // important : il faut un geste utilisateur pour que le click() fonctionne
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      // logToPage('Fin openUrl en mode PWA')
-      return;
+      // Cas iOS PWA → créer un lien temporaire pour forcer Safari
+      if (isIOS && isStandalone) {
+        // logToPage('Début openUrl en mode PWA')
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener,noreferrer';
+        // important : il faut un geste utilisateur pour que le click() fonctionne
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // logToPage('Fin openUrl en mode PWA')
+        return;
+      }
     }
-  }
 
-  // Desktop / Android (ou fallback iOS)
-  // logToPage('Début openUrl en mode Standard');
-  const domain = new URL(url).hostname.replace(/\W+/g, '_');
-  const windowName = `avignon_${domain}`;
-  try { window.open(url, windowName, 'noopener'); } 
-  catch(_) { window.location.assign(url); }
-  // logToPage(`Fin openUrl en mode Standard sur ${windowName}`);
+    // Desktop / Android (ou fallback iOS)
+    // logToPage('Début openUrl en mode Standard');
+    const domain = new URL(url).hostname.replace(/\W+/g, '_');
+    const windowName = `avignon_${domain}`;
+    try { window.open(url, windowName, 'noopener'); } 
+    catch(_) { window.location.assign(url); }
+    // logToPage(`Fin openUrl en mode Standard sur ${windowName}`);
+  } finally {
+    sessionStorage.setItem("forceProgrammeOnReturn", "1"); // permet de forcer le retour au programme après visite du lien
+  }
 }
 
 // Est-ce qu'une string ressemble à une URL
