@@ -333,8 +333,9 @@ html, body {
   line-height: 1.1;
 }
 
+
 /*============================
-  Resolution pb de swip sur page catalogue sur IOS
+  Resolution pb de swipe sur page catalogue sur IOS
   ============================*/
 
 #pg-next{
@@ -347,4 +348,24 @@ html, body {
   padding: 4px 10px;
   font: inherit;
   font-size: 1.5rem;
+}
+
+
+/*============================
+  Empêche la sélection grids pb le swipe
+  ============================*/
+
+/* classe utilisée pendant le swipe */
+.pager.is-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grabbing;
+}
+
+/* empêche aussi la sélection des cellules AG Grid pendant drag */
+.pager.is-dragging .ag-root,
+.pager.is-dragging .ag-center-cols-container,
+.pager.is-dragging .ag-cell {
+  user-select: none;
+  -webkit-user-select: none;
 }

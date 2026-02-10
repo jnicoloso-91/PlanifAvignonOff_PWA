@@ -104,9 +104,9 @@ function handleVisibilityChange() {
     );
   }
 
-  document.addEventListener("pageshow", handleReturnToApp);
-  document.addEventListener("focus", handleReturnToApp);
-  document.addEventListener("visibilitychange", handleReturnToApp);
+  document.addEventListener("pageshow", () => handleReturnToApp());
+  document.addEventListener("focus", () => handleReturnToApp());
+  document.addEventListener("visibilitychange", () => handleReturnToApp());
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
