@@ -87,6 +87,28 @@ function enableKeyboardAutoScroll() {
   });
 }
 
+// Gestion du retour au programme après visite d’un lien d’activité
+function handleVisibilityChange() {
+  function handleReturnToApp() {
+    if (document.visibilityState !== "visible") return;
+
+    const force = sessionStorage.getItem("forceProgrammeOnReturn");
+    if (!force) return;
+
+    sessionStorage.removeItem("forceProgrammeOnReturn");
+
+    // 🔁 retour forcé sur la page Programme
+    window.pager?.setPage?.(
+      window.pager?.getPageIndexByClass?.("page--planning") ?? 1,
+      false
+    );
+  }
+
+  document.addEventListener("pageshow", handleReturnToApp);
+  document.addEventListener("focus", handleReturnToApp);
+  document.addEventListener("visibilitychange", handleReturnToApp);
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('⏳ DOM prêt, initialisation du contexte...');
 
@@ -112,6 +134,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireInfosPlusPopup();
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
+  handleVisibilityChange();
 
   console.log('✅ Application initialisée');
 
