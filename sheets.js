@@ -2218,10 +2218,14 @@ export function openSheetFiltres(gridId) {
         function parseQuickFilter(qf) {
           if (!qf) return [];
 
-          return qf
-            .split(OR_SEP)
+          if (Array.isArray(qf)) return qf
             .map(s => s.trim())
             .filter(Boolean);
+
+          else return (qf ?? "")
+            .toString()
+            .trim()
+            .split(OR_SEP);
         }
 
         const h = window.grids.get(gridId);

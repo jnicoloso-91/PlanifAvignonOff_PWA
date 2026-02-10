@@ -1775,15 +1775,16 @@ function gridOptionsCommon(gridId, el) {
       if (Array.isArray(quickFilter)) {
         // déjà parsé par AG Grid
         parts = quickFilter
-          .map(x => (x ?? "").toString().trim().toLowerCase())
+          .flatMap(x => (x ?? "").toString().split(OR_SEP))
+          .map(s => s.trim().toLowerCase())
           .filter(Boolean);
       } else {
         const q = (quickFilter ?? "").toString().trim();
         if (!q) return true;
 
-        // OR avec séparateur "|"
+        // OR avec séparateur OR_SEP
         parts = q
-          .split("|")
+          .split(OR_SEP)
           .map(s => s.trim().toLowerCase())
           .filter(Boolean);
       }
