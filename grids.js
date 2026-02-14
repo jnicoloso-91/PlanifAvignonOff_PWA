@@ -37,6 +37,7 @@ import {
 import {
   rerenderProgrammeCalendar,
   isProgrammeCalendarVisible,
+  ensureCalendarEventVisible,
   saveProgrammeGridHeight,
 } from './calendar.js';
 
@@ -409,6 +410,24 @@ export function setSortModel(gridId, colId, sort) {
   }
 }
 
+// Vérifie si une row node est actuellement visible dans le viewport de la grille (utile avant d'appeler ensureNodeVisible pour éviter les scrolls inutiles)
+function isNodeInViewport(api, node) {
+  if (!api || !node) return false;
+
+  const first = api.getFirstDisplayedRow();
+  const last  = api.getLastDisplayedRow();
+
+  const idx = node.rowIndex;
+  if (idx == null || idx < 0) return false;
+
+  return idx >= first && idx <= last;
+}
+
+// Indique si l'élément concerné est le Calendrier
+function isProgrammeCalendarConcerned(gridId) {
+  return gridId === 'grid-programmees' && isProgrammeCalendarVisible();
+}
+
 /**
  * Sélectionne par __uuid et rend visible
  * @param {*} gridId 
@@ -427,7 +446,9 @@ export function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {
   if (!node) return false;
 
   node.setSelected?.(true, true);
-  api.ensureNodeVisible?.(node, align);
+
+  // En mode Calendrier la visibilité de l'event est gérée par le rerender du calendrier
+  if (!isProgrammeCalendarConcerned(gridId) && !isNodeInViewport(api, node)) api.ensureNodeVisible?.(node, align);
 
   if (flash) {
     const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
@@ -596,7 +617,47 @@ function getLigneVoisineNode(api, uuid) {
   return nodes[neighborIdx] || null;
 }
 
-// Met à jour la definition des colonnes sur une grille
+/**
+ * Retourne les noms de colonnes présents dans rows
+ * (union de toutes les clés trouvées)
+ */
+export function extractColumnKeys(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  const set = new Set();
+
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    Object.keys(row).forEach(k => set.add(k));
+  }
+
+  return Array.from(set);
+}
+
+/**
+ * Retourne true si les colonnes diffèrent
+ */
+export function areColumnKeysDifferent(rows, keys) {
+  if (!Array.isArray(keys)) return true;
+
+  const rowKeys = extractColumnKeys(rows);
+
+  if (rowKeys.length !== keys.length) return true;
+
+  const setA = new Set(rowKeys);
+  const setB = new Set(keys);
+
+  if (setA.size !== setB.size) return true;
+
+  for (const k of setA) {
+    if (!setB.has(k)) return true;
+  }
+
+  return false; // identiques
+}
+
+// Met à jour la definition des colonnes sur une grille en fonction des champs présents dans les données 
+// (utile après undo/redo ou import de données qui peuvent ajouter/supprimer des champs)
 function rebuildColumnsForGrid(gridId, dfRows = null) {
 
   // Recâble le wheel scrolling 
@@ -650,7 +711,7 @@ function rebuildColumnsForGrid(gridId, dfRows = null) {
   const api = handle.api;
   if (!api) return;
 
-  // 1) Colonnes de base (celles que tu définis dans buildColumnsActivitesXXX)
+  // 1) Colonnes de base (celles définies dans buildColumnsActivitesXXX)
   const baseCols = (handle.columnsBuilder?.() || []).slice(); // copie défensive
 
   // 2) Ensemble des champs déjà connus
@@ -1818,6 +1879,58 @@ function updateGridCounters(api, badgeEl) {
   badgeEl.textContent = `${displayed} / ${total}`;
 }
 
+/**
+ * Retourne le premier créneau de grid-creneaux lié à srcUuid :
+ * - priorité à __type_creneau === "Après"
+ * - sinon __type_creneau === "Avant"
+ *
+ * @param {string} srcUuid  uuid de l'activité/source
+ * @param {any} api  api de grid-creneaux
+ * @returns {any|null}  row.data du créneau trouvé (ou null)
+ */
+function findCreneauFromSrcUuid(api, srcUuid) {
+  if (!api || !srcUuid) return null;
+
+  let firstApres = null;
+  let firstAvant = null;
+
+  // "premier" = premier dans l'ordre affiché (après filtre + tri)
+  api.forEachNodeAfterFilterAndSort?.((node) => {
+    const r = node?.data;
+    if (!r) return;
+
+    if (r.__srcUuid !== srcUuid) return;
+
+    const t = (r.__type_creneau || "").toLowerCase();
+    if (!firstApres && (t === "après" || t === "apres")) firstApres = r;
+    else if (!firstAvant && t === "avant") firstAvant = r;
+  });
+
+  // fallback si ta version n'a pas forEachNodeAfterFilterAndSort
+  if (!api.forEachNodeAfterFilterAndSort) {
+    api.forEachNode?.((node) => {
+      const r = node?.data;
+      if (!r) return;
+
+      if (r.__srcUuid !== srcUuid) return;
+
+      const t = (r.__type_creneau || "").toLowerCase();
+      if (!firstApres && (t === "après" || t === "apres")) firstApres = r;
+      else if (!firstAvant && t === "avant") firstAvant = r;
+    });
+  }
+
+  return firstApres || firstAvant || null;
+}
+
+function selectCreneauFromSrcUuid(srcUuid) {
+  const api = getGridApiById('grid-creneaux');
+  const creneau = findCreneauFromSrcUuid(api, srcUuid);
+  if (!creneau) return;
+
+  selectRowByUuid('grid-creneaux', creneau.__uuid);
+}
+
 const gridOptionsActivitesProgrammees = {
   rowSelection: 'single',
   onSelectionChanged(params) {
@@ -1826,8 +1939,9 @@ const gridOptionsActivitesProgrammees = {
     (/** @type {HTMLButtonElement} */ (btn)).disabled = (sel.length > 0) ? activitesAPI.estActiviteReservee(sel[0]) : true;
     const gridId = params?.context?.gridId;  
     if (gridId) saveGridStateToMeta(params, gridId);
+    selectCreneauFromSrcUuid(sel?.[0]?.__uuid);
   },
-  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-prog')); saveGridStateToMeta(p, 'grid-programmees'); },
+  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-prog')); saveGridFilterModelToMeta(p, 'grid-programmees'); },
 }
 
 function colorActiviteProgrammable(row) {
@@ -1847,7 +1961,7 @@ const gridOptionsActivitesNonProgrammees = {
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
   },
-  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-non-prog')); saveGridStateToMeta(p, 'grid-non-programmees'); },
+  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-non-prog')); saveGridFilterModelToMeta(p, 'grid-non-programmees'); },
 }
 
 const gridOptionsCreneaux = {
@@ -1856,7 +1970,7 @@ const gridOptionsCreneaux = {
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
   },
-  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-creneaux')); saveGridStateToMeta(p, 'grid-creneaux'); },
+  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-creneaux')); saveGridFilterModelToMeta(p, 'grid-creneaux'); },
 }
 
 const gridOptionsActivitesProgrammables = {
@@ -1868,7 +1982,7 @@ const gridOptionsActivitesProgrammables = {
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
   },
-  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-programmables')); saveGridStateToMeta(p, 'grid-programmables'); },
+  onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-programmables')); saveGridFilterModelToMeta(p, 'grid-programmables'); },
 }
 
 // Sélectionne dans une autre grille la ligne correspondant à celle qui vient d'être sélectionnée et la rend visible
@@ -1956,6 +2070,26 @@ function saveGridStateToMeta(e, gridId) {
   ctx.setMetaParam('gridState', next);
 }
 
+function saveGridFilterModelToMeta(e, gridId) {
+  const api = e.api;
+  if (!api) return;
+
+  const filterModel = api.getFilterModel?.() || null;
+
+  const prev = ctx.getMeta()?.gridState || {};
+  const existing = prev[gridId] || {};
+
+  const next = {
+    ...prev,
+    [gridId]: {
+      ...existing,
+      filterModel,
+    },
+  };
+
+  ctx.setMetaParam('gridState', next);
+}
+
 // A mettre dans OnGridReady
 function restoreGridStateFromMetaEarly(gridId, { align = "middle" } = {}) {
   const handle = window.grids?.get(gridId);
@@ -2013,7 +2147,7 @@ function restoreGridStateFromMetaLate(gridId, { align = "middle" } = {}) {
         api.forEachNode?.(node => {
           const id = node?.data?.__uuid;
           if (id && selectedUuids.includes(id)) {
-            node.setSelected?.(true, false);
+            node.setSelected(true, false);
           }
         });
 

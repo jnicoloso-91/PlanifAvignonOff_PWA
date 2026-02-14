@@ -62,6 +62,8 @@ import {
   selectRowByUuid,
   rebuildColumnsForActiviteGrids,
   setSortModel,
+  extractColumnKeys,
+  areColumnKeysDifferent,
 } from './grids.js';
 
 import {
@@ -1705,12 +1707,16 @@ async function doVerifierCoherence() {
 
 // Undo
 async function doUndo() {
-  try { await ctx.undo('df'); } catch {}; rebuildColumnsForActiviteGrids(ctx.df);
+  const keys = extractColumnKeys(ctx.df);
+  try { await ctx.undo('df'); } catch {}; 
+  if (areColumnKeysDifferent(ctx.df, keys)) rebuildColumnsForActiviteGrids(ctx.df);
 }
 
 // Redo
 async function doRedo() {
-  try { await ctx.redo(); } catch {}; rebuildColumnsForActiviteGrids(ctx.df);
+  const keys = extractColumnKeys(ctx.df);
+  try { await ctx.redo(); } catch {}; 
+  if (areColumnKeysDifferent(ctx.df, keys)) rebuildColumnsForActiviteGrids(ctx.df);
 }
 
 // Ajout activité

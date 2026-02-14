@@ -109,6 +109,61 @@ function getEventNodeByUuid(uuid) {
   return document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
 }
 
+// Renvoie le scroll container d'un élément
+function getScrollContainer(el) {
+  let cur = el.parentElement;
+
+  while (cur) {
+    const style = getComputedStyle(cur);
+    const overflowY = style.overflowY;
+
+    if (overflowY === "auto" || overflowY === "scroll") {
+      return cur;
+    }
+
+    cur = cur.parentElement;
+  }
+
+  return document.scrollingElement; // fallback page
+} 
+
+// Renvoie true si un élément est partiellement visible dans son scroll container
+function isCalendarEventVisible(eventNode, { partial = true } = {}) { 
+  if (!eventNode) return false;
+  const container = getScrollContainer(eventNode);
+  if (!container) return false;
+
+  const elRect = eventNode.getBoundingClientRect();
+  const cRect  = container.getBoundingClientRect();
+
+  if (partial) {
+    return (
+      elRect.bottom > cRect.top &&
+      elRect.top < cRect.bottom &&
+      elRect.right > cRect.left &&
+      elRect.left < cRect.right
+    );
+  } else {
+    return (
+      elRect.top >= cRect.top &&
+      elRect.bottom <= cRect.bottom &&
+      elRect.left >= cRect.left &&
+      elRect.right <= cRect.right
+    );
+  }
+}
+
+// Scroll le calendrier pour rendre un event visible (si pas déjà visible)
+export function ensureCalendarEventVisible(uuid, { partial = true, smooth = true } = {}) {
+  const ev = getEventNodeByUuid(uuid);
+  if (!ev) return false;
+  if (isCalendarEventVisible(ev, { partial })) {
+    return true;
+  }
+  scrollCalendarToEvent(getCalRoot(), uuid);
+  return true;
+}
+
 // Renvoie le body de l’expander du calendrier
 function getProgrammePaneBody() {
   return document.querySelector("#exp-programmees .st-expander-body");
@@ -507,7 +562,7 @@ function selectEventByUuid(uuid) {
 }
 
 // Sélectionne l’event courant dans le calendrier
-export function selectCurrentEventInCalendar() {
+function selectCurrentEventInCalendar() {
   const selUuid = getSelectedRowUuid('grid-programmees');
   selectEventByUuid(selUuid);
 }
@@ -819,7 +874,8 @@ export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = 
     scrollAllDaysToFirstEventOrHour(calADays, defaultHour);         // scroll jusqu'aupremier event ou defaultHour par défaut
     if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour de l’event sélectionné
     if (selUuid) {
-      scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
+      // scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
+      ensureCalendarEventVisible(selUuid);                                  // scroll minimal pour rendre l’event visible
       selectEventByUuid(selUuid);                                   // sélection visuelle de l’event  
     }
   });

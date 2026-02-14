@@ -373,6 +373,11 @@ export class AppContext {
     if (domain === 'carnet' && snap.carnet) { this.#carnet = snap.carnet.slice(); this.#restoreUIStateToGrids(snap); }
     if (domain === 'meta'   && snap.meta)   { this.#meta = { ...(snap.meta||{}) }; }
 
+    // important : la restauration est une modification à persister
+    if (domain === "df")     this.#dirty.df = true;
+    if (domain === "carnet") this.#dirty.carnet = true;
+    if (domain === "meta")   this.#dirty.meta = true;
+
     // émettre les events
     if (domain === 'df')     this.#em.emit('df:changed',     { reason:'restore' });
     if (domain === 'carnet') this.#em.emit('carnet:changed', { reason:'restore' });
