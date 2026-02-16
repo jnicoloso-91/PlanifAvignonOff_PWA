@@ -257,6 +257,16 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
+     * Renvoie les jours de programmation possibles pour une activité donnée 
+     * (i.e. les jours pour lesquels l’activité est programmable).
+     * @param {*} row 
+     * @returns 
+     */
+    getJoursPossibles(row) {
+      return _getJoursPossibles(row);
+    },
+
+    /**
      * cellEditor de la colonne Date de la grille des activités programmées
      * @param {*} row 
      * @returns 
@@ -2582,16 +2592,6 @@ function _getPeriodeProgrammation() {
 }
 
 // renvoie sous forme de dateint les bornes d'un intervalle de type [d1-d2] avec d1 et d2 pretty ou [10-13]/08 ou [10-13]/08/25
-// function _getMinMaxFromPrettyRange(chip) {
-//   const s = String(chip || "").trim();
-//   const inside = s.startsWith("[") && s.endsWith("]") ? s.slice(1, -1).trim() : s;
-//   const m = inside.match(/^(.+?)\s*-\s*(.+)$/);
-//   if (!m) return null;
-//   const a = prettyToDateint(m[1]);
-//   const b = prettyToDateint(m[2]);
-//   if (a == null || b == null) return null;
-//   return [a, b];
-// }
 function _getMinMaxFromPrettyRange(chip) {
   const s = String(chip || "").trim();
 

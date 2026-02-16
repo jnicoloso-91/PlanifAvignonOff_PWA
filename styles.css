@@ -387,7 +387,7 @@ main, .page-wrap {
 .exp-header-btn:focus { outline: none; }
 .exp-header-btn:hover { background: rgba(0,0,0,.06); }
 
-/* icône calendrier (taille discrète) */
+/* icônes de boutons (taille discrète) */
 .exp-header-btn .exp-icon {
   width: 18px;
   height: 18px;
@@ -2734,6 +2734,44 @@ input[type="range"]:focus::-moz-range-thumb {
   #programme-panel #calA .cal-ev__title{ font-size: 11px; }
 }
 
+.cal-day__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-day__trash {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  opacity: 0.7;
+  transition: background .15s ease, opacity .15s ease;
+}
+
+.cal-day__trash:hover {
+  background: rgba(0,0,0,0.06);
+  opacity: 1;
+}
+
+.cal-day__trash svg {
+  display: block;
+}
+
+/* icônes de boutons (taille discrète) */
+.cal-day__actions .exp-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  color: #444444;
+}
+@media (max-width: 812px) {
+  .cal-day__actions .exp-icon {
+    padding: 1px;
+  }
+}
+
 /* =========================
    SetPrio
    ========================= */
@@ -2765,8 +2803,21 @@ input[type="range"]:focus::-moz-range-thumb {
   margin-bottom: 12px;
 }
 
+.prio-actions{
+  display: flex;
+  justify-content: center;     
+  gap: 1.6rem;
+  padding-top: 1rem; 
+}
+.prio-actions button{
+  flex: 1;
+  padding: 10px;
+}
+
+
+/*=============================*/
 /* Wheel */
-.wheel-wrap{
+/* .wheel-wrap{
   position: relative;
   height: 180px;
   margin: 8px 0 8px;
@@ -2774,18 +2825,18 @@ input[type="range"]:focus::-moz-range-thumb {
   border: 1px solid var(--bb-border-color, #ddd);
   border-radius: 12px;
   background: var(--bb-panel-bg, #fff);
-}
+} */
 
-.wheel{
+/* .wheel{
   height: 100%;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
-.wheel::-webkit-scrollbar{ display:none; }
+.wheel::-webkit-scrollbar{ display:none; } */
 
-.wheel-item,
+/* .wheel-item,
 .wheel-spacer{
   height: 36px;
   display: flex;
@@ -2793,11 +2844,11 @@ input[type="range"]:focus::-moz-range-thumb {
   justify-content: center;
   scroll-snap-align: center;
   user-select: none;
-}
+} */
 
-.wheel-spacer{ height: 72px; }
+/* .wheel-spacer{ height: 72px; } */
 
-.wheel-indicator{
+/* .wheel-indicator{
   pointer-events: none;
   position: absolute;
   top: 50%;
@@ -2807,32 +2858,215 @@ input[type="range"]:focus::-moz-range-thumb {
   margin-top: -18px;
   border-top: 1px solid rgba(0,0,0,.3);
   border-bottom: 1px solid rgba(0,0,0,.3);
-}
-
-.prio-actions{
-  display: flex;
-  justify-content: center;     
-  gap: 1.6rem;
-  padding-top: 1rem; 
-}
-
-/* .prio-actions{
-  display: flex;
-  gap: 10px;
 } */
-.prio-actions button{
-  flex: 1;
-  padding: 10px;
-  /* border-radius: 10px; */
-  /* border: none; */
-  /* font-size: 14px; */
-}
 
-/* .btn-primary{
-  background: #1f6feb;
-  color: white;
-}
+/* =========================
+   Wheel
+   ========================= */
 
-.btn-secondary{
-  background: #e5e7eb;
+/* Conteneur */
+/* .wheel-wrap{
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  margin: 10px auto 0;
 } */
+
+/* La roue scrollable */
+/* .wheel{
+  height: 180px;                 
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+
+  scroll-snap-type: y mandatory; 
+  scrollbar-width: none;         
+}
+.wheel::-webkit-scrollbar{ display:none; } */
+
+/* Items */
+/* .wheel-item{
+  height: 40px;                  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  scroll-snap-align: center;     
+  user-select: none;
+
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0.2px;
+  opacity: .55;
+  transform: scale(.96);
+  transition: transform .12s ease, opacity .12s ease, filter .12s ease;
+} */
+
+/* Item “actif” (on le mettra en JS) */
+/* .wheel-item.is-active{
+  opacity: 1;
+  transform: scale(1.02);
+  filter: saturate(1.05);
+  font-weight: 600;
+} */
+
+/* Spacer haut/bas pour centrer */
+/* height ≈ (wheelHeight/2 - itemHeight/2) : ajuste si tu changes height/item */
+/* .wheel-spacer{
+  height: 70px; 
+  flex: 0 0 auto;
+} */
+
+/* Ligne/zone centrale */
+/* .wheel-indicator{
+  pointer-events: none;
+  position: absolute;
+  left: 8px; right: 8px;
+  top: 50%;
+  height: 40px;                  
+  transform: translateY(-50%);
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.12);
+  background: rgba(0,0,0,.04);
+} */
+
+/* Fade haut/bas façon iOS */
+/* .wheel-wrap::before,
+.wheel-wrap::after{
+  content:"";
+  pointer-events:none;
+  position:absolute;
+  left:0; right:0;
+  height: 44px;
+  z-index: 2;
+}
+.wheel-wrap::before{
+  top:0;
+  background: linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0));
+}
+.wheel-wrap::after{
+  bottom:0;
+  background: linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0));
+} */
+
+/* Dark mode (si tu as un body.dark ou prefers-color-scheme) */
+/* @media (prefers-color-scheme: dark){
+  .wheel-indicator{ border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.06); }
+  .wheel-wrap::before{ background: linear-gradient(to bottom, rgba(16,16,16,1), rgba(16,16,16,0)); }
+  .wheel-wrap::after { background: linear-gradient(to top, rgba(16,16,16,1), rgba(16,16,16,0)); }
+} */
+.wheel-wrap{
+  position: relative;
+  margin: 8px auto 0;
+  width: 34ch;
+  max-width: 520px;
+}
+
+/* Scroll */
+.wheel{
+  height: 200px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.wheel::-webkit-scrollbar{ display:none; }
+
+/* Items */
+.wheel-item{
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  scroll-snap-align: center;
+  transition: all .15s ease;
+
+  font-size: 14px;
+  letter-spacing: .2px;
+  opacity: .45;
+  transform: scale(.96);
+}
+
+/* Item centré */
+.wheel-item.is-active{
+  opacity: 1;
+  transform: scale(1.03);
+  font-weight: 600;
+  color: #111;
+}
+
+.wheel-item[data-weekend="true"]{
+  color: #b35c5c;
+}
+
+.wheel-item:not(.is-active){
+  filter: blur(.2px);
+}
+
+/* Encadré central */
+.wheel-indicator{
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.05);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+  pointer-events: none;
+}
+
+/* Dégradé haut/bas */
+.wheel-wrap::before,
+.wheel-wrap::after{
+  content:"";
+  position:absolute;
+  left:0; right:0;
+  height: 56px;
+  pointer-events:none;
+  z-index: 3;
+}
+
+.wheel-wrap::before{
+  top:0;
+  background: linear-gradient(to bottom,
+    rgba(255,255,255,1),
+    rgba(255,255,255,0)
+  );
+}
+
+.wheel-wrap::after{
+  bottom:0;
+  background: linear-gradient(to top,
+    rgba(255,255,255,1),
+    rgba(255,255,255,0)
+  );
+}
+
+/* Spacer */
+.wheel-spacer{
+  height: 78px;
+}
+
+/* =========================
+   Sheet Reprogrammer
+   ========================= */
+
+.muted {
+  text-align: center;
+  font-size: 0.9rem;
+  opacity: 0.7;
+  margin-top: -8px;
+}
+
+.cal-ev.cal-ev--ghost{
+  opacity: .7;
+  pointer-events: none;
+  filter: saturate(.7);
+  outline: 1px dashed rgba(0,0,0,.35);
+}
+.cal-ev.cal-ev--ghost .cal-ev__timeText{
+  font-style: italic;
+}

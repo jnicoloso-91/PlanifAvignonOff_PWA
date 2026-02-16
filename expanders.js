@@ -20,12 +20,6 @@ import {
   sortDf, 
 } from './activites.js'; 
 
-// import {
-//   openKebabMenu,
-//   doAjouterColonne,
-//   doSupprimerColonne,
-// } from './menus.js';
-
 import {
   grids,
   getSelectedRowSafe,
@@ -34,8 +28,6 @@ import {
   getLigneVoisineUuid,
   refreshGrid,
   dropRowFromSrcGridToDstGrid,
-  refreshAllGrids,
-  ensurePrioColumnVisible,
 } from './grids.js';
 
 import {
@@ -45,8 +37,8 @@ import {
 } from './calendar.js';
 
 import {
-  openSheetExclusive,
   openSheetFiltres,
+  createWheelPicker,
 } from './sheets.js';
 
 const $ = id => document.getElementById(id);
@@ -1234,60 +1226,60 @@ export function wireExpanderSplitters() {
 // Actions des boutons d'expanders
 // =======================
 
-function createWheelPicker(wrapEl) {
-  const wheel = wrapEl.querySelector(".wheel");
+// function createWheelPicker(wrapEl) {
+//   const wheel = wrapEl.querySelector(".wheel");
 
-  function installWheelSmart(wheelEl, { itemPx = 36 } = {}) {
-    let locked = false;
+//   function installWheelSmart(wheelEl, { itemPx = 36 } = {}) {
+//     let locked = false;
 
-    wheelEl.addEventListener("wheel", (ev) => {
-      if (ev.ctrlKey) return;
+//     wheelEl.addEventListener("wheel", (ev) => {
+//       if (ev.ctrlKey) return;
 
-      const isMouseLike = Math.abs(ev.deltaY) >= 50; // seuil à ajuster
-      if (!isMouseLike) return; // trackpad => scroll natif
+//       const isMouseLike = Math.abs(ev.deltaY) >= 50; // seuil à ajuster
+//       if (!isMouseLike) return; // trackpad => scroll natif
 
-      ev.preventDefault();
-      ev.stopPropagation();
+//       ev.preventDefault();
+//       ev.stopPropagation();
 
-      if (locked) return;
-      locked = true;
+//       if (locked) return;
+//       locked = true;
 
-      const dir = ev.deltaY > 0 ? 1 : -1;
-      wheelEl.scrollTo({ top: wheelEl.scrollTop + dir * itemPx, behavior: "smooth" });
+//       const dir = ev.deltaY > 0 ? 1 : -1;
+//       wheelEl.scrollTo({ top: wheelEl.scrollTop + dir * itemPx, behavior: "smooth" });
 
-      setTimeout(() => { locked = false; }, 140);
-    }, { passive: false });
-  }
+//       setTimeout(() => { locked = false; }, 140);
+//     }, { passive: false });
+//   }
 
-  function getCenteredItem() {
-    const r = wheel.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    const el = document.elementFromPoint(cx, cy);
-    return el?.closest?.(".wheel-item") || null;
-  }
+//   function getCenteredItem() {
+//     const r = wheel.getBoundingClientRect();
+//     const cx = r.left + r.width / 2;
+//     const cy = r.top + r.height / 2;
+//     const el = document.elementFromPoint(cx, cy);
+//     return el?.closest?.(".wheel-item") || null;
+//   }
 
-  function getValue() {
-    const it = /** @type {HTMLElement} */ (getCenteredItem());
-    const v = it?.dataset?.v ?? "";
-    return v === "" ? null : parseInt(v, 10);
-  }
+//   function getValue() {
+//     const it = /** @type {HTMLElement} */ (getCenteredItem());
+//     const v = it?.dataset?.v ?? "";
+//     return v === "" ? null : parseInt(v, 10);
+//   }
 
-  function setValue(v) {
-    const target = [...wheel.querySelectorAll(".wheel-item")]
-      .find(el => (el.dataset.v ?? "") === String(v ?? ""));
-    if (!target) return;
+//   function setValue(v) {
+//     const target = [...wheel.querySelectorAll(".wheel-item")]
+//       .find(el => (el.dataset.v ?? "") === String(v ?? ""));
+//     if (!target) return;
 
-    const top =
-      target.offsetTop -
-      (wheel.clientHeight / 2 - target.clientHeight / 2);
+//     const top =
+//       target.offsetTop -
+//       (wheel.clientHeight / 2 - target.clientHeight / 2);
 
-    wheel.scrollTo({ top, behavior: "instant" });
-  }
+//     wheel.scrollTo({ top, behavior: "instant" });
+//   }
 
-  installWheelSmart(wheel);
-  return { getValue, setValue };
-}
+//   installWheelSmart(wheel);
+//   return { getValue, setValue };
+// }
 
 function getUuidsFromSelection(gridApi) {
   return new Set(
@@ -1629,31 +1621,32 @@ async function doProgrammerActivite() {
   if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
   const uuidVoisin = getLigneVoisineUuid(grids.get('grid-programmables').api, uuid);
 
-  ctx.mutateDf(rows => {
-    const next = Array.isArray(rows) ? rows.slice() : [];
+  // ctx.mutateDf(rows => {
+  //   const next = Array.isArray(rows) ? rows.slice() : [];
 
-    const idx = (uuid != null)
-      ? next.findIndex(r => r && r.__uuid === uuid)
-      : -1;
+  //   const idx = (uuid != null)
+  //     ? next.findIndex(r => r && r.__uuid === uuid)
+  //     : -1;
 
-    // payload normalisé (Date convertie)
-    const payload = { ...sel, Date: dateInt };
+  //   // payload normalisé (Date convertie)
+  //   const payload = { ...sel, Date: dateInt };
 
-    if (idx >= 0) {
-      // ✅ met à jour la ligne existante
-      next[idx] = { ...next[idx], ...payload };
-    } else {
-      // ✅ ajoute une nouvelle ligne (assure un __uuid)
-      if (!payload.__uuid) {
-        payload.__uuid = genUUID();
-      }
-      next.push(payload);
-    }
+  //   if (idx >= 0) {
+  //     // ✅ met à jour la ligne existante
+  //     next[idx] = { ...next[idx], ...payload };
+  //   } else {
+  //     // ✅ ajoute une nouvelle ligne (assure un __uuid)
+  //     if (!payload.__uuid) {
+  //       payload.__uuid = genUUID();
+  //     }
+  //     next.push(payload);
+  //   }
 
-    // trie final 
-    return sortDf(next);
-  });
-  
+  //   // trie final 
+  //   return sortDf(next);
+  // });
+  ctx.dfPatch(uuid, { Date: dateInt });
+
   // 3) ouvrir l’expander “programmées” puis sélectionner & scroller la ligne
   openExpander('exp-programmees');
 
@@ -1701,13 +1694,14 @@ async function doDeprogrammerActivite() {
   }
 
   // Mutation immuable
-  ctx.mutateDf(rows => {
-    let next = rows.slice();
-    const i = next.findIndex(r => r.__uuid === uuid);
-    if (i >= 0) next[i] = { ...next[i], Date: null };
-    next = sortDf(next);
-    return next;
-  });
+  // ctx.mutateDf(rows => {
+  //   let next = rows.slice();
+  //   const i = next.findIndex(r => r.__uuid === uuid);
+  //   if (i >= 0) next[i] = { ...next[i], Date: null };
+  //   next = sortDf(next);
+  //   return next;
+  // });
+  ctx.dfPatch(uuid, { Date: null });
 
   dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, {scroll:false});
 }

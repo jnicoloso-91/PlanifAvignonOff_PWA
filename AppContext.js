@@ -178,6 +178,20 @@ export class AppContext {
       this.#em.emit('meta:changed', { reason: 'mutate' });
     });
   }
+  dfPatch(uuid, patch) {
+    if (!uuid || !patch || typeof patch !== "object") return;
+
+    this.#withHistory('df', 'patch', () => {
+      const i = this.#df.findIndex(r => r?.__uuid === uuid);
+      if (i < 0) return;
+
+      this.#df[i] = { ...this.#df[i], ...patch };
+      this.#df = sortDf(this.#df);
+
+      this.#dirty.df = true;
+      this.#em.emit('df:changed', { reason: 'patch', id: uuid });
+    });
+  }
 
   // ---------- Sauvegarde ----------
   async save() {
@@ -444,7 +458,6 @@ export class AppContext {
     this.#autoSave();
     this.#em.emit('history:change', { domain, ...this.historyState(domain) });
   }
-  // ---------- Mutations (ré-écrites pour passer par #withHistory) ----------
 
   // ---------- Undo / Redo ----------
   _pushHistory(domain) {

@@ -35,6 +35,16 @@ export function isDateint(val) {
   );
 }
 
+// Renvoie true sur une date de weekend
+export function isWeekendDateInt(di) {
+  const y = (di / 10000) | 0;
+  const m = ((di / 100) | 0) % 100 - 1;
+  const d = di % 100;
+
+  const day = new Date(y, m, d).getDay();
+  return day === 0 || day === 6;
+}
+
 // yyyymmdd -> {y,m,d}
 export function dateintToYmd(di) {
   const y = Math.floor(di / 10000);
@@ -44,6 +54,26 @@ export function dateintToYmd(di) {
 }
 
 export function pad2(n){ n = parseInt(n ?? 0, 10); return (n<10?'0':'') + n; }
+
+// Parse "HH:MM" ou "HHhMM" ou "HHMM" en minutes depuis minuit (number) ou null si invalide
+export function parseHHMM(s) {
+  if (!s) return null;
+  const str = String(s).trim();
+
+  // "11:05"
+  let m = /^(\d{1,2}):(\d{2})$/.exec(str);
+  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
+
+  // "11h05"
+  m = /^(\d{1,2})h(\d{2})$/.exec(str);
+  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
+
+  // "1105" (rare)
+  m = /^(\d{1,2})(\d{2})$/.exec(str);
+  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
+
+  return null;
+}
 
 // minutes -> "HHhMM"
 export function mmToHHhMM(mins) {
@@ -87,6 +117,13 @@ export function mmFromHhMM(s) {
   if (!m) return null;
   const H = +m[1], M = +m[2];
   return H * 60 + M;
+}
+
+// minutes -> {h, m}
+export function mmToHM(totalMin) {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return { h, m };
 }
 
 // Récupère à la volée les minutes depuis minuit pour une activité
@@ -209,6 +246,15 @@ export function dateintToDate(di) {
   const dt = new Date(Date.UTC(y, m - 1, d));
   // garde en local time si tu préfères : new Date(y, m-1, d)
   return dt;
+}
+
+export function dateintToDateLongFR(di) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  }).format(dateintToDate(di));
 }
 
 // parse "20250712" ou "12/07[/2025]" -> 20250712

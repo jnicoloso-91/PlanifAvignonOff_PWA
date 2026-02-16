@@ -10,12 +10,17 @@ import {
 
 import { 
   dateToDateint,
+  dateintToDateLongFR,
   dateintStrToPretty,
   mmFromHHhMM,
   mmToHHhMM,
+  mmToHM,
   isoDateToLocalDate,
   localDateToIsoDate,
   prettyToDateint,
+  prettyToMinutes,
+  parseHHMM,
+  isWeekendDateInt,
 } from './utils-date.js';
 
 import { 
@@ -46,8 +51,10 @@ import {
 } from './grids.js';
 
 import {
+  ensureCalendarEventVisible,
   isProgrammeCalendarVisible,
   rerenderProgrammeCalendar,
+  PX_PER_MIN,
 } from './calendar.js';
 
 import { sortCarnet } from './carnet.js'; 
@@ -6787,4 +6794,399 @@ export function openSheetProgress({
   });
 
   return api;
+}
+
+export function createWheelPicker(wrapEl, { itemPx = 36, onChange = null } = {}) {
+  const wheel = wrapEl.querySelector(".wheel");
+  if (!wheel) return null;
+
+  let raf = 0;
+  let lastV = null;
+  let disposed = false;
+
+  function installWheelSmart(wheelEl) {
+    let locked = false;
+
+    wheelEl.addEventListener("wheel", (ev) => {
+      if (ev.ctrlKey) return;
+
+      const isMouseLike = Math.abs(ev.deltaY) >= 50;
+      if (!isMouseLike) return; // trackpad => scroll natif
+
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      if (locked) return;
+      locked = true;
+
+      const dir = ev.deltaY > 0 ? 1 : -1;
+      wheelEl.scrollTo({ top: wheelEl.scrollTop + dir * itemPx, behavior: "smooth" });
+
+      setTimeout(() => { locked = false; }, 140);
+    }, { passive: false });
+  }
+
+  function getCenteredItem() {
+    const r = wheel.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const el = document.elementFromPoint(cx, cy);
+    return el?.closest?.(".wheel-item") || null;
+  }
+
+  function getValue() {
+    const it = /** @type {HTMLElement} */ (getCenteredItem());
+    const v = it?.dataset?.v ?? "";
+    return v === "" ? null : parseInt(v, 10);
+  }
+
+  function setValue(v, { behavior = "auto" } = {}) {
+    const target = [...wheel.querySelectorAll(".wheel-item")]
+      .find(el => (el.dataset.v ?? "") === String(v ?? ""));
+    if (!target) return;
+
+    const top =
+      target.offsetTop -
+      (wheel.clientHeight / 2 - target.clientHeight / 2);
+
+    wheel.scrollTo({ top, behavior });
+  }
+
+  function emitIfChanged() {
+    if (disposed) return;
+    const v = getValue();
+    if (v === lastV) return;
+    lastV = v;
+    onChange?.(v);
+    updateActive();
+  }
+
+  function onScroll() {
+    if (disposed) return;
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      emitIfChanged();
+    });
+  }
+
+  function updateActive() {
+    const it = getCenteredItem();
+    wheel.querySelectorAll(".wheel-item.is-active")
+      .forEach(x => x.classList.remove("is-active"));
+    if (it) it.classList.add("is-active");
+  }
+
+  installWheelSmart(wheel);
+
+  wheel.addEventListener("scroll", onScroll, { passive: true });
+
+  // init
+  queueMicrotask(() => emitIfChanged());
+
+  return {
+    getValue,
+    setValue,
+    destroy() {
+      disposed = true;
+      if (raf) cancelAnimationFrame(raf);
+      wheel.removeEventListener("scroll", onScroll);
+    }
+  };
+}
+
+let picker = null;
+
+// Sheet de reprogrammation :
+// - affiche une roue de sélection des jours possibles pour reprogrammer une activité
+// - sur validation : applique le changement de date dans le df (en appelant applyDeprogramAndReprogram)
+export function openSheetReprogrammer(uuid) {
+
+  function getCalDaysEl() {
+    return /** @type {HTMLElement|null} */ (document.getElementById("calADays"));
+  }
+
+  function getCalDayEl(dateInt) {
+    const daysEl = getCalDaysEl();
+    if (!daysEl) return null;
+    return /** @type {HTMLElement|null} */ (
+      daysEl.querySelector(`.cal-day[data-dateint="${String(dateInt)}"]`)
+    );
+  }
+
+  function getDayBody(dateInt) {
+    return /** @type {HTMLElement|null} */ (getCalDayEl(dateInt)?.querySelector(".cal-day__body"));
+  }
+
+  function getDayScrollTop(dateInt) {
+    return getDayBody(dateInt)?.scrollTop ?? null;
+  }
+
+  function setDayScrollTop(dateInt, y, { smooth = false } = {}) {
+    const body = getDayBody(dateInt);
+    if (!body) return false;
+
+    const maxScroll = Math.max(0, body.scrollHeight - body.clientHeight);
+    const target = Math.max(0, Math.min(Number(y || 0), maxScroll));
+
+    if (smooth && typeof body.scrollTo === "function") {
+      body.scrollTo({ top: target, behavior: "smooth" });
+    } else {
+      body.scrollTop = target;
+    }
+    return true;
+  }
+
+  // Scroll horizontal pour amener le jour dans le viewport
+  function scrollCalendarToDay(dateInt, { behavior = "auto", inline = "center", block = "nearest" } = {}) {
+    const day = getCalDayEl(dateInt);
+    if (!day) return false;
+    try {
+      /** @type {ScrollIntoViewOptions} */
+      const opts = /** @type {ScrollIntoViewOptions} */ ({ behavior, block, inline });
+      day.scrollIntoView(opts);
+    } catch {
+      // fallback basique
+      const daysEl = getCalDaysEl();
+      if (!daysEl) return false;
+      const rDay = day.getBoundingClientRect();
+      const rCont = daysEl.getBoundingClientRect();
+      daysEl.scrollLeft += (rDay.left - rCont.left);
+    }
+    return true;
+  }
+
+  // Amener le jour + appliquer le même scrollY que le jour source
+  function scrollCalendarToDayKeepY(dateInt, yScroll, { behavior = "auto", smoothY = false } = {}) {
+    const ok = scrollCalendarToDay(dateInt, { behavior, inline: "center", block: "nearest" });
+    // après X-scroll, micro délai avant de setter Y (layout stable)
+    queueMicrotask(() => setDayScrollTop(dateInt, yScroll, { smooth: smoothY }));
+    return ok;
+  }
+
+  // trouve le jour le plus centré dans le viewport du calendrier, et retourne son dateInt
+  function getMostCenteredDayDateInt() {
+    const daysEl = document.getElementById("calADays");
+    if (!daysEl) return null;
+
+    const cont = daysEl.getBoundingClientRect();
+    const cx = cont.left + cont.width / 2;
+
+    /** @type {HTMLDivElement | null} */
+    let best = null;
+    let bestDist = Infinity;
+
+    for (const day of Array.from(daysEl.querySelectorAll(".cal-day"))) {
+      const r = day.getBoundingClientRect();
+      // ignore si complètement hors viewport
+      if (r.right < cont.left || r.left > cont.right) continue;
+
+      const mx = r.left + r.width / 2;
+      const dist = Math.abs(mx - cx);
+
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = /** @type {HTMLDivElement | null} */ (day);
+      }
+    }
+
+    const v = best?.dataset?.dateint ?? "";
+    return v ? parseInt(v, 10) : null;
+  }
+
+  // récupère les jours de reprogrammation possibles y compris le jour courant
+  function getJoursPossibles(row) {
+    let days = activitesAPI.getJoursPossibles(row);
+    const cur = row ? Number(row.Date || 0) : null;
+
+    // si la date actuelle n'est pas dans les jours possibles, on l'ajoute (pour info, et éviter les bugs de synchro wheel/calendar)
+    if (cur && !days.includes(cur)) {
+      days = [cur, ...days].sort((a, b) => a - b);
+    }
+
+    return days;
+  }
+
+  function ensureGhostEvent({ dateInt, topPx, heightPx, title = "Prévisualisation", place = "", debut = "", fin = "" }) {
+    const day = document.querySelector(`.cal-day[data-dateint="${String(dateInt)}"]`);
+    const tl  = day?.querySelector(".cal-timeline");
+    if (!tl) return null;
+
+    /** @type {HTMLElement | null} */
+    let ghost = tl.querySelector(".cal-ev--ghost");
+    if (!ghost) {
+      const timeLabel = `${debut || ""} → ${fin || ""}`.trim();
+      ghost = document.createElement("div");
+      ghost.className = "cal-ev cal-ev--ghost";
+      ghost.innerHTML = `
+        <div class="cal-ev__time">
+          <span class="cal-ev__timeText">${timeLabel}</span>
+        </div>
+        <div class="cal-ev__title">${title}</div>
+        <div class="cal-ev__place">${place}</div>
+      `;
+      tl.appendChild(ghost);
+    }
+
+    ghost.style.top = `${Math.round(topPx)}px`;
+    ghost.style.height = `${Math.max(18, Math.round(heightPx))}px`;
+    return ghost;
+  }
+
+  function removeGhostEverywhere() {
+    document.querySelectorAll(".cal-ev--ghost").forEach(el => el.remove());
+  }
+
+  // Déplace le ghost : on le recrée dans le bon jour (simple et robuste)
+  function moveGhostToDay({ dateInt, topPx, heightPx, title, place, debut, fin }) {
+    removeGhostEverywhere();
+    return ensureGhostEvent({ dateInt, topPx, heightPx, title, place, debut, fin });
+  }
+
+  function computeGhostGeomFromRow(row) {
+    const startMin = parseHHMM(row?.Debut) ?? 0;
+
+    const durMin =
+      (typeof prettyToMinutes === "function")
+        ? prettyToMinutes(row?.Duree)
+        : (parseHHMM(row?.Duree) ?? 0);
+
+    const endMin = Math.max(0, Math.min(24 * 60, startMin + (durMin || 0)));
+
+    const topPx = startMin * PX_PER_MIN;
+    const heightPx = Math.max(18, (endMin - startMin) * PX_PER_MIN);
+
+    return { topPx, heightPx };
+  }
+
+  function previewDayWithGhost(dateInt) {
+    if (!dateInt) return;
+    if (dateInt == initDay) return;
+
+    // amener le jour + garder le scrollY
+    scrollCalendarToDayKeepY(dateInt, srcY, { behavior: "smooth", smoothY: false });
+
+    // event fantôme
+    queueMicrotask(() => {
+      moveGhostToDay({ dateInt, topPx, heightPx, title: ghostTitle, place: ghostPlace, debut: row.Debut, fin: row.Fin });
+    });
+  }
+
+  const row = ctx.df?.find(r => r && r.__uuid === uuid);
+  const srcDateInt = Number(row?.Date) || null;
+  const srcY = srcDateInt ? (getDayScrollTop(srcDateInt) ?? 0) : 0;
+  let days = getJoursPossibles(row);
+  const initDay = row.Date ? Number(row.Date) : days[0];
+
+  const { topPx, heightPx } = computeGhostGeomFromRow(row);
+  const ghostTitle = row.Activite || "Reprogrammation";
+  const ghostPlace = row.Lieu || "";
+
+
+  openSheetExclusive({
+    title: "Reprogrammer",
+    panelMaxHeight: "41vh",
+    panelHeight: "60vh",
+    mount: (body, { close }) => {
+
+      body.innerHTML = `
+        <div class="sheet-body">
+          <div class="muted">${row?.Activite} de ${row?.Debut} à ${row?.Fin}</div>
+          <div class="wheel-wrap" id="reprogWheel"></div>
+        </div>
+        <div class="sheet-footer">
+          <button type="button" class="bb-btn" id="btnReprogCancel">Annuler</button>
+          <button type="button" class="bb-btn is-primary" id="btnReprogApply">Appliquer</button>
+        </div>
+      `;
+
+      const wrap = body.querySelector("#reprogWheel");
+
+      wrap.innerHTML = `
+        <div class="wheel">
+          <div class="wheel-spacer"></div>
+          ${days.map(d => {  
+            const isWeekend = isWeekendDateInt(d);
+            return `
+              <div class="wheel-item"
+                  data-v="${d}"
+                  ${isWeekend ? 'data-weekend="true"' : ''}>
+                ${dateintToDateLongFR(d)}
+              </div>
+            `;
+          }).join("")}
+          <div class="wheel-spacer"></div>
+        </div>
+        <div class="wheel-indicator"></div>
+      `;
+
+      let syncing = false; // 👈 anti boucle
+
+      picker?.destroy?.();
+      picker = createWheelPicker(wrap, {
+        onChange: (dint) => {
+          if (!dint) return;
+          if (syncing) return;
+          syncing = true;
+          // wheel -> calendar
+          scrollCalendarToDayKeepY(dint, srcY, { behavior: "auto" });
+          previewDayWithGhost(dint);
+          syncing = false;
+        }
+      });
+
+      // init wheel + calendar
+      queueMicrotask(() => {
+        picker?.setValue(initDay, { behavior: "auto" });
+        scrollCalendarToDayKeepY(initDay, srcY, { behavior: "auto" });
+      });
+
+      // init preview
+      queueMicrotask(() => previewDayWithGhost(initDay ?? Number(row.Date) ?? days[0]));
+
+      // calendar -> wheel (optionnel mais cool)
+      const daysEl = document.getElementById("calADays");
+      let raf = 0;
+      const onCalScroll = () => {
+        if (!daysEl) return;
+        if (syncing) return;
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          const d = getMostCenteredDayDateInt();
+          if (!d) return;
+          syncing = true;
+          picker?.setValue(d, { behavior: "auto" });
+          syncing = false;
+        });
+      };
+      daysEl?.addEventListener("scroll", onCalScroll, { passive: true });
+
+      body.onClose?.(() => {
+        removeGhostEverywhere(); 
+        ensureCalendarEventVisible(uuid);
+        daysEl?.removeEventListener("scroll", onCalScroll);
+        if (raf) cancelAnimationFrame(raf);
+        picker?.destroy?.();
+        picker = null;
+      });
+
+      body.querySelector("#btnReprogCancel")?.addEventListener("click", () => {
+        removeGhostEverywhere();
+        ensureCalendarEventVisible(uuid, { checkVisibility: false });
+        close();
+      });
+
+      body.querySelector("#btnReprogApply")?.addEventListener("click", async () => {
+        const chosen = picker?.getValue?.();
+        if (!chosen) return;
+
+        removeGhostEverywhere();
+
+        ctx.dfPatch(uuid, { Date: chosen });
+        rerenderProgrammeCalendar({ snapDay: false });
+        close();
+      });
+    }
+  });
 }

@@ -1906,7 +1906,7 @@ function findCreneauFromSrcUuid(api, srcUuid) {
     else if (!firstAvant && t === "avant") firstAvant = r;
   });
 
-  // fallback si ta version n'a pas forEachNodeAfterFilterAndSort
+  // fallback forEachNodeAfterFilterAndSort n'existe pas
   if (!api.forEachNodeAfterFilterAndSort) {
     api.forEachNode?.((node) => {
       const r = node?.data;
@@ -1920,15 +1920,17 @@ function findCreneauFromSrcUuid(api, srcUuid) {
     });
   }
 
-  return firstApres || firstAvant || null;
+  return firstAvant || firstApres || null;
 }
 
-function selectCreneauFromSrcUuid(srcUuid) {
+export function selectCreneauFromSrcUuid(srcUuid) {
   const api = getGridApiById('grid-creneaux');
   const creneau = findCreneauFromSrcUuid(api, srcUuid);
   if (!creneau) return;
 
-  selectRowByUuid('grid-creneaux', creneau.__uuid);
+  const uuid= creneau.__uuid;
+  selectRowByUuid('grid-creneaux', uuid);
+  ensureRowVisible('grid-creneaux', uuid)
 }
 
 const gridOptionsActivitesProgrammees = {
@@ -2476,7 +2478,7 @@ function updSeances(params) {
   ctx.setDf(df);    
 }
 
-// Quand on édite la date d'une activité programmée
+// Reprogrammation d'une activité programmée
 async function onProgGridDateCommitted(params) {
   if (params.colDef.field !== 'Date') return;
   if (prettyToDateint(params.newValue) === params.oldValue) return;
@@ -2493,12 +2495,13 @@ async function onProgGridDateCommitted(params) {
   const uuidVoisin = getLigneVoisineUuid(params.api, uuid);
 
   // Commit dans contexte ctx
-  let df = ctx.getDf().slice(); 
-  const idx = df.findIndex(r => r.__uuid === uuid);
-  if (idx < 0) return;
-  df[idx] = { ...df[idx], ...params.data }; df[idx].Date = di; 
-  df = sortDf(df);
-  ctx.setDf(df);        
+  // let df = ctx.getDf().slice(); 
+  // const idx = df.findIndex(r => r.__uuid === uuid);
+  // if (idx < 0) return;
+  // df[idx] = { ...df[idx], ...params.data }; df[idx].Date = di; 
+  // df = sortDf(df);
+  // ctx.setDf(df);    
+  ctx.dfPatch(uuid, { Date: di });    
 
   // Si drop dans une autre grille: 
   // - sélectionne la ligne voisine dans la grille de départ
@@ -2511,7 +2514,7 @@ async function onProgGridDateCommitted(params) {
   }
 }
 
-// Quand on édite la date d'une activité non programmée
+// Programmation d'une activité non programmée
 async function onNonProgGridDateCommitted(params) {
   if (params.colDef.field !== 'Date') return;
   if (prettyToDateint(params.newValue) === params.oldValue) return;
@@ -2526,12 +2529,13 @@ async function onNonProgGridDateCommitted(params) {
   const uuidVoisin = getLigneVoisineUuid(params.api, uuid);
 
   // Commit dans contexte ctx
-  let df = ctx.getDf().slice(); 
-  const idx = df.findIndex(r => r.__uuid === uuid);
-  if (idx < 0) return;
-  df[idx] = { ...df[idx], ...params.data }; df[idx].Date = di; 
-  df = sortDf(df);
-  ctx.setDf(df);        
+  // let df = ctx.getDf().slice(); 
+  // const idx = df.findIndex(r => r.__uuid === uuid);
+  // if (idx < 0) return;
+  // df[idx] = { ...df[idx], ...params.data }; df[idx].Date = di; 
+  // df = sortDf(df);
+  // ctx.setDf(df);        
+  ctx.dfPatch(uuid, { Date: di });    
 
   // Si drop dans une autre grille: 
   // - sélectionne la ligne voisine dans la grille de départ

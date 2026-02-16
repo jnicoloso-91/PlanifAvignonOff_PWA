@@ -9,12 +9,15 @@ import {
 
 import { 
   prettyToMinutes, 
+  parseHHMM,
 } from './utils-date.js';
 
 import {
+  ensureRowVisible,
   getSelectedRow,
   getSelectedRowUuid,
   selectRowByUuid,
+  selectCreneauFromSrcUuid,
 } from './grids.js';
 
 import { 
@@ -28,6 +31,10 @@ import {
 } from './app.js'; 
 
 import { 
+  sortDf, 
+} from './activites.js'; 
+
+import { 
   addExpanderButton,
 } from './expanders.js'; 
 
@@ -35,7 +42,11 @@ import {
   openPopoverNear,
 } from './infos-plus.js';
 
-const PX_PER_MIN = 1.1;         // 1.0..1.4
+import {
+  openSheetReprogrammer,
+} from './sheets.js';
+
+export const PX_PER_MIN = 1.1;         // 1.0..1.4
 
 // Cache de la hauteur de la grille grid-programmees (px)
 let _cachedGridHeightPx = null;
@@ -43,25 +54,9 @@ let _cachedGridHeightPx = null;
 // Cache de la hauteur calculée du calendrier (px)
 let _cachedCalHeightPx = null;
 
-// --- helpers temps (fallback) ---
-function parseHHMM(s) {
-  if (!s) return null;
-  const str = String(s).trim();
+// --- helpers temps ---
 
-  // "11:05"
-  let m = /^(\d{1,2}):(\d{2})$/.exec(str);
-  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
-
-  // "11h05"
-  m = /^(\d{1,2})h(\d{2})$/.exec(str);
-  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
-
-  // "1105" (rare)
-  m = /^(\d{1,2})(\d{2})$/.exec(str);
-  if (m) return (Number(m[1])|0)*60 + (Number(m[2])|0);
-
-  return null;
-}
+// Clamp un nombre n entre a et b
 function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
 
 // --- helpers days range ---
@@ -154,13 +149,16 @@ function isCalendarEventVisible(eventNode, { partial = true } = {}) {
 }
 
 // Scroll le calendrier pour rendre un event visible (si pas déjà visible)
-export function ensureCalendarEventVisible(uuid, { partial = true, smooth = true } = {}) {
+export function ensureCalendarEventVisible(uuid, { partial = true, smooth = true, checkVisibility = true } = {}) {
   const ev = getEventNodeByUuid(uuid);
   if (!ev) return false;
-  if (isCalendarEventVisible(ev, { partial })) {
+  if (checkVisibility && isCalendarEventVisible(ev, { partial })) {
     return true;
   }
-  scrollCalendarToEvent(getCalRoot(), uuid);
+  const row = ctx.df?.find(r => r && r.__uuid === uuid);
+  const dateInt = Number(row?.Date) || null;
+  scrollCalendarToDay(getCalRoot(), dateInt);
+  scrollCalendarToEvent(getCalRoot(), uuid, { smooth });
   return true;
 }
 
@@ -322,17 +320,48 @@ function centerSelectedEventInDay(selectedUuid, { smooth = true } = {}) {
 }
 
 // Scroll un jour à une heure donnée
-function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
+// export function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
+//   const dayBody = getDayBody(dateInt);
+//   if (!dayBody) return false;
+
+//   const minutes = Math.max(0, Math.min(24 * 60, hour * 60));
+//   const y = Math.round(minutes * PX_PER_MIN);
+
+//   if (smooth && "scrollTo" in dayBody) {
+//     dayBody.scrollTo({ top: y, behavior: "smooth" });
+//   } else {
+//     dayBody.scrollTop = y;
+//   }
+//   return true;
+// }
+// Scroll un jour à une heure donnée, alignable (top/middle)
+export function scrollDayToHour(
+  dateInt,
+  hour = 9,
+  { smooth = true, align = "top", gapPx = 0 } = {}
+) {
   const dayBody = getDayBody(dateInt);
   if (!dayBody) return false;
 
   const minutes = Math.max(0, Math.min(24 * 60, hour * 60));
   const y = Math.round(minutes * PX_PER_MIN);
 
-  if (smooth && "scrollTo" in dayBody) {
-    dayBody.scrollTo({ top: y, behavior: "smooth" });
+  const vh = dayBody.clientHeight || 0;
+  const maxScroll = Math.max(0, (dayBody.scrollHeight || 0) - vh);
+
+  let target = y - gapPx;
+
+  if (align === "middle") {
+    target = y - Math.round(vh / 2) - gapPx;
+  }
+
+  // clamp
+  target = Math.max(0, Math.min(target, maxScroll));
+
+  if (smooth && typeof dayBody.scrollTo === "function") {
+    dayBody.scrollTo({ top: target, behavior: "smooth" });
   } else {
-    dayBody.scrollTop = y;
+    dayBody.scrollTop = target;
   }
   return true;
 }
@@ -508,6 +537,7 @@ function scrollAllDaysToFirstEventOrHour(
   daysEl,
   fallbackHour = 9,
   {
+    except = [], // [dateInt] à exclure du scroll (ex: jour du programme sélectionné)
     gapPx = 12   // 👈 espace visuel sous le header
   } = {}
 ) {
@@ -517,6 +547,7 @@ function scrollAllDaysToFirstEventOrHour(
   if (!dayNodes.length) return;
 
   for (const day of dayNodes) {
+    if (except.includes(day.dataset.dateint)) continue;
     const body = day.querySelector(".cal-day__body");
     const tl   = day.querySelector(".cal-timeline");
     if (!body || !tl) continue;
@@ -545,6 +576,106 @@ function scrollAllDaysToFirstEventOrHour(
   }
 }
 
+// Recupère les valeurs de scrollTop des colonnes jours du calendrier
+function getCalDayScrollTops(daysEl) {
+  /** @type {Record<string, number>} */
+  const map = {};
+  if (!daysEl) return map;
+
+  const dayNodes = daysEl.querySelectorAll(".cal-day[data-dateint]");
+  dayNodes.forEach(day => {
+    const k = String(day.dataset.dateint || "");
+    if (!k) return;
+    const body = day.querySelector(".cal-day__body");
+    if (!body) return;
+    map[k] = body.scrollTop || 0;
+  });
+
+  return map;
+}
+
+// Assigne les valeurs de scrollTop des colonnes jours du calendrier
+// function setCalDayScrollTops(
+//   daysEl,
+//   scrollTops,
+//   { except = [], onlyKeys = null } = {}
+// ) {
+//   if (!daysEl || !scrollTops) return;
+
+//   const dayNodes = daysEl.querySelectorAll(".cal-day[data-dateint]");
+//   dayNodes.forEach(day => {
+//     const k = String(day.dataset.dateint || "");
+//     if (!k) return;
+
+//     if (except.includes(k) || except.includes(Number(k))) return;
+//     if (onlyKeys && !onlyKeys.includes(k)) return;
+
+//     const body = day.querySelector(".cal-day__body");
+//     if (!body) return;
+
+//     const v = scrollTops[k];
+//     if (typeof v !== "number") return;
+
+//     const maxScroll = body.scrollHeight - body.clientHeight;
+//     body.scrollTop = Math.max(0, Math.min(v, maxScroll));
+//   });
+// }
+export function setCalDayScrollTops(
+  daysEl,
+  scrollTops,
+  {
+    except = [],
+    fallbackHour = 9,
+    gapPx = 12
+  } = {}
+) {
+  if (!daysEl) return;
+
+  const dayNodes = daysEl.querySelectorAll(".cal-day[data-dateint]");
+  if (!dayNodes.length) return;
+
+  for (const day of dayNodes) {
+    const dateInt = String(day.dataset.dateint || "");
+    if (!dateInt) continue;
+
+    if (except.includes(dateInt) || except.includes(Number(dateInt))) {
+      continue;
+    }
+
+    const body = day.querySelector(".cal-day__body");
+    const tl   = day.querySelector(".cal-timeline");
+    if (!body || !tl) continue;
+
+    let targetTop;
+
+    const saved = scrollTops?.[dateInt];
+
+    // 1️⃣ Si on a un scrollTop sauvegardé → on restaure
+    // if (typeof saved === "number") {
+    if (typeof saved === "number" && saved > 0) {
+      targetTop = saved;
+    } else {
+      // 2️⃣ Sinon → comportement intelligent
+      const firstEv = tl.querySelector(".cal-ev");
+
+      if (firstEv) {
+        targetTop = firstEv.offsetTop - gapPx;
+      } else {
+        const pxPerMin =
+          parseFloat(tl.dataset.pxPerMin) ||
+          parseFloat(getComputedStyle(tl).getPropertyValue("--px-per-min")) ||
+          1.1;
+
+        targetTop = Math.round(fallbackHour * 60 * pxPerMin) - gapPx;
+      }
+    }
+
+    // 3️⃣ Clamp sécurité
+    const maxScroll = body.scrollHeight - body.clientHeight;
+    body.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
+  }
+}
+
 // Indique si le calendrier est visible
 export function isProgrammeCalendarVisible() {
   const calA = document.getElementById("calA");
@@ -552,7 +683,7 @@ export function isProgrammeCalendarVisible() {
   return !!calA && !calA.hidden && calA.style.display !== "none";
 }
 
-// Sélectionne un event dans le calendrier par son uuid
+// Sélectionne un event dans le calendrier par son uuid (i.e. met 'is-selected' sur ev, ne séléctionne pas la row correspondante dans la grille) 
 function selectEventByUuid(uuid) {
   if (!uuid) return;
   const daysEl  = document.getElementById("calADays"); // ✅ conteneur des colonnes
@@ -573,7 +704,7 @@ function snapToCurrentSelectedEvent() {
   const selD = getSelectedProgrammeDateInt();
   const selUuid = getSelectedRowUuid('grid-programmees');
   scrollCalendarToDay?.(calA, selD); 
-  scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
+  ensureCalendarEventVisible(selUuid);                          // scroll minimal pour rendre l’event visible
   selectEventByUuid(selUuid);
 }
 
@@ -677,6 +808,153 @@ function ensureProgrammeCalendarDOM() {
   return { wrap, gridEl: gridSlot, calEl: calSlot };
 }
 
+// Recupère toutes les rows d'une grille par son id (ex: "grid-creneaux")
+function getAllRowsFromGrid(gridId) {
+  const h = window.grids?.get(gridId);
+  const api = h?.api;
+  if (!api) return [];
+  const out = [];
+  api.forEachNode?.(n => { if (n?.data) out.push(n.data); });
+  return out;
+}
+
+// Récupère le 1er créneau d'une journée (dateInt) parmi les rows de grid-creneaux
+function getFirstCreneauOfDay(creneauxRows, dateInt) {
+  const d = String(dateInt);
+  const list = (creneauxRows || []).filter(r => String(r?.Date ?? "") === d);
+  if (!list.length) return null;
+
+  list.sort((a,b) => (parseHHMM(a.Debut) ?? 999999) - (parseHHMM(b.Debut) ?? 999999));
+  return list[0] || null;
+}
+
+// Récupère le créneau "journée" d'une journée (dateInt) parmi les rows de grid-creneaux
+function getJourneeCreneauOfDay(creneauxRows, dateInt) {
+  const d = String(dateInt);
+  return (creneauxRows || []).find(r =>
+    String(r?.Date ?? "") === d &&
+    String(r?.__type_creneau ?? "").toLowerCase() === "journée"
+  ) || null;
+}
+
+/**
+ * Sélectionne un event dans le calendrier par son uuid + centre dessus + synchronise la sélection dans la grille
+ * @param {*} param0 
+ * @returns 
+ */
+function selectCalendarEventAndSync({ daysEl, dateInt, uuid, smooth = true } = {}) {
+  if (!uuid) return false;
+
+  // visuel calendrier
+  daysEl?.querySelectorAll(".cal-ev.is-selected").forEach(x => x.classList.remove("is-selected"));
+  const evEl = daysEl?.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+  if (evEl) evEl.classList.add("is-selected");
+
+  // snap calendrier (comme ton handler click)
+  try {
+    snapProgrammeCalendar?.({
+      dateInt,
+      selectedUuid: uuid,
+      fallbackHour: 9,
+      smooth
+    });
+  } catch {}
+
+  // sélection grid-programmees -> onSelectionChanged de la grille fera le reste
+  try { 
+    selectRowByUuid?.("grid-programmees", uuid); 
+    selectCreneauFromSrcUuid?.(uuid);
+  } catch {}
+
+  return true;
+}
+
+// Désélectionne tous les events du calendrier et de la grille grid-programmees 
+function deselectAllCalendarEvents(daysEl) {
+  if (!daysEl) return;
+
+  // 1️⃣ clear selection calendrier
+  daysEl.querySelectorAll(".cal-ev.is-selected")
+    .forEach(x => x.classList.remove("is-selected"));
+
+  // 2️⃣ clear sélection grid-programmees
+  try {
+    const handle = window.grids?.get("grid-programmees");
+    handle?.api?.deselectAll?.();
+  } catch {}
+}
+
+// Sélectionne le premier creneau du jour dans le calendrier en partant du header du jour.
+function pickCreneauFromDay(daysEl, dayNode, dateInt) {
+  const creneaux = getAllRowsFromGrid("grid-creneaux");
+
+  // ✅ fallback journée vide : priorité au créneau Type="Journée"
+  const journee = getJourneeCreneauOfDay(creneaux, dateInt);
+  if (journee?.__uuid) {
+
+    // 1️⃣ clear selection calendrier et grille
+    // deselectAllCalendarEvents(daysEl);
+
+    // 3️⃣ sélectionner le créneau journée + snap dessus
+    selectRowByUuid("grid-creneaux", journee.__uuid);
+    ensureRowVisible?.("grid-creneaux", journee.__uuid);
+    return;
+  }
+
+  // ✅ cas nominal : 1er créneau (Avant/Après) trié par Debut
+  const cr = getFirstCreneauOfDay(creneaux, dateInt);
+  const uuid = cr?.__srcUuid || null;
+  if (uuid) {
+    const ok = selectCalendarEventAndSync({ daysEl, dateInt, uuid, smooth: true });
+    if (ok) return;
+  }
+
+  // --- fallback (option 1) : journée pleine / pas de créneau => prendre 1er event du jour
+  const firstEv = dayNode?.querySelector(".cal-timeline .cal-ev");
+  const uuid2 = firstEv?.dataset?.uuid || null;
+  if (uuid2) {
+    selectCalendarEventAndSync({ daysEl, dateInt, uuid: uuid2, smooth: true });
+    return;
+  }
+
+  // dernier fallback : juste snap sur le jour (heure par défaut)
+  try {
+    snapProgrammeCalendar?.({ dateInt, selectedUuid: null, fallbackHour: 9, smooth: true });
+  } catch {}
+}
+
+// Trouve l’uuid d’un event à sélectionner avant de déprogrammer une journée 
+function findAnchorEventUuidForDayDelete(rows, targetDateInt, { daysRange = null } = {}) {
+  const dateInt = Number(targetDateInt);
+  if (!dateInt) return null;
+
+  // rows = tes rows "programmees" (avec Date, __uuid, Debut, etc.)
+  // Optionnel: daysRange = tableau des dates affichées (buildDaysRange(pp))
+  const inRange = (d) => !daysRange || daysRange.includes(d);
+
+  // 1) candidates previous day: Date < dateInt
+  const prev = (rows || [])
+    .filter(r => Number(r?.Date) < dateInt && r?.__uuid && inRange(Number(r.Date)))
+    .sort((a,b) => (Number(a.Date) - Number(b.Date)) || ((parseHHMM(a.Debut)||0) - (parseHHMM(b.Debut)||0)));
+
+  if (prev.length) {
+    // dernier événement du jour précédent => en fait "dernier événement avant dateInt"
+    return prev[prev.length - 1];
+  }
+
+  // 2) candidates next day: Date > dateInt
+  const next = (rows || [])
+    .filter(r => Number(r?.Date) > dateInt && r?.__uuid && inRange(Number(r.Date)))
+    .sort((a,b) => (Number(a.Date) - Number(b.Date)) || ((parseHHMM(a.Debut)||0) - (parseHHMM(b.Debut)||0)));
+
+  if (next.length) {
+    // premier événement du jour suivant (ou premier après dateInt)
+    return next[0];
+  }
+
+  return null;
+}
+
 // Render calendar
 function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
   if (!daysEl) return;
@@ -708,6 +986,9 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
     return `${d}/${m}/${y}`;
   };
 
+  // ---------- get exiting calDayScrollTops ----------
+  const prevScrollTops = getCalDayScrollTops(daysEl);
+
   // ---------- reset + build ----------
   daysEl.innerHTML = "";
 
@@ -721,12 +1002,117 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
     dayNode.innerHTML = `
       <div class="cal-day__header">
         <div class="cal-day__title">${fmtDay(dint)}</div>
-        <div class="cal-day__meta">${list.length} év.</div>
+
+        <div class="cal-day__actions">
+          <button type="button" 
+                  class="cal-day__trash" 
+                  data-dateint="${dint}"
+                  aria-label="Déprogrammer la journée"
+                  title="Déprogrammer la journée">
+            <span class="exp-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+                  stroke="currentColor" stroke-width="1.6"
+                  stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18" />
+                <path d="M8 6l1-2h6l1 2" />
+                <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
+                <line x1="10" y1="10" x2="10" y2="17" />
+                <line x1="14" y1="10" x2="14" y2="17" />
+              </svg>
+            </span>
+          </button>
+
+          <div class="cal-day__meta">${list.length} év.</div>
+        </div>
       </div>
       <div class="cal-day__body">
         <div class="cal-timeline"></div>
       </div>
     `;
+
+    const header = dayNode.querySelector(".cal-day__header");
+    if (header) {
+      const handler = (e) => {
+        e.preventDefault?.();
+        e.stopPropagation?.();
+        pickCreneauFromDay(daysEl, dayNode, dint);
+      };
+
+      header.addEventListener("click", handler);
+      header.addEventListener("touchstart", handler, { passive: false });
+    }
+    
+    const dayBody = dayNode.querySelector(".cal-day__body");
+    if (dayBody) {
+      const handler = (e) => {
+        e.preventDefault?.();
+        e.stopPropagation?.();
+        pickCreneauFromDay(daysEl, dayNode, dint);
+      };
+
+      dayBody.addEventListener("click", handler);
+      dayBody.addEventListener("touchstart", handler, { passive: false });
+    }
+
+    /** @type {HTMLButtonElement | null} */
+    const trashBtn = dayNode.querySelector(".cal-day__trash");
+    if (trashBtn) {
+    trashBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+
+      const dateInt = Number(trashBtn.dataset.dateint);
+      if (!dateInt) return;
+
+      const rowsOfDay = (rows || []).filter(r => r.Date === dateInt);
+      if (!rowsOfDay.length) return;
+
+      ctx.beginAction?.("df");
+
+      ctx.mutateDf(current => {
+
+        const daysRange = buildDaysRange(pp) || null;
+        const anchor = findAnchorEventUuidForDayDelete(current, dateInt, { daysRange });
+
+        if (anchor) {
+          // ⚠️ IMPORTANT : on laisse la sélection après mutation
+          requestAnimationFrame(() => {
+            selectCalendarEventAndSync({
+              daysEl,
+              dateInt: anchor.Date,
+              uuid: anchor.__uuid
+            });
+          });
+        }
+
+        const next = [];
+
+        for (const r of current) {
+          if (r.Date !== dateInt) {
+            next.push(r);
+            continue;
+          }
+
+          // 🚫 réservé → on ne touche pas
+          if (activitesAPI.estActiviteReservee(r)) {
+            next.push(r);
+            continue;
+          }
+
+          // 🗑️ pause → suppression physique
+          if (activitesAPI.estPause(r)) {
+            continue; // on ne push pas
+          }
+
+          // 📦 activité normale → déprogrammation
+          next.push({ ...r, Date: null });
+        }
+
+        return sortDf(next);
+      });
+
+      ctx.endAction?.("df");
+    });    
+    }
 
     /** @type {HTMLElement} */
     const tl = dayNode.querySelector(".cal-timeline");
@@ -783,6 +1169,14 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
         encodeURIComponent(r.Activite || '')
       );
 
+      const titleHtml = 
+          `<a class="cal-ev__title"
+              href="${href}"
+              target="_blank"
+              rel="noopener">
+              ${r.Activite ?? ""}
+          </a>`;
+
       const hasInfo = !!(r.__desc_summary || r.__avis_summary);
       const infoBtnHtml = hasInfo
         ? `<button type="button" class="cal-ev__info" aria-label="Infos" title="Infos">ℹ︎+</button>`
@@ -793,12 +1187,7 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
           <span class="cal-ev__timeText">${timeLabel}</span>
           ${infoBtnHtml}
         </div>
-        <a class="cal-ev__title"
-          href="${href}"
-          target="_blank"
-          rel="noopener">
-          ${r.Activite ?? ""}
-        </a>
+        ${titleHtml}
         <div class="cal-ev__place">${r.Lieu ?? ""}</div>
       `;
 
@@ -847,7 +1236,8 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
   }
 
   queueMicrotask(() => {
-    scrollAllDaysToFirstEventOrHour(daysEl, 9);
+    // scrollAllDaysToFirstEventOrHour(daysEl, 9);
+    setCalDayScrollTops(daysEl, prevScrollTops);
     selectCurrentEventInCalendar();
   });
   
@@ -866,16 +1256,17 @@ export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = 
 
   const selD = getSelectedProgrammeDateInt();
   const selUuid = getSelectedRowUuid('grid-programmees'); 
-
+  const prevScrollTops = getCalDayScrollTops(calADays);
+  
   renderProgrammeCalendar(calADays, rows, pp, selD);
 
   // post-render snapping
   requestAnimationFrame(() => {
-    scrollAllDaysToFirstEventOrHour(calADays, defaultHour);         // scroll jusqu'aupremier event ou defaultHour par défaut
+    // scrollAllDaysToFirstEventOrHour(calADays, defaultHour);         // scroll jusqu'aupremier event ou defaultHour par défaut
+    setCalDayScrollTops(calADays, prevScrollTops);
     if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour de l’event sélectionné
     if (selUuid) {
-      // scrollCalendarToEvent?.(calA, selUuid);                       // scroll vertical vers l'event sélectionné
-      ensureCalendarEventVisible(selUuid);                                  // scroll minimal pour rendre l’event visible
+      ensureCalendarEventVisible(selUuid);                          // scroll minimal pour rendre l’event visible
       selectEventByUuid(selUuid);                                   // sélection visuelle de l’event  
     }
   });
@@ -951,7 +1342,6 @@ async function showProgrammeCalendar() {
   const daysEl  = document.getElementById("calADays"); // ✅ conteneur des colonnes
 
   if (!calA || !daysEl) {
-    console.error("[CAL] missing calA or calADays", { calA, daysEl });
     return;
   }
 
@@ -1006,7 +1396,7 @@ function showProgrammeGrid() {
 }
 
 // Synchronise la hauteur du calendrier avec le panel
-export function attachProgrammeCalendarHeightSync() {
+function attachProgrammeCalendarHeightSync() {
   const panel = document.getElementById("programme-panel");
   if (!panel) return;
 
@@ -1045,7 +1435,7 @@ export function attachProgrammeCalendarHeightSync() {
 let _calAxisLockInstalled = false;
 
 // Scroll X mobile avec inertie (fling) - ne pas simplifier et revenir au scroll natif
-export function enableCalAxisLock() {
+function enableCalAxisLock() {
   if (_calAxisLockInstalled) return;
   _calAxisLockInstalled = true;
 
@@ -1301,27 +1691,110 @@ export function enableCalAxisLock() {
   document.addEventListener("touchcancel", reset, { capture: true, passive: true });
 }
 
-// public: à appeler après init grid + wireExpanderButtons
+// Branchement du long press sur event (desktop + mobile) pour activer la sheet de reprogrammation
+export function wireCalendarLongPress(daysEl, {
+  pressMs = 520,
+  movePx = 12,
+  onLongPress = null, // ({ evEl, uuid, dateInt }) => void
+} = {}) {
+  if (!daysEl) return;
+
+  let tId = 0;
+  let startX = 0, startY = 0;
+  let active = false;
+  let targetEv = null;
+
+  function clear() {
+    if (tId) clearTimeout(tId);
+    tId = 0;
+    active = false;
+    targetEv = null;
+  }
+
+  function getEvElFromTarget(target) {
+    const el = (target instanceof Element) ? target : null;
+    if (!el) return null;
+    // ⚠️ évite de déclencher si on tape sur le bouton info / un lien
+    if (el.closest(".cal-ev__info, a")) return null;
+    return el.closest(".cal-ev");
+  }
+
+  function startPress(e) {
+    // Un seul pointer / bouton principal
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    
+    const evEl = /** @type {HTMLElement} */ (getEvElFromTarget(e.target));
+    if (!evEl) return;
+
+    const uuid = evEl.dataset.uuid || "";
+    const dateInt = evEl.dataset.dateint || "";
+    if (!uuid) return;
+
+    // arm timer
+    active = true;
+    targetEv = evEl;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    tId = window.setTimeout(() => {
+      // toujours actif + même target
+      if (!active || !targetEv) return;
+
+      // petit feedback visuel (optionnel)
+      targetEv.classList.add("is-longpress");
+      setTimeout(() => targetEv?.classList.remove("is-longpress"), 180);
+
+      onLongPress?.({ evEl: targetEv, uuid, dateInt });
+      clear();
+    }, pressMs);
+  }
+
+  function movePress(e) {
+    if (!active) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if ((dx*dx + dy*dy) > (movePx*movePx)) {
+      clear();
+    }
+  }
+
+  function endPress() { clear(); }
+
+  // Pointer events (Android / desktop / iOS récent)
+  daysEl.addEventListener("pointerdown", startPress, { passive: true });
+  daysEl.addEventListener("pointermove", movePress, { passive: true });
+  daysEl.addEventListener("pointerup", endPress, { passive: true });
+  daysEl.addEventListener("pointercancel", endPress, { passive: true });
+
+  // si l’utilisateur scrolle un container parent, on annule (important)
+  const scrollers = daysEl.querySelectorAll(".cal-day__body");
+  scrollers.forEach(sc => sc.addEventListener("scroll", endPress, { passive: true }));
+
+  return () => {
+    clear();
+    daysEl.removeEventListener("pointerdown", startPress);
+    daysEl.removeEventListener("pointermove", movePress);
+    daysEl.removeEventListener("pointerup", endPress);
+    daysEl.removeEventListener("pointercancel", endPress);
+    scrollers.forEach(sc => sc.removeEventListener("scroll", endPress));
+  };
+}
+
+// Initialise les interactions du calendrier (long press, height sync, axis lock)
+export function wireProgrammeCalendar() {
+  attachProgrammeCalendarHeightSync();
+  enableCalAxisLock();
+  wireCalendarLongPress(document.getElementById("calADays"), {
+    onLongPress: ({ evEl, uuid, dateInt }) => {
+      openSheetReprogrammer(uuid);
+    }
+  });
+}
+
+// public: à appeler dans wireExpanderButtons
 export function wireProgrammeCalendarToggle() {
   const id = "btn-prog-view";
-
-  // const ICON_GRID = `
-  //   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-  //     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  //     <rect x="3" y="3" width="7" height="7"></rect>
-  //     <rect x="14" y="3" width="7" height="7"></rect>
-  //     <rect x="3" y="14" width="7" height="7"></rect>
-  //     <rect x="14" y="14" width="7" height="7"></rect>
-  //   </svg>`;
-
-  // const ICON_CAL = `
-  //   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-  //     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  //     <rect x="3" y="4" width="18" height="18" rx="2"></rect>
-  //     <line x1="16" y1="2" x2="16" y2="6"></line>
-  //     <line x1="8" y1="2" x2="8" y2="6"></line>
-  //     <line x1="3" y1="10" x2="21" y2="10"></line>
-  //   </svg>`;
 
   const ICON_CAL = `
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"

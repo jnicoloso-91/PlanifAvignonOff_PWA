@@ -24,8 +24,7 @@ import {
 } from './infos-plus.js';
 
 import {
-  attachProgrammeCalendarHeightSync,
-  enableCalAxisLock,
+  wireProgrammeCalendar,
 } from './calendar.js';
 
 import {
@@ -127,8 +126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   wireExpanders();
   wireExpanderSplitters();
   wireExpanderButtons();
-  attachProgrammeCalendarHeightSync();
-  enableCalAxisLock();
+  wireProgrammeCalendar();
   wireAppKebab();
   initSheetGrids();
   wireInfosPlusPopup();
