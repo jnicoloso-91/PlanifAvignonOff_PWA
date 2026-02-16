@@ -1041,18 +1041,18 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       header.addEventListener("click", handler);
       header.addEventListener("touchstart", handler, { passive: false });
     }
-    
-    const dayBody = dayNode.querySelector(".cal-day__body");
-    if (dayBody) {
-      const handler = (e) => {
-        e.preventDefault?.();
-        e.stopPropagation?.();
-        pickCreneauFromDay(daysEl, dayNode, dint);
-      };
 
-      dayBody.addEventListener("click", handler);
-      dayBody.addEventListener("touchstart", handler, { passive: false });
-    }
+    // const dayBody = dayNode.querySelector(".cal-day__body");
+    // if (dayBody) {
+    //   const handler = (e) => {
+    //     e.preventDefault?.();
+    //     e.stopPropagation?.();
+    //     pickCreneauFromDay(daysEl, dayNode, dint);
+    //   };
+
+    //   dayBody.addEventListener("click", handler);
+    //   dayBody.addEventListener("touchstart", handler, { passive: false });
+    // }
 
     /** @type {HTMLButtonElement | null} */
     const trashBtn = dayNode.querySelector(".cal-day__trash");
