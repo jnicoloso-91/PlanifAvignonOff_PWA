@@ -2960,7 +2960,7 @@ input[type="range"]:focus::-moz-range-thumb {
   margin: 8px auto 0;
   width: 34ch;
   max-width: 520px;
-  
+
 overflow: hidden;
 
 }
@@ -2969,6 +2969,7 @@ overflow: hidden;
 .wheel{
   height: 200px;
 
+width: 100%;
 overflow-y: auto;
 overflow-x: hidden;
 touch-action: pan-y;
