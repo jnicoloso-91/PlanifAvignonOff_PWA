@@ -2533,9 +2533,9 @@ input[type="range"]:focus::-moz-range-thumb {
 
 
 
-/* ==============================
-   Programme – Calendrier (#calA)
-   ============================== */
+/*==============================
+  Calendrier (#calA)
+  ==============================*/
 
 /* calA doit remplir la hauteur du body */
 #programme-panel #calA{
@@ -2772,9 +2772,16 @@ input[type="range"]:focus::-moz-range-thumb {
   }
 }
 
-/* =========================
+.cal-day,
+.cal-ev,
+.cal-ev * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/*=========================
    SetPrio
-   ========================= */
+  =========================*/
 
 .prio-popup-backdrop{
   position: fixed;
@@ -2815,165 +2822,27 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 
-/*=============================*/
-/* Wheel */
-/* .wheel-wrap{
-  position: relative;
-  height: 180px;
-  margin: 8px 0 8px;
-
-  border: 1px solid var(--bb-border-color, #ddd);
-  border-radius: 12px;
-  background: var(--bb-panel-bg, #fff);
-} */
-
-/* .wheel{
-  height: 100%;
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.wheel::-webkit-scrollbar{ display:none; } */
-
-/* .wheel-item,
-.wheel-spacer{
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  scroll-snap-align: center;
-  user-select: none;
-} */
-
-/* .wheel-spacer{ height: 72px; } */
-
-/* .wheel-indicator{
-  pointer-events: none;
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 36px;
-  margin-top: -18px;
-  border-top: 1px solid rgba(0,0,0,.3);
-  border-bottom: 1px solid rgba(0,0,0,.3);
-} */
-
-/* =========================
+/*=========================
    Wheel
-   ========================= */
+   =========================*/
 
-/* Conteneur */
-/* .wheel-wrap{
-  position: relative;
-  width: 100%;
-  max-width: 520px;
-  margin: 10px auto 0;
-} */
-
-/* La roue scrollable */
-/* .wheel{
-  height: 180px;                 
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-
-  scroll-snap-type: y mandatory; 
-  scrollbar-width: none;         
-}
-.wheel::-webkit-scrollbar{ display:none; } */
-
-/* Items */
-/* .wheel-item{
-  height: 40px;                  
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  scroll-snap-align: center;     
-  user-select: none;
-
-  font-size: 15px;
-  line-height: 1;
-  letter-spacing: 0.2px;
-  opacity: .55;
-  transform: scale(.96);
-  transition: transform .12s ease, opacity .12s ease, filter .12s ease;
-} */
-
-/* Item “actif” (on le mettra en JS) */
-/* .wheel-item.is-active{
-  opacity: 1;
-  transform: scale(1.02);
-  filter: saturate(1.05);
-  font-weight: 600;
-} */
-
-/* Spacer haut/bas pour centrer */
-/* height ≈ (wheelHeight/2 - itemHeight/2) : ajuste si tu changes height/item */
-/* .wheel-spacer{
-  height: 70px; 
-  flex: 0 0 auto;
-} */
-
-/* Ligne/zone centrale */
-/* .wheel-indicator{
-  pointer-events: none;
-  position: absolute;
-  left: 8px; right: 8px;
-  top: 50%;
-  height: 40px;                  
-  transform: translateY(-50%);
-  border-radius: 10px;
-  border: 1px solid rgba(0,0,0,.12);
-  background: rgba(0,0,0,.04);
-} */
-
-/* Fade haut/bas façon iOS */
-/* .wheel-wrap::before,
-.wheel-wrap::after{
-  content:"";
-  pointer-events:none;
-  position:absolute;
-  left:0; right:0;
-  height: 44px;
-  z-index: 2;
-}
-.wheel-wrap::before{
-  top:0;
-  background: linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0));
-}
-.wheel-wrap::after{
-  bottom:0;
-  background: linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0));
-} */
-
-/* Dark mode (si tu as un body.dark ou prefers-color-scheme) */
-/* @media (prefers-color-scheme: dark){
-  .wheel-indicator{ border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.06); }
-  .wheel-wrap::before{ background: linear-gradient(to bottom, rgba(16,16,16,1), rgba(16,16,16,0)); }
-  .wheel-wrap::after { background: linear-gradient(to top, rgba(16,16,16,1), rgba(16,16,16,0)); }
-} */
 .wheel-wrap{
   position: relative;
   margin: 8px auto 0;
   width: 34ch;
   max-width: 520px;
-
-overflow: hidden;
-
+  overflow: hidden;
 }
 
 /* Scroll */
 .wheel{
   height: 200px;
 
-width: 100%;
-overflow-y: auto;
-overflow-x: hidden;
-touch-action: pan-y;
--webkit-overflow-scrolling: touch;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
@@ -2985,8 +2854,8 @@ touch-action: pan-y;
 .wheel-item{
   height: 44px;
 
-width: 100%;
-overflow: hidden;
+  width: 100%;
+  overflow: hidden;
 
   display: flex;
   align-items: center;
@@ -3063,9 +2932,9 @@ overflow: hidden;
   height: 78px;
 }
 
-/* =========================
+/*=========================
    Sheet Reprogrammer
-   ========================= */
+  =========================*/
 
 .muted {
   text-align: center;
@@ -3082,4 +2951,11 @@ overflow: hidden;
 }
 .cal-ev.cal-ev--ghost .cal-ev__timeText{
   font-style: italic;
+}
+
+.wheel-wrap.reprog {
+  z-index: 10;
+}
+.sheet-footer.reprog {
+  z-index: 100;
 }

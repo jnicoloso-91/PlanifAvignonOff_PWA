@@ -7111,9 +7111,9 @@ export function openSheetReprogrammer(uuid) {
       body.innerHTML = `
         <div class="sheet-body">
           <div class="muted">${row?.Activite} de ${row?.Debut} à ${row?.Fin}</div>
-          <div class="wheel-wrap" id="reprogWheel"></div>
+          <div class="wheel-wrap reprog" id="reprogWheel"></div>
         </div>
-        <div class="sheet-footer">
+        <div class="sheet-footer reprog">
           <button type="button" class="bb-btn" id="btnReprogCancel">Annuler</button>
           <button type="button" class="bb-btn is-primary" id="btnReprogApply">Appliquer</button>
         </div>
