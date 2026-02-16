@@ -6938,27 +6938,46 @@ export function openSheetReprogrammer(uuid) {
   }
 
   // Scroll horizontal pour amener le jour dans le viewport
-  function scrollCalendarToDay(dateInt, { behavior = "auto", inline = "center", block = "nearest" } = {}) {
-    const day = getCalDayEl(dateInt);
-    if (!day) return false;
-    try {
-      /** @type {ScrollIntoViewOptions} */
-      const opts = /** @type {ScrollIntoViewOptions} */ ({ behavior, block, inline });
-      day.scrollIntoView(opts);
-    } catch {
-      // fallback basique
-      const daysEl = getCalDaysEl();
-      if (!daysEl) return false;
-      const rDay = day.getBoundingClientRect();
-      const rCont = daysEl.getBoundingClientRect();
-      daysEl.scrollLeft += (rDay.left - rCont.left);
+  function scrollCalendarToDay(dateInt, { behavior = "auto" } = {}) {
+    const daysEl = document.getElementById("calADays");
+    if (!daysEl) return false;
+
+    // scroller horizontal réel (ajuste le selector selon ton HTML)
+    const scroller = 
+      (daysEl.closest(".cal-days-scroll, .cal-days-scroll1") ||
+      daysEl.parentElement);
+
+    if (!(scroller instanceof HTMLElement)) return false;
+
+    const day = daysEl.querySelector(`.cal-day[data-dateint="${Number(dateInt)}"]`);
+    if (!(day instanceof HTMLElement)) return false;
+
+    // Position du centre du jour dans le repère du scroller
+    const dayLeft = day.offsetLeft;
+    const dayW = day.offsetWidth;
+    const contW = scroller.clientWidth;
+
+    // target = centre du day au centre du viewport du scroller
+    let targetLeft = dayLeft + dayW / 2 - contW / 2;
+
+    // ✅ butées
+    const maxLeft = Math.max(0, scroller.scrollWidth - contW);
+    targetLeft = Math.max(0, Math.min(targetLeft, maxLeft));
+
+    // scroll sans toucher au pager
+    const left = Math.round(targetLeft);
+    if (behavior && behavior !== "auto") {
+      const opts = /** @type {ScrollToOptions} */({left , behavior});
+      scroller.scrollTo(opts);
+    } else {
+      scroller.scrollLeft = left;
     }
     return true;
   }
 
   // Amener le jour + appliquer le même scrollY que le jour source
   function scrollCalendarToDayKeepY(dateInt, yScroll, { behavior = "auto", smoothY = false } = {}) {
-    const ok = scrollCalendarToDay(dateInt, { behavior, inline: "center", block: "nearest" });
+    const ok = scrollCalendarToDay(dateInt, { behavior });
     // après X-scroll, micro délai avant de setter Y (layout stable)
     queueMicrotask(() => setDayScrollTop(dateInt, yScroll, { smooth: smoothY }));
     return ok;

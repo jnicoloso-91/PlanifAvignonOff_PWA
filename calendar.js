@@ -1004,23 +1004,6 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
         <div class="cal-day__title">${fmtDay(dint)}</div>
 
         <div class="cal-day__actions">
-          <button type="button" 
-                  class="cal-day__trash" 
-                  data-dateint="${dint}"
-                  aria-label="Déprogrammer la journée"
-                  title="Déprogrammer la journée">
-            <span class="exp-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-                  stroke="currentColor" stroke-width="1.6"
-                  stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6h18" />
-                <path d="M8 6l1-2h6l1 2" />
-                <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
-                <line x1="10" y1="10" x2="10" y2="17" />
-                <line x1="14" y1="10" x2="14" y2="17" />
-              </svg>
-            </span>
-          </button>
 
           <div class="cal-day__meta">${list.length} év.</div>
         </div>
@@ -1029,6 +1012,25 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
         <div class="cal-timeline"></div>
       </div>
     `;
+          // Bouton trash à mettre sous cal-day__actions
+          // (non retenu car introduit de la confusion avec bouton expander)
+          // <button type="button" 
+          //         class="cal-day__trash" 
+          //         data-dateint="${dint}"
+          //         aria-label="Déprogrammer la journée"
+          //         title="Déprogrammer la journée">
+          //   <span class="exp-icon" aria-hidden="true">
+          //     <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+          //         stroke="currentColor" stroke-width="1.6"
+          //         stroke-linecap="round" stroke-linejoin="round">
+          //       <path d="M3 6h18" />
+          //       <path d="M8 6l1-2h6l1 2" />
+          //       <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
+          //       <line x1="10" y1="10" x2="10" y2="17" />
+          //       <line x1="14" y1="10" x2="14" y2="17" />
+          //     </svg>
+          //   </span>
+          // </button>
 
     const header = dayNode.querySelector(".cal-day__header");
     if (header) {
