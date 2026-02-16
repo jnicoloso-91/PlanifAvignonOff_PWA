@@ -2966,6 +2966,7 @@ input[type="range"]:focus::-moz-range-thumb {
 .wheel{
   height: 200px;
   overflow-y: auto;
+  overflow-x: hidden;
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -2975,6 +2976,7 @@ input[type="range"]:focus::-moz-range-thumb {
 /* Items */
 .wheel-item{
   height: 44px;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
