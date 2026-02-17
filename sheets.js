@@ -6939,28 +6939,28 @@ export async function openSheetReprogrammer(uuid) {
     return true;
   }
 
-function setScrollLeftHard(scroller, left) {
-  if (!scroller) return;
+  function setScrollLeftHard(scroller, left) {
+    if (!scroller) return;
 
-  // 1) coupe toute anim CSS éventuelle
-  const prevBehavior = scroller.style.scrollBehavior;
-  scroller.style.scrollBehavior = "auto";
+    // 1) coupe toute anim CSS éventuelle
+    const prevBehavior = scroller.style.scrollBehavior;
+    scroller.style.scrollBehavior = "auto";
 
-  // 2) (optionnel mais très efficace) coupe le snap pendant le set
-  const prevSnap = scroller.style.scrollSnapType;
-  scroller.style.scrollSnapType = "none";
+    // 2) (optionnel mais très efficace) coupe le snap pendant le set
+    const prevSnap = scroller.style.scrollSnapType;
+    scroller.style.scrollSnapType = "none";
 
-  // 3) write direct (plus fiable que scrollTo sur iOS dans certains états)
-  scroller.scrollLeft = left;
+    // 3) write direct (plus fiable que scrollTo sur iOS dans certains états)
+    scroller.scrollLeft = left;
 
-  // 4) force un "commit" layout (débloque iOS)
-  // eslint-disable-next-line no-unused-expressions
-  scroller.offsetHeight;
+    // 4) force un "commit" layout (débloque iOS)
+    // eslint-disable-next-line no-unused-expressions
+    scroller.offsetHeight;
 
-  // 5) restore
-  scroller.style.scrollSnapType = prevSnap || "";
-  scroller.style.scrollBehavior = prevBehavior || "";
-}
+    // 5) restore
+    scroller.style.scrollSnapType = prevSnap || "";
+    scroller.style.scrollBehavior = prevBehavior || "";
+  }
 
   // Scroll horizontal pour amener le jour dans le viewport
   function scrollCalendarToDay(dateInt, { behavior = "auto" } = {}) {
@@ -7000,7 +7000,8 @@ function setScrollLeftHard(scroller, left) {
     //   scroller.scrollLeft = left;
     //   logToPage(`scrollLeft ${left}`);
     // }
-    setScrollLeftHard(scroller, left);
+    // setScrollLeftHard(scroller, left);
+    day.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
     return true;
   }
 
