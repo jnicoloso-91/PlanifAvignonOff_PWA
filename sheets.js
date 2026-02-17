@@ -7002,6 +7002,7 @@ export async function openSheetReprogrammer(uuid) {
     // }
     // setScrollLeftHard(scroller, left);
     day.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
+    logToPage(left);
     return true;
   }
 
