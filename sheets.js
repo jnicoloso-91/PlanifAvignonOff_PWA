@@ -6939,6 +6939,29 @@ export async function openSheetReprogrammer(uuid) {
     return true;
   }
 
+function setScrollLeftHard(scroller, left) {
+  if (!scroller) return;
+
+  // 1) coupe toute anim CSS éventuelle
+  const prevBehavior = scroller.style.scrollBehavior;
+  scroller.style.scrollBehavior = "auto";
+
+  // 2) (optionnel mais très efficace) coupe le snap pendant le set
+  const prevSnap = scroller.style.scrollSnapType;
+  scroller.style.scrollSnapType = "none";
+
+  // 3) write direct (plus fiable que scrollTo sur iOS dans certains états)
+  scroller.scrollLeft = left;
+
+  // 4) force un "commit" layout (débloque iOS)
+  // eslint-disable-next-line no-unused-expressions
+  scroller.offsetHeight;
+
+  // 5) restore
+  scroller.style.scrollSnapType = prevSnap || "";
+  scroller.style.scrollBehavior = prevBehavior || "";
+}
+
   // Scroll horizontal pour amener le jour dans le viewport
   function scrollCalendarToDay(dateInt, { behavior = "auto" } = {}) {
     const daysEl = document.getElementById("calADays");
@@ -6969,14 +6992,15 @@ export async function openSheetReprogrammer(uuid) {
 
     // scroll sans toucher au pager
     const left = Math.round(targetLeft);
-    if (behavior && behavior !== "auto") {
-      const opts = /** @type {ScrollToOptions} */({left , behavior});
-      scroller.scrollTo(opts);
-      logToPage(`scrollTo ${left}`);
-    } else {
-      scroller.scrollLeft = left;
-      logToPage(`scrollLeft ${left}`);
-    }
+    // if (behavior && behavior !== "auto") {
+    //   const opts = /** @type {ScrollToOptions} */({left , behavior});
+    //   scroller.scrollTo(opts);
+    //   logToPage(`scrollTo ${left}`);
+    // } else {
+    //   scroller.scrollLeft = left;
+    //   logToPage(`scrollLeft ${left}`);
+    // }
+    setScrollLeftHard(scroller, left);
     return true;
   }
 
