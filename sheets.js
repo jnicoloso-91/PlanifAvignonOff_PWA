@@ -55,6 +55,7 @@ import {
   isProgrammeCalendarVisible,
   rerenderProgrammeCalendar,
   waitForScrollDayToStabilize,
+  getDaysScroll,
   PX_PER_MIN,
 } from './calendar.js';
 
@@ -6944,9 +6945,10 @@ export async function openSheetReprogrammer(uuid) {
     if (!daysEl) return false;
 
     // scroller horizontal réel (ajuste le selector selon ton HTML)
-    const scroller = 
-      (daysEl.closest(".cal-days-scroll, .cal-days-scroll1") ||
-      daysEl.parentElement);
+    // const scroller = 
+    //   (daysEl.closest(".cal-days-scroll, .cal-days-scroll1") ||
+    //   daysEl.parentElement);
+    const scroller = getDaysScroll();
 
     if (!(scroller instanceof HTMLElement)) return false;
 
