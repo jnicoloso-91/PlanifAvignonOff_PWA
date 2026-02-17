@@ -7000,9 +7000,9 @@ export async function openSheetReprogrammer(uuid) {
     //   scroller.scrollLeft = left;
     //   logToPage(`scrollLeft ${left}`);
     // }
-    // setScrollLeftHard(scroller, left);
-    day.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
-    logToPage(left);
+    setScrollLeftHard(scroller, left);
+    // day.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
+    // logToPage(left);
     return true;
   }
 
