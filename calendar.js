@@ -441,7 +441,7 @@ function setCalHeightFromGrid() {
 }
 
 // Scroll le calendrier horizontalement pour afficher un jour donné
-function scrollCalendarToDay(calSlot, dateInt) {
+export function scrollCalendarToDay(calSlot, dateInt) {
   const scroller = calSlot.querySelector(".cal-days-scroll");
   const dayEl = calSlot.querySelector(`.cal-day[data-dateint="${dateInt}"]`);
   if (!scroller || !dayEl) return;
