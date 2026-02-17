@@ -453,6 +453,7 @@ export function scrollCalendarToDay(calSlot, dateInt) {
   // center in view
   const delta = (dRect.left - sRect.left) - (sRect.width/2 - dRect.width/2);
   scroller.scrollTo({ left: curLeft + delta, behavior: "smooth" });
+  logToPage(curLeft);
 }
 
 // Scroll le calendrier verticalement pour afficher un event donné
