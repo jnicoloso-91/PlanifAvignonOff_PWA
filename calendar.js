@@ -1693,6 +1693,21 @@ function enableCalAxisLock() {
   document.addEventListener("touchcancel", reset, { capture: true, passive: true });
 }
 
+let suppressCtxUntil = 0;
+
+// Supprime le menu contextuel apres long press
+function suppressContextMenu(ms = 600) {
+  suppressCtxUntil = Date.now() + ms;
+}
+
+const calRoot = document.getElementById("calA");
+calRoot?.addEventListener("contextmenu", (e) => {
+  if (Date.now() < suppressCtxUntil) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, { capture: true });
+
 // Branchement du long press sur event (desktop + mobile) pour activer la sheet de reprogrammation
 export function wireCalendarLongPress(daysEl, {
   pressMs = 520,
@@ -1789,6 +1804,7 @@ export function wireProgrammeCalendar() {
   enableCalAxisLock();
   wireCalendarLongPress(document.getElementById("calADays"), {
     onLongPress: ({ evEl, uuid, dateInt }) => {
+      suppressContextMenu();
       openSheetReprogrammer(uuid);
     }
   });
