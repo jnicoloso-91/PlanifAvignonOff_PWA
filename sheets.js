@@ -56,6 +56,7 @@ import {
   rerenderProgrammeCalendar,
   waitForScrollDayToStabilize,
   getDaysScroll,
+  scrollCalendarToDay,
   PX_PER_MIN,
 } from './calendar.js';
 
@@ -6963,7 +6964,7 @@ export async function openSheetReprogrammer(uuid) {
   }
 
   // Scroll horizontal pour amener le jour dans le viewport
-  function scrollCalendarToDay(dateInt, { behavior = "auto" } = {}) {
+  function _scrollCalendarToDay(dateInt, { behavior = "auto" } = {}) {
     const daysEl = document.getElementById("calADays");
     if (!daysEl) return false;
 
@@ -7002,14 +7003,14 @@ export async function openSheetReprogrammer(uuid) {
     // }
     // setScrollLeftHard(scroller, left);
     // day.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
-    logToPage(left);
+    // logToPage(left);
     scrollCalendarToDay(document.getElementById("calA"), dateInt);
     return true;
   }
 
   // Amener le jour + appliquer le même scrollY que le jour source
   function scrollCalendarToDayKeepY(dateInt, yScroll, { behavior = "auto", smoothY = false } = {}) {
-    const ok = scrollCalendarToDay(dateInt, { behavior });
+    const ok = _scrollCalendarToDay(dateInt, { behavior });
     // après X-scroll, micro délai avant de setter Y (layout stable)
     queueMicrotask(() => setDayScrollTop(dateInt, yScroll, { smooth: smoothY }));
     return ok;
