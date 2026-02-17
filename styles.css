@@ -2550,10 +2550,10 @@ input[type="range"]:focus::-moz-range-thumb {
 #programme-panel #calA .cal-days-scroll{
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;              /* IMPORTANT (comme chez toi) */
+  height: 100%;              /* IMPORTANT */
   overflow-x: auto;
   overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: auto; /*touch;*/
 
   overscroll-behavior: contain;
 
