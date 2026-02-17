@@ -1325,7 +1325,10 @@ function getOrCreatePrioPopup() {
 
   backdrop.innerHTML = `
     <div class="prio-popup" role="dialog" aria-modal="true">
-      <div class="prio-title">Priorité</div>
+      <div class="prio-head">
+        <div class="prio-title">Priorité</div>
+        <button type="button" class="prio-close" aria-label="Fermer" title="Fermer">×</button>
+      </div>
 
       <div class="wheel-wrap">
         <div class="wheel">
@@ -1356,6 +1359,14 @@ function getOrCreatePrioPopup() {
 
   const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".prio-popup"));
   const picker = createWheelPicker(popup.querySelector(".wheel-wrap"));
+
+  // wiring du bouton close
+  const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-close"));
+  btnClose?.addEventListener("pointerdown", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    close();
+  }, true);
 
   // 2) état dynamique (mis à jour à chaque open)
   let gridApi = null;
@@ -1434,157 +1445,6 @@ function getOrCreatePrioPopup() {
 function openPrioPopup({ gridApi, ctx, defaultValue = null }) {
   getOrCreatePrioPopup().open({ gridApi, ctx, defaultValue });
 }
-
-// function showPrioMenuUnderButton(btnEl, { onPick }) {
-//   let cleaned = false;
-
-//   const cleanup = () => {
-//     if (cleaned) return;
-//     cleaned = true;
-
-//     document.removeEventListener("pointerdown", onDocPointerDown, true);
-//     document.removeEventListener("keydown", onKeyDown, true);
-//     window.visualViewport?.removeEventListener("resize", onViewportChange);
-//     window.visualViewport?.removeEventListener("scroll", onViewportChange);
-
-//     menu.remove();
-//   };
-
-//   // --- menu
-//   const menu = document.createElement("div");
-//   Object.assign(menu.style, {
-//     position: "fixed",
-//     zIndex: "999999",
-//     minWidth: "80px",
-//     background: "white",
-//     border: "1px solid rgba(0,0,0,0.12)",
-//     borderRadius: "10px",
-//     boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
-//     padding: "6px",
-//   });
-
-//   const values = ["Aucune", "1", "2", "3", "4", "5"];
-//   for (const v of values) {
-//     const item = document.createElement("button");
-//     item.type = "button";
-//     item.textContent = v;
-//     item.className = 'kebab-menu__item';
-
-//     item.addEventListener("pointerenter", () => item.style.background = "rgba(0,0,0,0.06)");
-//     item.addEventListener("pointerleave", () => item.style.background = "transparent");
-
-//     item.addEventListener("click", (ev) => {
-//       ev.preventDefault();
-//       ev.stopPropagation();
-//       cleanup();
-//       const prioVal = (v === "Aucune") ? null : parseInt(v, 10);
-//       try { onPick?.(prioVal); } catch {}
-//     });
-
-//     menu.appendChild(item);
-//   }
-
-//   document.body.appendChild(menu);
-
-//   // --- position
-//   const r = btnEl.getBoundingClientRect();
-//   const margin = 6;
-
-//   let left = r.left;
-//   let top = r.bottom + margin;
-
-//   const vw = window.innerWidth;
-//   const vh = window.innerHeight;
-
-//   const mw = menu.offsetWidth;
-//   const mh = menu.offsetHeight;
-
-//   if (left + mw > vw - 8) left = Math.max(8, vw - mw - 8);
-//   if (top + mh > vh - 8) top = Math.max(8, r.top - mh - margin);
-
-//   menu.style.left = `${left}px`;
-//   menu.style.top = `${top}px`;
-
-//   // --- handlers (fermés sur cleanup)
-//   function onDocPointerDown(ev) {
-//     const t = ev.target;
-//     if (t instanceof Node && (menu.contains(t) || btnEl.contains(t))) return;
-//     cleanup();
-//   }
-
-//   function onKeyDown(ev) {
-//     if (ev.key === "Escape") cleanup();
-//   }
-
-//   function onViewportChange() {
-//     cleanup();
-//   }
-
-//   document.addEventListener("pointerdown", onDocPointerDown, true);
-//   document.addEventListener("keydown", onKeyDown, true);
-//   window.visualViewport?.addEventListener("resize", onViewportChange);
-//   window.visualViewport?.addEventListener("scroll", onViewportChange);
-
-//   // retourner cleanup au caller
-//   return cleanup;
-// }
-
-// function applyPrioriteToUuids(df, uuidsSet, prioVal) {
-//   if (!Array.isArray(df) || !uuidsSet?.size) return df;
-
-//   let changed = false;
-//   const out = df.slice(); // copie du tableau
-
-//   for (let i = 0; i < out.length; i++) {
-//     const row = out[i];
-//     const id = row?.__uuid;
-//     if (!id || !uuidsSet.has(id)) continue;
-
-//     // copie row + modif
-//     const next = { ...row, Priorite: prioVal };
-//     out[i] = next;
-//     changed = true;
-//   }
-
-//   return changed ? out : df;
-// }
-
-// let closePrioMenu = null;
-
-// function doSetPrio() {
-//   const btnEl = document.getElementById('btn-setprio-non-prog');
-//   const h = grids.get('grid-non-programmees');
-//   const gridApi = h?.api;
-
-//   if (!btnEl || !gridApi) return;
-
-//   toggle : si déjà ouvert → fermer
-//   if (closePrioMenu) {
-//     closePrioMenu();
-//     closePrioMenu = null;
-//     return;
-//   }
-
-//   closePrioMenu = showPrioMenuUnderButton(btnEl, {
-//     onPick: (prioVal) => {
-//       closePrioMenu = null;
-
-//       const uuids = new Set();
-//       gridApi.forEachNodeAfterFilter((n) => {
-//         const id = n?.data?.__uuid;
-//         if (id) uuids.add(id);
-//       });
-
-//       ctx.mutateDf((df) => {
-//         return applyPrioriteToUuids(df, uuids, prioVal);
-//       });
-
-//       ensurePrioColumnVisible(gridApi, "Priorite");
-
-//       refreshAllGrids?.();
-//     }
-//   });
-// }
 
 function doSetPrio() {
   const h = grids.get("grid-non-programmees");

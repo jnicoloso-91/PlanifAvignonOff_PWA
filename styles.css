@@ -2615,6 +2615,10 @@ input[type="range"]:focus::-moz-range-thumb {
   text-overflow: ellipsis;
 }
 
+#programme-panel #calA .cal-day__title[data-weekend="true"]{
+  color: #3442c7;
+}
+
 #programme-panel #calA .cal-day__meta{
   font-size: 12px;
   color: rgba(17,24,39,.65);
@@ -2804,12 +2808,6 @@ input[type="range"]:focus::-moz-range-thumb {
   box-shadow: 0 20px 40px rgba(0,0,0,.25);
 }
 
-.prio-title{
-  text-align: center;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
 .prio-actions{
   display: flex;
   justify-content: center;     
@@ -2819,6 +2817,34 @@ input[type="range"]:focus::-moz-range-thumb {
 .prio-actions button{
   flex: 1;
   padding: 10px;
+}
+
+.prio-head{
+  position: relative;
+  display: flex;
+  align-items:center;
+  justify-content: center;
+  gap:12px;
+}
+
+.prio-title{
+  text-align: center;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.prio-close{
+  position: absolute;
+  right: 0px;
+  margin-bottom: 12px;
+  /* margin-left: auto; */
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  /* right: 1.8rem; */
+  /* top: 1.8rem; */
+  font-size: 1rem;
 }
 
 
@@ -2881,7 +2907,7 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 .wheel-item[data-weekend="true"]{
-  color: #b35c5c;
+  color: #3442c7;
 }
 
 .wheel-item:not(.is-active){
@@ -2932,6 +2958,27 @@ input[type="range"]:focus::-moz-range-thumb {
 /* Spacer */
 .wheel-spacer{
   height: 78px;
+}
+
+/* ===== Jiggle (le plus naturel) =====
+   - petit "cran" vers le haut
+   - léger rebond vers le bas
+   - retour au centre
+*/
+.wheel-indicator.is-jiggle{
+  animation: wheelBounce 110ms cubic-bezier(.33,1.4,.6,1);
+}
+
+@keyframes wheelBounce{
+  0%   { transform: translateY(-50%) translateY(0); }
+  40%  { transform: translateY(-50%) translateY(-2px); }
+  75%  { transform: translateY(-50%) translateY(0.5px); }
+  100% { transform: translateY(-50%) translateY(0); }
+}
+
+/* Optionnel: réduire pour utilisateurs sensibles */
+@media (prefers-reduced-motion: reduce){
+  .wheel-indicator.is-jiggle{ animation: none; }
 }
 
 /*=========================

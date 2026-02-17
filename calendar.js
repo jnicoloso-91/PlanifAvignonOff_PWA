@@ -10,6 +10,7 @@ import {
 import { 
   prettyToMinutes, 
   parseHHMM,
+  isWeekendDateInt,
 } from './utils-date.js';
 
 import {
@@ -983,12 +984,12 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
     dayNode.className = "cal-day";
     dayNode.dataset.dateint = String(dint);
 
+    const isWeekend = isWeekendDateInt(dint);
+
     dayNode.innerHTML = `
       <div class="cal-day__header">
         <div class="cal-day__title">${fmtDay(dint)}</div>
-
         <div class="cal-day__actions">
-
           <div class="cal-day__meta">${list.length} év.</div>
         </div>
       </div>
@@ -1016,6 +1017,12 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
     //     </svg>
     //   </span>
     // </button>
+
+    // Colorisation des dates de weekend
+    if (isWeekend) {
+      dayNode.querySelector(".cal-day__title")
+        ?.setAttribute("data-weekend", "true");
+    }
 
     const header = dayNode.querySelector(".cal-day__header");
     if (header) {

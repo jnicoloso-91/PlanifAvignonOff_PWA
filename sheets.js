@@ -6807,6 +6807,22 @@ export function createWheelPicker(wrapEl, { itemPx = 36, onChange = null } = {})
   let lastV = null;
   let disposed = false;
 
+  // anti-spam jiggle pendant un scroll rapide
+  let jiggleLock = 0;
+  function jiggleIndicator() {
+    const ind = wrapEl?.querySelector?.(".wheel-indicator");
+    if (!ind) return;
+
+    const now = performance.now();
+    if (now < jiggleLock) return;     // throttle
+    jiggleLock = now + 80;            // max ~12/sec (réglable)
+
+    ind.classList.remove("is-jiggle");
+    // reflow pour relancer l’anim
+    void ind.offsetWidth;
+    ind.classList.add("is-jiggle");
+  }
+
   function installWheelSmart(wheelEl) {
     let locked = false;
 
@@ -6862,6 +6878,10 @@ export function createWheelPicker(wrapEl, { itemPx = 36, onChange = null } = {})
     lastV = v;
     onChange?.(v);
     updateActive();
+
+    // Appel de la simulation de tremblement
+    jiggleIndicator();
+    if (navigator.vibrate) navigator.vibrate(6);
   }
 
   function onScroll() {
@@ -6940,81 +6960,10 @@ export async function openSheetReprogrammer(uuid) {
     return true;
   }
 
-  function setScrollLeftHard(scroller, left) {
-    if (!scroller) return;
-
-    // 1) coupe toute anim CSS éventuelle
-    const prevBehavior = scroller.style.scrollBehavior;
-    scroller.style.scrollBehavior = "auto";
-
-    // 2) (optionnel mais très efficace) coupe le snap pendant le set
-    const prevSnap = scroller.style.scrollSnapType;
-    scroller.style.scrollSnapType = "none";
-
-    // 3) write direct (plus fiable que scrollTo sur iOS dans certains états)
-    scroller.scrollLeft = left;
-
-    // 4) force un "commit" layout (débloque iOS)
-    // eslint-disable-next-line no-unused-expressions
-    scroller.offsetHeight;
-
-    // 5) restore
-    scroller.style.scrollSnapType = prevSnap || "";
-    scroller.style.scrollBehavior = prevBehavior || "";
-  }
-
-  // Scroll horizontal pour amener le jour dans le viewport
-  function _scrollCalendarToDay(dateInt, { behavior = "auto" } = {}) {
-    const daysEl = document.getElementById("calADays");
-    if (!daysEl) return false;
-
-    // scroller horizontal réel (ajuste le selector selon ton HTML)
-    // const scroller = 
-    //   (daysEl.closest(".cal-days-scroll, .cal-days-scroll1") ||
-    //   daysEl.parentElement);
-    const scroller = getDaysScroll();
-
-    if (!(scroller instanceof HTMLElement)) return false;
-
-    const day = daysEl.querySelector(`.cal-day[data-dateint="${Number(dateInt)}"]`);
-    if (!(day instanceof HTMLElement)) return false;
-
-    // Position du centre du jour dans le repère du scroller
-    const dayLeft = day.offsetLeft;
-    const dayW = day.offsetWidth;
-    const contW = scroller.clientWidth;
-
-    // target = centre du day au centre du viewport du scroller
-    let targetLeft = dayLeft + dayW / 2 - contW / 2;
-
-    // ✅ butées
-    const maxLeft = Math.max(0, scroller.scrollWidth - contW);
-    targetLeft = Math.max(0, Math.min(targetLeft, maxLeft));
-
-    // scroll sans toucher au pager
-    const left = Math.round(targetLeft);
-    // if (behavior && behavior !== "auto") {
-    //   const opts = /** @type {ScrollToOptions} */({left , behavior});
-    //   scroller.scrollTo(opts);
-    //   logToPage(`scrollTo ${left}`);
-    // } else {
-    //   scroller.scrollLeft = left;
-    //   logToPage(`scrollLeft ${left}`);
-    // }
-    // setScrollLeftHard(scroller, left);
-    // day.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
-    // logToPage(left);
-    scrollCalendarToDay(document.getElementById("calA"), dateInt);
-    return true;
-  }
-
   // Amener le jour + appliquer le même scrollY que le jour source
   function scrollCalendarToDayKeepY(dateInt, yScroll, { behavior = "auto", smoothY = false } = {}) {
-    // const ok = _scrollCalendarToDay(dateInt, { behavior });
     scrollCalendarToDay(document.getElementById("calA"), dateInt);
-    // après X-scroll, micro délai avant de setter Y (layout stable)
     queueMicrotask(() => setDayScrollTop(dateInt, yScroll, { smooth: smoothY }));
-    // return ok;
   }
 
   // trouve le jour le plus centré dans le viewport du calendrier, et retourne son dateInt
