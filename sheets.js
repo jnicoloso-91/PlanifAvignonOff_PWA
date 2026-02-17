@@ -7010,10 +7010,11 @@ export async function openSheetReprogrammer(uuid) {
 
   // Amener le jour + appliquer le même scrollY que le jour source
   function scrollCalendarToDayKeepY(dateInt, yScroll, { behavior = "auto", smoothY = false } = {}) {
-    const ok = _scrollCalendarToDay(dateInt, { behavior });
+    // const ok = _scrollCalendarToDay(dateInt, { behavior });
+    scrollCalendarToDay(document.getElementById("calA"), dateInt);
     // après X-scroll, micro délai avant de setter Y (layout stable)
     queueMicrotask(() => setDayScrollTop(dateInt, yScroll, { smooth: smoothY }));
-    return ok;
+    // return ok;
   }
 
   // trouve le jour le plus centré dans le viewport du calendrier, et retourne son dateInt
