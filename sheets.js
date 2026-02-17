@@ -7026,6 +7026,7 @@ export function openSheetReprogrammer(uuid) {
     return days;
   }
 
+  // Création du fantome s'il n'existe pas
   function ensureGhostEvent({ dateInt, topPx, heightPx, title = "Prévisualisation", place = "", debut = "", fin = "" }) {
     const day = document.querySelector(`.cal-day[data-dateint="${String(dateInt)}"]`);
     const tl  = day?.querySelector(".cal-timeline");
@@ -7052,6 +7053,7 @@ export function openSheetReprogrammer(uuid) {
     return ghost;
   }
 
+  // Supprime le fantôme du calendrier
   function removeGhostEverywhere() {
     document.querySelectorAll(".cal-ev--ghost").forEach(el => el.remove());
   }
@@ -7062,6 +7064,7 @@ export function openSheetReprogrammer(uuid) {
     return ensureGhostEvent({ dateInt, topPx, heightPx, title, place, debut, fin });
   }
 
+  // Calcule la géométrie du fantôme
   function computeGhostGeomFromRow(row) {
     const startMin = parseHHMM(row?.Debut) ?? 0;
 
@@ -7078,6 +7081,7 @@ export function openSheetReprogrammer(uuid) {
     return { topPx, heightPx };
   }
 
+  // Affiche le fantôme sur un jour donné
   function previewDayWithGhost(dateInt) {
     if (!dateInt) return;
     if (dateInt == initDay) return;
@@ -7101,11 +7105,36 @@ export function openSheetReprogrammer(uuid) {
   const ghostTitle = row.Activite || "Reprogrammation";
   const ghostPlace = row.Lieu || "";
 
+  const daysEl = document.getElementById("calADays");
+  let raf = 0;
+  let syncing = false; // 👈 anti boucle
+
+  const onCalScroll = () => {
+    if (!daysEl) return;
+    if (syncing) return;
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const d = getMostCenteredDayDateInt();
+      if (!d) return;
+      syncing = true;
+      picker?.setValue(d, { behavior: "auto" });
+      syncing = false;
+    });
+  };
 
   openSheetExclusive({
     title: "Reprogrammer",
     panelMaxHeight: "41vh",
     panelHeight: "60vh",
+    onClose: () => {
+      removeGhostEverywhere(); 
+      ensureCalendarEventVisible(uuid, { checkVisibility: false });
+      daysEl?.removeEventListener("scroll", onCalScroll);
+      if (raf) cancelAnimationFrame(raf);
+      picker?.destroy?.();
+      picker = null;
+    },
     mount: (body, { close }) => {
 
       body.innerHTML = `
@@ -7139,8 +7168,6 @@ export function openSheetReprogrammer(uuid) {
         <div class="wheel-indicator"></div>
       `;
 
-      let syncing = false; // 👈 anti boucle
-
       picker?.destroy?.();
       picker = createWheelPicker(wrap, {
         onChange: (dint) => {
@@ -7163,32 +7190,8 @@ export function openSheetReprogrammer(uuid) {
       // init preview
       queueMicrotask(() => previewDayWithGhost(initDay ?? Number(row.Date) ?? days[0]));
 
-      // calendar -> wheel (optionnel mais cool)
-      const daysEl = document.getElementById("calADays");
-      let raf = 0;
-      const onCalScroll = () => {
-        if (!daysEl) return;
-        if (syncing) return;
-        if (raf) return;
-        raf = requestAnimationFrame(() => {
-          raf = 0;
-          const d = getMostCenteredDayDateInt();
-          if (!d) return;
-          syncing = true;
-          picker?.setValue(d, { behavior: "auto" });
-          syncing = false;
-        });
-      };
+      // calendar -> wheel 
       daysEl?.addEventListener("scroll", onCalScroll, { passive: true });
-
-      body.onClose?.(() => {
-        removeGhostEverywhere(); 
-        ensureCalendarEventVisible(uuid);
-        daysEl?.removeEventListener("scroll", onCalScroll);
-        if (raf) cancelAnimationFrame(raf);
-        picker?.destroy?.();
-        picker = null;
-      });
 
       body.querySelector("#btnReprogCancel")?.addEventListener("click", () => {
         removeGhostEverywhere();
