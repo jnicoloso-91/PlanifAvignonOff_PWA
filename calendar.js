@@ -77,7 +77,12 @@ function getCalRoot() {
   return document.getElementById("calA");
 }
 
-// Renvoie le conteneur scroll du calendrier
+// Renvoie le container des jours du calendrier
+function getCalDays() {
+  return document.getElementById("calADays");
+}
+
+// Renvoie le conteneur du scroller de jours du calendrier
 function getDaysScroll() {
   return document.querySelector("#calA .cal-days-scroll");
 }
@@ -92,7 +97,7 @@ function getDayColumn(dateInt) {
   return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
 }
 
-// Renvoie le body jour du calendrier pour une dateint donnée
+// Renvoie le body d'un jour du calendrier pour une date donnée
 function getDayBody(dateInt) {
   const col = getDayColumn(dateInt);
   return col?.querySelector(".cal-day__body") || null;
@@ -149,7 +154,7 @@ function isCalendarEventVisible(eventNode, { partial = true } = {}) {
 }
 
 // Scroll le calendrier pour rendre un event visible (si pas déjà visible)
-export function ensureCalendarEventVisible(uuid, { partial = true, smooth = true, checkVisibility = true } = {}) {
+export function ensureCalendarEventVisible(uuid, { partial = true, smooth = true, checkVisibility = true, targetTop = null } = {}) {
   const ev = getEventNodeByUuid(uuid);
   if (!ev) return false;
   if (checkVisibility && isCalendarEventVisible(ev, { partial })) {
@@ -158,7 +163,7 @@ export function ensureCalendarEventVisible(uuid, { partial = true, smooth = true
   const row = ctx.df?.find(r => r && r.__uuid === uuid);
   const dateInt = Number(row?.Date) || null;
   scrollCalendarToDay(getCalRoot(), dateInt);
-  scrollCalendarToEvent(getCalRoot(), uuid, { smooth });
+  scrollCalendarToEvent(getCalRoot(), uuid, { smooth, targetTop });
   return true;
 }
 
@@ -283,11 +288,11 @@ function centerDayInViewport(dateInt, { smooth = true } = {}) {
 }
 
 // Centre un event sélectionné dans le jour
-function centerSelectedEventInDay(selectedUuid, { smooth = true } = {}) {
-  if (!selectedUuid) return false;
+function centerEventInDay(uuid, { smooth = true } = {}) {
+  if (!uuid) return false;
 
   /** @type {HTMLElement} */
-  const ev = document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(selectedUuid)}"]`);
+  const ev = document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
   if (!ev) return false;
 
   const dayBody = ev.closest(".cal-day")?.querySelector(".cal-day__body");
@@ -373,7 +378,7 @@ export function scrollDayToHour(
  */
 function snapProgrammeCalendar({
   dateInt,
-  selectedUuid = null,
+  uuid = null,
   fallbackHour = 9,
   smooth = true
 } = {}) {
@@ -385,7 +390,7 @@ function snapProgrammeCalendar({
   // 2) attendre layout stable (meilleur que setTimeout)
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      const ok = selectedUuid ? centerSelectedEventInDay(selectedUuid, { smooth }) : false;
+      const ok = uuid ? centerEventInDay(uuid, { smooth }) : false;
       if (!ok) scrollDayToHour(dateInt, fallbackHour, { smooth });
     });
   });
@@ -456,6 +461,7 @@ function scrollCalendarToEvent(calA, uuid, {
   smooth = false,
   preferBottom = true,
   bottomBias = 0.75, // 0.5=center, 0.75=plutôt bas, 0.9=très bas
+  targetTop = null,
 } = {}) {
   if (!calA || !uuid) return false;
 
@@ -481,31 +487,31 @@ function scrollCalendarToEvent(calA, uuid, {
   const minForBottom = Math.max(0, (evBottom + gapBottomPx) - viewportH);
   const maxForTop = Math.max(0, evTop - gapTopPx);
 
-  let targetTop;
+  if (!targetTop) {
+    const usableViewport = Math.max(0, viewportH - gapTopPx - gapBottomPx);
 
-  const usableViewport = Math.max(0, viewportH - gapTopPx - gapBottomPx);
+    // 1) Event trop grand pour tenir entièrement -> on privilégie le haut visible
+    // (tu ne peux pas avoir haut+bas visibles si evH > usableViewport)
+    if (evH >= usableViewport) {
+      targetTop = maxForTop;
+    }
+    // 2) Event normal : vise une position plutôt basse, puis force visibilité complète
+    else if (preferBottom) {
+      const desiredEvTopInViewport = gapTopPx + usableViewport * bottomBias;
+      targetTop = evTop - desiredEvTopInViewport;
 
-  // 1) Event trop grand pour tenir entièrement -> on privilégie le haut visible
-  // (tu ne peux pas avoir haut+bas visibles si evH > usableViewport)
-  if (evH >= usableViewport) {
-    targetTop = maxForTop;
+      // ✅ Forcer l’event entièrement visible
+      targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
+    }
+    // 3) Fallback centrage + visibilité complète
+    else {
+      targetTop = evTop - (viewportH - evH) / 2;
+      targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
+    }
+
+    // Clamp final absolu
+    targetTop = Math.max(0, Math.min(targetTop, maxScroll));
   }
-  // 2) Event normal : vise une position plutôt basse, puis force visibilité complète
-  else if (preferBottom) {
-    const desiredEvTopInViewport = gapTopPx + usableViewport * bottomBias;
-    targetTop = evTop - desiredEvTopInViewport;
-
-    // ✅ Forcer l’event entièrement visible
-    targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
-  }
-  // 3) Fallback centrage + visibilité complète
-  else {
-    targetTop = evTop - (viewportH - evH) / 2;
-    targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
-  }
-
-  // Clamp final absolu
-  targetTop = Math.max(0, Math.min(targetTop, maxScroll));
 
   dayBody.scrollTo({
     top: targetTop,
@@ -595,31 +601,6 @@ function getCalDayScrollTops(daysEl) {
 }
 
 // Assigne les valeurs de scrollTop des colonnes jours du calendrier
-// function setCalDayScrollTops(
-//   daysEl,
-//   scrollTops,
-//   { except = [], onlyKeys = null } = {}
-// ) {
-//   if (!daysEl || !scrollTops) return;
-
-//   const dayNodes = daysEl.querySelectorAll(".cal-day[data-dateint]");
-//   dayNodes.forEach(day => {
-//     const k = String(day.dataset.dateint || "");
-//     if (!k) return;
-
-//     if (except.includes(k) || except.includes(Number(k))) return;
-//     if (onlyKeys && !onlyKeys.includes(k)) return;
-
-//     const body = day.querySelector(".cal-day__body");
-//     if (!body) return;
-
-//     const v = scrollTops[k];
-//     if (typeof v !== "number") return;
-
-//     const maxScroll = body.scrollHeight - body.clientHeight;
-//     body.scrollTop = Math.max(0, Math.min(v, maxScroll));
-//   });
-// }
 export function setCalDayScrollTops(
   daysEl,
   scrollTops,
@@ -842,7 +823,7 @@ function getJourneeCreneauOfDay(creneauxRows, dateInt) {
  * @param {*} param0 
  * @returns 
  */
-function selectCalendarEventAndSync({ daysEl, dateInt, uuid, smooth = true } = {}) {
+function selectCalendarEventAndSync({ daysEl, dateInt, uuid, smooth = true, snap=true } = {}) {
   if (!uuid) return false;
 
   // visuel calendrier
@@ -850,15 +831,17 @@ function selectCalendarEventAndSync({ daysEl, dateInt, uuid, smooth = true } = {
   const evEl = daysEl?.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
   if (evEl) evEl.classList.add("is-selected");
 
-  // snap calendrier (comme ton handler click)
-  try {
-    snapProgrammeCalendar?.({
-      dateInt,
-      selectedUuid: uuid,
-      fallbackHour: 9,
-      smooth
-    });
-  } catch {}
+  // snap calendrier (comme handler de click)
+  if (snap) {
+    try {
+      snapProgrammeCalendar?.({
+        dateInt,
+        uuid,
+        fallbackHour: 9,
+        smooth
+      });
+    } catch {}
+  }
 
   // sélection grid-programmees -> onSelectionChanged de la grille fera le reste
   try { 
@@ -919,7 +902,7 @@ function pickCreneauFromDay(daysEl, dayNode, dateInt) {
 
   // dernier fallback : juste snap sur le jour (heure par défaut)
   try {
-    snapProgrammeCalendar?.({ dateInt, selectedUuid: null, fallbackHour: 9, smooth: true });
+    snapProgrammeCalendar?.({ dateInt, uuid: null, fallbackHour: 9, smooth: true });
   } catch {}
 }
 
@@ -1012,25 +995,26 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
         <div class="cal-timeline"></div>
       </div>
     `;
-          // Bouton trash à mettre sous cal-day__actions
-          // (non retenu car introduit de la confusion avec bouton expander)
-          // <button type="button" 
-          //         class="cal-day__trash" 
-          //         data-dateint="${dint}"
-          //         aria-label="Déprogrammer la journée"
-          //         title="Déprogrammer la journée">
-          //   <span class="exp-icon" aria-hidden="true">
-          //     <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-          //         stroke="currentColor" stroke-width="1.6"
-          //         stroke-linecap="round" stroke-linejoin="round">
-          //       <path d="M3 6h18" />
-          //       <path d="M8 6l1-2h6l1 2" />
-          //       <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
-          //       <line x1="10" y1="10" x2="10" y2="17" />
-          //       <line x1="14" y1="10" x2="14" y2="17" />
-          //     </svg>
-          //   </span>
-          // </button>
+
+    // Bouton trash à mettre sous cal-day__actions
+    // (mais non retenu car introduit de la confusion avec bouton expander)
+    // <button type="button" 
+    //         class="cal-day__trash" 
+    //         data-dateint="${dint}"
+    //         aria-label="Déprogrammer la journée"
+    //         title="Déprogrammer la journée">
+    //   <span class="exp-icon" aria-hidden="true">
+    //     <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+    //         stroke="currentColor" stroke-width="1.6"
+    //         stroke-linecap="round" stroke-linejoin="round">
+    //       <path d="M3 6h18" />
+    //       <path d="M8 6l1-2h6l1 2" />
+    //       <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
+    //       <line x1="10" y1="10" x2="10" y2="17" />
+    //       <line x1="14" y1="10" x2="14" y2="17" />
+    //     </svg>
+    //   </span>
+    // </button>
 
     const header = dayNode.querySelector(".cal-day__header");
     if (header) {
@@ -1043,18 +1027,6 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       header.addEventListener("click", handler);
       header.addEventListener("touchstart", handler, { passive: false });
     }
-
-    // const dayBody = dayNode.querySelector(".cal-day__body");
-    // if (dayBody) {
-    //   const handler = (e) => {
-    //     e.preventDefault?.();
-    //     e.stopPropagation?.();
-    //     pickCreneauFromDay(daysEl, dayNode, dint);
-    //   };
-
-    //   dayBody.addEventListener("click", handler);
-    //   dayBody.addEventListener("touchstart", handler, { passive: false });
-    // }
 
     /** @type {HTMLButtonElement | null} */
     const trashBtn = dayNode.querySelector(".cal-day__trash");
@@ -1200,7 +1172,7 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
 
         snapProgrammeCalendar({
           dateInt: dint,
-          selectedUuid: r.__uuid,
+          uuid: r.__uuid,
           fallbackHour: 9,
           smooth: true
         });     
@@ -1374,7 +1346,7 @@ async function showProgrammeCalendar() {
     const selected = getSelectedRowUuid('grid-programmees'); 
     snapProgrammeCalendar({
       dateInt: selD || (buildDaysRange(activitesAPI.getPeriodeProgrammation())?.[0]),
-      selectedUuid: selected || null,
+      uuid: selected || null,
       fallbackHour: 9,
       smooth: false  // au premier affichage, souvent mieux en auto
     });
@@ -1797,14 +1769,204 @@ export function wireCalendarLongPress(daysEl, {
     scrollers.forEach(sc => sc.removeEventListener("scroll", endPress));
   };
 }
+// export function wireCalendarLongPress(daysEl, {
+//   pressMs = 520,
+//   movePx = 12,
+//   onLongPress = null, // ({ evEl, uuid, dateInt }) => void
+// } = {}) {
+//   if (!daysEl) return;
+
+//   let tId = 0;
+//   let startX = 0, startY = 0;
+//   let active = false;
+//   /** @type {HTMLElement|null} */
+//   let targetEv = null;
+
+//   // ✅ anti “click synthétique” après long-press
+//   let suppressClick = false;
+//   /** @type {HTMLElement|null} */
+//   let suppressTarget = null;
+//   let suppressUntil = 0;
+
+//   function clearTimerOnly() {
+//     if (tId) clearTimeout(tId);
+//     tId = 0;
+//   }
+
+//   function clearAll() {
+//     clearTimerOnly();
+//     active = false;
+//     targetEv = null;
+//   }
+
+//   function getEvElFromTarget(target) {
+//     const el = (target instanceof Element) ? target : null;
+//     if (!el) return null;
+//     // ⚠️ évite de déclencher si on tape sur le bouton info / un lien
+//     if (el.closest(".cal-ev__info, a")) return null;
+//     return el.closest(".cal-ev");
+//   }
+
+//   function armSuppressClick(evEl) {
+//     suppressClick = true;
+//     suppressTarget = evEl;
+//     suppressUntil = Date.now() + 900; // fenêtre large (iOS/Android un peu variables)
+//   }
+
+//   function startPress(e) {
+//     // Un seul pointer / bouton principal
+//     if (e.pointerType === "mouse" && e.button !== 0) return;
+
+//     // reset état long-press (sans casser un suppressClick encore actif)
+//     clearTimerOnly();
+//     active = false;
+//     targetEv = null;
+
+//     const evEl = /** @type {HTMLElement} */ (getEvElFromTarget(e.target));
+//     if (!evEl) return;
+
+//     const uuid = evEl.dataset.uuid || "";
+//     const dateInt = evEl.dataset.dateint || "";
+//     if (!uuid) return;
+
+//     active = true;
+//     targetEv = evEl;
+//     startX = e.clientX;
+//     startY = e.clientY;
+
+//     tId = window.setTimeout(() => {
+//       if (!active || !targetEv) return;
+
+//       // ✅ IMPORTANT: on avalera le click qui suit
+//       armSuppressClick(targetEv);
+
+//       // feedback visuel (optionnel)
+//       targetEv.classList.add("is-longpress");
+//       setTimeout(() => targetEv?.classList.remove("is-longpress"), 180);
+
+//       onLongPress?.({ evEl: targetEv, uuid, dateInt });
+
+//       // on termine le geste long-press (mais on garde suppressClick actif)
+//       clearAll();
+//     }, pressMs);
+//   }
+
+//   function movePress(e) {
+//     if (!active) return;
+//     const dx = e.clientX - startX;
+//     const dy = e.clientY - startY;
+//     if ((dx * dx + dy * dy) > (movePx * movePx)) {
+//       clearAll();
+//     }
+//   }
+
+//   function endPress() {
+//     clearAll();
+//   }
+
+//   // ✅ Capture click pour bloquer la sélection/snap “normale” après long-press
+//   function onClickCapture(e) {
+//     if (!suppressClick) return;
+//     if (Date.now() > suppressUntil) {
+//       suppressClick = false;
+//       suppressTarget = null;
+//       return;
+//     }
+//     const t = (e.target instanceof Element) ? e.target : null;
+//     if (!t) return;
+
+//     // si le click tombe sur l'event long-pressé (ou dedans) => on l'avale
+//     if (suppressTarget && (t === suppressTarget || t.closest(".cal-ev") === suppressTarget)) {
+//       if (e.cancelable) e.preventDefault();
+//       e.stopImmediatePropagation();
+//       e.stopPropagation();
+
+//       suppressClick = false;
+//       suppressTarget = null;
+//       suppressUntil = 0;
+//     }
+//   }
+
+//   // Pointer events (Android / desktop / iOS récent)
+//   daysEl.addEventListener("pointerdown", startPress, { passive: true });
+//   daysEl.addEventListener("pointermove", movePress, { passive: true });
+//   daysEl.addEventListener("pointerup", endPress, { passive: true });
+//   daysEl.addEventListener("pointercancel", endPress, { passive: true });
+
+//   // ✅ click capture (doit être non-passif)
+//   daysEl.addEventListener("click", onClickCapture, { capture: true, passive: false });
+
+//   // si l’utilisateur scrolle un container parent, on annule (important)
+//   const scrollers = daysEl.querySelectorAll(".cal-day__body");
+//   scrollers.forEach(sc => sc.addEventListener("scroll", endPress, { passive: true }));
+
+//   return () => {
+//     clearAll();
+//     suppressClick = false;
+//     suppressTarget = null;
+//     suppressUntil = 0;
+
+//     daysEl.removeEventListener("pointerdown", startPress);
+//     daysEl.removeEventListener("pointermove", movePress);
+//     daysEl.removeEventListener("pointerup", endPress);
+//     daysEl.removeEventListener("pointercancel", endPress);
+
+//     daysEl.removeEventListener("click", onClickCapture, true);
+
+//     scrollers.forEach(sc => sc.removeEventListener("scroll", endPress));
+//   };
+// }
+
+// Attend 2 frames
+function after2RAF(){
+  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+// Attend qu'un scroller se stabilise
+function waitScrollStable(scrollerEl, { timeoutMs = 700, stableFrames = 4 } = {}) {
+  return new Promise((resolve) => {
+    if (!scrollerEl) return resolve(false);
+
+    const t0 = performance.now();
+    let last = scrollerEl.scrollTop;
+    let stable = 0;
+
+    const tick = () => {
+      const now = performance.now();
+      const cur = scrollerEl.scrollTop;
+
+      if (Math.abs(cur - last) < 0.5) stable++;
+      else stable = 0;
+
+      last = cur;
+
+      if (stable >= stableFrames) return resolve(true);
+      if (now - t0 > timeoutMs) return resolve(false);
+
+      requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+  });
+}
+
+// Attend la stabilisation d'un day scroll 
+export async function waitForScrollDayToStabilize(dateInt) {
+    await after2RAF();
+    const day = getCalDays().querySelector?.(`.cal-day[data-dateint="${dateInt}"]`);
+    const scroller = day?.querySelector?.(".cal-day__body");
+    await waitScrollStable(scroller, { timeoutMs: 900, stableFrames: 5 });
+}
 
 // Initialise les interactions du calendrier (long press, height sync, axis lock)
 export function wireProgrammeCalendar() {
   attachProgrammeCalendarHeightSync();
   enableCalAxisLock();
   wireCalendarLongPress(document.getElementById("calADays"), {
-    onLongPress: ({ evEl, uuid, dateInt }) => {
+    onLongPress: async ({ evEl, uuid, dateInt }) => {
       suppressContextMenu();
+      selectCalendarEventAndSync({daysEl:getCalDays(), dateInt, uuid });
+      // await waitForScrollDayToStabilize(dateInt)
       openSheetReprogrammer(uuid);
     }
   });

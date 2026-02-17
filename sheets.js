@@ -54,6 +54,7 @@ import {
   ensureCalendarEventVisible,
   isProgrammeCalendarVisible,
   rerenderProgrammeCalendar,
+  waitForScrollDayToStabilize,
   PX_PER_MIN,
 } from './calendar.js';
 
@@ -6900,7 +6901,7 @@ let picker = null;
 // Sheet de reprogrammation :
 // - affiche une roue de sélection des jours possibles pour reprogrammer une activité
 // - sur validation : applique le changement de date dans le df (en appelant applyDeprogramAndReprogram)
-export function openSheetReprogrammer(uuid) {
+export async function openSheetReprogrammer(uuid) {
 
   function getCalDaysEl() {
     return /** @type {HTMLElement|null} */ (document.getElementById("calADays"));
@@ -7081,26 +7082,22 @@ export function openSheetReprogrammer(uuid) {
     return { topPx, heightPx };
   }
 
-  // Affiche le fantôme sur un jour donné
-  function previewDayWithGhost(dateInt) {
-    if (!dateInt) return;
-    if (dateInt == initDay) return;
-
-    // amener le jour + garder le scrollY
-    scrollCalendarToDayKeepY(dateInt, srcY, { behavior: "smooth", smoothY: false });
-
-    // event fantôme
-    queueMicrotask(() => {
-      moveGhostToDay({ dateInt, topPx, heightPx, title: ghostTitle, place: ghostPlace, debut: row.Debut, fin: row.Fin });
-    });
+  // Cleanup à la fermeture
+  function cleanupOnClose() {
+    removeGhostEverywhere(); 
+    ensureCalendarEventVisible(uuid, { checkVisibility: false, targetTop: srcY });
+    daysEl?.removeEventListener("scroll", onCalScroll);
+    if (raf) cancelAnimationFrame(raf);
+    picker?.destroy?.();
+    picker = null;
   }
 
   const row = ctx.df?.find(r => r && r.__uuid === uuid);
   const srcDateInt = Number(row?.Date) || null;
-  const srcY = srcDateInt ? (getDayScrollTop(srcDateInt) ?? 0) : 0;
   let days = getJoursPossibles(row);
   const initDay = row.Date ? Number(row.Date) : days[0];
 
+  let srcY;
   const { topPx, heightPx } = computeGhostGeomFromRow(row);
   const ghostTitle = row.Activite || "Reprogrammation";
   const ghostPlace = row.Lieu || "";
@@ -7125,17 +7122,10 @@ export function openSheetReprogrammer(uuid) {
 
   openSheetExclusive({
     title: "Reprogrammer",
-    panelMaxHeight: "41vh",
+    panelMaxHeight: "350px",
     panelHeight: "60vh",
-    onClose: () => {
-      removeGhostEverywhere(); 
-      ensureCalendarEventVisible(uuid, { checkVisibility: false });
-      daysEl?.removeEventListener("scroll", onCalScroll);
-      if (raf) cancelAnimationFrame(raf);
-      picker?.destroy?.();
-      picker = null;
-    },
-    mount: (body, { close }) => {
+    onClose: cleanupOnClose,
+    mount: async (body, { close }) => {
 
       body.innerHTML = `
         <div class="sheet-body">
@@ -7168,6 +7158,24 @@ export function openSheetReprogrammer(uuid) {
         <div class="wheel-indicator"></div>
       `;
 
+      // Attend que le scroller day se tabilise puis mesure sa valeur
+      await waitForScrollDayToStabilize(srcDateInt);
+      srcY = srcDateInt ? (getDayScrollTop(srcDateInt) ?? 0) : 0;
+
+      // Affiche le fantôme sur un jour donné
+      function previewDayWithGhost(dateInt) {
+        if (!dateInt) return;
+        if (dateInt == initDay) return;
+
+        // amener le jour + garder le scrollY
+        scrollCalendarToDayKeepY(dateInt, srcY, { behavior: "smooth", smoothY: false });
+
+        // event fantôme
+        queueMicrotask(() => {
+          moveGhostToDay({ dateInt, topPx, heightPx, title: ghostTitle, place: ghostPlace, debut: row.Debut, fin: row.Fin });
+        });
+      }
+
       picker?.destroy?.();
       picker = createWheelPicker(wrap, {
         onChange: (dint) => {
@@ -7187,15 +7195,16 @@ export function openSheetReprogrammer(uuid) {
         scrollCalendarToDayKeepY(initDay, srcY, { behavior: "auto" });
       });
 
-      // init preview
+      // init preview + Ghost
       queueMicrotask(() => previewDayWithGhost(initDay ?? Number(row.Date) ?? days[0]));
 
       // calendar -> wheel 
       daysEl?.addEventListener("scroll", onCalScroll, { passive: true });
 
       body.querySelector("#btnReprogCancel")?.addEventListener("click", () => {
-        removeGhostEverywhere();
-        ensureCalendarEventVisible(uuid, { checkVisibility: false });
+        // removeGhostEverywhere();
+        // ensureCalendarEventVisible(uuid, { checkVisibility: false });
+        cleanupOnClose();
         close();
       });
 
