@@ -6972,8 +6972,10 @@ export async function openSheetReprogrammer(uuid) {
     if (behavior && behavior !== "auto") {
       const opts = /** @type {ScrollToOptions} */({left , behavior});
       scroller.scrollTo(opts);
+      logToPage(`scrollTo ${left}`);
     } else {
       scroller.scrollLeft = left;
+      logToPage(`scrollLeft ${left}`);
     }
     return true;
   }
