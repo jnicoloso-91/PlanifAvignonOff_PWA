@@ -45,6 +45,7 @@ import {
 import {
   openSheetReprogrammer,
 } from './sheets.js';
+import { logToPage } from './debug.js';
 
 export const PX_PER_MIN = 1.1;         // 1.0..1.4
 
@@ -284,6 +285,7 @@ function centerDayInViewport(dateInt, { smooth = true } = {}) {
     behavior: smooth ? "smooth" : "auto"
   });
 
+  logToPage(targetLeft);
   return true;
 }
 
