@@ -546,31 +546,7 @@ export function wireExpanders(){
 
 export function wireExpanderButtons() {
 
-  // Toggle Vue Programme (Grid <-> Calendrier Jour) sur exp-programmees
-  wireProgrammeCalendarToggle();
-
-  // Bouton Filtres sur Activités Programmées
-  if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
-    expanderId: 'exp-programmees',
-    id: 'btn-filtrer-prog',
-    title: 'Filtrer', 
-    innerHTML: `
-      <span class="exp-icon" aria-hidden="true">
-        <!-- Icône Filtre en forme d'entonnoir -->
-        <svg viewBox="0 0 24 24" width="24" height="24"
-            fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round"
-            aria-hidden="true" focusable="false">
-          <!-- entonnoir -->
-          <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
-        </svg>
-      </span>
-      <span class="exp-label">Filtrer</span>
-    `,
-    onClick: () => { openSheetFiltres('grid-programmees'); },
-  });
-
-  // Bouton Déprogrammer sur Activités Programmées
+  // Bouton Supprimer sur Activités Programmées
   addExpanderButton({
     expanderId: 'exp-programmees',
     id: 'btn-deprogrammer',
@@ -595,6 +571,32 @@ export function wireExpanderButtons() {
     onClick: async () => {await doDeprogrammerActivite();},
   });
   
+  // Bouton Filtres sur Activités Programmées
+  if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
+    expanderId: 'exp-programmees',
+    id: 'btn-filtrer-prog',
+    title: 'Filtrer', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône Filtre en forme d'entonnoir -->
+        <svg viewBox="0 0 24 24" width="24" height="24"
+            fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true" focusable="false">
+          <!-- entonnoir -->
+          <g transform="translate(0,-4)">
+            <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+          </g>
+        </svg>
+      </span>
+      <span class="exp-label">Filtrer</span>
+    `,
+    onClick: () => { openSheetFiltres('grid-programmees'); },
+  });
+
+  // Toggle Vue Programme (Grid <-> Calendrier Jour) sur exp-programmees
+  wireProgrammeCalendarToggle();
+
   // Bouton Filtres sur Activités Programmables
   if (agGridHasHeaderFilters('grid-programmables')) addExpanderButton({
     expanderId: 'exp-programmables',
@@ -608,7 +610,9 @@ export function wireExpanderButtons() {
             stroke-linecap="round" stroke-linejoin="round"
             aria-hidden="true" focusable="false">
           <!-- entonnoir -->
-          <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+          <g transform="translate(0,-4)">
+            <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+          </g>
         </svg>
       </span>
       <span class="exp-label">Filtrer</span>
@@ -639,7 +643,7 @@ export function wireExpanderButtons() {
   });
 
   // Bouton Colonnes sur Activités Non Programmées
-  // if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
+  // addExpanderButton({
   //   expanderId: 'exp-non-programmees',
   //   id: 'btn-col-non-prog',
   //   title: 'Colonnes', 
@@ -666,8 +670,8 @@ export function wireExpanderButtons() {
   //   },
   // });
 
-  // Bouton Prio sur Activités Non Programmées
-  if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
+  // Bouton SetPrio sur Activités Non Programmées
+  addExpanderButton({
     expanderId: 'exp-non-programmees',
     id: 'btn-setprio-non-prog',
     title: 'SetPrio', 
@@ -683,27 +687,6 @@ export function wireExpanderButtons() {
       <span class="exp-label">SetPrio</span>
     `,
     onClick: () => { doSetPrio(); },
-  });
-
-  // Bouton Filtres sur Activités Non Programmées
-  if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
-    expanderId: 'exp-non-programmees',
-    id: 'btn-filtrer-non-prog',
-    title: 'Filtrer', 
-    innerHTML: `
-      <span class="exp-icon" aria-hidden="true">
-        <!-- Icône Filtre en forme d'entonnoir -->
-        <svg viewBox="0 0 24 24" width="24" height="24"
-            fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round"
-            aria-hidden="true" focusable="false">
-          <!-- entonnoir -->
-          <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
-        </svg>
-      </span>
-      <span class="exp-label">Filtrer</span>
-    `,
-    onClick: () => { openSheetFiltres('grid-non-programmees'); },
   });
 
   // Bouton Supprimer sur Activités Non Programmées
@@ -731,6 +714,47 @@ export function wireExpanderButtons() {
     onClick: async () => {await doSupprimerActivite();},
   });
 
+  // Bouton Filtres sur Activités Non Programmées
+  if (agGridHasHeaderFilters('grid-non-programmees')) addExpanderButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-filtrer-non-prog',
+    title: 'Filtrer', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône Filtre en forme d'entonnoir -->
+        <svg viewBox="0 0 24 24" width="24" height="24"
+            fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true" focusable="false">
+          <!-- entonnoir -->
+          <g transform="translate(0,-4)">
+            <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+          </g>
+        </svg>
+      </span>
+      <span class="exp-label">Filtrer</span>
+    `,
+    onClick: () => { openSheetFiltres('grid-non-programmees'); },
+  });
+
+  // Bouton Ajouter sur Activités Non Programmées
+  addExpanderButton({
+    expanderId: 'exp-non-programmees',
+    id: 'btn-add-non-prog',
+    title: 'Ajouter', 
+    innerHTML: `
+      <span class="exp-icon" aria-hidden="true">
+        <!-- Icône étoile fine (priorité) -->
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+      </span>
+      <span class="exp-label">Ajouter</span>
+    `,
+    onClick: () => { doAjouterActivite(); },
+  });
+
   // Bouton Filtres sur Creneaux disponibles
   if (agGridHasHeaderFilters('grid-creneaux')) addExpanderButton({
     expanderId: 'exp-creneaux',
@@ -744,7 +768,9 @@ export function wireExpanderButtons() {
             stroke-linecap="round" stroke-linejoin="round"
             aria-hidden="true" focusable="false">
           <!-- entonnoir -->
-          <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+          <g transform="translate(0,-4)">
+            <path d="M3 4h18l-7 8v5l-4 2v-7L3 4z"/>
+          </g>
         </svg>
       </span>
       <span class="exp-label">Filtrer</span>
@@ -752,7 +778,7 @@ export function wireExpanderButtons() {
     onClick: () => { openSheetFiltres('grid-creneaux'); },
   });
 
-  // Toggle TraiterPauses sur Creneaux disponibles
+  // Toggle Pauses sur Creneaux disponibles
   (function addPausesToggleButton() {
     const id = 'btn-avec-pauses';
 
@@ -782,7 +808,7 @@ export function wireExpanderButtons() {
 
     function renderAvecPausesInnerHTML(isOn) {
       const icon = isOn ? ICON_PAUSE_ON : ICON_PAUSE_OFF;
-      const label = isOn ? 'Avec pauses' : 'Avec pauses';
+      const label = isOn ? 'Pauses' : 'Pauses';
       return `
         <span class="exp-icon">${icon}</span>
         <span class="exp-label">${label}</span>
@@ -806,7 +832,7 @@ export function wireExpanderButtons() {
     addExpanderButton({
       expanderId: 'exp-creneaux',
       id,
-      title: 'Avec pauses',
+      title: 'Pauses',
       innerHTML: renderAvecPausesInnerHTML(getShowPauses()),
       onClick: async () => {
         const current = getShowPauses();
@@ -1226,61 +1252,7 @@ export function wireExpanderSplitters() {
 // Actions des boutons d'expanders
 // =======================
 
-// function createWheelPicker(wrapEl) {
-//   const wheel = wrapEl.querySelector(".wheel");
-
-//   function installWheelSmart(wheelEl, { itemPx = 36 } = {}) {
-//     let locked = false;
-
-//     wheelEl.addEventListener("wheel", (ev) => {
-//       if (ev.ctrlKey) return;
-
-//       const isMouseLike = Math.abs(ev.deltaY) >= 50; // seuil à ajuster
-//       if (!isMouseLike) return; // trackpad => scroll natif
-
-//       ev.preventDefault();
-//       ev.stopPropagation();
-
-//       if (locked) return;
-//       locked = true;
-
-//       const dir = ev.deltaY > 0 ? 1 : -1;
-//       wheelEl.scrollTo({ top: wheelEl.scrollTop + dir * itemPx, behavior: "smooth" });
-
-//       setTimeout(() => { locked = false; }, 140);
-//     }, { passive: false });
-//   }
-
-//   function getCenteredItem() {
-//     const r = wheel.getBoundingClientRect();
-//     const cx = r.left + r.width / 2;
-//     const cy = r.top + r.height / 2;
-//     const el = document.elementFromPoint(cx, cy);
-//     return el?.closest?.(".wheel-item") || null;
-//   }
-
-//   function getValue() {
-//     const it = /** @type {HTMLElement} */ (getCenteredItem());
-//     const v = it?.dataset?.v ?? "";
-//     return v === "" ? null : parseInt(v, 10);
-//   }
-
-//   function setValue(v) {
-//     const target = [...wheel.querySelectorAll(".wheel-item")]
-//       .find(el => (el.dataset.v ?? "") === String(v ?? ""));
-//     if (!target) return;
-
-//     const top =
-//       target.offsetTop -
-//       (wheel.clientHeight / 2 - target.clientHeight / 2);
-
-//     wheel.scrollTo({ top, behavior: "instant" });
-//   }
-
-//   installWheelSmart(wheel);
-//   return { getValue, setValue };
-// }
-
+// Renvoie les uuid de la sélection dans une grille
 function getUuidsFromSelection(gridApi) {
   return new Set(
     gridApi.getSelectedNodes()
@@ -1289,6 +1261,7 @@ function getUuidsFromSelection(gridApi) {
   );
 }
 
+// Renvoie les uuid du filtre courant
 function getUuidsFromFilter(gridApi) {
   const s = new Set();
   gridApi.forEachNodeAfterFilter(n => {
@@ -1298,6 +1271,7 @@ function getUuidsFromFilter(gridApi) {
   return s;
 }
 
+// Applique une priorité à un tableau d'uuid
 function applyPrioriteImmutable(df, uuids, prioVal) {
   if (!uuids.size) return df;
   let changed = false;
@@ -1315,6 +1289,7 @@ function applyPrioriteImmutable(df, uuids, prioVal) {
 
 let _prioPopup = null;
 
+// Crée la popup Prio
 function getOrCreatePrioPopup() {
   if (_prioPopup) return _prioPopup;
 
@@ -1442,14 +1417,29 @@ function getOrCreatePrioPopup() {
   return _prioPopup;
 }
 
+// Ouvre la popup Prio
 function openPrioPopup({ gridApi, ctx, defaultValue = null }) {
   getOrCreatePrioPopup().open({ gridApi, ctx, defaultValue });
 }
 
+// Assigne une priorité à la ligne sélectionnée ou au filtre courant
 function doSetPrio() {
   const h = grids.get("grid-non-programmees");
   const gridApi = h?.api;
   openPrioPopup({ gridApi, ctx, defaultValue: null });
+}
+
+// Ajout activité
+async function doAjouterActivite() {
+  const nouvelleActivite = await activitesAPI.creerActivite(ctx.df);
+  ctx.mutateDf(rows => sortDf([nouvelleActivite, ...rows]));
+
+  // Maj des sélections
+  setTimeout(() => {
+    scrollToExpander?.('exp-non-programmees');
+    openExpander?.('exp-non-programmees');
+    selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
+  }, 50);
 }
 
 // Suppression d'une activité
@@ -1481,30 +1471,6 @@ async function doProgrammerActivite() {
   if (!uuid || !dateInt) { alert('Donnée sélectionnée invalide.'); return; }
   const uuidVoisin = getLigneVoisineUuid(grids.get('grid-programmables').api, uuid);
 
-  // ctx.mutateDf(rows => {
-  //   const next = Array.isArray(rows) ? rows.slice() : [];
-
-  //   const idx = (uuid != null)
-  //     ? next.findIndex(r => r && r.__uuid === uuid)
-  //     : -1;
-
-  //   // payload normalisé (Date convertie)
-  //   const payload = { ...sel, Date: dateInt };
-
-  //   if (idx >= 0) {
-  //     // ✅ met à jour la ligne existante
-  //     next[idx] = { ...next[idx], ...payload };
-  //   } else {
-  //     // ✅ ajoute une nouvelle ligne (assure un __uuid)
-  //     if (!payload.__uuid) {
-  //       payload.__uuid = genUUID();
-  //     }
-  //     next.push(payload);
-  //   }
-
-  //   // trie final 
-  //   return sortDf(next);
-  // });
   ctx.dfPatch(uuid, { Date: dateInt });
 
   // 3) ouvrir l’expander “programmées” puis sélectionner & scroller la ligne
@@ -1554,13 +1520,6 @@ async function doDeprogrammerActivite() {
   }
 
   // Mutation immuable
-  // ctx.mutateDf(rows => {
-  //   let next = rows.slice();
-  //   const i = next.findIndex(r => r.__uuid === uuid);
-  //   if (i >= 0) next[i] = { ...next[i], Date: null };
-  //   next = sortDf(next);
-  //   return next;
-  // });
   ctx.dfPatch(uuid, { Date: null });
 
   dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, {scroll:false});

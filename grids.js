@@ -2495,12 +2495,6 @@ async function onProgGridDateCommitted(params) {
   const uuidVoisin = getLigneVoisineUuid(params.api, uuid);
 
   // Commit dans contexte ctx
-  // let df = ctx.getDf().slice(); 
-  // const idx = df.findIndex(r => r.__uuid === uuid);
-  // if (idx < 0) return;
-  // df[idx] = { ...df[idx], ...params.data }; df[idx].Date = di; 
-  // df = sortDf(df);
-  // ctx.setDf(df);    
   ctx.dfPatch(uuid, { Date: di });    
 
   // Si drop dans une autre grille: 
@@ -2529,12 +2523,6 @@ async function onNonProgGridDateCommitted(params) {
   const uuidVoisin = getLigneVoisineUuid(params.api, uuid);
 
   // Commit dans contexte ctx
-  // let df = ctx.getDf().slice(); 
-  // const idx = df.findIndex(r => r.__uuid === uuid);
-  // if (idx < 0) return;
-  // df[idx] = { ...df[idx], ...params.data }; df[idx].Date = di; 
-  // df = sortDf(df);
-  // ctx.setDf(df);        
   ctx.dfPatch(uuid, { Date: di });    
 
   // Si drop dans une autre grille: 

@@ -374,6 +374,10 @@ main, .page-wrap {
 .exp-header-btn {
   display: flex;
   flex-direction: column;
+  width: 40px;
+  flex: 0 0 40px;
+  overflow: visible;
+  
   align-items: center;
   justify-content: center;
   background: transparent;
@@ -402,6 +406,7 @@ main, .page-wrap {
 
 /* label sous l’icône */
 .exp-header-btn .exp-label {
+  white-space: nowrap;
   font-size: .62rem;
   line-height: 1;
   opacity: .8;
@@ -3008,3 +3013,34 @@ input[type="range"]:focus::-moz-range-thumb {
 .sheet-footer.reprog {
   z-index: 100;
 }
+
+
+/*=========================
+   Sheet Chercher
+  =========================*/
+
+.sheet-body--search{
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+/* footer toujours visible */
+.sheet-footer--search{
+  position: sticky;
+  bottom: 0;
+  background: var(--sheet-bg, #fff);
+  z-index: 5;
+}
+
+/* la grid prend tout l’espace restant visuel */
+.grid-host--search{
+  margin-top: 10px;
+  height: calc(100% - 150px); /* ajuste 150px selon hauteur header */
+  min-height: 180px;
+}
+
+#searchGrid{
+  width: 100%;
+  height: 100%;
+}
+

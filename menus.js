@@ -75,6 +75,7 @@ import {
   openSheetCoherence,
   openSheetImportBilletReduc,
   openSheetInfosPlus,
+  openSheetSearch,
 } from './sheets.js';
 
 import {
@@ -125,9 +126,15 @@ export function wireBottomBar() {
   });
 
   // --- Ajouter ---
-  $('btn-add')?.addEventListener('click', (e) => {
+  // $('btn-add')?.addEventListener('click', (e) => {
+  //   pulse(e.currentTarget);
+  //   doAjouterActivite();
+  // });
+
+  // --- Rechercher ---
+  $('btn-search')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
-    doAjouterActivite();
+    openSheetSearch();
   });
 
 // Drag-to-scroll with mouse (desktop)
@@ -1720,17 +1727,17 @@ async function doRedo() {
 }
 
 // Ajout activité
-async function doAjouterActivite() {
-  const nouvelleActivite = await activitesAPI.creerActivite(ctx.df);
-  ctx.mutateDf(rows => sortDf([nouvelleActivite, ...rows]));
+// async function doAjouterActivite() {
+//   const nouvelleActivite = await activitesAPI.creerActivite(ctx.df);
+//   ctx.mutateDf(rows => sortDf([nouvelleActivite, ...rows]));
 
-  // Maj des sélections
-  setTimeout(() => {
-    scrollToExpander?.('exp-non-programmees');
-    openExpander?.('exp-non-programmees');
-    selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
-  }, 50);
-}
+//   // Maj des sélections
+//   setTimeout(() => {
+//     scrollToExpander?.('exp-non-programmees');
+//     openExpander?.('exp-non-programmees');
+//     selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
+//   }, 50);
+// }
 
 // Ajout activité avec collage
 async function doAjouterActivitesParCollage() {

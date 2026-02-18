@@ -7203,3 +7203,209 @@ export async function openSheetReprogrammer(uuid) {
     }
   });
 }
+
+export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
+
+  function normText(s){
+    return String(s ?? "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // enlève accents
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function buildHaystack(row){
+    // ⚠️ mets ici ce que tu veux inclure dans la recherche
+    // (y compris colonnes cachées)
+    return normText([
+      row.Activite,
+      row.Lieu,
+      row.Theatre,
+      row.Style,
+      row.Mood,
+      row.__desc_summary,
+      row.__avis_summary,
+      row.__distribution,
+    ].filter(Boolean).join(" • "));
+  }
+
+  function matchQuery(row, query){
+    const q = normText(query);
+    if (!q) return true;
+
+    // AND par défaut (mots séparés par espaces)
+    const parts = q.split(" ").filter(Boolean);
+    const hay = buildHaystack(row);
+
+    return parts.every(p => hay.includes(p));
+  } 
+
+  function selectInProgrammeOrNonProgramme(uuid){
+    // const row = ctx.dfGetByUuid?.(uuid) || (ctx.getDf?.() || []).find(r => r?.__uuid === uuid);
+    // if (!row) return false;
+
+    // const gridId = isProgrammee(row) ? "grid-programmees" : "grid-non-programmees";
+    // const expId  = isProgrammee(row) ? "exp-programmees" : "exp-non-programmees";
+
+    // try { openExpander?.(expId); } catch {}
+
+    // // double rAF = le temps que l’expander s’ouvre / que la grille repeigne
+    // requestAnimationFrame(() => requestAnimationFrame(() => {
+    //   const ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: true });
+    //   if (!ok) {
+    //     // fallback : au moins scroller sur la première ligne visible
+    //     const h = grids?.get?.(gridId);
+    //     const api = h?.api;
+    //     const count = api?.getDisplayedRowCount?.() ?? 0;
+    //     if (count > 0) {
+    //       const node = api.getDisplayedRowAtIndex(0);
+    //       node?.setSelected?.(true, true);
+    //       api.ensureIndexVisible?.(0, "top");
+    //     }
+    //   }
+    // }));
+
+    return true;
+  }
+
+  openSheetExclusive({
+    title,
+    panelHeight: "50vh",
+    panelMaxHeight: "60vh",
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="sheet-body">
+          <div class="input-wrap has-label" id="searchWrap">
+            <textarea id="searchInput"
+                      class="ai-input"
+                      rows="2"
+                      placeholder="Titre, lieu, avis, distribution...">""</textarea>
+          </div>
+
+          <div class="muted" style="margin-top:8px" id="searchInfo"></div>
+
+          <div class="grid-host" style="margin-top:10px; min-height: 0; flex: 1 1 auto;">
+            <div id="searchGrid" class="ag-theme-quartz compact" style="width:100%; height:100%;"></div>
+          </div>
+        </div>
+
+        <div class="sheet-footer sheet-footer--search">
+          <button type="button" class="bb-btn" id="btnSearchCancel">Annuler</button>
+          <button type="button" class="bb-btn" id="btnSearchRun">Chercher</button>
+          <button type="button" class="bb-btn is-primary" id="btnSearchSelect" disabled>Sélectionner</button>
+        </div>
+      `;
+            // <input type="search" class="bb-input" id="searchInput"
+            //   placeholder="Titre, lieu, avis, distribution..."
+            //   autocomplete="off" />
+
+      /** @type {HTMLInputElement} */
+      const input = body.querySelector("#searchInput");
+      const info  = body.querySelector("#searchInfo");
+      const btnCancel = body.querySelector("#btnSearchCancel");
+      const btnRun    = body.querySelector("#btnSearchRun");
+      const btnSelect = body.querySelector("#btnSearchSelect");
+      const gridEl    = body.querySelector("#searchGrid");
+
+      if (!input || !gridEl) { close(); return; }
+
+      let gridApi = null;
+
+      const colDefs = [
+        { headerName: "Activité", field: "Activite", flex: 2, minWidth: 160 },
+        { headerName: "Date", field: "Date", width: 105 },
+        { headerName: "Début", field: "Debut", width: 80 },
+        { headerName: "Fin", field: "Fin", width: 80 },
+        { headerName: "Lieu", field: "Lieu", flex: 1, minWidth: 120 },
+      ];
+
+      const gridOptions = {
+        columnDefs: colDefs,
+        rowData: [],
+        getRowId: p => p.data?.__uuid,
+        rowSelection: { mode: "singleRow" }, // sinon: "single"
+        onSelectionChanged: () => {
+          const sel = gridApi?.getSelectedRows?.()?.[0] || null;
+          btnSelect.disabled = !sel;
+        },
+      };
+
+      const grid = window.agGrid.createGrid(gridEl, gridOptions);
+      gridApi = gridOptions.api || grid;
+
+      function runSearch(){
+        const q = (input.value || "").trim();
+
+        // ✅ recherche vide => rien
+        if (!q) {
+          if (info) info.textContent = `0 résultat(s)`;
+          gridApi?.setGridOption?.("rowData", []);
+          gridApi?.setRowData?.([]);
+          gridApi?.deselectAll?.();
+          btnSelect.disabled = true;
+          return;
+        }
+
+        const df = ctx.getDf?.() || ctx.df || [];
+        const out = (df || []).filter(r => r && matchQuery(r, q));
+
+        if (info) info.textContent = `${out.length} résultat(s)`;
+
+        gridApi?.setGridOption?.("rowData", out);
+        gridApi?.setRowData?.(out);
+        gridApi?.deselectAll?.();
+        btnSelect.disabled = (out.length === 0);
+
+        if (!out.length) return;
+
+        queueMicrotask(() => {
+          try {
+            const first = gridApi.getDisplayedRowAtIndex?.(0);
+            first?.setSelected?.(true, true);
+            gridApi.ensureIndexVisible?.(0, "top");
+          } catch {}
+        });
+      }
+
+      function updateRunState() {
+        const hasValue = !!input.value.trim();
+        btnRun.disabled = !hasValue;
+      }
+
+      // init
+      input.value = initialQuery || "";
+      
+      queueMicrotask(() => {
+        runSearch();
+        try { input.focus({ preventScroll: true }); } catch { input.focus(); }
+      });
+
+      updateRunState();
+
+      btnCancel?.addEventListener("click", () => close());
+      btnRun?.addEventListener("click", () => runSearch());
+
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          runSearch();
+        }
+      });
+
+      input.addEventListener("input", updateRunState);
+
+      btnSelect?.addEventListener("click", () => {
+        const sel = gridApi?.getSelectedRows?.()?.[0];
+        const uuid = sel?.__uuid;
+        if (!uuid) return;
+
+        close();
+        selectInProgrammeOrNonProgramme(uuid);
+      });
+
+      body.onClose?.(() => {
+        try { gridApi?.destroy?.(); } catch {}
+      });
+    }
+  });
+}
