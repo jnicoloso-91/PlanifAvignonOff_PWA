@@ -1374,7 +1374,7 @@ function showProgrammeGrid() {
       if (g.el === gridA) { g.api.onGridSizeChanged(); break; }
     }
   } catch {}
-
+  ensureRowVisible("grid-programmees", getSelectedRowUuid("grid-programmees");
 }
 
 // Synchronise la hauteur du calendrier avec le panel
