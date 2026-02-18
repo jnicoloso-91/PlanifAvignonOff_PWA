@@ -684,7 +684,7 @@ export function wireExpanderButtons() {
           <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 17.8 6.8 19.5l1-5.8-4.2-4.1 5.8-.8L12 3.5z"></path>
         </svg>
       </span>
-      <span class="exp-label">SetPrio</span>
+      <span class="exp-label">Favori</span>
     `,
     onClick: () => { doSetPrio(); },
   });
