@@ -302,6 +302,28 @@ export function creerActivitesAPI(ctx) {
     },
 
     /**
+     * Renvoie true si la row en paramètre est une activité programmée.
+     * i.e. Date valide, et des champs Début, Durée, Activité non vides.
+     *
+     * @param {object} r    - row activité
+     * @returns {boolean}   - true / false
+     */
+    estActiviteProgrammee(r) {
+      return _estActiviteProgrammee(r);
+    },
+
+    /**
+     * Renvoie true si la row en paramètre est une activité non programmée.
+     * i.e. sans Date, mais avec Debut, Duree et Activite définies.
+     *
+     * @param {object} r    - row activité
+     * @returns {boolean}   - true / false
+     */
+    estActiviteNonProgrammee(r) {
+      return _estActiviteNonProgrammee(r);
+    },
+
+    /**
      * Indique si l'activité passée en paramètre est programmable sur la période de programmation
      * (i.e. s'il existe des jours pour lesquels elle peut être programmée).
      */
@@ -1376,6 +1398,48 @@ function _getActivitesNonProgrammees(df = []) {
     )
 
   return filtered;
+}
+
+/**
+ * Renvoie true si la row en paramètre est une activité programmée.
+ * i.e. Date valide, et des champs Début, Durée, Activité non vides.
+ *
+ * @param {object} r    - row activité
+ * @returns {boolean}   - true / false
+ */
+function _estActiviteProgrammee(r) {
+  if (!(typeof r === "object" && r!= null)) return false;
+
+  const estFloatValide = v => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) && n > 0;
+  };
+
+  const isNotNull = v => v !== null && v !== undefined && v !== '';
+
+  return (
+    estFloatValide(r.Date) &&
+    isNotNull(r.Debut) &&
+    isNotNull(richValueGetValue(r.Duree)) &&
+    isNotNull(r.Activite)
+  );
+}
+
+/**
+ * Renvoie la liste des activités non programmées à partir d'un tableau d'activités :
+ * i.e. sans Date, mais avec Debut, Duree et Activite définies.
+ * 
+ * @param {object} r    - row activité
+ * @returns {boolean}   - true / false
+ */
+function _estActiviteNonProgrammee(r) {
+  if (!(typeof r === "object" && r!= null)) return false;
+
+  return (
+    (r.Date == null || r.Date === '') &&   // Date manquante
+    r.Activite != null &&
+    r.Activite !== ''
+  );
 }
 
 /**

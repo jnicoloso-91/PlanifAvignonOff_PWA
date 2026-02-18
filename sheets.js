@@ -3,6 +3,7 @@
 // ===============================
 
 import {
+  isIOS,
   genUUID,
   escapeHtml,
   escapeAttr,
@@ -42,12 +43,17 @@ import {
   makeFullKey 
 } from './activites.js'; 
 
+import { 
+  openExpander, 
+} from './expanders.js'; 
+
 import {
   collectGridApis,
   getLigneVoisineUuid,
   enableTouchEdit,
   refreshAllGrids,
   refreshGrid,
+  selectRowByUuid,
 } from './grids.js';
 
 import {
@@ -949,14 +955,9 @@ function createChipBox({
     };
   }
 
-  // --- iOS detection (simple & suffisante ici)
-  const isIOS =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-
   // --- Choix : custom vs dropdown ?
   // Si non précisé => auto: iOS => custom, sinon natif
-  const useCustom = (useCustomDropdown != null) ? !!useCustomDropdown : true; //isIOS;
+  const useCustom = (useCustomDropdown != null) ? !!useCustomDropdown : true; 
 
   if (useCustom) {
     return initChipBoxCustom({
@@ -7241,29 +7242,29 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
   } 
 
   function selectInProgrammeOrNonProgramme(uuid){
-    // const row = ctx.dfGetByUuid?.(uuid) || (ctx.getDf?.() || []).find(r => r?.__uuid === uuid);
-    // if (!row) return false;
+    const row = ctx.dfGetByUuid?.(uuid) || (ctx.getDf?.() || []).find(r => r?.__uuid === uuid);
+    if (!row) return false;
 
-    // const gridId = isProgrammee(row) ? "grid-programmees" : "grid-non-programmees";
-    // const expId  = isProgrammee(row) ? "exp-programmees" : "exp-non-programmees";
+    const gridId = activitesAPI.estActiviteProgrammee(row) ? "grid-programmees" : "grid-non-programmees";
+    const expId  = activitesAPI.estActiviteProgrammee(row) ? "exp-programmees" : "exp-non-programmees";
 
-    // try { openExpander?.(expId); } catch {}
+    try { openExpander?.(expId); } catch {}
 
-    // // double rAF = le temps que l’expander s’ouvre / que la grille repeigne
-    // requestAnimationFrame(() => requestAnimationFrame(() => {
-    //   const ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: true });
-    //   if (!ok) {
-    //     // fallback : au moins scroller sur la première ligne visible
-    //     const h = grids?.get?.(gridId);
-    //     const api = h?.api;
-    //     const count = api?.getDisplayedRowCount?.() ?? 0;
-    //     if (count > 0) {
-    //       const node = api.getDisplayedRowAtIndex(0);
-    //       node?.setSelected?.(true, true);
-    //       api.ensureIndexVisible?.(0, "top");
-    //     }
-    //   }
-    // }));
+    // double rAF = le temps que l’expander s’ouvre / que la grille repeigne
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: true });
+      if (!ok) {
+        // fallback : au moins scroller sur la première ligne visible
+        const h = window.grids?.get?.(gridId);
+        const api = h?.api;
+        const count = api?.getDisplayedRowCount?.() ?? 0;
+        if (count > 0) {
+          const node = api.getDisplayedRowAtIndex(0);
+          node?.setSelected?.(true, true);
+          api.ensureIndexVisible?.(0, "top");
+        }
+      }
+    }));
 
     return true;
   }
@@ -7278,7 +7279,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           <div class="input-wrap has-label" id="searchWrap">
             <textarea id="searchInput"
                       class="ai-input"
-                      rows="2"
+                      rows="1"
                       placeholder="Titre, lieu, avis, distribution...">""</textarea>
           </div>
 
@@ -7295,9 +7296,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           <button type="button" class="bb-btn is-primary" id="btnSearchSelect" disabled>Sélectionner</button>
         </div>
       `;
-            // <input type="search" class="bb-input" id="searchInput"
-            //   placeholder="Titre, lieu, avis, distribution..."
-            //   autocomplete="off" />
 
       /** @type {HTMLInputElement} */
       const input = body.querySelector("#searchInput");
@@ -7313,21 +7311,26 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       const colDefs = [
         { headerName: "Activité", field: "Activite", flex: 2, minWidth: 160 },
+        { headerName: "Lieu", field: "Lieu", flex: 1, minWidth: 120 },
         { headerName: "Date", field: "Date", width: 105 },
         { headerName: "Début", field: "Debut", width: 80 },
         { headerName: "Fin", field: "Fin", width: 80 },
-        { headerName: "Lieu", field: "Lieu", flex: 1, minWidth: 120 },
       ];
 
       const gridOptions = {
+        defaultColDef: { editable:true, resizable:true, sortable:true, filter:true },
         columnDefs: colDefs,
         rowData: [],
         getRowId: p => p.data?.__uuid,
-        rowSelection: { mode: "singleRow" }, // sinon: "single"
+        rowSelection: "single", 
         onSelectionChanged: () => {
           const sel = gridApi?.getSelectedRows?.()?.[0] || null;
           btnSelect.disabled = !sel;
         },
+        suppressDragLeaveHidesColumns: true,
+        singleClickEdit: false,
+        suppressClickEdit: true,
+        stopEditingWhenCellsLoseFocus: true,
       };
 
       const grid = window.agGrid.createGrid(gridEl, gridOptions);
@@ -7335,6 +7338,9 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       function runSearch(){
         const q = (input.value || "").trim();
+
+        // Memorise le dernière recherche
+        ctx.setMetaParam?.("lastSearchQuery", q);
 
         // ✅ recherche vide => rien
         if (!q) {
@@ -7373,11 +7379,14 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       }
 
       // init
-      input.value = initialQuery || "";
+      const lastQ = ctx.getMetaParam?.("lastSearchQuery");
+      input.value = initialQuery || lastQ;
       
       queueMicrotask(() => {
         runSearch();
-        try { input.focus({ preventScroll: true }); } catch { input.focus(); }
+        if (!isIOS) {
+          try { input.focus({ preventScroll: true }); } catch { input.focus(); }
+        }
       });
 
       updateRunState();
