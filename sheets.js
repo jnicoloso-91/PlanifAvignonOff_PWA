@@ -1565,12 +1565,6 @@ export function openSheetCarnet() {
         defaultColDef: { editable:true, resizable:true, sortable:true, filter:true },
 
         onGridReady: (params) => {
-          // const root =
-          //   params.api?.getGui?.()                              // si dispo
-          //   || params.eGridDiv                                  // standard, toujours là
-          //   || params.api?.getGridBodyElement?.()               // autre API selon version
-          //   || document.querySelector('#grid-carnet-sheet .ag-root'); // dernier recours si tu connais l’id
-          // root.style.touchAction = 'manipulation'; // iOS: aide les gestes
           requestAnimationFrame(() => wireAgTouchScrollRouter('grid-carnet', { sheetGrid:true} ));
         },
         rowSelection: 'single',
@@ -7347,6 +7341,9 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         rowData: [],
         getRowId: p => p.data?.__uuid,
         rowSelection: "single", 
+        onGridReady: (params) => {
+          requestAnimationFrame(() => wireAgTouchScrollRouter('grid-search', { sheetGrid:true} ));
+        },
         onSelectionChanged: () => {
           const sel = gridApi?.getSelectedRows?.()?.[0] || null;
           btnSelect.disabled = !sel;
@@ -7357,8 +7354,10 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         stopEditingWhenCellsLoseFocus: true,
       };
 
-      const grid = window.agGrid.createGrid(gridEl, gridOptions);
-      gridApi = gridOptions.api || grid;
+      gridApi = window.agGrid.createGrid(gridEl, gridOptions);
+
+      // ➜ enregistre dans le registre des sheets
+      window.sheetGrids.set('grid-search', { api: gridApi, el: gridEl });
 
       function runSearch(){
         const q = (input.value || "").trim();
@@ -7465,6 +7464,8 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       });
 
       body.onClose?.(() => {
+        // ➜ nettoyage du registre des sheet grids
+        window.sheetGrids.delete('grid-carnet');
         try { gridApi?.destroy?.(); } catch {}
       });
     }
