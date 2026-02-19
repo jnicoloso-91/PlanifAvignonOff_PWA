@@ -3068,7 +3068,7 @@ input[type="range"]:focus::-moz-range-thumb {
 .search-clear-btn{
   position: absolute;
   right: 8px;
-  top: 50%;
+  top: calc(50% - 2px);
   transform: translateY(-50%);
 
   width: 26px;
