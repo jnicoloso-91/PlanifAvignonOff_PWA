@@ -7295,9 +7295,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
             <button type="button"
                     class="search-clear-btn"
                     id="btnSearchClear"
-                    aria-label="Effacer">
-              ✕
-            </button>
+                    aria-label="Effacer">×</button>
           </div>
 
           <div class="muted" style="margin-top:8px" id="searchInfo"></div>

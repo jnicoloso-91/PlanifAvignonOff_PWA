@@ -1253,7 +1253,6 @@ main, .page-wrap {
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 18px;
   position: absolute;
   right: 1.8rem;
   top: 1.8rem;
@@ -3079,7 +3078,7 @@ input[type="range"]:focus::-moz-range-thumb {
   border: none;
   background: rgba(0,0,0,0.08);
   color: #444;
-  font-size: 14px;
+  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
 
