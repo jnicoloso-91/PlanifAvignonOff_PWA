@@ -7235,7 +7235,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     return parts.every(p => hay.includes(p));
   } 
 
-  function selectActivite(uuid){
+  function selectionnerActivite(uuid){
     const row = ctx.dfGetByUuid?.(uuid) || (ctx.getDf?.() || []).find(r => r?.__uuid === uuid);
     if (!row) return false;
 
@@ -7259,22 +7259,22 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       if (!expEl) return;
 
       expEl.scrollIntoView({
-        behavior: "smooth",   // ou "auto" si tu veux instantané
-        block: "start",       // "start" | "center" | "end" | "nearest"
-        inline: "nearest"
+        behavior: "smooth",   // ou "auto" instantané
+        block: "nearest",     // "start" | "center" | "end" | "nearest"
       });
     }
 
     try { openExpander?.(expId); } catch {}
 
     queueMicrotask(() => {
-      // scrollExpanderIntoView(expId);
+      scrollExpanderIntoView(expId);
     });
 
     // double rAF = le temps que l’expander s’ouvre / que la grille repeigne
     requestAnimationFrame(() => requestAnimationFrame(() => {
       let ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: true });
       if (!ok) fallbackSelect(gridId);
+      if (isProgrammeCalendarVisible) rerenderProgrammeCalendar();
     }));
 
     return true;
@@ -7420,7 +7420,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           requestAnimationFrame(() => {
             try { input.setSelectionRange?.(input.value.length, input.value.length); } catch {}
             try { input.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch {}
-            // si tu as une fonction “ensureInputVisible” comme dans chipbox, appelle-la ici :
+            // si fonction “ensureInputVisible” comme dans chipbox, l'appeller éventuellement ici :
             // try { ensureInputVisible?.(); } catch {}
           });
         });
@@ -7458,7 +7458,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         if (!uuid) return;
 
         close();
-        selectActivite(uuid);
+        selectionnerActivite(uuid);
       });
 
       body.onClose?.(() => {
