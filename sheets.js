@@ -7235,7 +7235,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     return parts.every(p => hay.includes(p));
   } 
 
-  function selectInProgrammeOrNonProgramme(uuid){
+  function selectActivite(uuid){
     const row = ctx.dfGetByUuid?.(uuid) || (ctx.getDf?.() || []).find(r => r?.__uuid === uuid);
     if (!row) return false;
 
@@ -7268,7 +7268,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     try { openExpander?.(expId); } catch {}
 
     queueMicrotask(() => {
-      scrollExpanderIntoView(expId);
+      // scrollExpanderIntoView(expId);
     });
 
     // double rAF = le temps que l’expander s’ouvre / que la grille repeigne
@@ -7458,7 +7458,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         if (!uuid) return;
 
         close();
-        selectInProgrammeOrNonProgramme(uuid);
+        selectActivite(uuid);
       });
 
       body.onClose?.(() => {
