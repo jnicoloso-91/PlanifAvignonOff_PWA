@@ -1389,18 +1389,17 @@ main, .page-wrap {
 .sheet-grid-host .ag-theme-quartz,
 .sheet-grid-host [id^="grid"]{
   height: calc(100% - var(--footer-h) - 20px); 
-  /* height: 100% !important; */
   min-height: 0 !important;
   display: block;
 }
 
 /* autorise le pan natif dans une grille de sheet */
-.sheet-panel .ag-root,
+/* .sheet-panel .ag-root,
 .sheet-panel .ag-body-viewport,
 .sheet-panel .ag-center-cols-viewport,
 .sheet-panel .ag-header-viewport {
   touch-action: pan-x pan-y;
-}
+} */
 
 /* --- Footer d’actions sans séparateur, plus intégré --- */
 .sheet-actions {
@@ -2553,7 +2552,6 @@ input[type="range"]:focus::-moz-range-thumb {
 .ag-header-viewport { overflow: hidden !important; }
 
 
-
 /*==============================
   Calendrier (#calA)
   ==============================*/
@@ -3047,7 +3045,7 @@ input[type="range"]:focus::-moz-range-thumb {
 /* la grid prend tout l’espace restant visuel */
 .grid-host--search{
   margin-top: 10px;
-  height: calc(100% - 150px); /* ajuste 150px selon hauteur header */
+  height: calc(100% - var(--footer-h) - 20px); 
   min-height: 180px;
 }
 
