@@ -1501,8 +1501,6 @@ export function openSheetCarnet() {
 
       // footer actions (icônes + labels)
       const actions = document.createElement('div');
-      // actions.className = 'sheet-actions';
-      // actions.innerHTML = `
       actions.className = 'sheet-footer';
       actions.style.justifyContent = 'flex-start';
       actions.innerHTML = `

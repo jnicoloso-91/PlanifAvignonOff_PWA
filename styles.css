@@ -1388,7 +1388,8 @@ main, .page-wrap {
 }
 .sheet-grid-host .ag-theme-quartz,
 .sheet-grid-host [id^="grid"]{
-  height: 100% !important;
+  height: calc(100% - var(--footer-h) - 20px); 
+  /* height: 100% !important; */
   min-height: 0 !important;
   display: block;
 }
@@ -3032,7 +3033,7 @@ input[type="range"]:focus::-moz-range-thumb {
   position: sticky;
   bottom: 0;
   background: var(--sheet-bg, #fff);
-  z-index: 5;
+  z-index: 100;
 }
 
 /* la grid prend tout l’espace restant visuel */
