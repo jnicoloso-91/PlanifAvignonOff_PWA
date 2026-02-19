@@ -7408,7 +7408,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       input.addEventListener("input", updateClearBtn);
 
-      btnClear.addEventListener("pointerdown", (e) => {
+      btnClear.addEventListener("click", (e) => {
         e.preventDefault();      // évite blur iOS
         input.value = "";
         updateClearBtn();
