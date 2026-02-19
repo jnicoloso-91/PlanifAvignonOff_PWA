@@ -1571,7 +1571,7 @@ export function openSheetCarnet() {
           //   || params.api?.getGridBodyElement?.()               // autre API selon version
           //   || document.querySelector('#grid-carnet-sheet .ag-root'); // dernier recours si tu connais l’id
           // root.style.touchAction = 'manipulation'; // iOS: aide les gestes
-          requestAnimationFrame(() => wireAgTouchScrollRouter('grid-carnet', ));
+          requestAnimationFrame(() => wireAgTouchScrollRouter('grid-carnet', { sheetGrid:true} ));
         },
         rowSelection: 'single',
         onCellValueChanged: (p) => {
