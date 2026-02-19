@@ -7408,13 +7408,33 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       input.addEventListener("input", updateClearBtn);
 
+      // btnClear.addEventListener("click", (e) => {
+      //   e.preventDefault();      // évite blur iOS
+      //   input.value = "";
+      //   updateClearBtn();
+      //   input.focus({ preventScroll: true });
+      // });
       btnClear.addEventListener("click", (e) => {
-        e.preventDefault();      // évite blur iOS
+        e.preventDefault();
+        e.stopPropagation();
+
         input.value = "";
-        updateClearBtn();
-        input.focus({ preventScroll: true });
-      });
-      
+        btnClear.style.display = "none";
+
+        // iOS: surtout PAS preventScroll, sinon le clavier monte sans repositionner
+        try { input.focus(); } catch {}
+
+        // attendre le layout + début d'ouverture clavier puis re-caler
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            try { input.setSelectionRange?.(input.value.length, input.value.length); } catch {}
+            try { input.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch {}
+            // si tu as une fonction “ensureInputVisible” comme dans chipbox, appelle-la ici :
+            // try { ensureInputVisible?.(); } catch {}
+          });
+        });
+      });      
+
       // init
       const lastQ = ctx.getMetaParam?.("lastSearchQuery");
       input.value = initialQuery || lastQ;
