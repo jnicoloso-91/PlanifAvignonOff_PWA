@@ -164,8 +164,8 @@ export function ensureCalendarEventVisible(uuid, { partial = true, smooth = true
   }
   const row = ctx.df?.find(r => r && r.__uuid === uuid);
   const dateInt = Number(row?.Date) || null;
-  scrollCalendarToDay(getCalRoot(), dateInt);
-  scrollCalendarToEvent(getCalRoot(), uuid, { smooth, targetTop });
+  scrollCalendarToDay(dateInt);
+  scrollCalendarToEvent(uuid, { smooth, targetTop });
   return true;
 }
 
@@ -326,26 +326,11 @@ function centerEventInDay(uuid, { smooth = true } = {}) {
   return true;
 }
 
-// Scroll un jour à une heure donnée
-// export function scrollDayToHour(dateInt, hour = 9, { smooth = true } = {}) {
-//   const dayBody = getDayBody(dateInt);
-//   if (!dayBody) return false;
-
-//   const minutes = Math.max(0, Math.min(24 * 60, hour * 60));
-//   const y = Math.round(minutes * PX_PER_MIN);
-
-//   if (smooth && "scrollTo" in dayBody) {
-//     dayBody.scrollTo({ top: y, behavior: "smooth" });
-//   } else {
-//     dayBody.scrollTop = y;
-//   }
-//   return true;
-// }
 // Scroll un jour à une heure donnée, alignable (top/middle)
 export function scrollDayToHour(
   dateInt,
   hour = 9,
-  { smooth = true, align = "top", gapPx = 0 } = {}
+  { smooth = true, align = "middle", gapPx = 0 } = {}
 ) {
   const dayBody = getDayBody(dateInt);
   if (!dayBody) return false;
@@ -391,9 +376,13 @@ function snapProgrammeCalendar({
 
   // 2) attendre layout stable (meilleur que setTimeout)
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      const ok = uuid ? centerEventInDay(uuid, { smooth }) : false;
-      if (!ok) scrollDayToHour(dateInt, fallbackHour, { smooth });
+    requestAnimationFrame(async () => {
+      // const ok = uuid ? centerEventInDay(uuid, { smooth }) : false;
+      // if (!ok) scrollDayToHour(dateInt, fallbackHour, { smooth });
+      if (uuid) {
+        await waitForScrollDayToStabilize(dateInt);
+        scrollCalendarToEvent(uuid, { smooth: true, preferBottom: false }); 
+      }
     });
   });
 }
@@ -442,7 +431,8 @@ function setCalHeightFromGrid() {
 }
 
 // Scroll le calendrier horizontalement pour afficher un jour donné
-export function scrollCalendarToDay(calSlot, dateInt) {
+export function scrollCalendarToDay(dateInt) {
+  const calSlot = getCalRoot();
   const scroller = calSlot.querySelector(".cal-days-scroll");
   const dayEl = calSlot.querySelector(`.cal-day[data-dateint="${dateInt}"]`);
   if (!scroller || !dayEl) return;
@@ -457,7 +447,7 @@ export function scrollCalendarToDay(calSlot, dateInt) {
 }
 
 // Scroll le calendrier verticalement pour afficher un event donné
-function scrollCalendarToEvent(calA, uuid, {
+function scrollCalendarToEvent(uuid, {
   gapTopPx = 12,
   gapBottomPx = 16,
   smooth = false,
@@ -465,6 +455,7 @@ function scrollCalendarToEvent(calA, uuid, {
   bottomBias = 0.75, // 0.5=center, 0.75=plutôt bas, 0.9=très bas
   targetTop = null,
 } = {}) {
+  const calA = getCalRoot();
   if (!calA || !uuid) return false;
 
   const ev = calA.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
@@ -683,10 +674,9 @@ function selectCurrentEventInCalendar() {
 
 // Scroll et sélectionne l’event courant dans le calendrier
 function snapToCurrentSelectedEvent() {
-  const calA = document.getElementById("calA");
   const selD = getSelectedProgrammeDateInt();
   const selUuid = getSelectedRowUuid('grid-programmees');
-  scrollCalendarToDay?.(calA, selD); 
+  scrollCalendarToDay?.(selD); 
   ensureCalendarEventVisible(selUuid);                          // scroll minimal pour rendre l’event visible
   selectEventByUuid(selUuid);
 }
@@ -1246,7 +1236,7 @@ export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = 
   requestAnimationFrame(() => {
     // scrollAllDaysToFirstEventOrHour(calADays, defaultHour);         // scroll jusqu'aupremier event ou defaultHour par défaut
     setCalDayScrollTops(calADays, prevScrollTops);
-    if (snapDay && selD) scrollCalendarToDay?.(calA, selD);         // scroll horizontal vers le jour de l’event sélectionné
+    if (snapDay && selD) scrollCalendarToDay?.(selD);         // scroll horizontal vers le jour de l’event sélectionné
     if (selUuid) {
       ensureCalendarEventVisible(selUuid);                          // scroll minimal pour rendre l’event visible
       selectEventByUuid(selUuid);                                   // sélection visuelle de l’event  
@@ -1370,11 +1360,16 @@ function showProgrammeGrid() {
   if (gridA) gridA.style.display = "";
 
   try {
-    for (const g of (window.grids?.values?.() || [])) {
-      if (g.el === gridA) { g.api.onGridSizeChanged(); break; }
-    }
+    const h = window.grids.get("grid-programmees");
+    h?.api?.onGridSizeChanged();
   } catch {}
-  //ensureRowVisible("grid-programmees", getSelectedRowUuid("grid-programmees");
+
+  const ensureSelectedRowVisible = () => {
+    ensureRowVisible("grid-programmees", getSelectedRowUuid("grid-programmees")); 
+  }
+
+  afterFrames(10, ensureSelectedRowVisible);
+
 }
 
 // Synchronise la hauteur du calendrier avec le panel
@@ -2059,7 +2054,7 @@ function onProgrammeSelectionChanged() {
   if (!dom || dom.calEl.classList.contains("is-hidden")) return;
 
   const sel = getSelectedProgrammeDateInt();
-  if (sel) scrollCalendarToDay(dom.calEl, sel);
+  if (sel) scrollCalendarToDay(sel);
 }
 
 // Empêche le scroll de la page quand on scroll horizontalement dans le calendrier

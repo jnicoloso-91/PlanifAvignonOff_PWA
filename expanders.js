@@ -642,34 +642,6 @@ export function wireExpanderButtons() {
     onClick: async () => {await doProgrammerActivite();},
   });
 
-  // Bouton Colonnes sur Activités Non Programmées
-  // addExpanderButton({
-  //   expanderId: 'exp-non-programmees',
-  //   id: 'btn-col-non-prog',
-  //   title: 'Colonnes', 
-  //   innerHTML: `
-  //     <span class="exp-icon" aria-hidden="true">
-  //       <!-- Icône Colonnes -->
-  //       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-  //           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  //         <path d="M12 8a4 4 0 1 1 0 8a4 4 0 0 1 0-8z" />
-  //         <path d="M3 12h2m14 0h2M12 3v2m0 14v2
-  //                 M5.6 5.6l1.4 1.4M17 17l1.4 1.4
-  //                 M17 7l1.4-1.4M5.6 18.4L7 17" />
-  //       </svg>
-  //     </span>
-  //     <span class="exp-label">Colonnes</span>
-  //   `,
-  //   onClick: () => {
-  //     openKebabMenu($('btn-col-non-prog'), {
-  //       items: [
-  //         { id:'add-column',       label:"Ajouter",        onClick: ()=>doAjouterColonne() },
-  //         { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
-  //       ]
-  //     });
-  //   },
-  // });
-
   // Bouton SetPrio sur Activités Non Programmées
   addExpanderButton({
     expanderId: 'exp-non-programmees',
@@ -780,7 +752,7 @@ export function wireExpanderButtons() {
 
   // Toggle Pauses sur Creneaux disponibles
   (function addPausesToggleButton() {
-    const id = 'btn-avec-pauses';
+    const id = 'btn-pauses';
 
     const ICON_PAUSE_ON = `
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -816,7 +788,7 @@ export function wireExpanderButtons() {
     }
 
     // ⇨ applique l’état (classe + aria + contenu) si le bouton existe
-    function syncAvecPausesButtonFromStorage(btnId = 'btn-avec-pauses') {
+    function syncAvecPausesButtonFromStorage(btnId = 'btn-pauses') {
       const btn = document.getElementById(btnId);
       if (!btn) return false;
       const isOn = getShowPauses();
@@ -825,6 +797,18 @@ export function wireExpanderButtons() {
       btn.setAttribute('aria-pressed', String(isOn));
       return true;
     }
+
+    function makeClickGate(ms = 300){
+      let last = 0;
+      return function allow(){
+        const now = performance.now();
+        if (now - last < ms) return false;
+        last = now;
+        return true;
+      };
+    }
+
+    const allowToggle = makeClickGate(320);
 
     const onChange = () => refreshGrid('grid-creneaux');
 
@@ -835,6 +819,7 @@ export function wireExpanderButtons() {
       title: 'Pauses',
       innerHTML: renderAvecPausesInnerHTML(getShowPauses()),
       onClick: async () => {
+        if (!allowToggle()) return;
         const current = getShowPauses();
         const next = !current;
         setShowPauses(next);
@@ -1301,7 +1286,7 @@ function getOrCreatePrioPopup() {
   backdrop.innerHTML = `
     <div class="prio-popup" role="dialog" aria-modal="true">
       <div class="prio-head">
-        <div class="prio-title">Priorité</div>
+        <div class="prio-title">Priorité Favori</div>
         <button type="button" class="prio-close" aria-label="Fermer" title="Fermer">×</button>
       </div>
 
@@ -1337,7 +1322,7 @@ function getOrCreatePrioPopup() {
 
   // wiring du bouton close
   const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-close"));
-  btnClose?.addEventListener("pointerdown", (ev) => {
+  btnClose?.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
     close();

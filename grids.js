@@ -208,7 +208,7 @@ export function getGridApiById(gridId) {
 }
 
 // util AG Grid (inchangé)
-export function collectGridApis(gridsLike) {
+export function collectGridApisWithResize(gridsLike) {
   if (!gridsLike) return [];
   if (Array.isArray(gridsLike)) return gridsLike.map(h => h?.api).filter(a => a?.onGridSizeChanged);
   if (typeof gridsLike?.forEach === 'function') { const out=[]; gridsLike.forEach(v=>out.push(v?.api||v)); return out.filter(a=>a?.onGridSizeChanged); }
@@ -423,11 +423,6 @@ function isNodeInViewport(api, node) {
   return idx >= first && idx <= last;
 }
 
-// Indique si l'élément concerné est le Calendrier
-function isProgrammeCalendarConcerned(gridId) {
-  return gridId === 'grid-programmees' && isProgrammeCalendarVisible();
-}
-
 /**
  * Sélectionne par __uuid et rend visible
  * @param {*} gridId 
@@ -447,8 +442,10 @@ export function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {
 
   node.setSelected?.(true, true);
 
-  // En mode Calendrier la visibilité de l'event est gérée par le rerender du calendrier
-  if (!isProgrammeCalendarConcerned(gridId) && !isNodeInViewport(api, node)) api.ensureNodeVisible?.(node, align);
+  // En mode Calendrier la visibilité de l'event est gérée par le rerender du calendrier donc on ne fait rien ici
+  // if (!(gridId === 'grid-programmees' && isProgrammeCalendarVisible()) 
+  //   && !isNodeInViewport(api, node)) api.ensureNodeVisible?.(node, align);
+  if (!isNodeInViewport(api, node)) api.ensureNodeVisible?.(node, align);
 
   if (flash) {
     const rowEl = h.el.querySelector(`.ag-row[aria-rowindex="${node.rowIndex+1}"]`);
@@ -1933,6 +1930,19 @@ export function selectCreneauFromSrcUuid(srcUuid) {
   ensureRowVisible('grid-creneaux', uuid)
 }
 
+export function selectSrcUuidFromCreneau(creneau) {
+  if (!creneau) return;
+
+  const srcUuid= creneau?.__srcUuid;
+  selectRowByUuid('grid-programmees', srcUuid);
+  
+  if (isProgrammeCalendarVisible()) {
+    rerenderProgrammeCalendar();
+  } else {
+    ensureRowVisible('grid-programmees', srcUuid)
+  }
+}
+
 const gridOptionsActivitesProgrammees = {
   rowSelection: 'single',
   onSelectionChanged(params) {
@@ -1969,8 +1979,10 @@ const gridOptionsActivitesNonProgrammees = {
 const gridOptionsCreneaux = {
   onSelectionChanged: (p) => {
     onCreneauxSelectionChanged();
+    const sel = p.api.getSelectedRows();
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
+    selectSrcUuidFromCreneau(sel?.[0]);
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-creneaux')); saveGridFilterModelToMeta(p, 'grid-creneaux'); },
 }
@@ -1988,59 +2000,131 @@ const gridOptionsActivitesProgrammables = {
 }
 
 // Sélectionne dans une autre grille la ligne correspondant à celle qui vient d'être sélectionnée et la rend visible
+// function synchronizeSelection(event, dstGridId) {
+//   // Évite les boucles si la sélection vient d'une action programmatique
+//   if (event?.source !== 'rowClicked') return;
+
+//   const srcApi = event.api;
+//   const dstApi = getGridApiById(dstGridId);
+//   if (!srcApi || !dstApi) return;
+
+//   const sel = srcApi.getSelectedRows?.()[0];
+//   // Si plus rien n'est sélectionné côté "programmable" => on nettoie en face
+//   if (!sel) {
+//     dstApi.deselectAll?.({ source: 'programmatic' });
+//     return;
+//   }
+
+//   const uuid = sel.__uuid;
+//   const activite = (sel.Activite || '').trim().toLowerCase();
+
+//   // Cherche le node correspondant dans "programmees"
+//   let targetNode = null;
+//   dstApi.forEachNode(node => {
+//     const d = node.data || {};
+//     if (uuid && d.__uuid === uuid) targetNode = node;
+//   });
+//   // Fallback si pas de __uuid commun : on matche sur Activite
+//   if (!targetNode && activite) {
+//     dstApi.forEachNode(node => {
+//       const d = node.data || {};
+//       if (!targetNode && String(d.Activite || '').trim().toLowerCase() === activite) {
+//         targetNode = node;
+//       }
+//     });
+//   }
+
+//   if (!targetNode) {
+//     // Rien trouvé côté programmees : on peut désélectionner ou ignorer
+//     // dstApi.deselectAll?.({ source: 'programmatic' });
+//     return;
+//   }
+
+//   // Sélection "silencieuse" (v30+): évite les finishActions et marque la source
+//   dstApi.setNodesSelected({
+//     nodes: [targetNode],
+//     newValue: true,
+//     clearSelection: true,
+//     source: 'programmatic'
+//   });
+
+//   // S'assure que la ligne est visible (après paint pour éviter les races)
+//   queueMicrotask(() => {
+//     try {
+//       dstApi.ensureNodeVisible(targetNode, 'middle'); // 'top' | 'middle' | 'bottom'
+//     } catch {}
+//   });
+// }
+let __selectionSyncLock = false;
+
+function withSelectionSyncLock(fn) {
+  if (__selectionSyncLock) return;
+  __selectionSyncLock = true;
+  try {
+    fn();
+  } finally {
+    __selectionSyncLock = false;
+  }
+}
+
 function synchronizeSelection(event, dstGridId) {
-  // Évite les boucles si la sélection vient d'une action programmatique
-  if (event?.source !== 'rowClicked') return;
+
+  if (__selectionSyncLock) return;
 
   const srcApi = event.api;
   const dstApi = getGridApiById(dstGridId);
   if (!srcApi || !dstApi) return;
 
   const sel = srcApi.getSelectedRows?.()[0];
-  // Si plus rien n'est sélectionné côté "programmable" => on nettoie en face
-  if (!sel) {
-    dstApi.deselectAll?.({ source: 'programmatic' });
-    return;
-  }
 
-  const uuid = sel.__uuid;
-  const activite = (sel.Activite || '').trim().toLowerCase();
+  withSelectionSyncLock(() => {
 
-  // Cherche le node correspondant dans "programmees"
-  let targetNode = null;
-  dstApi.forEachNode(node => {
-    const d = node.data || {};
-    if (uuid && d.__uuid === uuid) targetNode = node;
-  });
-  // Fallback si pas de __uuid commun : on matche sur Activite
-  if (!targetNode && activite) {
+    // 1️⃣ plus rien sélectionné → nettoyer en face
+    if (!sel) {
+      dstApi.deselectAll?.();
+      return;
+    }
+
+    const uuid = sel.__uuid;
+    const activite = (sel.Activite || '').trim().toLowerCase();
+
+    // 2️⃣ Si déjà sélectionné côté destination → ne rien faire
+    const currentDst = dstApi.getSelectedRows?.()[0];
+    if (currentDst?.__uuid === uuid) return;
+
+    // 3️⃣ Recherche node correspondant
+    /** @type {any} */
+    let targetNode = null;
+
     dstApi.forEachNode(node => {
       const d = node.data || {};
-      if (!targetNode && String(d.Activite || '').trim().toLowerCase() === activite) {
+      if (!targetNode && uuid && d.__uuid === uuid) {
         targetNode = node;
       }
     });
-  }
 
-  if (!targetNode) {
-    // Rien trouvé côté programmees : on peut désélectionner ou ignorer
-    // dstApi.deselectAll?.({ source: 'programmatic' });
-    return;
-  }
+    // fallback par Activite
+    if (!targetNode && activite) {
+      dstApi.forEachNode(node => {
+        const d = node.data || {};
+        if (!targetNode &&
+            String(d.Activite || '').trim().toLowerCase() === activite) {
+          targetNode = node;
+        }
+      });
+    }
 
-  // Sélection "silencieuse" (v30+): évite les finishActions et marque la source
-  dstApi.setNodesSelected({
-    nodes: [targetNode],
-    newValue: true,
-    clearSelection: true,
-    source: 'programmatic'
-  });
+    if (!targetNode) return;
 
-  // S'assure que la ligne est visible (après paint pour éviter les races)
-  queueMicrotask(() => {
-    try {
-      dstApi.ensureNodeVisible(targetNode, 'middle'); // 'top' | 'middle' | 'bottom'
-    } catch {}
+    // 4️⃣ sélection propre
+    targetNode.setSelected?.(true, true);
+
+    queueMicrotask(() => {
+      try {
+        dstApi.ensureNodeVisible(targetNode, 'middle');
+      } catch {}
+    });
+
   });
 }
 
@@ -2592,6 +2676,27 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   grids.set(gridId, handle);
   if (!getActiveGridId()) setActiveGridId(gridId);
   return handle;
+}
+
+// Relayout grids
+export function redrawAllGrids() {
+  const ids = [
+    "grid-programmees",
+    "grid-non-programmees",
+    "grid-programmables",
+  ];
+
+  ids.forEach(id => {
+    const api = window.grids?.get(id)?.api;
+    if (!api) return;
+    api.redrawRows?.();
+
+    const ensureSelectedRowVisible = () => {
+      ensureRowVisible(id, getSelectedRowUuid(id)); 
+    };
+
+    afterFrames(1, ensureSelectedRowVisible);
+  });
 }
 
 // Rafraichit une grille

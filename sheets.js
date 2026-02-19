@@ -48,7 +48,7 @@ import {
 } from './expanders.js'; 
 
 import {
-  collectGridApis,
+  collectGridApisWithResize,
   getLigneVoisineUuid,
   enableTouchEdit,
   refreshAllGrids,
@@ -1330,7 +1330,7 @@ export function openSheetExclusive({
     // @ts-ignore
     qsa: (sel) => [...root.querySelectorAll(sel)],
     pingGrids: () => {
-      const apis = collectGridApis(window.grids);
+      const apis = collectGridApisWithResize(window.grids);
       requestAnimationFrame(() => {
         apis.forEach(a => a.onGridSizeChanged?.());
         requestAnimationFrame(() => apis.forEach(a => a.onGridSizeChanged?.()));
@@ -6963,7 +6963,7 @@ export async function openSheetReprogrammer(uuid) {
 
   // Amener le jour + appliquer le même scrollY que le jour source
   function scrollCalendarToDayKeepY(dateInt, yScroll, { behavior = "auto", smoothY = false } = {}) {
-    scrollCalendarToDay(document.getElementById("calA"), dateInt);
+    scrollCalendarToDay(dateInt);
     queueMicrotask(() => setDayScrollTop(dateInt, yScroll, { smooth: smoothY }));
   }
 
@@ -7248,22 +7248,39 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     const gridId = activitesAPI.estActiviteProgrammee(row) ? "grid-programmees" : "grid-non-programmees";
     const expId  = activitesAPI.estActiviteProgrammee(row) ? "exp-programmees" : "exp-non-programmees";
 
+    // fallback : au moins scroller sur la première ligne visible
+    function fallbackSelect(gridId) {
+      const h = window.grids?.get?.(gridId);
+      const api = h?.api;
+      const count = api?.getDisplayedRowCount?.() ?? 0;
+      if (count > 0) {
+        const node = api.getDisplayedRowAtIndex(0);
+        node?.setSelected?.(true, true);
+        api.ensureIndexVisible?.(0, "top");
+      }
+    }
+
+    function scrollExpanderIntoView(expId) {
+      const expEl = document.getElementById(expId);
+      if (!expEl) return;
+
+      expEl.scrollIntoView({
+        behavior: "smooth",   // ou "auto" si tu veux instantané
+        block: "start",       // "start" | "center" | "end" | "nearest"
+        inline: "nearest"
+      });
+    }
+
     try { openExpander?.(expId); } catch {}
+
+    queueMicrotask(() => {
+      scrollExpanderIntoView(expId);
+    });
 
     // double rAF = le temps que l’expander s’ouvre / que la grille repeigne
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      const ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: true });
-      if (!ok) {
-        // fallback : au moins scroller sur la première ligne visible
-        const h = window.grids?.get?.(gridId);
-        const api = h?.api;
-        const count = api?.getDisplayedRowCount?.() ?? 0;
-        if (count > 0) {
-          const node = api.getDisplayedRowAtIndex(0);
-          node?.setSelected?.(true, true);
-          api.ensureIndexVisible?.(0, "top");
-        }
-      }
+      let ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: true });
+      if (!ok) fallbackSelect(gridId);
     }));
 
     return true;
@@ -7276,11 +7293,17 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     mount: (body, { close }) => {
       body.innerHTML = `
         <div class="sheet-body">
-          <div class="input-wrap has-label" id="searchWrap">
+          <div class="search-input-wrap has-label" id="searchWrap">
             <textarea id="searchInput"
                       class="ai-input"
                       rows="1"
                       placeholder="Titre, lieu, avis, distribution...">""</textarea>
+            <button type="button"
+                    class="search-clear-btn"
+                    id="btnSearchClear"
+                    aria-label="Effacer">
+              ✕
+            </button>
           </div>
 
           <div class="muted" style="margin-top:8px" id="searchInfo"></div>
@@ -7299,6 +7322,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       /** @type {HTMLInputElement} */
       const input = body.querySelector("#searchInput");
+      const btnClear = body.querySelector("#btnSearchClear");
       const info  = body.querySelector("#searchInfo");
       const btnCancel = body.querySelector("#btnSearchCancel");
       const btnRun    = body.querySelector("#btnSearchRun");
@@ -7378,6 +7402,19 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         btnRun.disabled = !hasValue;
       }
 
+      function updateClearBtn(){
+        btnClear.style.display = input.value ? "flex" : "none";
+      }
+
+      input.addEventListener("input", updateClearBtn);
+
+      btnClear.addEventListener("pointerdown", (e) => {
+        e.preventDefault();      // évite blur iOS
+        input.value = "";
+        updateClearBtn();
+        input.focus({ preventScroll: true });
+      });
+      
       // init
       const lastQ = ctx.getMetaParam?.("lastSearchQuery");
       input.value = initialQuery || lastQ;
@@ -7389,6 +7426,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         }
       });
 
+      updateClearBtn();
       updateRunState();
 
       btnCancel?.addEventListener("click", () => close());

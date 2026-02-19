@@ -90,7 +90,8 @@ body:not(.hide-app-header) header.app-header {
 /* logo du header (option) */
 .app-logo{
   width: 58px; height: 58px; flex: 0 0 auto;
-  user-select: none; -webkit-user-drag: none;
+  user-select: none; -webkit-user-select: none;
+  -webkit-user-drag: none;
   clip-path: inset(10% 0% 10% 0%);
 }
 
@@ -154,7 +155,7 @@ button:hover {
   border-radius: 10px;
   padding: 6px 8px;
   cursor: pointer;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
   transition: background 0.15s ease, transform 0.06s ease;
 }
 
@@ -239,7 +240,7 @@ main, .page-wrap {
   gap: .6rem;
   padding: .4rem 1.1rem;
   cursor: pointer;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
   font-weight: 600;
   color: #1f2937;              /* texte gris foncé */
   background: #fff;
@@ -385,7 +386,7 @@ main, .page-wrap {
   cursor: pointer;
   color: #111;
   border-radius: 8px;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
   transition: background-color .15s ease, transform .08s ease;
 }
 .exp-header-btn:focus { outline: none; }
@@ -530,7 +531,9 @@ main, .page-wrap {
   }
 }
 
-.ag-root, .ag-root * { -webkit-user-select: text; user-select: text; }
+/* .ag-root, .ag-root * { 
+  user-select: text; -webkit-user-select: text; 
+} */
 /* [id^="grid"], #grid { touch-action: manipulation; } */
 
 /* la grille occupe 100% de la hauteur du panneau */
@@ -587,8 +590,7 @@ main, .page-wrap {
   cursor: row-resize;
   pointer-events: auto;        /* capte les events */
   touch-action: none;          /* indispensable pour le drag tactile */
-  -webkit-user-select: none;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
 }
 
 /* Feedback visuel au drag/focus */
@@ -857,7 +859,7 @@ main, .page-wrap {
   font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   cursor: pointer;
   transition: transform .08s ease, background .15s ease, border-color .15s ease;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
   touch-action: manipulation;
 }
 
@@ -1056,7 +1058,8 @@ main, .page-wrap {
 .file-sheet__item {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 10px; border-radius: 10px;
-  cursor: pointer; user-select: none;
+  cursor: pointer; 
+  user-select: none; -webkit-user-select: none;
   transition: background .12s ease, transform .06s ease;
 }
 .file-sheet__item:active { transform: translateY(1px) scale(.995); }
@@ -1117,7 +1120,9 @@ main, .page-wrap {
 .file-sheet.dragging .file-sheet__panel { transition: none !important; }
 
 /* petit confort : pas de sélection pendant le drag */
-.file-sheet.dragging { user-select: none; }
+.file-sheet.dragging { 
+  user-select: none; -webkit-user-select: none;
+}
 
 
 /*====================*/
@@ -1127,7 +1132,8 @@ main, .page-wrap {
 .kebab-btn {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
   background: transparent; border: none; cursor: pointer; color: #111;
-  border-radius: 8px; user-select: none;
+  border-radius: 8px; 
+  user-select: none; -webkit-user-select: none;
   padding: 2px 6px;           /* compact: ne change pas la hauteur du header */
   -webkit-tap-highlight-color: transparent;
   transition: background-color .15s ease, transform .08s ease;
@@ -1305,7 +1311,9 @@ main, .page-wrap {
 }
 
 /* pendant le drag : pas d’anim parasite + pas de sélection */
-.sheet-wrap.dragging { user-select: none; }
+.sheet-wrap.dragging { 
+  user-select: none; -webkit-user-select: none;
+}
 .sheet-wrap.dragging .sheet-panel { transition: none !important; }
 
 /* --- panel : plus de max-height figé ici; on la pilotera en inline JS --- */
@@ -1341,8 +1349,7 @@ main, .page-wrap {
 .sheet-handle {
   touch-action: none;
   overscroll-behavior: contain;
-  -webkit-user-select: none;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
 }
 
 
@@ -2265,7 +2272,7 @@ input[type="range"]:focus::-moz-range-thumb {
   border: 1px solid #c7cfdd;
   background: #f3f6fb;
   cursor: pointer;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
 }
 
 .ag-theme-quartz .bb-info-btn {
@@ -2440,7 +2447,7 @@ input[type="range"]:focus::-moz-range-thumb {
 .chipbox-dditem{
   padding:6px 10px;
   cursor:pointer;
-  user-select:none;
+  user-select: none; -webkit-user-select: none;
   font-size:12px;
   /* line-height:1.2; */
 }
@@ -2784,8 +2791,7 @@ input[type="range"]:focus::-moz-range-thumb {
 .cal-day,
 .cal-ev,
 .cal-ev * {
-  -webkit-user-select: none;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
 }
 
 /*=========================
@@ -2842,13 +2848,10 @@ input[type="range"]:focus::-moz-range-thumb {
   position: absolute;
   right: 0px;
   margin-bottom: 12px;
-  /* margin-left: auto; */
   border: none;
   background: transparent;
   cursor: pointer;
   font-size: 18px;
-  /* right: 1.8rem; */
-  /* top: 1.8rem; */
   font-size: 1rem;
 }
 
@@ -2863,8 +2866,7 @@ input[type="range"]:focus::-moz-range-thumb {
   width: 100%;
   max-width: 34ch;
   overflow: hidden;
-  -webkit-user-select: none;
-  user-select: none;
+  user-select: none; -webkit-user-select: none;
 }
 
 /* Scroll */
@@ -3044,3 +3046,43 @@ input[type="range"]:focus::-moz-range-thumb {
   height: 100%;
 }
 
+.search-input-wrap{
+  position: relative;
+  width: 100%;
+  display: block;
+}
+
+.search-input-wrap .ai-input{
+  width: 100%;
+  padding-right: 36px;   /* espace pour le bouton */
+  box-sizing: border-box;
+}
+
+.search-clear-btn{
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+
+  border: none;
+  background: rgba(0,0,0,0.08);
+  color: #444;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.search-clear-btn:active{
+  background: rgba(0,0,0,0.18);
+}

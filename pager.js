@@ -1,13 +1,20 @@
 // pager.js 
 
 import {
+  afterFrames,
   openUrl, 
 } from './utils.js';
 
 import {
+  isProgrammeCalendarVisible,
   rerenderProgrammeCalendar,
 } from './calendar.js';
 
+import { 
+  ensureRowVisible,
+  getSelectedRow,
+  redrawAllGrids, 
+} from './grids.js';
 
 // Version circulaire avancée (pas de transitions vers vide) pour deux pages
 // Avec page observer pour résolution du pb de mesure de pageW à l'init
@@ -223,7 +230,10 @@ import {
     if (!planningPage) return;
     await waitLayoutStable(planningPage, { minH: 80, timeout: 2000 });
 
-    try { rerenderProgrammeCalendar?.(); } catch {}
+    try { 
+      if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar?.(); 
+      redrawAllGrids();
+    } catch {}
   }
 
   let __pgAnimating = false;
