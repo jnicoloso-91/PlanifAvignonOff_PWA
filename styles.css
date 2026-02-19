@@ -1394,6 +1394,14 @@ main, .page-wrap {
   display: block;
 }
 
+/* autorise le pan natif dans une grille de sheet */
+.sheet-panel .ag-root,
+.sheet-panel .ag-body-viewport,
+.sheet-panel .ag-center-cols-viewport,
+.sheet-panel .ag-header-viewport {
+  touch-action: pan-x pan-y;
+}
+
 /* --- Footer d’actions sans séparateur, plus intégré --- */
 .sheet-actions {
   /* retiré : border-top */
