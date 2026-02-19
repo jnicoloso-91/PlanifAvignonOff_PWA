@@ -1318,8 +1318,8 @@ export function enableTouchEdit(api, gridEl, opts = {}) {
 // Ne pas "simplifier".
 // Ne pas "nettoyer".
 // Ne pas "optimiser".
-function wireAgTouchScrollRouter(gridId) {
-  const h = grids.get(gridId);
+export function wireAgTouchScrollRouter(gridId, sheetGrid = false) {
+  const h = (sheetGrid) ? window.sheetGrids(gridId) : grids.get(gridId);
   if (!h) return;
 
   const gridEl = h.el;
