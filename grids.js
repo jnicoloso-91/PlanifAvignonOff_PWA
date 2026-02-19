@@ -1485,6 +1485,7 @@ function wireAgTouchScrollRouter(gridId) {
   // Touch handlers
   // ─────────────────────────────────────────────
   bodyVp.addEventListener("touchstart", (e) => {
+    console.log("ROUTER");
     if (!e.touches || e.touches.length !== 1) return;
     stopFling();
 
