@@ -3023,6 +3023,7 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .sheet-body--search{
   overflow-y: auto;
+  overflow-x: visible;
   padding-bottom: 12px;
 }
 
