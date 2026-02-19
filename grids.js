@@ -2745,6 +2745,7 @@ export async function refreshGrid(gridId) {
     }
     else if (gridId == 'grid-programmables') {
       updateGridCounters(api, document.getElementById('badge-programmables'));
+      ensureRowVisible('grid-programmables', getSelectedRowUuid('grid-programmables'));
     }
 
     api.dispatchEvent?.({ type: 'gridSizeChanged' });
