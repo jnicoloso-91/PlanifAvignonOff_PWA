@@ -377,8 +377,6 @@ function snapProgrammeCalendar({
   // 2) attendre layout stable (meilleur que setTimeout)
   requestAnimationFrame(() => {
     requestAnimationFrame(async () => {
-      // const ok = uuid ? centerEventInDay(uuid, { smooth }) : false;
-      // if (!ok) scrollDayToHour(dateInt, fallbackHour, { smooth });
       if (uuid) {
         await waitForScrollDayToStabilize(dateInt);
         scrollCalendarToEvent(uuid, { smooth: true, preferBottom: false }); 
