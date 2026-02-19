@@ -7308,7 +7308,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
           <div class="muted" style="margin-top:8px" id="searchInfo"></div>
 
-          <div class="sheet-grid-host" style="margin-top:10px; min-height: 0; flex: 1 1 auto;">
+          <div class="grid-host" style="margin-top:10px; min-height: 0; flex: 1 1 auto;">
             <div id="searchGrid" class="ag-theme-quartz compact" style="width:100%; height:100%;"></div>
           </div>
         </div>
