@@ -49,12 +49,14 @@ import {
 
 import {
   collectGridApisWithResize,
+  getSelectedRowUuid,
   getLigneVoisineUuid,
   enableTouchEdit,
   refreshAllGrids,
   refreshGrid,
   selectRowByUuid,
   wireAgTouchScrollRouter,
+  ensureRowVisible,
 } from './grids.js';
 
 import {
@@ -2416,7 +2418,9 @@ export function openSheetFiltres(gridId) {
 
         gridApi.setFilterModel(newModel);
         gridApi.onFilterChanged?.();
-        refreshGrid(gridId);
+        // refreshGrid(gridId);
+        if (gridId == "grid-programmees" && isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
+        else ensureRowVisible(gridId, getSelectedRowUuid(gridId));
 
         close();
       });
@@ -2426,9 +2430,8 @@ export function openSheetFiltres(gridId) {
         gridApi.setQuickFilter?.("");
         gridApi.setFilterModel({});
         gridApi.onFilterChanged?.();
-        if (typeof isProgrammeCalendarVisible === "function" && isProgrammeCalendarVisible()) {
-          if (typeof rerenderProgrammeCalendar === "function") rerenderProgrammeCalendar();
-        }
+        if (gridId == "grid-programmees" && isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
+        else ensureRowVisible(gridId, getSelectedRowUuid(gridId));
         close();
       });
 

@@ -1363,10 +1363,7 @@ function getOrCreatePrioPopup() {
       const prioVal = picker.getValue();
       const mode = btn.dataset.action;
 
-      const uuids =
-        mode === "selection"
-          ? getUuidsFromSelection(gridApi)
-          : getUuidsFromFilter(gridApi);
+      const uuids = (mode === "selection") ? getUuidsFromSelection(gridApi) : getUuidsFromFilter(gridApi);
 
       ctx.mutateDf((df) => applyPrioriteImmutable(df, uuids, prioVal));
 
@@ -1378,7 +1375,7 @@ function getOrCreatePrioPopup() {
       }
 
       // visible à l'écran (scroll horizontal). Si tu veux aussi dé-hider, c'est autre chose.
-      gridApi.ensureColumnVisible?.("Priorite");
+      // gridApi.ensureColumnVisible?.("Priorite");
 
       close();
     }, true);

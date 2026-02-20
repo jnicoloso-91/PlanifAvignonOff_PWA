@@ -2711,9 +2711,11 @@ export async function refreshGrid(gridId) {
 
   // 0) mémorise la sélection actuelle (par __uuid)
   let prevUuid = null;
+  let prevAct = null;
   try {
     const prevSel = api.getSelectedRows?.() || [];
     prevUuid = prevSel[0]?.__uuid ?? null;
+    prevAct  = prevSel[0]?.Activite;
   } catch {}
 
   // 1) recharge les données
@@ -2763,6 +2765,7 @@ export async function refreshGrid(gridId) {
     const already = api.getSelectedNodes?.();
     if (already && already.length > 0) return finish();
 
+    /** @type {any} */
     let node = null;
 
     // essaie de reselectionner l'ancienne ligne par __uuid
@@ -2770,14 +2773,18 @@ export async function refreshGrid(gridId) {
       api.forEachNode?.(n => { if (!node && n.data?.__uuid === prevUuid) node = n; });
     }
 
-    // fallback : sélectionner la 1ʳᵉ ligne si aucune
-    if (!node) {
-      const count = api.getDisplayedRowCount?.() ?? 0;
-      if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
-    }
+    // FALLBACK DEBRANCHE
+    // fallback : si prevUuid non null sélectionner la 1ʳᵉ ligne si on ne retrouve pas prevUuid
+    // Ne surtout pas faire ça si prevUuid null car cela sélectionnerait en cascade cette même ligne 
+    // dans la grille synchronisée (grid-nonprogrammees <-> grid-programmables ou grid-programmees 
+    // <-> grid-creneaux) via onSelectionChanged. 
+    // if ((prevUuid) && !(node)) {
+    //   const count = api.getDisplayedRowCount?.() ?? 0;
+    //   if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
+    // }
 
     // (select, clearOther)
-    node?.setSelected?.(true, true);
+    if (node) node?.setSelected?.(true, true);
 
     finish();
   };
