@@ -2082,7 +2082,7 @@ function synchronizeSelection(event, dstGridId) {
 
     // 1️⃣ plus rien sélectionné → nettoyer en face
     if (!sel) {
-      dstApi.deselectAll?.();
+      // dstApi.deselectAll?.();
       return;
     }
 
