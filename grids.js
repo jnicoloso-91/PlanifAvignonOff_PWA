@@ -2080,7 +2080,7 @@ function synchronizeSelection(event, dstGridId) {
 
   withSelectionSyncLock(() => {
 
-    // 1️⃣ plus rien sélectionné → nettoyer en face
+    // 1️⃣ Si aucune sélection en source on ne fait rien en face
     if (!sel) {
       // dstApi.deselectAll?.();
       return;
@@ -2677,6 +2677,12 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   grids.set(gridId, handle);
   if (!getActiveGridId()) setActiveGridId(gridId);
   return handle;
+}
+
+export function redrawGrid(gridId) {
+  const api = window.grids?.get(gridId)?.api;
+  if (!api) return;
+  api.redrawRows?.();
 }
 
 // Relayout grids

@@ -1645,6 +1645,11 @@ function _getCreneauBoundsApres(activitesProgrammees, ligneRef) {
   return [debut_min, fin_max, next];
 }
 
+function _getCreneauUuid(date, uuid, type) {
+  if (!uuid) return String(date);
+  return `${uuid}-${type}`;
+}
+
 // Création d’un objet créneau
 function _creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
   const dateStr = (row.Date != null) ? String(row.Date) : "";
@@ -1659,7 +1664,7 @@ function _creerCreneau(row, borneMin, borneMax, avant, apres, typeCreneau) {
     'Activité-après': apres || '',
     __type_creneau: typeCreneau,           // "Avant" | "Après" | "Journée"
     __srcUuid: row.__uuid,
-    __uuid: genUUID(),
+    __uuid: _getCreneauUuid(dateStr, row.__uuid, typeCreneau), //genUUID(),
   };
 }
 

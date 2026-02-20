@@ -1367,12 +1367,13 @@ function getOrCreatePrioPopup() {
 
       ctx.mutateDf((df) => applyPrioriteImmutable(df, uuids, prioVal));
 
-      if (mode === "selection") {
-        // si on applique à la sélection, on peut se retrouver avec des lignes déplacées hors de la page courante → scroll pour les rendre visibles
-        const node = gridApi.getSelectedNodes?.()[0];
-        const rowIdx = node?.rowIndex ?? null;
-        gridApi.ensureIndexVisible(rowIdx, 'middle');
-      }
+      refreshGrid('grid-programmables'); // car dans ce cas le onSelectionChanged de grid-creneaux n'est pas appelé
+      // if (mode === "selection") {
+      //   // si on applique à la sélection, on peut se retrouver avec des lignes déplacées hors de la page courante → scroll pour les rendre visibles
+      //   const node = gridApi.getSelectedNodes?.()[0];
+      //   const rowIdx = node?.rowIndex ?? null;
+      //   gridApi.ensureIndexVisible(rowIdx, 'middle');
+      // }
 
       // visible à l'écran (scroll horizontal). Si tu veux aussi dé-hider, c'est autre chose.
       // gridApi.ensureColumnVisible?.("Priorite");
