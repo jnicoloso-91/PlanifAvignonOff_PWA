@@ -1073,7 +1073,7 @@ function openSheet({
     panel.style.willChange = '';
     backdrop.style.willChange = '';
 
-    // 1) Réactiver les transitions CSS (si tu les avais coupées inline)
+    // 1) Réactiver les transitions CSS (si coupées inline)
     panel.style.transition = '';
     backdrop.style.transition = '';
 
@@ -1084,7 +1084,7 @@ function openSheet({
 
     // 3) Laisser le style se "poser" (double rAF = ultra-fiable)
     requestAnimationFrame(() => {
-      // forcer un reflow si tu préfères : void panel.offsetHeight;
+      // forcer un reflow : void panel.offsetHeight;
       requestAnimationFrame(() => {
         // 4) Bascule en fermeture via les classes (CSS fera le job)
         wrap.classList.add('is-closing');
@@ -1441,7 +1441,7 @@ async function closeAnySheet({ immediate = false } = {}) {
 
   if (immediate) {
     wrap.remove();
-    document.body.style.removeProperty('overflow'); // si tu “lock scroll” pendant la sheet
+    document.body.style.removeProperty('overflow'); // si “lock scroll” pendant la sheet
     return;
   }
 
@@ -2803,7 +2803,7 @@ export function openSheetAssistantChat() {
         };
 
         for (const rawLine of lines) {
-          const line = rawLine.trimEnd(); // on garde l'indentation à gauche si tu veux, mais pas nécessaire ici
+          const line = rawLine.trimEnd(); // on garde l'indentation à gauche, mais pas nécessaire ici
           const trimmed = line.trim();
 
           // ligne vide
@@ -3912,7 +3912,7 @@ export function openSheetAssistantChat() {
           __avis_summary: r.avis_summary,
         };
 
-        // (optionnel) cache séances si tu l’utilises :
+        // (optionnel) cache séances :
         // @ts-ignore
         if (Array.isArray(r.seances)) row.__seances = r.seances;
 
@@ -4045,7 +4045,7 @@ export function openSheetAssistantChat() {
           return;
         }
 
-        // Ouvre la popup en mode bulk (un seul bouton Valider)
+        // Ouvre la popup SetPrio en mode bulk (un seul bouton Valider)
         getOrCreatePrioPopup().open({
           ctx,
           uuids: affectedUuids,
@@ -5001,7 +5001,7 @@ export function openSheetAssistantProgrammation() {
         const y = s.slice(0, 4);
         const m = s.slice(4, 6);
         const d = s.slice(6, 8);
-        return `${y}-${m}-${d}`; // ou tu peux mettre un format FR "dd/mm/yyyy" si tu préfères
+        return `${y}-${m}-${d}`; // ou format FR "dd/mm/yyyy" 
       }
 
       // Normalise les minutes de début et de fin, ajustant la fin au lendemain si nécessaire.
@@ -5152,11 +5152,7 @@ export function openSheetAssistantProgrammation() {
           overlayAttente.hidden = false; // Affiche l'overlay d'attente
           const body = {
             utterance: freeQuery,
-            // Pour info au modèle : on est dans un contexte "programmateur"
-            search_space: "local_schedule",
             edition_year: 2025,
-            // scope festival : tu peux adapter si tu as un contexte In/Off
-            festival: "off",
           };
 
           if (previousIntent) {
@@ -5653,7 +5649,7 @@ export function openSheetAssistantProgrammation() {
           }
 
           // placedTotal en "ref" objet pour pouvoir l'incrémenter ici
-          // (si tu veux un number simple, il faut le remettre dans placedState à chaque accept)
+          // (si on veut un number simple, il faut le remettre dans placedState à chaque accept)
           if (typeof placedState.placedTotal !== "number") placedState.placedTotal = 0;
           placedTotalRef = placedState;
         } else {
@@ -7314,7 +7310,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
   }
 
   function buildHaystack(row){
-    // ⚠️ mets ici ce que tu veux inclure dans la recherche
+    // ⚠️ mettre ici ce que l'on veut inclure dans la recherche
     // (y compris colonnes cachées)
     return normText([
       row.Activite,
@@ -7562,7 +7558,19 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         if (!uuid) return;
 
         close();
+
         selectionnerActivite(uuid);
+
+        // Ouvre la popup SetPrio en mode bulk (un seul bouton Valider)
+        // const uuids = new Set; uuids.add(uuid);
+        // const _finish = () => { selectionnerActivite(uuid); };
+        // getOrCreatePrioPopup().open({
+        //   ctx,
+        //   uuids,
+        //   title: "Marqueur",
+        //   _finish,
+        // });
+
       });
 
       body.onClose?.(() => {
