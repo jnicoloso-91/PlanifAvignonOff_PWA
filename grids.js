@@ -2624,7 +2624,7 @@ function onCreneauxSelectionChanged(){
   selectedSlot = sel[0] || null;
 
   // rafraîchir la grille 4 (programmables)
-  refreshGrid('grid-programmables');
+  refreshGrid('grid-programmables', true);
 }
 
 function autoOpenSelectOnEdit(api){
@@ -2707,7 +2707,7 @@ export function redrawAllGrids() {
 }
 
 // Rafraichit une grille
-export async function refreshGrid(gridId) {
+export async function refreshGrid(gridId, fallbackSelection=false) {
   const h = grids.get(gridId);
   if (!h) return;
 
@@ -2774,20 +2774,20 @@ export async function refreshGrid(gridId) {
     /** @type {any} */
     let node = null;
 
-    // essaie de reselectionner l'ancienne ligne par __uuid
+    // essaie de retrouver par __uuid le node de l'ancienne ligne sélectionnée 
     if (prevUuid) {
       api.forEachNode?.(n => { if (!node && n.data?.__uuid === prevUuid) node = n; });
     }
 
-    // FALLBACK DEBRANCHE
-    // fallback : si prevUuid non null sélectionner la 1ʳᵉ ligne si on ne retrouve pas prevUuid
-    // Ne surtout pas faire ça si prevUuid null car cela sélectionnerait en cascade cette même ligne 
-    // dans la grille synchronisée (grid-nonprogrammees <-> grid-programmables ou grid-programmees 
-    // <-> grid-creneaux) via onSelectionChanged. 
-    // if ((prevUuid) && !(node)) {
-    //   const count = api.getDisplayedRowCount?.() ?? 0;
-    //   if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
-    // }
+    // fallback sélection : sélectionner la 1ʳᵉ ligne si on ne retrouve pas prevUuid
+    // Ne pas le faire par défaut car cela va sélectionner en cascade cette même ligne 
+    // dans la grille synchronisée (grid-nonprogrammees <-> grid-programmables ou 
+    // grid-programmees <-> grid-creneaux) via le onSelectionChanged de la grille,
+    // ce qui n'est généralement pas l'effet voulu. 
+    if ((fallbackSelection) && !(node)) {
+      const count = api.getDisplayedRowCount?.() ?? 0;
+      if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
+    }
 
     // (select, clearOther)
     if (node) node?.setSelected?.(true, true);

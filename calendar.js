@@ -866,7 +866,9 @@ function pickCreneauFromDay(daysEl, dayNode, dateInt) {
   if (journee?.__uuid) {
 
     // 1️⃣ clear selection calendrier et grille
-    // deselectAllCalendarEvents(daysEl);
+    // Sinon le OnSelectionChanged de grid-creneaux va resélectionner la sélection courante
+    // Et recentrer le calender sur le day correspondant.
+    deselectAllCalendarEvents(daysEl);
 
     // 3️⃣ sélectionner le créneau journée + snap dessus
     selectRowByUuid("grid-creneaux", journee.__uuid);
