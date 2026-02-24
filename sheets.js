@@ -45,6 +45,7 @@ import {
 
 import { 
   openExpander, 
+  getOrCreatePrioPopup,
 } from './expanders.js'; 
 
 import {
@@ -3919,40 +3920,154 @@ export function openSheetAssistantChat() {
       }
 
       // Handler de collage de résultats 
+      // function handlePasteChatResultsIntoDf({ dedupe = true } = {}) {
+      //   const df = Array.isArray(ctx?.getDf?.()) ? ctx.getDf() : (Array.isArray(ctx?.df) ? ctx.df : []);
+      //   if (!df.length && !Array.isArray(df)) return;
+
+      //   const results = Array.isArray(lastPresentedResults) ? lastPresentedResults : [];
+      //   if (!results.length) {
+      //     alert("Aucun résultat à coller (faites d'abord une recherche).");
+      //     return;
+      //   }
+
+      //   // déduplication par clé (même logique que le worker)
+      //   const existingKeys = new Set(df.map(r => makeFullKey(r)).filter(Boolean));
+
+      //   const newRows = [];
+      //   for (const r of results) {
+      //     const row = buildRowFromIndexResult(r);
+      //     const k = makeFullKey(row);
+      //     if (dedupe && k && existingKeys.has(k)) continue;
+      //     if (k) existingKeys.add(k);
+      //     newRows.push(row);
+      //   }
+
+      //   if (!newRows.length) {
+      //     alert("Tous ces spectacles sont déjà présents dans le stock.");
+      //     return;
+      //   }
+
+      //   let next = df.concat(newRows);
+      //   next = sortDf(next);
+
+      //   if (ctx?.setDf) ctx.setDf(next);
+      //   else ctx.df = next;
+
+      //   alert(`${newRows.length} spectacle(s) ajouté(s) au stock.`);
+      // }
+      // function handlePasteChatResultsIntoDf({ dedupe = true } = {}) {
+
+      //   const df = Array.isArray(ctx?.getDf?.())
+      //     ? ctx.getDf()
+      //     : (Array.isArray(ctx?.df) ? ctx.df : []);
+
+      //   if (!Array.isArray(df)) return;
+
+      //   const results = Array.isArray(lastPresentedResults) ? lastPresentedResults : [];
+      //   if (!results.length) {
+      //     alert("Aucun résultat à coller (faites d'abord une recherche).");
+      //     return;
+      //   }
+
+      //   const existingKeys = new Set(df.map(r => makeFullKey(r)).filter(Boolean));
+
+      //   const newRows = [];
+      //   const impactedUuids = new Set();
+
+      //   for (const r of results) {
+      //     const row = buildRowFromIndexResult(r);
+      //     const k = makeFullKey(row);
+
+      //     if (dedupe && k && existingKeys.has(k)) {
+      //       // retrouver uuid existant correspondant
+      //       const existing = df.find(x => makeFullKey(x) === k);
+      //       if (existing?.__uuid) impactedUuids.add(existing.__uuid);
+      //       continue;
+      //     }
+
+      //     if (k) existingKeys.add(k);
+      //     newRows.push(row);
+      //     if (row?.__uuid) impactedUuids.add(row.__uuid);
+      //   }
+
+      //   if (!newRows.length && !impactedUuids.size) {
+      //     alert("Tous ces spectacles sont déjà présents dans le stock.");
+      //     return;
+      //   }
+
+      //   ctx.mutateDf((oldDf) => {
+      //     let next = oldDf.concat(newRows);
+      //     next = sortDf(next);
+      //     return next;
+      //   });
+
+      //   // 👉 OUVERTURE POPUP PRIO SPÉCIALE
+      //   openPrioPopupForUuids({ ctx, uuids: impactedUuids, defaultValue: null });
+      // }
       function handlePasteChatResultsIntoDf({ dedupe = true } = {}) {
         const df = Array.isArray(ctx?.getDf?.()) ? ctx.getDf() : (Array.isArray(ctx?.df) ? ctx.df : []);
-        if (!df.length && !Array.isArray(df)) return;
+        if (!Array.isArray(df)) return;
 
         const results = Array.isArray(lastPresentedResults) ? lastPresentedResults : [];
         if (!results.length) {
-          alert("Aucun résultat à coller (fait d'abord une recherche).");
+          alert("Aucun résultat à coller (faites d'abord une recherche).");
           return;
         }
 
-        // déduplication par clé (même logique que le worker)
-        const existingKeys = new Set(df.map(r => makeFullKey(r)).filter(Boolean));
+        // Index des existants par fullKey -> uuid (pour repérer les rows déjà là)
+        const keyToUuid = new Map();
+        for (const r of df) {
+          const k = makeFullKey(r);
+          if (k && r?.__uuid) keyToUuid.set(k, r.__uuid);
+        }
 
         const newRows = [];
+        const affectedUuids = new Set(); // existants + nouveaux
+
         for (const r of results) {
           const row = buildRowFromIndexResult(r);
           const k = makeFullKey(row);
-          if (dedupe && k && existingKeys.has(k)) continue;
-          if (k) existingKeys.add(k);
+
+          if (k && keyToUuid.has(k)) {
+            // déjà existant -> on ajoute l'uuid existant à "affected"
+            affectedUuids.add(keyToUuid.get(k));
+            continue;
+          }
+
+          // nouveau
+          if (dedupe && k && keyToUuid.has(k)) continue; // safety, normalement déjà géré au-dessus
           newRows.push(row);
+          if (row?.__uuid) affectedUuids.add(row.__uuid);
         }
 
-        if (!newRows.length) {
-          alert("Tous ces spectacles sont déjà présents dans le tableau.");
+        if (affectedUuids.size === 0 && newRows.length === 0) {
+          alert("Aucun résultat exploitable.");
           return;
         }
 
-        let next = df.concat(newRows);
-        next = sortDf(next);
+        // Ouvre la popup en mode bulk (un seul bouton Valider)
+        openPrioPopup({
+          ctx,
+          title: "Priorité des activités collées",
+          uuids: affectedUuids,
+          // payload pour faire un seul mutate à la validation
+          _bulkAddRows: newRows
+        });
 
-        if (ctx?.setDf) ctx.setDf(next);
-        else ctx.df = next;
+      }
 
-        alert(`${newRows.length} spectacle(s) ajouté(s) au tableau.`);
+      /**
+       * Ouvre la popup Prio pour appliquer une priorité à une liste d'uuids
+       * @param {*} param0 
+       */
+      function openPrioPopup({ ctx, uuids, _bulkAddRows, defaultValue = null } = {}) {
+        getOrCreatePrioPopup().open({
+          ctx,
+          uuids, // ✅ Set<string>
+          defaultValue,
+          title: "Priorité des activités collées",
+          _bulkAddRows,
+        });
       }
 
       // ===========================

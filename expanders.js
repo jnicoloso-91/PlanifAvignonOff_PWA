@@ -1275,7 +1275,7 @@ function applyPrioriteImmutable(df, uuids, prioVal) {
 let _prioPopup = null;
 
 // Crée la popup Prio
-function getOrCreatePrioPopup() {
+export function getOrCreatePrioPopup() {
   if (_prioPopup) return _prioPopup;
 
   // 1) créer DOM une fois
@@ -1311,6 +1311,14 @@ function getOrCreatePrioPopup() {
         <button type="button" class="bb-btn is-primary" data-action="selection">
           Appliquer à sélection
         </button>
+
+        <!-- ✅ mode bulk -->
+        <button type="button"
+                class="bb-btn is-primary prio-validate"
+                data-action="validate"
+                hidden>
+          Valider
+        </button>
       </div>
     </div>
   `;
@@ -1319,6 +1327,11 @@ function getOrCreatePrioPopup() {
 
   const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".prio-popup"));
   const picker = createWheelPicker(popup.querySelector(".wheel-wrap"));
+
+  const actions = /** @type {HTMLElement} */ (popup.querySelector(".prio-actions"));
+  const btnValidate = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-validate"));
+  const btnFilter = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="filter"]'));
+  const btnSel = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="selection"]'));
 
   // wiring du bouton close
   const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-close"));
@@ -1332,65 +1345,99 @@ function getOrCreatePrioPopup() {
   let gridApi = null;
   let ctx = null;
 
-  function close() {
-    backdrop.hidden = true;
+  let bulkUuids = null;     // Set
+  let bulkAddRows = null;   // Array
+  let mode = "standard";    // "standard" | "bulk"
+
+  function close() { backdrop.hidden = true; }
+
+  // Effectue à la fois un ajout de ligne et l'application d'une priorité 
+  function applyBulk(df, addRows, uuids, prioVal) {
+    let out = df;
+
+    // 1) append new rows
+    if (Array.isArray(addRows) && addRows.length) out = out.concat(addRows);
+
+    // 2) apply prio on affected uuids
+    if (uuids && uuids.size) out = applyPrioriteImmutable(out, uuids, prioVal);
+
+    // 3) sort (si tu veux que la prio influe sur le tri, il faut que sortDf tienne compte de Priorite)
+    out = sortDf(out);
+
+    return out;
   }
 
-  function onKey(ev) {
-    if (ev.key === "Escape" && !backdrop.hidden) close();
-  }
-
-  function onBackdrop(ev) {
-    // ferme si clic hors popup (fond)
-    if (popup.contains(ev.target)) return;
-    close();
-  }
-
-  // 3) listeners installés UNE FOIS
-  document.addEventListener("keydown", onKey, true);
-  backdrop.addEventListener("pointerdown", onBackdrop, true);
-
+  // 3) listeners (boutons)
   popup.querySelectorAll("button[data-action]").forEach((b) => {
-    /** @type {HTMLButtonElement} */
-    const btn = /** @type {any} */ (b);
+    const btn = /** @type {HTMLElement} */ (b);
 
-    // pointerdown > click (plus fiable avec swipe/drag)
-    btn.addEventListener("pointerdown", (ev) => {
+    btn.addEventListener("click", (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
 
-      if (!gridApi || !ctx) { close(); return; }
+      if (!ctx) { close(); return; }
 
       const prioVal = picker.getValue();
-      const mode = btn.dataset.action;
+      const action = btn.dataset.action;
 
-      const uuids = (mode === "selection") ? getUuidsFromSelection(gridApi) : getUuidsFromFilter(gridApi);
+      // ---- BULK (ajout simultané de rows utilisé en sortie de chat) ----
+      if (mode === "bulk" && action === "validate") {
+        const uuids = bulkUuids instanceof Set ? bulkUuids : new Set();
+        const addRows = Array.isArray(bulkAddRows) ? bulkAddRows : [];
+
+        ctx.mutateDf((df) => applyBulk(df, addRows, uuids, prioVal));
+
+        refreshGrid("grid-programmables");
+        close();
+
+        requestAnimationFrame(() => {
+          if (addRows.length > 0) {
+            alert(`${addRows.length} spectacle(s) ajouté(s) au stock.`);
+          }
+        });
+
+        return;
+      }
+
+      // ---- STANDARD ----
+      if (!gridApi) { close(); return; }
+
+      const uuids =
+        action === "selection"
+          ? getUuidsFromSelection(gridApi)
+          : getUuidsFromFilter(gridApi);
 
       ctx.mutateDf((df) => applyPrioriteImmutable(df, uuids, prioVal));
-
-      refreshGrid('grid-programmables'); // car dans ce cas le onSelectionChanged de grid-creneaux n'est pas appelé
-      // if (mode === "selection") {
-      //   // si on applique à la sélection, on peut se retrouver avec des lignes déplacées hors de la page courante → scroll pour les rendre visibles
-      //   const node = gridApi.getSelectedNodes?.()[0];
-      //   const rowIdx = node?.rowIndex ?? null;
-      //   gridApi.ensureIndexVisible(rowIdx, 'middle');
-      // }
-
-      // visible à l'écran (scroll horizontal). Si tu veux aussi dé-hider, c'est autre chose.
-      // gridApi.ensureColumnVisible?.("Priorite");
-
+      refreshGrid("grid-programmables");
       close();
     }, true);
   });
 
   _prioPopup = {
-    open({ gridApi: ga, ctx: c, defaultValue = null }) {
-      gridApi = ga;
-      ctx = c;
-      const btnSel = /** @type {HTMLButtonElement} */ (popup.querySelector('button[data-action="selection"]'));
-      if (btnSel) {
+    /** @ts-ignore */
+    open({ gridApi: ga, ctx: c, defaultValue = null, uuids = null, title = null, _bulkAddRows = null } = {}) {
+      gridApi = ga || null;
+      ctx = c || null;
+
+      bulkUuids = (uuids instanceof Set) ? uuids : null;
+      bulkAddRows = Array.isArray(_bulkAddRows) ? _bulkAddRows : null;
+      mode = bulkUuids ? "bulk" : "standard";
+
+      // titre
+      const tEl = popup.querySelector(".prio-title");
+      if (tEl) tEl.textContent = title || (mode === "bulk" ? "Marqueur des activités collées" : "Marqueur");
+
+      // toggle boutons
+      if (btnValidate) btnValidate.hidden = (mode !== "bulk");
+      if (btnFilter)   btnFilter.hidden   = (mode === "bulk");
+      if (btnSel)      btnSel.hidden      = (mode === "bulk");
+
+      // état bouton sélection (standard)
+      if (mode === "standard" && btnSel) {
         const hasSelection = gridApi?.getSelectedNodes?.().length > 0;
         btnSel.disabled = !hasSelection;
       }
+
       picker.setValue(defaultValue);
       backdrop.hidden = false;
     },

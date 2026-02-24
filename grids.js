@@ -860,7 +860,7 @@ function buildColumnsActivitesCommon(){
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width },
-    { field:'Priorite', headerName: 'Prio', width:45, minWidth:45, valueParser: valueParserNumerique, cellEditor:IntCellEditor },
+    { field:'Priorite', headerName: 'Marqueur', width:45, minWidth:45, valueParser: valueParserNumerique, cellEditor:IntCellEditor },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
