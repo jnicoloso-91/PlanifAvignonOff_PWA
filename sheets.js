@@ -4046,28 +4046,14 @@ export function openSheetAssistantChat() {
         }
 
         // Ouvre la popup en mode bulk (un seul bouton Valider)
-        openPrioPopup({
+        getOrCreatePrioPopup().open({
           ctx,
-          title: "Priorité des activités collées",
           uuids: affectedUuids,
+          title: "Marqueur des activités collées",
           // payload pour faire un seul mutate à la validation
           _bulkAddRows: newRows
         });
 
-      }
-
-      /**
-       * Ouvre la popup Prio pour appliquer une priorité à une liste d'uuids
-       * @param {*} param0 
-       */
-      function openPrioPopup({ ctx, uuids, _bulkAddRows, defaultValue = null } = {}) {
-        getOrCreatePrioPopup().open({
-          ctx,
-          uuids, // ✅ Set<string>
-          defaultValue,
-          title: "Priorité des activités collées",
-          _bulkAddRows,
-        });
       }
 
       // ===========================
