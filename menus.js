@@ -1486,7 +1486,7 @@ async function doNouveauProgramme() {
   });
 
   // recalcul de la période de prog sur le df nettoyé
-  activitesAPI.initPeriodeProgrammation(ctx.getDf());
+  // activitesAPI.initPeriodeProgrammation(ctx.getDf());
 
   // on revient aux colonnes standard pour les grilles d'activités
   rebuildColumnsForActiviteGrids([]);
