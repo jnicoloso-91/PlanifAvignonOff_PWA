@@ -145,7 +145,19 @@ export class AppContext {
       this.#em.emit('carnet:changed', { reason: 'set' });
     });
   }
-  setMeta(patch) {
+  setMeta(patch, { history = false } = {}) {
+    if (!patch || typeof patch !== "object") return;
+
+    if (!history) {
+      // ✅ default: pas d’historique
+      this.#meta = { ...(this.#meta || {}), ...patch };
+      this.#dirty.meta = true;
+      this.#em.emit("meta:changed", { reason: "patch" });
+      this.#autoSave();
+      return;
+    }
+
+    // ✅ version undoable
     this.#withHistory('meta','setMeta', () => {
       this.#meta = { ...(this.#meta||{}), ...(patch||{}) };
       this.#dirty.meta = true;
@@ -154,29 +166,29 @@ export class AppContext {
   }
 
   // ---------- Mutateurs (marquent dirty + autosave) ----------
-  mutateDf(fn){
+  mutateDf(fn, { forceHistory = false } = {}){
     this.#withHistory('df','mutateDf', ()=>{
       const next = fn(this.#df.slice());
       this.#df = normalizeUuid(Array.isArray(next)? next: []);
       this.#dirty.df = true;
       this.#em.emit('df:changed', { reason:'mutate' });
-    });
+    }, { forceHistory });
   }
-  mutateCarnet(fn) {
+  mutateCarnet(fn, { forceHistory = false } = {}) {
     this.#withHistory('carnet','mutateCarnet', () => {
       const next = fn(Array.isArray(this.#carnet) ? this.#carnet.slice() : []);
       this.#carnet = normalizeUuid(Array.isArray(next) ? next : []);
       this.#dirty.carnet = true;
       this.#em.emit('carnet:changed', { reason: 'mutate' });
-    });
+    }, { forceHistory });
   }
-  mutateMeta(fn) {
+  mutateMeta(fn, { forceHistory = false } = {}) {
     this.#withHistory('meta','mutateMeta', () => {
       const next = fn({ ...(this.#meta||{}) });
       this.#meta = next || {};
       this.#dirty.meta = true;
       this.#em.emit('meta:changed', { reason: 'mutate' });
-    });
+    }, { forceHistory });
   }
   dfPatch(uuid, patch) {
     if (!uuid || !patch || typeof patch !== "object") return;
@@ -255,12 +267,14 @@ export class AppContext {
     await this.save();
   }
 
+  // ---------- Helpers Généraux ----------
   // garantit __uuid unique sur df et carnet
   ensureUuid() {
     this.#df = normalizeUuid(this.#df);
     this.#carnet = normalizeUuid(this.#carnet);
   }
 
+  // ---------- Helpers df ----------
   // trouver une activité dans df par uuid
   dfGetByUuid(uuid) {
     return this.#df.find(r => r.__uuid === uuid) || null;
@@ -296,6 +310,7 @@ export class AppContext {
     });
   }
 
+  // ---------- Helpers carnet ----------
   // trouver une adresse dans le carnet d'adresses par uuid
   carnetGetByUuid(uuid) {
     return this.#carnet.find(r => r.__uuid === uuid) || null;
@@ -330,6 +345,7 @@ export class AppContext {
     });
   }
 
+  // ---------- Helpers meta ----------
   getMetaParam(key, defaultValue = null) {
     if (!this.#meta || typeof this.#meta !== 'object') return defaultValue;
     return this.#meta[key] ?? defaultValue;
@@ -352,17 +368,26 @@ export class AppContext {
     });
   }
 
-  // Historique
+  // ---------- Historique ----------
   #em = new Emitter();
   #undo = {};
   #redo = {};
   #inAction = {}; // domain -> { label, baseSnapshot }
+  #lastRestoreTxId = { df: null, meta: null, carnet: null };
+  #txCtx = { df: null, meta: null, carnet: null };
+  #txCtxTimer = null;
 
   // --- Events public API ---
   on(evt, fn){ return this.#em.on(evt, fn); }
   off(evt, fn){ return this.#em.off(evt, fn); }
 
   // --- Snapshot helpers ---
+  #markTxId(snap, txId){
+    if (!snap || !txId) return;
+    try {
+      Object.defineProperty(snap, "__txId", { value: String(txId), enumerable: false });
+    } catch {}
+  }
   #restoreUIStateToGrids(snap) {
     const ui = snap.ui;
     if (ui) {
@@ -374,18 +399,27 @@ export class AppContext {
     }
   }
   #makeDomainSnapshot(domain){
-    if (domain === 'df') return { df: this.#df.slice(), ui: captureUiStateFromGrids(), };
-    if (domain === 'carnet') return { carnet: this.#carnet.slice(), ui: captureUiStateFromGrids(), };
-    if (domain === 'meta')   return { meta: { ...(this.#meta||{}) } };
-    if (domain === 'ui')   return {  };
+    let snap;
+    if (domain === 'df') snap = { df: this.#df.slice(), ui: captureUiStateFromGrids(), };
+    else if (domain === 'carnet') snap = { carnet: this.#carnet.slice(), ui: captureUiStateFromGrids(), };
+    else if (domain === 'meta')   snap = { meta: { ...(this.#meta||{}) } };
+    else if (domain === 'ui')   snap = {  };
 
     // fallback global si besoin :
-    return { df:this.#df.slice(), carnet:this.#carnet.slice(), meta:{ ...(this.#meta||{}) } };
+    else snap = { df:this.#df.slice(), carnet:this.#carnet.slice(), meta:{ ...(this.#meta||{}) } };
+  
+    const tx = this.#txCtx?.[domain] ?? null;
+    if (tx) this.#markTxId(snap, tx);   // helper non-enum
+
+    return snap;
   }
   #restoreDomainSnapshot(domain, snap){
     if (domain === 'df'     && snap.df)     { this.#df = snap.df.slice(); this.#restoreUIStateToGrids(snap); }
     if (domain === 'carnet' && snap.carnet) { this.#carnet = snap.carnet.slice(); this.#restoreUIStateToGrids(snap); }
     if (domain === 'meta'   && snap.meta)   { this.#meta = { ...(snap.meta||{}) }; }
+
+    // mémorise le txId restauré (non-enum, donc safe)
+    this.#lastRestoreTxId[domain] = snap?.__txId ?? null;
 
     // important : la restauration est une modification à persister
     if (domain === "df")     this.#dirty.df = true;
@@ -423,10 +457,55 @@ export class AppContext {
     return { canUndo: u.length>0, canRedo: r.length>0, undoLen: u.length, redoLen: r.length };
   }
 
+  // ---------- Tx helpers ----------
+
+  // Crée un contexte de transaction synchronisé sur plusieurs domaines -> 
+  // Tant que le contexte est actif tous les snapshots des domaines concernés sont tagués avec txId
+  // Le domaine reste actif jusqu'au clearTxContext ou sinon holdMs ms.
+  setTxContext(domains, txId, { holdMs = 600 } = {}) {
+    const list = Array.isArray(domains) ? domains : [domains];
+    for (const d of list) this.#txCtx[d] = txId ? String(txId) : null;
+
+    // petit hold : attrape les side-effects “juste après”
+    clearTimeout(this.#txCtxTimer);
+    if (txId) {
+      this.#txCtxTimer = setTimeout(() => {
+        for (const d of list) this.#txCtx[d] = null;
+        this.#txCtxTimer = null;
+      }, holdMs);
+    }
+  }
+
+  // Clear un contexte de transaction synchronisé
+  clearTxContext(domains) {
+    const list = Array.isArray(domains) ? domains : [domains];
+    for (const d of list) this.#txCtx[d] = null;
+  }
+
+  // Renvoie le dernier txId restauré lors d'un #restoreDomainSnapshot
+  getLastRestoreTxId(domain='df'){
+    return this.#lastRestoreTxId?.[domain] ?? null;
+  }
+
+  // Recupère le txId du dernier snapshot de la pile undo d'un domaine
+  peekUndoTxId(domain='df'){
+    this.#ensureStacks(domain);
+    const snap = this.#undo[domain]?.[this.#undo[domain].length - 1];
+    return snap?.__txId ?? null;
+  }
+
+  // Recupère le txId du dernier snapshot de la pile redo d'un domaine
+  peekRedoTxId(domain='df'){
+    this.#ensureStacks(domain);
+    const snap = this.#redo[domain]?.[this.#redo[domain].length - 1];
+    return snap?.__txId ?? null;
+  }
+
   // --- Regroupement d’actions (coalescing) ---
   beginAction(domain='df'){
     if (this.#inAction[domain]) return;
-    this.#inAction[domain] = { baseSnapshot: this.#makeDomainSnapshot(domain) };
+    const baseSnapshot = this.#makeDomainSnapshot(domain);
+    this.#inAction[domain] = { baseSnapshot };
   }
   endAction(domain='df'){
     const act = this.#inAction[domain];
@@ -437,7 +516,7 @@ export class AppContext {
   }
 
   // --- Wrapper de modification avec historique ---
-  #withHistory(domain, reason, mutator){
+  #withHistory(domain, reason, mutator, { forceHistory=false } = {}){
     const inAct = this.#inAction[domain] || null;
     const base = inAct ? inAct.baseSnapshot : this.#makeDomainSnapshot(domain);
     const before = JSON.stringify(base);
@@ -446,7 +525,7 @@ export class AppContext {
 
     const afterSnap = this.#makeDomainSnapshot(domain);
     const after = JSON.stringify(afterSnap);
-    if (before === after) return; // rien n’a changé
+    if (!forceHistory && before === after) return; // rien n’a changé
 
     if (inAct) {
       // coalescing : on n’empile pas maintenant ; endAction() le fera
@@ -478,6 +557,11 @@ export class AppContext {
     if (!u.length) return;
     const snap = u.pop();
     const cur  = this.#makeDomainSnapshot(domain);
+
+    // ✅ Propagation du txId
+    const txId = snap?.__txId;
+    if (txId) this.#markTxId(cur, txId);
+
     r.push(cur);
     this.#restoreDomainSnapshot(domain, snap);
     this.#em.emit('history:change', { domain, ...this.historyState(domain) });
@@ -489,6 +573,11 @@ export class AppContext {
     if (!r.length) return;
     const snap = r.pop();
     const cur  = this.#makeDomainSnapshot(domain);
+
+    // ✅ Propagation du txId
+    const txId = snap?.__txId;
+    if (txId) this.#markTxId(cur, txId);
+
     u.push(cur);
     this.#restoreDomainSnapshot(domain, snap);
     this.#em.emit('history:change', { domain, ...this.historyState(domain) });
@@ -496,7 +585,6 @@ export class AppContext {
   }
 
 }  
-
 
 // ---------- Helpers internes ----------
 function genUuid() {

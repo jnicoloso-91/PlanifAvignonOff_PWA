@@ -125,12 +125,6 @@ export function wireBottomBar() {
     doAjouterActivitesParCollage();
   });
 
-  // --- Ajouter ---
-  // $('btn-add')?.addEventListener('click', (e) => {
-  //   pulse(e.currentTarget);
-  //   doAjouterActivite();
-  // });
-
   // --- Rechercher ---
   $('btn-search')?.addEventListener('click', (e) => {
     pulse(e.currentTarget);
@@ -1715,29 +1709,30 @@ async function doVerifierCoherence() {
 // Undo
 async function doUndo() {
   const keys = extractColumnKeys(ctx.df);
-  try { await ctx.undo('df'); } catch {}; 
+
+  const tx = ctx.peekUndoTxId?.('df') || null;
+  if (tx && ctx.peekUndoTxId?.('meta') === tx) {
+    try { await ctx.undo('meta'); } catch {}
+  }
+
+  try { await ctx.undo('df'); } catch {}
+
   if (areColumnKeysDifferent(ctx.df, keys)) rebuildColumnsForActiviteGrids(ctx.df);
 }
 
 // Redo
 async function doRedo() {
   const keys = extractColumnKeys(ctx.df);
-  try { await ctx.redo(); } catch {}; 
+
+  const tx = ctx.peekRedoTxId?.('df') || null;
+  if (tx && ctx.peekRedoTxId?.('meta') === tx) {
+    try { await ctx.redo('meta'); } catch {}
+  }
+
+  try { await ctx.redo('df'); } catch {}
+
   if (areColumnKeysDifferent(ctx.df, keys)) rebuildColumnsForActiviteGrids(ctx.df);
 }
-
-// Ajout activité
-// async function doAjouterActivite() {
-//   const nouvelleActivite = await activitesAPI.creerActivite(ctx.df);
-//   ctx.mutateDf(rows => sortDf([nouvelleActivite, ...rows]));
-
-//   // Maj des sélections
-//   setTimeout(() => {
-//     scrollToExpander?.('exp-non-programmees');
-//     openExpander?.('exp-non-programmees');
-//     selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
-//   }, 50);
-// }
 
 // Ajout activité avec collage
 async function doAjouterActivitesParCollage() {

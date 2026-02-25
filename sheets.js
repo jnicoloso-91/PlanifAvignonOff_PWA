@@ -1710,13 +1710,13 @@ export function openSheetCarnet() {
 // Feuille paramètres
 export function openSheetParams() {
   const meta = (window.ctx?.meta) || {};
-  const curDeb = localDateToIsoDate(meta.periode_a_programmer_debut) || ''; 
-  const curFin = localDateToIsoDate(meta.periode_a_programmer_fin) || ''; 
-  const marge      = Math.max(0, Number(meta.MARGE ?? 10)|0);
-  const dureeRepas = Math.max(0, Number(meta.DUREE_REPAS ?? 60)|0);
-  const dureeCafe = Math.max(0, Number(meta.DUREE_CAFE ?? 60)|0);
-  const itin          = String(meta.itineraire_app || 'Google Maps Web');
-  const cityDefault   = String(meta.city_default || 'Avignon');
+  const curDeb      = localDateToIsoDate(meta.periode_a_programmer_debut) || ''; 
+  const curFin      = localDateToIsoDate(meta.periode_a_programmer_fin) || ''; 
+  const marge       = Math.max(0, Number(meta.MARGE ?? 10)|0);
+  const dureeRepas  = Math.max(0, Number(meta.DUREE_REPAS ?? 60)|0);
+  const dureeCafe   = Math.max(0, Number(meta.DUREE_CAFE ?? 60)|0);
+  const itin        = String(meta.itineraire_app || 'Google Maps Web');
+  const cityDefault = String(meta.city_default || 'Avignon');
 
   openSheetExclusive({
     title: 'Paramètres',
@@ -1788,33 +1788,82 @@ export function openSheetParams() {
 
       body.querySelector('#p-cancel')?.addEventListener('click', close);
 
+      // body.querySelector('#p-save')?.addEventListener('click', () => {
+      //   const d1 = isoDateToLocalDate($deb.value);
+      //   const d2 = isoDateToLocalDate($fin.value);
+
+      //   if (!d1 || !d2 || d2 < d1) {
+      //     alert('Dates invalides (fin >= début).');
+      //   }
+
+      //   const mar = Math.max(0, Number($mar.value||0)|0);
+      //   const rep = Math.max(0, Number($rep.value||0)|0);
+      //   const caf = 30; //Math.max(0, Number($caf.value||0)|0);
+      //   const it = $it.value;
+      //   const ci = $ci.value;
+
+      //   ctx?.updMetaParams({
+      //     periode_a_programmer_debut: d1,
+      //     periode_a_programmer_fin:   d2,
+      //     MARGE:          mar,
+      //     DUREE_REPAS:    rep,
+      //     DUREE_CAFE:     caf,
+      //     itineraire_app: it,
+      //     city_default:   ci,
+      //   });
+
+      //   // si des calculs/affichages dépendent de ces params :
+      //   refreshAllGrids?.();
+
+      //   close();
+      // });
       body.querySelector('#p-save')?.addEventListener('click', () => {
         const d1 = isoDateToLocalDate($deb.value);
         const d2 = isoDateToLocalDate($fin.value);
 
         if (!d1 || !d2 || d2 < d1) {
           alert('Dates invalides (fin >= début).');
+          return; // ✅ IMPORTANT
         }
 
         const mar = Math.max(0, Number($mar.value||0)|0);
         const rep = Math.max(0, Number($rep.value||0)|0);
-        const caf = 30; //Math.max(0, Number($caf.value||0)|0);
+        const caf = 30;
         const it = $it.value;
         const ci = $ci.value;
 
-        ctx?.updMetaParams({
+        const txId = genUUID();
+
+        ctx.setTxContext(["df","meta"], txId);
+
+        // 1) META
+        ctx.setMeta({
           periode_a_programmer_debut: d1,
           periode_a_programmer_fin:   d2,
-          MARGE:          mar,
-          DUREE_REPAS:    rep,
-          DUREE_CAFE:     caf,
+          MARGE: mar,
+          DUREE_REPAS: rep,
+          DUREE_CAFE: caf,
           itineraire_app: it,
-          city_default:   ci,
-        });
+          city_default: ci,
+        }, { history: true });
 
-        // si des calculs/affichages dépendent de ces params :
-        refreshAllGrids?.();
+        // 2) DF : déprogrammer ce qui sort de période (exemple — adapte ton critère exact)
+        ctx.mutateDf(rows => {
+          const d1Int = dateToDateint(d1);
+          const d2Int = dateToDateint(d2);
+          const out = rows.slice();
+          for (let i = 0; i < out.length; i++){
+            const r = out[i];
+            const di = r?.Date ?? null;
+            if (!di) continue;
+            if (di < d1Int || di > d2Int) out[i] = { ...r, Date: null };
+          }
+          return sortDf(out);
+        }, { forceHistory: true });
 
+        ctx.clearTxContext(["df","meta"]);
+
+        refreshAllGrids();
         close();
       });
     }

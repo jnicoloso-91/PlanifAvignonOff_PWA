@@ -2784,7 +2784,7 @@ export async function refreshGrid(gridId, fallbackSelection=false) {
     // dans la grille synchronisée (grid-nonprogrammees <-> grid-programmables ou 
     // grid-programmees <-> grid-creneaux) via le onSelectionChanged de la grille,
     // ce qui n'est généralement pas l'effet voulu. 
-    if ((fallbackSelection) && !(node)) {
+    if ((fallbackSelection || gridId === "grid-creneaux") && !node) {
       const count = api.getDisplayedRowCount?.() ?? 0;
       if (count > 0) node = api.getDisplayedRowAtIndex?.(0) || null;
     }
