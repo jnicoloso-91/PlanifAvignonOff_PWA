@@ -462,9 +462,8 @@ export function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {
 
   node.setSelected?.(true, true);
 
-  // En mode Calendrier la visibilité de l'event est gérée par le rerender du calendrier donc on ne fait rien ici
-  // if (!(gridId === 'grid-programmees' && isProgrammeCalendarVisible()) 
-  //   && !isNodeInViewport(api, node)) api.ensureNodeVisible?.(node, align);
+  // Avec grid-non-programmees align top pour etre sur d'être au dessus de la bottom
+  if (gridId == 'grid-non-programmees') align = 'top';
   if (!isNodeInViewport(api, node)) api.ensureNodeVisible?.(node, align);
 
   if (flash) {
@@ -2801,7 +2800,7 @@ export async function refreshGrid(gridId, fallbackSelection=false) {
 
     // fallback sélection : sélectionner la 1ʳᵉ ligne si on ne retrouve pas prevUuid
     // Ne pas le faire par défaut car cela va sélectionner en cascade cette même ligne 
-    // dans la grille synchronisée (grid-nonprogrammees <-> grid-programmables ou 
+    // dans la grille synchronisée (grid-non-programmees <-> grid-programmables ou 
     // grid-programmees <-> grid-creneaux) via le onSelectionChanged de la grille,
     // ce qui n'est généralement pas l'effet voulu. 
     if ((fallbackSelection || gridId === "grid-creneaux") && !node) {
