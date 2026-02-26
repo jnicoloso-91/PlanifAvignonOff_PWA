@@ -7485,8 +7485,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           requestAnimationFrame(() => {
             try { input.setSelectionRange?.(input.value.length, input.value.length); } catch {}
             try { input.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch {}
-            // si fonction “ensureInputVisible” comme dans chipbox, l'appeller éventuellement ici :
-            // try { ensureInputVisible?.(); } catch {}
           });
         });
       });      
@@ -7525,16 +7523,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         close();
 
         selectionnerActivite(uuid);
-
-        // Ouvre la popup SetPrio en mode bulk (un seul bouton Valider)
-        // const uuids = new Set; uuids.add(uuid);
-        // const _finish = () => { selectionnerActivite(uuid); };
-        // getOrCreatePrioPopup().open({
-        //   ctx,
-        //   uuids,
-        //   title: "Marqueur",
-        //   _finish,
-        // });
 
       });
 

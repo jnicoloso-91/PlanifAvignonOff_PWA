@@ -163,7 +163,7 @@ export function setActiveGridId(gridId){
   grids.forEach(g => g?.el?.classList.toggle('is-active-grid', g.id === gridId));
 }
 
-// Rend active une grille donnée
+// Renvoie la grille active 
 export function getActiveGridId(){
   return activeGridId;
 }
@@ -189,6 +189,13 @@ export function getSelectedRow(gridId) {
 // Renvoie l'uuid de la ligne séléectionnée dans une grille donnée par son gridId
 export function getSelectedRowUuid(gridId) {
   return getSelectedRow(gridId)?.__uuid || null;
+}
+
+// Renvoie une row à partir de son uuid
+function getRowByUuid(uuid) {
+  const df = ctx?.getDf?.() || ctx?.df;
+  if (!Array.isArray(df) || !uuid) return null;
+  return df.find(r => r?.__uuid === uuid) || null;
 }
 
 // Renvoie les rows d'une grille à partir de son gridId
@@ -411,16 +418,29 @@ export function setSortModel(gridId, colId, sort) {
 }
 
 // Vérifie si une row node est actuellement visible dans le viewport de la grille (utile avant d'appeler ensureNodeVisible pour éviter les scrolls inutiles)
-function isNodeInViewport(api, node) {
+function isNodeInViewport(api, node, { fully = false } = {}) {
   if (!api || !node) return false;
 
-  const first = api.getFirstDisplayedRow();
-  const last  = api.getLastDisplayedRow();
+  const getVPR = api.getVerticalPixelRange;
+  if (typeof getVPR !== "function") {
+    // fallback (ex: vieille version) -> DOM ou false
+    return false;
+  }
 
-  const idx = node.rowIndex;
-  if (idx == null || idx < 0) return false;
+  const rowTop = node.rowTop;
+  const rowH   = node.rowHeight || 0;
+  if (rowTop == null) return false;
 
-  return idx >= first && idx <= last;
+  const rowBottom = rowTop + rowH;
+
+  const vr = getVPR.call(api);
+  if (!vr) return false;
+
+  const top = vr.top, bottom = vr.bottom;
+
+  return fully
+    ? (rowTop >= top && rowBottom <= bottom)
+    : (rowBottom > top && rowTop < bottom);
 }
 
 /**
