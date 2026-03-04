@@ -1957,7 +1957,7 @@ export function selectSrcUuidFromCreneau(creneau) {
   selectRowByUuid('grid-programmees', srcUuid);
   
   if (isProgrammeCalendarVisible()) {
-    rerenderProgrammeCalendar();
+    rerenderProgrammeCalendar( { defaultDay: creneau.Date } );
   } else {
     ensureRowVisible('grid-programmees', srcUuid)
   }
@@ -2002,7 +2002,7 @@ const gridOptionsCreneaux = {
     const sel = p.api.getSelectedRows();
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
-    selectSrcUuidFromCreneau(sel?.[0]);
+    if (p.source === 'rowClicked') selectSrcUuidFromCreneau(sel?.[0]);
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-creneaux')); saveGridFilterModelToMeta(p, 'grid-creneaux'); },
 }
