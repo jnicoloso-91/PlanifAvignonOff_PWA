@@ -1216,7 +1216,7 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
 }
 
 // Re-render calendar (data + sélection + scroll)
-export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = {}) {
+export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9, defaultDay = null } = {}) {
   const calA = document.getElementById("calA");
   const calADays = document.getElementById("calADays");
   if (!calA || !calADays) return;
@@ -1226,7 +1226,7 @@ export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9 } = 
   let pp = activitesAPI.getPeriodeProgrammation?.();
   pp = normalizePeriodeFromRowsIfNeeded(pp, rows);
 
-  const selD = getSelectedProgrammeDateInt();
+  const selD = defaultDay ? defaultDay : getSelectedProgrammeDateInt();
   const selUuid = getSelectedRowUuid('grid-programmees'); 
   const prevScrollTops = getCalDayScrollTops(calADays);
   
