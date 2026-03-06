@@ -1955,16 +1955,16 @@ export function openSheetAide() {
 
           <div class="help-block">
 
-            <h4>Page Catalogue</h3>
+            <h4>Page Catalogue</h4>
             <p>La page <u><i>Catalogue</u></i> propose un accès direct aux principales sources de spectacles :</p>
             <ul>
-              <li>le catalogue du <u><i>In</u></i> du festival d’Avignon,</li>
-              <li>le catalogue du <u><i>Off</u></i>,</li>
+              <li>le catalogue du festival d’Avignon <u><i>In</u></i>,</li>
+              <li>le catalogue du festival d’Avignon <u><i>Off</u></i>,</li>
               <li>le site <u><i>Billet Réduc</u></i>.</li>
             </ul>
-            <p>Ces liens permettent de consulter les spectacles et, le cas échéant, de copier leur contenu ou leur adresse afin de les importer dans l’application (fonction <u><i>Coller</u></i>).</p>
+            <p>Ces liens permettent de consulter les pages spectacle de ces catalogues et, le cas échéant, de copier leur contenu ou leur adresse afin de les importer dans l’application (fonction <u><i>Coller</u></i>).</p>
 
-            <h4>Page Mon programme</h3>
+            <h4>Page Mon programme</h4>
             <p>La page <u><i>Mon programme</u></i> permet de construire et gérer un programme personnalisé de spectacles et d’activités.</p>
 
             <p>Elle est organisée autour de quatre tableaux :</p>
@@ -1975,23 +1975,25 @@ export function openSheetAide() {
               <li><u><i>Stock</i></u> : tableau des activités <u><i>non programmées</u></i> (activités sans date de programmation).</li>
             </ul>
 
-            <p>Le bouton <u><i>Calendrier</u></i> du tableau <u><i>Programme</u></i> permet de choisir entre une présentation <u><i>calendrier</u></i> ou <u><i>grille</u></i>.</p>
+            <p>Le bouton <u><i>Calendrier</u></i> du tableau <u><i>Programme</u></i> permet de choisir entre une présentation <u><i>calendrier</u></i> ou <u><i>grille</u></i> du programme en cours d'élaboration.</p>
 
+            <h4>Couleurs</h4>
             <p>Dans les tableaux <u><i>Programme</u></i>, <u><i>Plages libres</u></i> et <u><i>Programmer…</u></i>, les lignes sont colorisées en fonction de leur <u><i>Date</u></i>.</p>
-            <p>Dans le tableau <u><i>Stock</u></i>, les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe.</p>
             <p>Dans le tableau <u><i>Programme</u></i>, les activités <u><i>réservées</u></i> sont libellées en rouge (une activité réservée ne peut être ni déprogrammée ni reprogrammée).</p>
+            <p>Dans le tableau <u><i>Stock</u></i>, les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe.</p>
 
-            <p>Les tableaux sont :</p>
-            <ul>
-              <li><u><i>triables</u></i> (clic sur les entêtes de colonnes),</li>
-              <li><u><i>filtrables</u></i> (bouton <u><i>Filtrer</u></i> ou champs dans les entêtes selon la taille de l’écran),</li>
-              <li><u><i>réordonnables</u></i> (déplacement des colonnes par glisser-déposer),</li>
-            </ul>
-
+            <h4>Edition, tri, ordre</h4>
             <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i>, toutes les informations sont éditables, <sauf :</p>
             <ul>
               <li>les heures de fin (calculées automatiquement),</li>
               <li>les dates, heures de début et durées des activités réservées (colonne <u><i>Réservé</u></i> = Oui).</li>
+            </ul>
+
+            <p>Tous les tableaux sont :</p>
+            <ul>
+              <li><u><i>triables</u></i> (clic sur les entêtes de colonnes),</li>
+              <li><u><i>filtrables</u></i> (bouton <u><i>Filtrer</u></i> ou champs dans les entêtes selon la taille de l’écran),</li>
+              <li><u><i>réordonnables</u></i> (déplacement des colonnes par glisser-déposer),</li>
             </ul>
 
             <h4>Navigation</h4>
@@ -2012,23 +2014,38 @@ export function openSheetAide() {
             double-cliquez / tapez pour lancer la recherche d'itinéraire.</p>
                         
             <h4>Programmation</h4>
-            <p>Une activité peut être programmée (i.e. insérée dans le tableau <u><i>Programme</u></i> à une date donnée) de trois manières :</p>
+            <p>Une activité peut être programmée (i.e. insérée dans la rubrique <u><i>Programme</u></i> à une date donnée) de trois manières différentes :</p>
             <ul>
               <li>
-                en sélectionnant une <u><i>plage libre</u></i>, puis une activité dans le tableau <u><i>Programmer…</u></i>, puis en appuyant sur le bouton <u><i>Programmer</u></i> ;
+                Sélectionnez une <u><i>plage libre</u></i> puis une activité dans le tableau <u><i>Programmer…</u></i> et appuyez sur le bouton <u><i>Programmer</u></i> ;
               </li>
               <li>
-                en sélectionnant une activité programmable dans le <u><i>Stock</u></i> puis en dépliant le menu de la colonne <u><i>Date</u></i> pour choisir une date possible ;
+                Sélectionnez une activité programmable (couleur vert menthe) dans le <u><i>Stock</u></i> et dépliez le menu de la colonne <u><i>Date</u></i> pour choisir une date possible ;
               </li>
               <li>
-                en utilisant l’<u><i>Assistant programmation</u></i>, qui génère automatiquement un planning d’activités (voir menu “...”).
+                Utilisez l'<a href="#assistant_programmation"><u><i>Assistant programmation</u></i></a>, lequel génère automatiquement des propositions de plannings d’activités en fonction de critères que vous choisissez (voir menu “...”) .
               </li>
             </ul>
 
-            <p>Pour <u><i>déprogrammer</u></i> une activité, il suffit de la sélectionner dans le tableau <u><i>Programme</u></i> ou le <u><i>Calendrier</u></i> et d’appuyer sur le bouton <u><i>Supprimer</u></i>.
-            Une fois déprogrammée, l’activité bascule dans le tableau <u><i>Stock</u></i>.</p>
+            <p>Pour <u><i>déprogrammer</u></i> une activité du <u><i>Programme</u></i> :</p> 
+            <ul>
+              <li>
+                Sélectionnez là et appuyez sur le bouton <u><i>Supprimer</u></i>.
+              </li>
+              <li>
+                Une fois déprogrammée, l’activité bascule dans le <u><i>Stock</u></i>.</p>
+              </li>
+            </ul>
 
-            <p>Pour la <u><i>reprogrammer</u></i>, allez dans le <u><i>Stock</u></i>, double-cliquez sur la cellule <u><i>Date</u></i> de l'activité concernée et sélectionnez une autre date possible.</p>
+            <p>Pour <u><i>reprogrammer</u></i> une activité du <u><i>Programme</u></i> :</p>
+            <ul>
+              <li>
+                En mode Tableau (case <u><i>Calendrier</u></i> décochée), double-cliquez sur la cellule <u><i>Date</u></i> de l'activité concernée et sélectionnez une autre date possible.</p>
+              </li>
+              <li>
+                En mode Calendrier (case <u><i>Calendrier</u></i> cochée), appui long sur l'activité concernée, puis sélectionnez une date dans la page de dialogue qui s'affiche.</p>
+              </li>
+            </ul>
 
             <h4>Barre d'outils</h4>
             <p>La barre d'outils en bas de la page <u><i>Mon programme</u></i> permet d’accéder aux fonctionnalités suivantes :</p>
@@ -2037,7 +2054,13 @@ export function openSheetAide() {
               <li><u><i>Fichier</u></i> : nouveau programme ou stock, import Excel, import depuis catalogues en ligne, export vers Excel ou le calendrier, rapport de cohérence.</li>
               <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i> : annuler ou rétablir une opération.</li>
               <li><u><i>Coller</u></i> : collage d’activités depuis le presse-papier (via URL ou copie du contenu d’une page catalogue ou d'une page de détail d'une activité).</li>
-              <li><u><i>Ajouter</u></i> : ajout d’une nouvelle activité.</li>
+              <li><u><i>Ajouter</u></i> : recherche d’une activité. Une page de dialogue s'affiche vous permettant d'entrer le texte à rechercher dans l'ensemble du stock et du programme. Une fois le texte entré trois actions possibles :
+                <ul>
+                  <li><u><i>Annuler</u></i> : annule la recherche.</li>
+                  <li><u><i>Chercher</u></i> : lance la recherche et les affiche les occurences dans un tableau.</li>
+                  <li><u><i>Annuler</u></i> : sélectionne dans le stock ou le programme l'activité sélectionnée dans le tableau des occurences.</li>
+                </ul>
+              </li>
             </ul>
 
             <h4>Menu “...”</h4>
@@ -2047,11 +2070,11 @@ export function openSheetAide() {
               <u><i>Téléphone</u></i> /<u><i>Web</u></i> de chaque entrée peuvent être édités et des boutons permettent d'ajouter / supprimer 
               des entrées, défaire / refaire ces opérations. Dans les colonnes Tel (Numéro de Téléphone) et Web (Adresse Web) des boutons permettent 
               d'appeler le numéro de téléphone ou aller sur le site Web correspondant. Les adresses ainsi renseignées sont utilisées pour la recherche d'itinéraire.</li>
-              <li><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
+              <li id="assistant_programmation"><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
               courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
               Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web. Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie.</li>
-              <li><u><i>Assistant chat</u></i> : permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
+              <li id="assistant_chat"><u><i>Assistant chat</u></i> : permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
               mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
               <li><u><i>Assistant infos+</u></i> : permet de générer les informations complémentaires affichables dans les popup i+ disponibles dans les grilles et les plannings: 
               résumé du spectacle et des avis spectateurs, évaluation du ton du spectacle.</li>
@@ -2064,7 +2087,62 @@ export function openSheetAide() {
                   <li>la <u><i>ville</u></i> de recherche par défaut pour la recherche d'itinéraire.</li>
                 </ul>
               </li>
-              <li><u><i>Aide</u></i> : la présente aide</li>
+              <li><u><i>Colonnes</u></i> : donne accès à deux options :
+                <ul>
+                  <li><u><i>Ajouter</u></i> : ajout d'une colonne optionnelle supplémentaire dans les tableaux.</li>
+                  <li><u><i>Supprimer</u></i> : suppression d'une colonne optionnelle.</li>
+                </ul>
+              <li><u><i>Aide</u></i> : la présente aide.</li>
+            </ul>
+
+            <h4>Boutons de la rubrique Programme</h4>
+            <ul>
+              <li><u><i>Calendrier</u></i> : permet de basculer le programme en mode Calendrier / Tableau.</li>
+              <li><u><i>Filtrer</u></i> : permet de filtrer le programme selon la valeur des colonnes d'activités.</li>
+              <li><u><i>Supprimer</u></i> : supprime l'activité sélectionnée du programme et la bascule dans le stock.</li>
+            </ul>
+
+            <h4>Boutons de la rubrique Plages libres</h4>
+            <ul>
+              <li><u><i>Pause</u></i> : permet de tenir compte ou pas des pauses repas dans les activités programmables.
+              Les pauses déjeuner sont programmées sur le créneau 12h-14h et les pauses dîner sur le créneau 19h-21h.</li>
+              <li><u><i>Filtrer</u></i> : permet de filtrer les plages libres selon la valeur des colonnes de plages libres.</li>
+            </ul>
+
+            <h4>Boutons de la rubrique Programmer...</h4>
+            <ul>
+              <li><u><i>Programmer</u></i> : insère dans le programme l'activité sélectionnée dans le tableau des activités programmables.</li>
+              <li><u><i>Filtrer</u></i> : permet de filtrer les activités programmables selon la valeur des colonnes d'activités.</li>
+            </ul>
+
+            <h4>Boutons de la rubrique Stock</h4>
+            <ul>
+              <li><u><i>Ajouter</u></i> : ajoute une activité dans le stock.</li>
+              <li><u><i>Filtrer</u></i> : permet de filtrer les activités du stock selon la valeur des colonnes d'activités.</li>
+              <li><u><i>Supprimer</u></i> : supprime l'activité sélectionnée du stock.</li>
+              <li><u><i>Favori</u></i> : permet d'affecter un marqueur à l'activité sélectionnée dans le stock ou à l'ensemble des activités filtrées du stock.
+              Ces marqueurs peuvent ensuite être utilisés pour filtrer les activités programmables sur les seuls favoris ayant une ou plusieurs valeurs de marqueur.</li>
+            </ul>
+
+            <h4>Méthodes d'élaboration du programme</h4>
+            <p>Vous pouvez élaborer votre programme soit en <u><i>manuel</u></i> soit en <u><i>automatique</u></i> :
+            <ul>
+              <li><u><i>Manuel</u></i> : 
+                <ul>
+                  <li>Sélectionnez dans <u><i>Paramètres</u></i> votre période programmation.</li>
+                  <li>Chargez un ou plusieurs catalogues dans le stock.</li>
+                  <li>Sélectionnez vos favoris :
+                    <ul>
+                      <li>soit en filtrant le stock par exemple par <u><i>Lieu</u></i>, puis en choisissant un marqueur sur Filtre avec le bouton <u><i>Favori</u></i>
+                      <li>soit en naviguant dans le stock en utilisant les boutons i+ ou <span class="help-icon" role="img" aria-label="Lien Web">🔗</span>, puis en choisissant un marqueur sur Sélection avec le bouton <u><i>Favori</u></i> </li>
+                    </ul>
+                  <li>Filtez les activités de la rubrique <u><i>Programmer...</u></i> selon vos favoris.</li>
+                  <li>Choisissez une plage libre dans la rubrique <u><i>Plages libres</u></i>.</li>
+                  <li>Choisissez une activité dans la rubrique <u><i>Programmer...</u></i> et appuyez sur le bouton <u><i>Programmer</u></i>.</li>
+                  <li>Et ainsi de suite...</li>
+                </ul>
+              </li>
+              <li><u><i>Automatique</u></i> : utilisez l'<a href="#assistant_programmation"><u><i>Assistant programmation</u></i></a> du menu “...”, lequel génère automatiquement des propositions de plannings d’activités en fonction de critères que vous choisissez.</li>
             </ul>
           </div>
         </div>
