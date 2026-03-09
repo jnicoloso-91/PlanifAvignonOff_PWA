@@ -930,6 +930,52 @@ function findAnchorEventUuidForDayDelete(rows, targetDateInt, { daysRange = null
   return null;
 }
 
+// Couplage des Days scrolls
+function wireCoupledCalDayScroll(daysEl) {
+  if (!daysEl) return () => {};
+
+  const bodies = [...daysEl.querySelectorAll(".cal-day__body")];
+  if (bodies.length < 2) return () => {};
+
+  let syncing = false;
+  let raf = 0;
+  let sourceEl = null;
+
+  function applySync() {
+    raf = 0;
+    if (!sourceEl) return;
+
+    const top = sourceEl.scrollTop;
+
+    syncing = true;
+    for (const el of bodies) {
+      if (el === sourceEl) continue;
+      if (el.scrollTop !== top) el.scrollTop = top;
+    }
+    syncing = false;
+  }
+
+  function onScroll(e) {
+    if (syncing) return;
+
+    sourceEl = e.currentTarget;
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(applySync);
+  }
+
+  for (const el of bodies) {
+    el.addEventListener("scroll", onScroll, { passive: true });
+  }
+
+  return () => {
+    if (raf) cancelAnimationFrame(raf);
+    for (const el of bodies) {
+      el.removeEventListener("scroll", onScroll);
+    }
+  };
+  
+}
+
 // Render calendar
 function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
   if (!daysEl) return;
@@ -1211,6 +1257,12 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
     // scrollAllDaysToFirstEventOrHour(daysEl, 9);
     setCalDayScrollTops(daysEl, prevScrollTops);
     selectCurrentEventInCalendar();
+
+    // cleanup ancien wiring si présent
+    daysEl._offCoupledScroll?.();
+
+    // nouveau wiring
+    daysEl._offCoupledScroll = wireCoupledCalDayScroll(daysEl);
   });
   
 }

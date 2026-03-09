@@ -2133,10 +2133,13 @@ export function openSheetAide() {
                   <li>Chargez un ou plusieurs catalogues dans le stock.</li>
                   <li>Sélectionnez vos favoris :
                     <ul>
-                      <li>soit en filtrant le stock par exemple par <u><i>Lieu</u></i>, puis en choisissant un marqueur sur Filtre avec le bouton <u><i>Favori</u></i>
-                      <li>soit en naviguant dans le stock en utilisant les boutons i+ ou <span class="help-icon" role="img" aria-label="Lien Web">🔗</span>, puis en choisissant un marqueur sur Sélection avec le bouton <u><i>Favori</u></i> </li>
+                      <li>soit en filtrant le stock par exemple par <u><i>Lieu</u></i>, puis en choisissant un marqueur sur Filtre avec le bouton <u><i>Favori</u></i> 
+                      pour mettre un marqueur sur toutes les activités filtrées</li>
+                      <li>soit en naviguant dans le stock en utilisant les boutons i+ ou <span class="help-icon" role="img" aria-label="Lien Web">🔗</span>, 
+                      puis en choisissant un marqueur sur Sélection avec le bouton <u><i>Favori</u></i> pour mettre un marqueur sur la seule activité sélectionnée.</li>
                     </ul>
-                  <li>Filtez les activités de la rubrique <u><i>Programmer...</u></i> selon vos favoris.</li>
+                  <li>Filtrez les activités de la rubrique <u><i>Programmer...</u></i> selon vos favoris, en filtrant la colonne <u><i>Marqueur</u></i> selon les valeurs 
+                  de marqueurs correspondant à vos favoris.</li>
                   <li>Choisissez une plage libre dans la rubrique <u><i>Plages libres</u></i>.</li>
                   <li>Choisissez une activité dans la rubrique <u><i>Programmer...</u></i> et appuyez sur le bouton <u><i>Programmer</u></i>.</li>
                   <li>Et ainsi de suite...</li>
