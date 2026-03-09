@@ -3093,3 +3093,100 @@ input[type="range"]:focus::-moz-range-thumb {
 .search-clear-btn:active{
   background: rgba(0,0,0,0.18);
 }
+
+
+/*=========================
+New Calendar
+  =========================*/
+
+.cal-grid{
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.cal-head-row{
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0;
+}
+
+.cal-scroll-y{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+
+  position: relative;
+  top: -10px;
+}
+
+.cal-cols{
+  display: flex;
+  align-items: flex-start;
+}
+
+.cal-col{
+  flex: 0 0 280px;   /* ajuste à ta largeur actuelle */
+  min-width: 280px;
+  border-right: 1px solid rgba(0,0,0,0.08);
+}
+
+.cal-day__header{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: white;
+}
+
+.cal-timeline{
+  position: relative;
+}
+
+.cal-hour,
+.cal-hour__label,
+.cal-ev{
+  position: absolute;
+}
+
+/* si tu avais du scroll sur body, il faut l'enlever */
+.cal-day__body{
+  overflow: visible !important;
+}
+
+.cal-head-row > .cal-day__header{
+  flex: 0 0 280px;
+  min-width: 280px;
+  box-sizing: border-box;
+
+  padding: 6px 10px;
+
+  background: #fff;
+
+  border: 1px solid rgba(0,0,0,0.15);
+  border-bottom: none;
+
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.cal-head-row > .cal-day__header + .cal-day__header{
+  border-left: none;
+}
+
+.cal-col{
+  border-left: 1px solid rgba(0,0,0,0.15);
+  border-right: 1px solid rgba(0,0,0,0.15);
+}
+
+.cal-head-row{
+  gap: 0;
+}
+
+.cal-day__header{
+  position: relative;
+  z-index: 2;
+}
+

@@ -80,7 +80,7 @@ function getCalRoot() {
 }
 
 // Renvoie le container des jours du calendrier
-function getCalDays() {
+export function getCalDays() {
   return document.getElementById("calADays");
 }
 
@@ -89,21 +89,16 @@ export function getDaysScroll() {
   return document.querySelector("#calA .cal-days-scroll");
 }
 
-// Renvoie le noeud jour du calendrier pour une dateint donnée
-function getDayNode(dateInt) {
-  return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
-}
-
 // Renvoie la colonne jour du calendrier pour une dateint donnée
 function getDayColumn(dateInt) {
-  return document.querySelector(`#calA .cal-day[data-dateint="${dateInt}"]`);
+  return document.querySelector(`#calA .cal-col[data-dateint="${dateInt}"]`);
 }
 
 // Renvoie le body d'un jour du calendrier pour une date donnée
-function getDayBody(dateInt) {
-  const col = getDayColumn(dateInt);
-  return col?.querySelector(".cal-day__body") || null;
-}
+// function getDayBody(dateInt) {
+//   const col = getDayColumn(dateInt);
+//   return col?.querySelector(".cal-day__body") || null;
+// }
 
 // Renvoie l’élément event du calendrier pour un uuid donné
 function getEventNodeByUuid(uuid) {
@@ -271,7 +266,7 @@ function buildDaysRange(pp) {
 // Centre un jour donné dans le viewport du calendrier (scroll horizontal)
 function centerDayInViewport(dateInt, { smooth = true } = {}) {
   const scroller = getDaysScroll();
-  const day = getDayNode(dateInt);
+  const day = getDayColumn(dateInt);
   if (!scroller || !day) return false;
 
   const scRect = scroller.getBoundingClientRect();
@@ -290,73 +285,73 @@ function centerDayInViewport(dateInt, { smooth = true } = {}) {
 }
 
 // Centre un event sélectionné dans le jour
-function centerEventInDay(uuid, { smooth = true } = {}) {
-  if (!uuid) return false;
+// function centerEventInDay(uuid, { smooth = true } = {}) {
+//   if (!uuid) return false;
 
-  /** @type {HTMLElement} */
-  const ev = document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
-  if (!ev) return false;
+//   /** @type {HTMLElement} */
+//   const ev = document.querySelector(`#calA .cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+//   if (!ev) return false;
 
-  const dayBody = ev.closest(".cal-day")?.querySelector(".cal-day__body");
-  if (!dayBody) return false;
+//   const dayBody = ev.closest(".cal-day")?.querySelector(".cal-day__body");
+//   if (!dayBody) return false;
 
-  // header sticky (optionnel)
-  const header = ev.closest(".cal-day")?.querySelector(".cal-day__header");
-  const headerH = header?.getBoundingClientRect().height || 0;
+//   // header sticky (optionnel)
+//   const header = ev.closest(".cal-day")?.querySelector(".cal-day__header");
+//   const headerH = header?.getBoundingClientRect().height || 0;
 
-  // 🎯 ancre = centre du TITRE (sinon haut de l’event)
-  /** @type {HTMLElement} */
-  const titleEl = ev.querySelector(".cal-ev__title");
-  const anchorY = titleEl
-    ? ev.offsetTop + titleEl.offsetTop + titleEl.offsetHeight / 2
-    : ev.offsetTop;
+//   // 🎯 ancre = centre du TITRE (sinon haut de l’event)
+//   /** @type {HTMLElement} */
+//   const titleEl = ev.querySelector(".cal-ev__title");
+//   const anchorY = titleEl
+//     ? ev.offsetTop + titleEl.offsetTop + titleEl.offsetHeight / 2
+//     : ev.offsetTop;
 
-  const viewportH = dayBody.clientHeight;
-  let target = anchorY - (viewportH - headerH) / 2;
+//   const viewportH = dayBody.clientHeight;
+//   let target = anchorY - (viewportH - headerH) / 2;
 
-  const maxScroll = dayBody.scrollHeight - viewportH;
-  target = Math.max(0, Math.min(target, maxScroll));
+//   const maxScroll = dayBody.scrollHeight - viewportH;
+//   target = Math.max(0, Math.min(target, maxScroll));
 
-  if (smooth && "scrollTo" in dayBody) {
-    dayBody.scrollTo({ top: target, behavior: "smooth" });
-  } else {
-    dayBody.scrollTop = target;
-  }
+//   if (smooth && "scrollTo" in dayBody) {
+//     dayBody.scrollTo({ top: target, behavior: "smooth" });
+//   } else {
+//     dayBody.scrollTop = target;
+//   }
 
-  return true;
-}
+//   return true;
+// }
 
 // Scroll un jour à une heure donnée, alignable (top/middle)
-export function scrollDayToHour(
-  dateInt,
-  hour = 9,
-  { smooth = true, align = "middle", gapPx = 0 } = {}
-) {
-  const dayBody = getDayBody(dateInt);
-  if (!dayBody) return false;
+// export function scrollDayToHour(
+//   dateInt,
+//   hour = 9,
+//   { smooth = true, align = "middle", gapPx = 0 } = {}
+// ) {
+//   const dayBody = getDayBody(dateInt);
+//   if (!dayBody) return false;
 
-  const minutes = Math.max(0, Math.min(24 * 60, hour * 60));
-  const y = Math.round(minutes * PX_PER_MIN);
+//   const minutes = Math.max(0, Math.min(24 * 60, hour * 60));
+//   const y = Math.round(minutes * PX_PER_MIN);
 
-  const vh = dayBody.clientHeight || 0;
-  const maxScroll = Math.max(0, (dayBody.scrollHeight || 0) - vh);
+//   const vh = dayBody.clientHeight || 0;
+//   const maxScroll = Math.max(0, (dayBody.scrollHeight || 0) - vh);
 
-  let target = y - gapPx;
+//   let target = y - gapPx;
 
-  if (align === "middle") {
-    target = y - Math.round(vh / 2) - gapPx;
-  }
+//   if (align === "middle") {
+//     target = y - Math.round(vh / 2) - gapPx;
+//   }
 
-  // clamp
-  target = Math.max(0, Math.min(target, maxScroll));
+//   // clamp
+//   target = Math.max(0, Math.min(target, maxScroll));
 
-  if (smooth && typeof dayBody.scrollTo === "function") {
-    dayBody.scrollTo({ top: target, behavior: "smooth" });
-  } else {
-    dayBody.scrollTop = target;
-  }
-  return true;
-}
+//   if (smooth && typeof dayBody.scrollTo === "function") {
+//     dayBody.scrollTo({ top: target, behavior: "smooth" });
+//   } else {
+//     dayBody.scrollTop = target;
+//   }
+//   return true;
+// }
 
 /**
  * Centre le calendrier sur un jour + event sélectionné ou heure fallback
@@ -378,7 +373,7 @@ function snapProgrammeCalendar({
   requestAnimationFrame(() => {
     requestAnimationFrame(async () => {
       if (uuid) {
-        await waitForScrollDayToStabilize(dateInt);
+        await waitForScrollCalendarToStabilize();
         scrollCalendarToEvent(uuid, { smooth: true, preferBottom: false }); 
       }
     });
@@ -419,20 +414,36 @@ function normalizePeriodeFromRowsIfNeeded(pp, rows) {
 }
 
 // Ajuste la hauteur du calendrier en fonction de la grille
-function setCalHeightFromGrid() {
-  const gridA = document.getElementById("gridA");
-  const calA  = document.getElementById("calA");
-  if (!gridA || !calA) return;
+// function setCalHeightFromGrid() {
+//   const gridA = document.getElementById("gridA");
+//   const calA  = document.getElementById("calA");
+//   if (!gridA || !calA) return;
 
-  const h = Math.max(320, Math.round(gridA.getBoundingClientRect().height));
-  calA.style.height = h + "px";
-}
+//   const h = Math.max(320, Math.round(gridA.getBoundingClientRect().height));
+//   calA.style.height = h + "px";
+// }
 
 // Scroll le calendrier horizontalement pour afficher un jour donné
+// export function scrollCalendarToDay(dateInt) {
+//   const calSlot = getCalRoot();
+//   const scroller = calSlot.querySelector(".cal-days-scroll");
+//   const dayEl = calSlot.querySelector(`.cal-day[data-dateint="${dateInt}"]`);
+//   if (!scroller || !dayEl) return;
+
+//   const sRect = scroller.getBoundingClientRect();
+//   const dRect = dayEl.getBoundingClientRect();
+//   const curLeft = scroller.scrollLeft;
+
+//   // center in view
+//   const delta = (dRect.left - sRect.left) - (sRect.width/2 - dRect.width/2);
+//   scroller.scrollTo({ left: curLeft + delta, behavior: "smooth" });
+// }
 export function scrollCalendarToDay(dateInt) {
-  const calSlot = getCalRoot();
-  const scroller = calSlot.querySelector(".cal-days-scroll");
-  const dayEl = calSlot.querySelector(`.cal-day[data-dateint="${dateInt}"]`);
+  const cal = getCalRoot();
+  if (!cal) return;
+
+  const scroller = cal.querySelector(".cal-days-scroll");
+  const dayEl = cal.querySelector(`.cal-col[data-dateint="${dateInt}"]`);
   if (!scroller || !dayEl) return;
 
   const sRect = scroller.getBoundingClientRect();
@@ -440,11 +451,83 @@ export function scrollCalendarToDay(dateInt) {
   const curLeft = scroller.scrollLeft;
 
   // center in view
-  const delta = (dRect.left - sRect.left) - (sRect.width/2 - dRect.width/2);
-  scroller.scrollTo({ left: curLeft + delta, behavior: "smooth" });
+  const delta =
+    (dRect.left - sRect.left) -
+    (sRect.width / 2 - dRect.width / 2);
+
+  scroller.scrollTo({
+    left: curLeft + delta,
+    behavior: "smooth"
+  });
 }
 
 // Scroll le calendrier verticalement pour afficher un event donné
+// function scrollCalendarToEvent(uuid, {
+//   gapTopPx = 12,
+//   gapBottomPx = 16,
+//   smooth = false,
+//   preferBottom = true,
+//   bottomBias = 0.75, // 0.5=center, 0.75=plutôt bas, 0.9=très bas
+//   targetTop = null,
+// } = {}) {
+//   const calA = getCalRoot();
+//   if (!calA || !uuid) return false;
+
+//   const ev = calA.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+//   if (!ev) return false;
+
+//   const dayBody = ev.closest(".cal-day__body");
+//   if (!dayBody) return false;
+
+//   const viewportH = dayBody.clientHeight;
+
+//   // ✅ Position réelle de l’event DANS le scroller
+//   const bodyRect = dayBody.getBoundingClientRect();
+//   const evRect = ev.getBoundingClientRect();
+//   const evTop = (evRect.top - bodyRect.top) + dayBody.scrollTop;
+//   const evH = evRect.height;
+//   const evBottom = evTop + evH;
+
+//   const maxScroll = Math.max(0, dayBody.scrollHeight - viewportH);
+
+//   // Intervalle de scroll qui garantit que l’event est entièrement visible
+//   // (avec gaps) : scrollTop ∈ [minForBottom, maxForTop]
+//   const minForBottom = Math.max(0, (evBottom + gapBottomPx) - viewportH);
+//   const maxForTop = Math.max(0, evTop - gapTopPx);
+
+//   if (!targetTop) {
+//     const usableViewport = Math.max(0, viewportH - gapTopPx - gapBottomPx);
+
+//     // 1) Event trop grand pour tenir entièrement -> on privilégie le haut visible
+//     // (tu ne peux pas avoir haut+bas visibles si evH > usableViewport)
+//     if (evH >= usableViewport) {
+//       targetTop = maxForTop;
+//     }
+//     // 2) Event normal : vise une position plutôt basse, puis force visibilité complète
+//     else if (preferBottom) {
+//       const desiredEvTopInViewport = gapTopPx + usableViewport * bottomBias;
+//       targetTop = evTop - desiredEvTopInViewport;
+
+//       // ✅ Forcer l’event entièrement visible
+//       targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
+//     }
+//     // 3) Fallback centrage + visibilité complète
+//     else {
+//       targetTop = evTop - (viewportH - evH) / 2;
+//       targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
+//     }
+
+//     // Clamp final absolu
+//     targetTop = Math.max(0, Math.min(targetTop, maxScroll));
+//   }
+
+//   dayBody.scrollTo({
+//     top: targetTop,
+//     behavior: smooth ? "smooth" : "auto",
+//   });
+
+//   return true;
+// }
 function scrollCalendarToEvent(uuid, {
   gapTopPx = 12,
   gapBottomPx = 16,
@@ -459,52 +542,44 @@ function scrollCalendarToEvent(uuid, {
   const ev = calA.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
   if (!ev) return false;
 
-  const dayBody = ev.closest(".cal-day__body");
-  if (!dayBody) return false;
+  const scroller = calA.querySelector(".cal-scroll-y");
+  if (!scroller) return false;
 
-  const viewportH = dayBody.clientHeight;
+  const viewportH = scroller.clientHeight;
 
-  // ✅ Position réelle de l’event DANS le scroller
-  const bodyRect = dayBody.getBoundingClientRect();
+  // ✅ Position réelle de l’event dans le scroller global
+  const scrollerRect = scroller.getBoundingClientRect();
   const evRect = ev.getBoundingClientRect();
-  const evTop = (evRect.top - bodyRect.top) + dayBody.scrollTop;
+  const evTop = (evRect.top - scrollerRect.top) + scroller.scrollTop;
   const evH = evRect.height;
   const evBottom = evTop + evH;
 
-  const maxScroll = Math.max(0, dayBody.scrollHeight - viewportH);
+  const maxScroll = Math.max(0, scroller.scrollHeight - viewportH);
 
   // Intervalle de scroll qui garantit que l’event est entièrement visible
-  // (avec gaps) : scrollTop ∈ [minForBottom, maxForTop]
   const minForBottom = Math.max(0, (evBottom + gapBottomPx) - viewportH);
   const maxForTop = Math.max(0, evTop - gapTopPx);
 
-  if (!targetTop) {
+  if (targetTop == null) {
     const usableViewport = Math.max(0, viewportH - gapTopPx - gapBottomPx);
 
-    // 1) Event trop grand pour tenir entièrement -> on privilégie le haut visible
-    // (tu ne peux pas avoir haut+bas visibles si evH > usableViewport)
     if (evH >= usableViewport) {
       targetTop = maxForTop;
     }
-    // 2) Event normal : vise une position plutôt basse, puis force visibilité complète
     else if (preferBottom) {
       const desiredEvTopInViewport = gapTopPx + usableViewport * bottomBias;
       targetTop = evTop - desiredEvTopInViewport;
-
-      // ✅ Forcer l’event entièrement visible
       targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
     }
-    // 3) Fallback centrage + visibilité complète
     else {
       targetTop = evTop - (viewportH - evH) / 2;
       targetTop = Math.max(minForBottom, Math.min(targetTop, maxForTop));
     }
 
-    // Clamp final absolu
     targetTop = Math.max(0, Math.min(targetTop, maxScroll));
   }
 
-  dayBody.scrollTo({
+  scroller.scrollTo({
     top: targetTop,
     behavior: smooth ? "smooth" : "auto",
   });
@@ -513,140 +588,140 @@ function scrollCalendarToEvent(uuid, {
 }
 
 // Scroll tous les jours du calendrier à une heure donnée
-function scrollAllDaysToHour(daysEl, hour = 9) {
-  const dayNodes = daysEl.querySelectorAll(".cal-day");
-  if (!dayNodes.length) return;
+// function scrollAllDaysToHour(daysEl, hour = 9) {
+//   const dayNodes = daysEl.querySelectorAll(".cal-day");
+//   if (!dayNodes.length) return;
 
-  for (const day of dayNodes) {
-    const body = day.querySelector(".cal-day__body");
-    const tl   = day.querySelector(".cal-timeline");
-    if (!body || !tl) continue;
+//   for (const day of dayNodes) {
+//     const body = day.querySelector(".cal-day__body");
+//     const tl   = day.querySelector(".cal-timeline");
+//     if (!body || !tl) continue;
 
-    const pxPerMin = parseFloat(tl.dataset.pxPerMin || "1.1");
-    const top = Math.round(hour * 60 * pxPerMin);
+//     const pxPerMin = parseFloat(tl.dataset.pxPerMin || "1.1");
+//     const top = Math.round(hour * 60 * pxPerMin);
 
-    body.scrollTop = top;
-  }
-}
+//     body.scrollTop = top;
+//   }
+// }
 
 // Scroll tous les jours du calendrier au premier event ou à une heure fallback
-function scrollAllDaysToFirstEventOrHour(
-  daysEl,
-  fallbackHour = 9,
-  {
-    except = [], // [dateInt] à exclure du scroll (ex: jour du programme sélectionné)
-    gapPx = 12   // 👈 espace visuel sous le header
-  } = {}
-) {
-  if (!daysEl) return;
+// function scrollAllDaysToFirstEventOrHour(
+//   daysEl,
+//   fallbackHour = 9,
+//   {
+//     except = [], // [dateInt] à exclure du scroll (ex: jour du programme sélectionné)
+//     gapPx = 12   // 👈 espace visuel sous le header
+//   } = {}
+// ) {
+//   if (!daysEl) return;
 
-  const dayNodes = daysEl.querySelectorAll(".cal-day");
-  if (!dayNodes.length) return;
+//   const dayNodes = daysEl.querySelectorAll(".cal-day");
+//   if (!dayNodes.length) return;
 
-  for (const day of dayNodes) {
-    if (except.includes(day.dataset.dateint)) continue;
-    const body = day.querySelector(".cal-day__body");
-    const tl   = day.querySelector(".cal-timeline");
-    if (!body || !tl) continue;
+//   for (const day of dayNodes) {
+//     if (except.includes(day.dataset.dateint)) continue;
+//     const body = day.querySelector(".cal-day__body");
+//     const tl   = day.querySelector(".cal-timeline");
+//     if (!body || !tl) continue;
 
-    let targetTop;
+//     let targetTop;
 
-    // 1️⃣ premier event du jour
-    const firstEv = tl.querySelector(".cal-ev");
+//     // 1️⃣ premier event du jour
+//     const firstEv = tl.querySelector(".cal-ev");
 
-    if (firstEv) {
-      // position de l'event dans la timeline
-      targetTop = firstEv.offsetTop - gapPx;
-    } else {
-      // 2️⃣ fallback → heure par défaut
-      const pxPerMin =
-        parseFloat(tl.dataset.pxPerMin) ||
-        parseFloat(getComputedStyle(tl).getPropertyValue("--px-per-min")) ||
-        1.1;
+//     if (firstEv) {
+//       // position de l'event dans la timeline
+//       targetTop = firstEv.offsetTop - gapPx;
+//     } else {
+//       // 2️⃣ fallback → heure par défaut
+//       const pxPerMin =
+//         parseFloat(tl.dataset.pxPerMin) ||
+//         parseFloat(getComputedStyle(tl).getPropertyValue("--px-per-min")) ||
+//         1.1;
 
-      targetTop = Math.round(fallbackHour * 60 * pxPerMin) - gapPx;
-    }
+//       targetTop = Math.round(fallbackHour * 60 * pxPerMin) - gapPx;
+//     }
 
-    // 3️⃣ clamp de sécurité
-    const maxScroll = body.scrollHeight - body.clientHeight;
-    body.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
-  }
-}
+//     // 3️⃣ clamp de sécurité
+//     const maxScroll = body.scrollHeight - body.clientHeight;
+//     body.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
+//   }
+// }
 
 // Recupère les valeurs de scrollTop des colonnes jours du calendrier
-function getCalDayScrollTops(daysEl) {
-  /** @type {Record<string, number>} */
-  const map = {};
-  if (!daysEl) return map;
+// function getCalDayScrollTops(daysEl) {
+//   /** @type {Record<string, number>} */
+//   const map = {};
+//   if (!daysEl) return map;
 
-  const dayNodes = daysEl.querySelectorAll(".cal-day[data-dateint]");
-  dayNodes.forEach(day => {
-    const k = String(day.dataset.dateint || "");
-    if (!k) return;
-    const body = day.querySelector(".cal-day__body");
-    if (!body) return;
-    map[k] = body.scrollTop || 0;
-  });
+//   const dayNodes = daysEl.querySelectorAll(".cal-day[data-dateint]");
+//   dayNodes.forEach(day => {
+//     const k = String(day.dataset.dateint || "");
+//     if (!k) return;
+//     const body = day.querySelector(".cal-day__body");
+//     if (!body) return;
+//     map[k] = body.scrollTop || 0;
+//   });
 
-  return map;
-}
+//   return map;
+// }
 
 // Assigne les valeurs de scrollTop des colonnes jours du calendrier
-export function setCalDayScrollTops(
-  daysEl,
-  scrollTops,
-  {
-    except = [],
-    fallbackHour = 9,
-    gapPx = 12
-  } = {}
-) {
-  if (!daysEl) return;
+// export function setCalDayScrollTops(
+//   daysEl,
+//   scrollTops,
+//   {
+//     except = [],
+//     fallbackHour = 9,
+//     gapPx = 12
+//   } = {}
+// ) {
+//   if (!daysEl) return;
 
-  const dayNodes = daysEl.querySelectorAll(".cal-day[data-dateint]");
-  if (!dayNodes.length) return;
+//   const dayNodes = daysEl.querySelectorAll(".cal-day[data-dateint]");
+//   if (!dayNodes.length) return;
 
-  for (const day of dayNodes) {
-    const dateInt = String(day.dataset.dateint || "");
-    if (!dateInt) continue;
+//   for (const day of dayNodes) {
+//     const dateInt = String(day.dataset.dateint || "");
+//     if (!dateInt) continue;
 
-    if (except.includes(dateInt) || except.includes(Number(dateInt))) {
-      continue;
-    }
+//     if (except.includes(dateInt) || except.includes(Number(dateInt))) {
+//       continue;
+//     }
 
-    const body = day.querySelector(".cal-day__body");
-    const tl   = day.querySelector(".cal-timeline");
-    if (!body || !tl) continue;
+//     const body = day.querySelector(".cal-day__body");
+//     const tl   = day.querySelector(".cal-timeline");
+//     if (!body || !tl) continue;
 
-    let targetTop;
+//     let targetTop;
 
-    const saved = scrollTops?.[dateInt];
+//     const saved = scrollTops?.[dateInt];
 
-    // 1️⃣ Si on a un scrollTop sauvegardé → on restaure
-    // if (typeof saved === "number") {
-    if (typeof saved === "number" && saved > 0) {
-      targetTop = saved;
-    } else {
-      // 2️⃣ Sinon → comportement intelligent
-      const firstEv = tl.querySelector(".cal-ev");
+//     // 1️⃣ Si on a un scrollTop sauvegardé → on restaure
+//     // if (typeof saved === "number") {
+//     if (typeof saved === "number" && saved > 0) {
+//       targetTop = saved;
+//     } else {
+//       // 2️⃣ Sinon → comportement intelligent
+//       const firstEv = tl.querySelector(".cal-ev");
 
-      if (firstEv) {
-        targetTop = firstEv.offsetTop - gapPx;
-      } else {
-        const pxPerMin =
-          parseFloat(tl.dataset.pxPerMin) ||
-          parseFloat(getComputedStyle(tl).getPropertyValue("--px-per-min")) ||
-          1.1;
+//       if (firstEv) {
+//         targetTop = firstEv.offsetTop - gapPx;
+//       } else {
+//         const pxPerMin =
+//           parseFloat(tl.dataset.pxPerMin) ||
+//           parseFloat(getComputedStyle(tl).getPropertyValue("--px-per-min")) ||
+//           1.1;
 
-        targetTop = Math.round(fallbackHour * 60 * pxPerMin) - gapPx;
-      }
-    }
+//         targetTop = Math.round(fallbackHour * 60 * pxPerMin) - gapPx;
+//       }
+//     }
 
-    // 3️⃣ Clamp sécurité
-    const maxScroll = body.scrollHeight - body.clientHeight;
-    body.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
-  }
-}
+//     // 3️⃣ Clamp sécurité
+//     const maxScroll = body.scrollHeight - body.clientHeight;
+//     body.scrollTop = Math.max(0, Math.min(targetTop, maxScroll));
+//   }
+// }
 
 // Indique si le calendrier est visible
 export function isProgrammeCalendarVisible() {
@@ -671,13 +746,13 @@ function selectCurrentEventInCalendar() {
 }
 
 // Scroll et sélectionne l’event courant dans le calendrier
-function snapToCurrentSelectedEvent() {
-  const selD = getSelectedProgrammeDateInt();
-  const selUuid = getSelectedRowUuid('grid-programmees');
-  scrollCalendarToDay?.(selD); 
-  ensureCalendarEventVisible(selUuid);                          // scroll minimal pour rendre l’event visible
-  selectEventByUuid(selUuid);
-}
+// function snapToCurrentSelectedEvent() {
+//   const selD = getSelectedProgrammeDateInt();
+//   const selUuid = getSelectedRowUuid('grid-programmees');
+//   scrollCalendarToDay?.(selD); 
+//   ensureCalendarEventVisible(selUuid);                          // scroll minimal pour rendre l’event visible
+//   selectEventByUuid(selUuid);
+// }
 
 // Construire l’URL externe de recherche d’itinéraire vers une adresse
 function openDirectionsExternal(url) {
@@ -931,52 +1006,351 @@ function findAnchorEventUuidForDayDelete(rows, targetDateInt, { daysRange = null
 }
 
 // Couplage des Days scrolls
-function wireCoupledCalDayScroll(daysEl) {
-  if (!daysEl) return () => {};
+// function wireCoupledCalDayScroll(daysEl) {
+//   if (!daysEl) return () => {};
 
-  const bodies = [...daysEl.querySelectorAll(".cal-day__body")];
-  if (bodies.length < 2) return () => {};
+//   const bodies = [...daysEl.querySelectorAll(".cal-day__body")];
+//   if (bodies.length < 2) return () => {};
 
-  let syncing = false;
-  let raf = 0;
-  let sourceEl = null;
+//   let syncing = false;
+//   let raf = 0;
+//   let sourceEl = null;
 
-  function applySync() {
-    raf = 0;
-    if (!sourceEl) return;
+//   function applySync() {
+//     raf = 0;
+//     if (!sourceEl) return;
 
-    const top = sourceEl.scrollTop;
+//     const top = sourceEl.scrollTop;
 
-    syncing = true;
-    for (const el of bodies) {
-      if (el === sourceEl) continue;
-      if (el.scrollTop !== top) el.scrollTop = top;
-    }
-    syncing = false;
-  }
+//     syncing = true;
+//     for (const el of bodies) {
+//       if (el === sourceEl) continue;
+//       if (el.scrollTop !== top) el.scrollTop = top;
+//     }
+//     syncing = false;
+//   }
 
-  function onScroll(e) {
-    if (syncing) return;
+//   function onScroll(e) {
+//     if (syncing) return;
 
-    sourceEl = e.currentTarget;
-    if (raf) cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(applySync);
-  }
+//     sourceEl = e.currentTarget;
+//     if (raf) cancelAnimationFrame(raf);
+//     raf = requestAnimationFrame(applySync);
+//   }
 
-  for (const el of bodies) {
-    el.addEventListener("scroll", onScroll, { passive: true });
-  }
+//   for (const el of bodies) {
+//     el.addEventListener("scroll", onScroll, { passive: true });
+//   }
 
-  return () => {
-    if (raf) cancelAnimationFrame(raf);
-    for (const el of bodies) {
-      el.removeEventListener("scroll", onScroll);
-    }
-  };
+//   return () => {
+//     if (raf) cancelAnimationFrame(raf);
+//     for (const el of bodies) {
+//       el.removeEventListener("scroll", onScroll);
+//     }
+//   };
   
-}
+// }
 
 // Render calendar
+// function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
+//   if (!daysEl) return;
+
+//   const days = buildDaysRange(pp) || [];
+
+//   // ---------- byDay ----------
+//   const byDay = new Map();
+//   for (const d of days) byDay.set(d, []);
+
+//   for (const r of (rows || [])) {
+//     const d = r.Date;
+//     if (!d || !byDay.has(d)) continue;
+//     byDay.get(d).push(r);
+//   }
+
+//   // tri par heure de début dans chaque jour
+//   for (const [d, list] of byDay) {
+//     list.sort((a, b) => (parseHHMM(a.Debut) ?? 0) - (parseHHMM(b.Debut) ?? 0));
+//   }
+
+//   // ---------- constants ----------
+//   const DAY_MINUTES = 24 * 60;
+//   const timelineH = Math.round(DAY_MINUTES * PX_PER_MIN);
+
+//   const fmtDay = (dint) => {
+//     const s = String(dint);
+//     const y = s.slice(0, 4), m = s.slice(4, 6), d = s.slice(6, 8);
+//     return `${d}/${m}/${y}`;
+//   };
+
+//   // ---------- get exiting calDayScrollTops ----------
+//   const prevScrollTops = getCalDayScrollTops(daysEl);
+
+//   // ---------- reset + build ----------
+//   daysEl.innerHTML = "";
+
+//   for (const dint of days) {
+//     const list = byDay.get(dint) || [];
+
+//     const dayNode = document.createElement("div");
+//     dayNode.className = "cal-day";
+//     dayNode.dataset.dateint = String(dint);
+
+//     const isWeekend = isWeekendDateInt(dint);
+
+//     dayNode.innerHTML = `
+//       <div class="cal-day__header">
+//         <div class="cal-day__title">${fmtDay(dint)}</div>
+//         <div class="cal-day__actions">
+//           <div class="cal-day__meta">${list.length} év.</div>
+//         </div>
+//       </div>
+//       <div class="cal-day__body">
+//         <div class="cal-timeline"></div>
+//       </div>
+//     `;
+
+//     // Bouton trash à mettre sous cal-day__actions
+//     // (mais non retenu car introduit de la confusion avec bouton expander)
+//     // <button type="button" 
+//     //         class="cal-day__trash" 
+//     //         data-dateint="${dint}"
+//     //         aria-label="Déprogrammer la journée"
+//     //         title="Déprogrammer la journée">
+//     //   <span class="exp-icon" aria-hidden="true">
+//     //     <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+//     //         stroke="currentColor" stroke-width="1.6"
+//     //         stroke-linecap="round" stroke-linejoin="round">
+//     //       <path d="M3 6h18" />
+//     //       <path d="M8 6l1-2h6l1 2" />
+//     //       <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
+//     //       <line x1="10" y1="10" x2="10" y2="17" />
+//     //       <line x1="14" y1="10" x2="14" y2="17" />
+//     //     </svg>
+//     //   </span>
+//     // </button>
+
+//     // Colorisation des dates de weekend
+//     if (isWeekend) {
+//       dayNode.querySelector(".cal-day__title")
+//         ?.setAttribute("data-weekend", "true");
+//     }
+
+//     const header = dayNode.querySelector(".cal-day__header");
+//     if (header) {
+//       const handler = (e) => {
+//         e.preventDefault?.();
+//         e.stopPropagation?.();
+//         pickCreneauFromDay(daysEl, dayNode, dint);
+//       };
+
+//       header.addEventListener("click", handler);
+//       header.addEventListener("touchstart", handler, { passive: false });
+//     }
+
+//     /** @type {HTMLButtonElement | null} */
+//     const trashBtn = dayNode.querySelector(".cal-day__trash");
+//     if (trashBtn) {
+//     trashBtn.addEventListener("click", (e) => {
+//       e.stopPropagation();
+
+//       const dateInt = Number(trashBtn.dataset.dateint);
+//       if (!dateInt) return;
+
+//       const rowsOfDay = (rows || []).filter(r => r.Date === dateInt);
+//       if (!rowsOfDay.length) return;
+
+//       ctx.beginAction?.("df");
+
+//       ctx.mutateDf(current => {
+
+//         const daysRange = buildDaysRange(pp) || null;
+//         const anchor = findAnchorEventUuidForDayDelete(current, dateInt, { daysRange });
+
+//         if (anchor) {
+//           // ⚠️ IMPORTANT : on laisse la sélection après mutation
+//           requestAnimationFrame(() => {
+//             selectCalendarEventAndSync({
+//               daysEl,
+//               dateInt: anchor.Date,
+//               uuid: anchor.__uuid
+//             });
+//           });
+//         }
+
+//         const next = [];
+
+//         for (const r of current) {
+//           if (r.Date !== dateInt) {
+//             next.push(r);
+//             continue;
+//           }
+
+//           // 🚫 réservé → on ne touche pas
+//           if (activitesAPI.estActiviteReservee(r)) {
+//             next.push(r);
+//             continue;
+//           }
+
+//           // 🗑️ pause → suppression physique
+//           if (activitesAPI.estPause(r)) {
+//             continue; // on ne push pas
+//           }
+
+//           // 📦 activité normale → déprogrammation
+//           next.push({ ...r, Date: null });
+//         }
+
+//         return sortDf(next);
+//       });
+
+//       ctx.endAction?.("df");
+//     });    
+//     }
+
+//     /** @type {HTMLElement} */
+//     const tl = dayNode.querySelector(".cal-timeline");
+//     // IMPORTANT : height pilotée par JS (pas par CSS)
+//     tl.style.height = `${timelineH}px`;
+//     tl.style.minHeight = `${timelineH}px`;
+//     tl.dataset.pxPerMin = String(PX_PER_MIN);
+
+//     // hour lines + labels (0..24)
+//     for (let h = 0; h <= 24; h++) {
+//       const y = Math.round(h * 60 * PX_PER_MIN);
+
+//       const hr = document.createElement("div");
+//       hr.className = "cal-hour";
+//       hr.style.top = `${y}px`;
+
+//       const lab = document.createElement("div");
+//       lab.className = "cal-hour__label";
+//       lab.style.top = `${y}px`;
+//       lab.textContent = `${String(h).padStart(2, "0")}:00`;
+
+//       tl.appendChild(hr);
+//       tl.appendChild(lab);
+//     }
+
+//     // events blocks
+//     for (const r of list) {
+//       const startMin = parseHHMM(r.Debut) ?? 0;
+
+//       const durMin =
+//         (typeof prettyToMinutes === "function")
+//           ? prettyToMinutes(r.Duree)
+//           : (parseHHMM(r.Duree) ?? 0);
+
+//       const endMin = clamp(startMin + (durMin || 0), 0, DAY_MINUTES);
+
+//       const top = Math.round(startMin * PX_PER_MIN);
+//       const height = Math.max(18, Math.round((endMin - startMin) * PX_PER_MIN));
+
+//       const ev = document.createElement("div");
+//       ev.className = "cal-ev";
+//       ev.style.top = `${top}px`;
+//       ev.style.height = `${height}px`;
+//       ev.dataset.uuid = r.__uuid || "";
+//       ev.dataset.dateint = String(dint);
+//       ev.dataset.startMin = String(startMin);
+//       ev.dataset.endMin   = String(endMin);
+
+//       const timeLabel = `${r.Debut || ""} → ${r.Fin || ""}`.trim();
+
+//       const raw = r.Hyperlien || '';
+//       const href = raw || (
+//         "https://www.festivaloffavignon.com/resultats-recherche?recherche=" +
+//         encodeURIComponent(r.Activite || '')
+//       );
+
+//       const titleHtml = 
+//           `<a class="cal-ev__title"
+//               href="${href}"
+//               target="_blank"
+//               rel="noopener">
+//               ${r.Activite ?? ""}
+//           </a>`;
+
+//       const hasInfo = !!(r.__desc_summary || r.__avis_summary);
+//       const infoBtnHtml = hasInfo
+//         ? `<button type="button" class="cal-ev__info" aria-label="Infos" title="Infos">ℹ︎+</button>`
+//         : "";
+
+//       ev.innerHTML = `
+//         <div class="cal-ev__time">
+//           <span class="cal-ev__timeText">${timeLabel}</span>
+//           ${infoBtnHtml}
+//         </div>
+//         ${titleHtml}
+//         <div class="cal-ev__place">${r.Lieu ?? ""}</div>
+//       `;
+
+//       ev.addEventListener("click", (e) => {
+//         e.stopPropagation();
+//         daysEl.querySelectorAll(".cal-ev.is-selected").forEach(x => x.classList.remove("is-selected"));
+//         ev.classList.add("is-selected");
+
+//         snapProgrammeCalendar({
+//           dateInt: dint,
+//           uuid: r.__uuid,
+//           fallbackHour: 9,
+//           smooth: true
+//         });     
+
+//         try {
+//           selectRowByUuid?.("grid-programmees", r.__uuid);
+//         } catch {}
+//       });
+
+//       if (hasInfo) {
+//         const btn = ev.querySelector(".cal-ev__info");
+//         if (btn) {
+//           btn.addEventListener("click", (e) => {
+//             e.preventDefault();
+//             e.stopPropagation(); // ne pas déclencher la sélection / double tap / lien
+
+//             openPopoverNear(btn, {
+//               title: r.Activite || r.activite || "Détails",
+//               style: r.Style,
+//               desc: r.__desc_summary,
+//               avis: r.__avis_summary,
+//               mood: r.Mood,
+//               note: r?.Note || null,
+//             });
+//           }, { passive: false });
+//         }
+//       }
+
+//       bindItineraryGesture(ev, r.Lieu);
+
+//       tl.appendChild(ev);
+//     }
+
+//     daysEl.appendChild(dayNode);
+//   }
+
+//   queueMicrotask(() => {
+//     // scrollAllDaysToFirstEventOrHour(daysEl, 9);
+//     setCalDayScrollTops(daysEl, prevScrollTops);
+//     selectCurrentEventInCalendar();
+
+//     // cleanup ancien wiring si présent
+//     daysEl._offCoupledScroll?.();
+
+//     // nouveau wiring
+//     daysEl._offCoupledScroll = wireCoupledCalDayScroll(daysEl);
+//   });
+  
+// }
+function getProgrammeCalendarScrollTop(daysEl) {
+  const scroller = daysEl?.querySelector(".cal-scroll-y");
+  return scroller ? scroller.scrollTop : 0;
+}
+
+function setProgrammeCalendarScrollTop(daysEl, top) {
+  const scroller = daysEl?.querySelector(".cal-scroll-y");
+  if (scroller) scroller.scrollTop = top || 0;
+}
+
 function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
   if (!daysEl) return;
 
@@ -992,7 +1366,6 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
     byDay.get(d).push(r);
   }
 
-  // tri par heure de début dans chaque jour
   for (const [d, list] of byDay) {
     list.sort((a, b) => (parseHHMM(a.Debut) ?? 0) - (parseHHMM(b.Debut) ?? 0));
   }
@@ -1007,139 +1380,71 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
     return `${d}/${m}/${y}`;
   };
 
-  // ---------- get exiting calDayScrollTops ----------
-  const prevScrollTops = getCalDayScrollTops(daysEl);
+  // ---------- save previous global scroll ----------
+  const prevScrollTop = getProgrammeCalendarScrollTop(daysEl);
 
-  // ---------- reset + build ----------
+  // ---------- reset ----------
   daysEl.innerHTML = "";
+  daysEl.classList.add("cal-grid");
+
+  // ---------- root structure ----------
+  const headRow = document.createElement("div");
+  headRow.className = "cal-head-row";
+
+  const scrollY = document.createElement("div");
+  scrollY.className = "cal-scroll-y";
+
+  const cols = document.createElement("div");
+  cols.className = "cal-cols";
+
+  scrollY.appendChild(cols);
+  daysEl.appendChild(headRow);
+  daysEl.appendChild(scrollY);
 
   for (const dint of days) {
     const list = byDay.get(dint) || [];
-
-    const dayNode = document.createElement("div");
-    dayNode.className = "cal-day";
-    dayNode.dataset.dateint = String(dint);
-
     const isWeekend = isWeekendDateInt(dint);
 
-    dayNode.innerHTML = `
-      <div class="cal-day__header">
-        <div class="cal-day__title">${fmtDay(dint)}</div>
-        <div class="cal-day__actions">
-          <div class="cal-day__meta">${list.length} év.</div>
-        </div>
-      </div>
-      <div class="cal-day__body">
-        <div class="cal-timeline"></div>
+    // ===== HEADER =====
+    const header = document.createElement("div");
+    header.className = "cal-day__header";
+    header.dataset.dateint = String(dint);
+
+    header.innerHTML = `
+      <div class="cal-day__title">${fmtDay(dint)}</div>
+      <div class="cal-day__actions">
+        <div class="cal-day__meta">${list.length} év.</div>
       </div>
     `;
 
-    // Bouton trash à mettre sous cal-day__actions
-    // (mais non retenu car introduit de la confusion avec bouton expander)
-    // <button type="button" 
-    //         class="cal-day__trash" 
-    //         data-dateint="${dint}"
-    //         aria-label="Déprogrammer la journée"
-    //         title="Déprogrammer la journée">
-    //   <span class="exp-icon" aria-hidden="true">
-    //     <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
-    //         stroke="currentColor" stroke-width="1.6"
-    //         stroke-linecap="round" stroke-linejoin="round">
-    //       <path d="M3 6h18" />
-    //       <path d="M8 6l1-2h6l1 2" />
-    //       <rect x="5" y="6" width="14" height="15" rx="2" ry="2" />
-    //       <line x1="10" y1="10" x2="10" y2="17" />
-    //       <line x1="14" y1="10" x2="14" y2="17" />
-    //     </svg>
-    //   </span>
-    // </button>
-
-    // Colorisation des dates de weekend
     if (isWeekend) {
-      dayNode.querySelector(".cal-day__title")
+      header.querySelector(".cal-day__title")
         ?.setAttribute("data-weekend", "true");
     }
 
-    const header = dayNode.querySelector(".cal-day__header");
-    if (header) {
-      const handler = (e) => {
-        e.preventDefault?.();
-        e.stopPropagation?.();
-        pickCreneauFromDay(daysEl, dayNode, dint);
-      };
+    const headerHandler = (e) => {
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      pickCreneauFromDay(daysEl, header, dint);
+    };
 
-      header.addEventListener("click", handler);
-      header.addEventListener("touchstart", handler, { passive: false });
-    }
+    header.addEventListener("click", headerHandler);
+    header.addEventListener("touchstart", headerHandler, { passive: false });
 
-    /** @type {HTMLButtonElement | null} */
-    const trashBtn = dayNode.querySelector(".cal-day__trash");
-    if (trashBtn) {
-    trashBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
+    headRow.appendChild(header);
 
-      const dateInt = Number(trashBtn.dataset.dateint);
-      if (!dateInt) return;
+    // ===== COLUMN =====
+    const col = document.createElement("div");
+    col.className = "cal-col";
+    col.dataset.dateint = String(dint);
 
-      const rowsOfDay = (rows || []).filter(r => r.Date === dateInt);
-      if (!rowsOfDay.length) return;
-
-      ctx.beginAction?.("df");
-
-      ctx.mutateDf(current => {
-
-        const daysRange = buildDaysRange(pp) || null;
-        const anchor = findAnchorEventUuidForDayDelete(current, dateInt, { daysRange });
-
-        if (anchor) {
-          // ⚠️ IMPORTANT : on laisse la sélection après mutation
-          requestAnimationFrame(() => {
-            selectCalendarEventAndSync({
-              daysEl,
-              dateInt: anchor.Date,
-              uuid: anchor.__uuid
-            });
-          });
-        }
-
-        const next = [];
-
-        for (const r of current) {
-          if (r.Date !== dateInt) {
-            next.push(r);
-            continue;
-          }
-
-          // 🚫 réservé → on ne touche pas
-          if (activitesAPI.estActiviteReservee(r)) {
-            next.push(r);
-            continue;
-          }
-
-          // 🗑️ pause → suppression physique
-          if (activitesAPI.estPause(r)) {
-            continue; // on ne push pas
-          }
-
-          // 📦 activité normale → déprogrammation
-          next.push({ ...r, Date: null });
-        }
-
-        return sortDf(next);
-      });
-
-      ctx.endAction?.("df");
-    });    
-    }
-
-    /** @type {HTMLElement} */
-    const tl = dayNode.querySelector(".cal-timeline");
-    // IMPORTANT : height pilotée par JS (pas par CSS)
+    const tl = document.createElement("div");
+    tl.className = "cal-timeline";
     tl.style.height = `${timelineH}px`;
     tl.style.minHeight = `${timelineH}px`;
     tl.dataset.pxPerMin = String(PX_PER_MIN);
 
-    // hour lines + labels (0..24)
+    // hour lines + labels
     for (let h = 0; h <= 24; h++) {
       const y = Math.round(h * 60 * PX_PER_MIN);
 
@@ -1177,23 +1482,23 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       ev.dataset.uuid = r.__uuid || "";
       ev.dataset.dateint = String(dint);
       ev.dataset.startMin = String(startMin);
-      ev.dataset.endMin   = String(endMin);
+      ev.dataset.endMin = String(endMin);
 
       const timeLabel = `${r.Debut || ""} → ${r.Fin || ""}`.trim();
 
-      const raw = r.Hyperlien || '';
+      const raw = r.Hyperlien || "";
       const href = raw || (
         "https://www.festivaloffavignon.com/resultats-recherche?recherche=" +
-        encodeURIComponent(r.Activite || '')
+        encodeURIComponent(r.Activite || "")
       );
 
-      const titleHtml = 
-          `<a class="cal-ev__title"
-              href="${href}"
-              target="_blank"
-              rel="noopener">
-              ${r.Activite ?? ""}
-          </a>`;
+      const titleHtml =
+        `<a class="cal-ev__title"
+            href="${href}"
+            target="_blank"
+            rel="noopener">
+            ${r.Activite ?? ""}
+        </a>`;
 
       const hasInfo = !!(r.__desc_summary || r.__avis_summary);
       const infoBtnHtml = hasInfo
@@ -1219,7 +1524,7 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
           uuid: r.__uuid,
           fallbackHour: 9,
           smooth: true
-        });     
+        });
 
         try {
           selectRowByUuid?.("grid-programmees", r.__uuid);
@@ -1231,7 +1536,7 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
         if (btn) {
           btn.addEventListener("click", (e) => {
             e.preventDefault();
-            e.stopPropagation(); // ne pas déclencher la sélection / double tap / lien
+            e.stopPropagation();
 
             openPopoverNear(btn, {
               title: r.Activite || r.activite || "Détails",
@@ -1250,21 +1555,14 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       tl.appendChild(ev);
     }
 
-    daysEl.appendChild(dayNode);
+    col.appendChild(tl);
+    cols.appendChild(col);
   }
 
   queueMicrotask(() => {
-    // scrollAllDaysToFirstEventOrHour(daysEl, 9);
-    setCalDayScrollTops(daysEl, prevScrollTops);
+    setProgrammeCalendarScrollTop(daysEl, prevScrollTop);
     selectCurrentEventInCalendar();
-
-    // cleanup ancien wiring si présent
-    daysEl._offCoupledScroll?.();
-
-    // nouveau wiring
-    daysEl._offCoupledScroll = wireCoupledCalDayScroll(daysEl);
   });
-  
 }
 
 // Re-render calendar (data + sélection + scroll)
@@ -1280,14 +1578,14 @@ export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9, def
 
   const selD = defaultDay ? defaultDay : getSelectedProgrammeDateInt();
   const selUuid = getSelectedRowUuid('grid-programmees'); 
-  const prevScrollTops = getCalDayScrollTops(calADays);
+  // const prevScrollTops = getCalDayScrollTops(calADays);
   
   renderProgrammeCalendar(calADays, rows, pp, selD);
 
   // post-render snapping
   requestAnimationFrame(() => {
     // scrollAllDaysToFirstEventOrHour(calADays, defaultHour);         // scroll jusqu'aupremier event ou defaultHour par défaut
-    setCalDayScrollTops(calADays, prevScrollTops);
+    // setCalDayScrollTops(calADays, prevScrollTops);
     if (snapDay && selD) scrollCalendarToDay?.(selD);         // scroll horizontal vers le jour de l’event sélectionné
     if (selUuid) {
       ensureCalendarEventVisible(selUuid);                          // scroll minimal pour rendre l’event visible
@@ -1473,7 +1771,8 @@ function enableCalAxisLock() {
 
   const getDaysScroll = () => document.querySelector("#programme-panel #calA .cal-days-scroll");
 
-  const isInDayBody = (t) => !!t && !!t.closest?.("#programme-panel #calA .cal-day__body");
+  // const isInDayBody = (t) => !!t && !!t.closest?.("#programme-panel #calA .cal-day__body");
+  const isInDayBody = (t) => !!t && !!t.closest?.("#programme-panel #calA .cal-scroll-y");
   const isInCal = (t) => !!t && !!t.closest?.("#programme-panel #calA");
 
   let mode = null;       // null | "x" | "y"
@@ -1812,7 +2111,8 @@ export function wireCalendarLongPress(daysEl, {
   daysEl.addEventListener("pointercancel", endPress, { passive: true });
 
   // si l’utilisateur scrolle un container parent, on annule (important)
-  const scrollers = daysEl.querySelectorAll(".cal-day__body");
+  // const scrollers = daysEl.querySelectorAll(".cal-day__body");
+  const scrollers = daysEl.querySelectorAll(".cal-scroll-y");
   scrollers.forEach(sc => sc.addEventListener("scroll", endPress, { passive: true }));
 
   return () => {
@@ -2006,10 +2306,11 @@ function waitScrollStable(scrollerEl, { timeoutMs = 700, stableFrames = 4 } = {}
 }
 
 // Attend la stabilisation d'un day scroll 
-export async function waitForScrollDayToStabilize(dateInt) {
+export async function waitForScrollCalendarToStabilize() {
     await after2RAF();
-    const day = getCalDays().querySelector?.(`.cal-day[data-dateint="${dateInt}"]`);
-    const scroller = day?.querySelector?.(".cal-day__body");
+    // const day = getCalDays().querySelector?.(`.cal-day[data-dateint="${dateInt}"]`);
+    // const scroller = day?.querySelector?.(".cal-day__body");
+    const scroller = getCalDays()?.querySelector?.(".cal-scroll-y");
     await waitScrollStable(scroller, { timeoutMs: 900, stableFrames: 5 });
 }
 
@@ -2021,7 +2322,7 @@ export function wireProgrammeCalendar() {
     onLongPress: async ({ evEl, uuid, dateInt }) => {
       suppressContextMenu();
       selectCalendarEventAndSync({daysEl:getCalDays(), dateInt, uuid });
-      // await waitForScrollDayToStabilize(dateInt)
+      // await waitForScrollCalendarToStabilize()
       openSheetReprogrammer(uuid);
     }
   });

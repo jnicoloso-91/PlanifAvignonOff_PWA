@@ -64,8 +64,8 @@ import {
   ensureCalendarEventVisible,
   isProgrammeCalendarVisible,
   rerenderProgrammeCalendar,
-  waitForScrollDayToStabilize,
-  getDaysScroll,
+  waitForScrollCalendarToStabilize,
+  getCalDays,
   scrollCalendarToDay,
   PX_PER_MIN,
 } from './calendar.js';
@@ -7078,25 +7078,49 @@ export async function openSheetReprogrammer(uuid) {
     );
   }
 
-  function getDayBody(dateInt) {
-    return /** @type {HTMLElement|null} */ (getCalDayEl(dateInt)?.querySelector(".cal-day__body"));
+  // function getDayBody(dateInt) {
+  //   return /** @type {HTMLElement|null} */ (getCalDayEl(dateInt)?.querySelector(".cal-day__body"));
+  // }
+
+  // function getDayScrollTop(dateInt) {
+  //   return getDayBody(dateInt)?.scrollTop ?? null;
+  // }
+
+  // function setDayScrollTop(dateInt, y, { smooth = false } = {}) {
+  //   const body = getDayBody(dateInt);
+  //   if (!body) return false;
+
+  //   const maxScroll = Math.max(0, body.scrollHeight - body.clientHeight);
+  //   const target = Math.max(0, Math.min(Number(y || 0), maxScroll));
+
+  //   if (smooth && typeof body.scrollTo === "function") {
+  //     body.scrollTo({ top: target, behavior: "smooth" });
+  //   } else {
+  //     body.scrollTop = target;
+  //   }
+  //   return true;
+  // }
+  function getCalendarScroller() {
+    return /** @type {HTMLElement|null} */ (
+      getCalDays()?.querySelector?.(".cal-scroll-y")
+    );
   }
 
-  function getDayScrollTop(dateInt) {
-    return getDayBody(dateInt)?.scrollTop ?? null;
+  function getCalendarScrollTop() {
+    return getCalendarScroller()?.scrollTop ?? null;
   }
 
-  function setDayScrollTop(dateInt, y, { smooth = false } = {}) {
-    const body = getDayBody(dateInt);
-    if (!body) return false;
+  function setCalendarScrollTop(y, { smooth = false } = {}) {
+    const scroller = getCalendarScroller();
+    if (!scroller) return false;
 
-    const maxScroll = Math.max(0, body.scrollHeight - body.clientHeight);
+    const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
     const target = Math.max(0, Math.min(Number(y || 0), maxScroll));
 
-    if (smooth && typeof body.scrollTo === "function") {
-      body.scrollTo({ top: target, behavior: "smooth" });
+    if (smooth && typeof scroller.scrollTo === "function") {
+      scroller.scrollTo({ top: target, behavior: "smooth" });
     } else {
-      body.scrollTop = target;
+      scroller.scrollTop = target;
     }
     return true;
   }
@@ -7104,7 +7128,8 @@ export async function openSheetReprogrammer(uuid) {
   // Amener le jour + appliquer le même scrollY que le jour source
   function scrollCalendarToDayKeepY(dateInt, yScroll, { behavior = "auto", smoothY = false } = {}) {
     scrollCalendarToDay(dateInt);
-    queueMicrotask(() => setDayScrollTop(dateInt, yScroll, { smooth: smoothY }));
+    // queueMicrotask(() => setDayScrollTop(dateInt, yScroll, { smooth: smoothY }));
+    queueMicrotask(() => setCalendarScrollTop(yScroll, { smooth: smoothY }));
   }
 
   // trouve le jour le plus centré dans le viewport du calendrier, et retourne son dateInt
@@ -7152,7 +7177,7 @@ export async function openSheetReprogrammer(uuid) {
 
   // Création du fantome s'il n'existe pas
   function ensureGhostEvent({ dateInt, topPx, heightPx, title = "Prévisualisation", place = "", debut = "", fin = "" }) {
-    const day = document.querySelector(`.cal-day[data-dateint="${String(dateInt)}"]`);
+    const day = document.querySelector(`.cal-col[data-dateint="${String(dateInt)}"]`);
     const tl  = day?.querySelector(".cal-timeline");
     if (!tl) return null;
 
@@ -7281,9 +7306,10 @@ export async function openSheetReprogrammer(uuid) {
         <div class="wheel-indicator"></div>
       `;
 
-      // Attend que le scroller day se tabilise puis mesure sa valeur
-      await waitForScrollDayToStabilize(srcDateInt);
-      srcY = srcDateInt ? (getDayScrollTop(srcDateInt) ?? 0) : 0;
+      // Attend que le scroller day se stabilise puis mesure sa valeur
+      await waitForScrollCalendarToStabilize();
+      // srcY = srcDateInt ? (getDayScrollTop(srcDateInt) ?? 0) : 0;
+      srcY = srcDateInt ? (getCalendarScrollTop() ?? 0) : 0;
 
       // Affiche le fantôme sur un jour donné
       function previewDayWithGhost(dateInt) {
