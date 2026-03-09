@@ -2593,22 +2593,6 @@ input[type="range"]:focus::-moz-range-thumb {
   width: max-content;        /* OK pour le scroll horizontal */
 }
 
-/* Une colonne “jour” */
-#programme-panel #calA .cal-day{
-  flex: 0 0 320px;           /* largeur par jour */
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-
-  border: 1px solid rgba(0,0,0,.10);
-  border-radius: 10px;
-  background: #fff;
-  overflow: hidden;
-
-  touch-action: pan-x pan-y !important;
-}
-
 /* En-tête du jour */
 #programme-panel #calA .cal-day__header{
   position: sticky;
@@ -2641,25 +2625,6 @@ input[type="range"]:focus::-moz-range-thumb {
   font-size: 12px;
   color: rgba(17,24,39,.65);
   white-space: nowrap;
-}
-
-/* Zone “timeline” (scroll vertical interne au jour)
-   ⚠️ Nettoyage: suppression de la contradiction overflow-x:auto !important
-*/
-#programme-panel #calA .cal-day__body{
-  flex: 1 1 auto;
-  min-height: 0;
-
-  overflow-y: auto;
-  overflow-x: hidden;                 /* cohérent + pas de double scroll X */
-  -webkit-overflow-scrolling: touch;
-
-  position: relative;
-  background: #fff;
-
-  touch-action: pan-x pan-y !important;
-  overscroll-behavior-y: contain;
-  overscroll-behavior-x: auto;
 }
 
 /* Grille horaire */
@@ -2752,7 +2717,6 @@ input[type="range"]:focus::-moz-range-thumb {
 
 /* Responsive */
 @media (max-width: 812px){
-  #programme-panel #calA .cal-day{ flex-basis: 280px; }
   #programme-panel #calA .cal-ev__title{ font-size: 11px; }
 }
 
@@ -2794,11 +2758,84 @@ input[type="range"]:focus::-moz-range-thumb {
   }
 }
 
-.cal-day,
 .cal-ev,
 .cal-ev * {
   user-select: none; -webkit-user-select: none;
 }
+
+.cal-grid{
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.cal-head-row{
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0;
+}
+
+.cal-scroll-y{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+
+  /* position: relative;
+  top: -10px; */
+}
+
+.cal-cols{
+  display: flex;
+  align-items: flex-start;
+}
+
+.cal-col{
+  flex: 0 0 280px;   /* ajuste à ta largeur actuelle */
+  min-width: 280px;
+  border-left: 1px solid rgba(0,0,0,0.15);
+  border-right: 1px solid rgba(0,0,0,0.15);
+}
+
+.cal-day__header{
+  position: relative;
+  top: 0;
+  z-index: 2;
+  background: white;
+}
+
+.cal-timeline{
+  position: relative;
+}
+
+.cal-hour,
+.cal-hour__label,
+.cal-ev{
+  position: absolute;
+}
+
+.cal-head-row > .cal-day__header{
+  flex: 0 0 280px;
+  min-width: 280px;
+  box-sizing: border-box;
+
+  padding: 6px 10px;
+
+  background: #fff;
+
+  border: 1px solid rgba(0,0,0,0.15);
+  border-bottom: none;
+
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.cal-head-row > .cal-day__header + .cal-day__header{
+  border-left: none;
+}
+
 
 /*=========================
    SetPrio
@@ -3092,101 +3129,5 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .search-clear-btn:active{
   background: rgba(0,0,0,0.18);
-}
-
-
-/*=========================
-New Calendar
-  =========================*/
-
-.cal-grid{
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-}
-
-.cal-head-row{
-  display: flex;
-  flex: 0 0 auto;
-  gap: 0;
-}
-
-.cal-scroll-y{
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-
-  position: relative;
-  top: -10px;
-}
-
-.cal-cols{
-  display: flex;
-  align-items: flex-start;
-}
-
-.cal-col{
-  flex: 0 0 280px;   /* ajuste à ta largeur actuelle */
-  min-width: 280px;
-  border-right: 1px solid rgba(0,0,0,0.08);
-}
-
-.cal-day__header{
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: white;
-}
-
-.cal-timeline{
-  position: relative;
-}
-
-.cal-hour,
-.cal-hour__label,
-.cal-ev{
-  position: absolute;
-}
-
-/* si tu avais du scroll sur body, il faut l'enlever */
-.cal-day__body{
-  overflow: visible !important;
-}
-
-.cal-head-row > .cal-day__header{
-  flex: 0 0 280px;
-  min-width: 280px;
-  box-sizing: border-box;
-
-  padding: 6px 10px;
-
-  background: #fff;
-
-  border: 1px solid rgba(0,0,0,0.15);
-  border-bottom: none;
-
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-}
-
-.cal-head-row > .cal-day__header + .cal-day__header{
-  border-left: none;
-}
-
-.cal-col{
-  border-left: 1px solid rgba(0,0,0,0.15);
-  border-right: 1px solid rgba(0,0,0,0.15);
-}
-
-.cal-head-row{
-  gap: 0;
-}
-
-.cal-day__header{
-  position: relative;
-  z-index: 2;
 }
 

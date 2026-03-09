@@ -1124,7 +1124,6 @@ function enableCalAxisLock() {
 
   const getDaysScroll = () => document.querySelector("#programme-panel #calA .cal-days-scroll");
 
-  // const isInDayBody = (t) => !!t && !!t.closest?.("#programme-panel #calA .cal-day__body");
   const isInDayBody = (t) => !!t && !!t.closest?.("#programme-panel #calA .cal-scroll-y");
   const isInCal = (t) => !!t && !!t.closest?.("#programme-panel #calA");
 
@@ -1464,7 +1463,6 @@ export function wireCalendarLongPress(daysEl, {
   daysEl.addEventListener("pointercancel", endPress, { passive: true });
 
   // si l’utilisateur scrolle un container parent, on annule (important)
-  // const scrollers = daysEl.querySelectorAll(".cal-day__body");
   const scrollers = daysEl.querySelectorAll(".cal-scroll-y");
   scrollers.forEach(sc => sc.addEventListener("scroll", endPress, { passive: true }));
 
@@ -1514,8 +1512,6 @@ function waitScrollStable(scrollerEl, { timeoutMs = 700, stableFrames = 4 } = {}
 // Attend la stabilisation d'un day scroll 
 export async function waitForScrollCalendarToStabilize() {
     await after2RAF();
-    // const day = getCalDays().querySelector?.(`.cal-day[data-dateint="${dateInt}"]`);
-    // const scroller = day?.querySelector?.(".cal-day__body");
     const scroller = getCalDays()?.querySelector?.(".cal-scroll-y");
     await waitScrollStable(scroller, { timeoutMs: 900, stableFrames: 5 });
 }

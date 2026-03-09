@@ -7070,36 +7070,6 @@ export async function openSheetReprogrammer(uuid) {
     return /** @type {HTMLElement|null} */ (document.getElementById("calADays"));
   }
 
-  function getCalDayEl(dateInt) {
-    const daysEl = getCalDaysEl();
-    if (!daysEl) return null;
-    return /** @type {HTMLElement|null} */ (
-      daysEl.querySelector(`.cal-day[data-dateint="${String(dateInt)}"]`)
-    );
-  }
-
-  // function getDayBody(dateInt) {
-  //   return /** @type {HTMLElement|null} */ (getCalDayEl(dateInt)?.querySelector(".cal-day__body"));
-  // }
-
-  // function getDayScrollTop(dateInt) {
-  //   return getDayBody(dateInt)?.scrollTop ?? null;
-  // }
-
-  // function setDayScrollTop(dateInt, y, { smooth = false } = {}) {
-  //   const body = getDayBody(dateInt);
-  //   if (!body) return false;
-
-  //   const maxScroll = Math.max(0, body.scrollHeight - body.clientHeight);
-  //   const target = Math.max(0, Math.min(Number(y || 0), maxScroll));
-
-  //   if (smooth && typeof body.scrollTo === "function") {
-  //     body.scrollTo({ top: target, behavior: "smooth" });
-  //   } else {
-  //     body.scrollTop = target;
-  //   }
-  //   return true;
-  // }
   function getCalendarScroller() {
     return /** @type {HTMLElement|null} */ (
       getCalDays()?.querySelector?.(".cal-scroll-y")
@@ -7144,7 +7114,7 @@ export async function openSheetReprogrammer(uuid) {
     let best = null;
     let bestDist = Infinity;
 
-    for (const day of Array.from(daysEl.querySelectorAll(".cal-day"))) {
+    for (const day of Array.from(daysEl.querySelectorAll(".cal-col"))) {
       const r = day.getBoundingClientRect();
       // ignore si complètement hors viewport
       if (r.right < cont.left || r.left > cont.right) continue;
