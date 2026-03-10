@@ -2024,7 +2024,7 @@ export function openSheetAide() {
                 Sélectionnez une activité programmable (couleur vert menthe) dans le <u><i>Stock</u></i> et dépliez le menu de la colonne <u><i>Date</u></i> pour choisir une date possible ;
               </li>
               <li>
-                Utilisez l'<a href="#assistant_programmation"><u><i>Assistant programmation</u></i></a>, lequel génère automatiquement des propositions de plannings d’activités en fonction de critères que vous choisissez (voir menu “...”) .
+                Utilisez l'<a href="#assistant_programmation"><u><i>Assistant programmation</u></i></a>, lequel génère automatiquement des propositions de plannings d’activités en fonction de critères que vous choisissez (voir menu ...).
               </li>
             </ul>
 
@@ -2064,8 +2064,8 @@ export function openSheetAide() {
               </li>
             </ul>
 
-            <h4>Menu “...”</h4>
-            <p>Le menu “...” situé à droite de l'entête permet d’accéder aux fonctions complémentaires suivantes :</p>
+            <h4>Menu ...</h4>
+            <p>Le menu ... situé à droite de l'entête permet d’accéder aux fonctions complémentaires suivantes :</p>
             <ul>
               <li><u><i>Carnet d'adresses</u></i> : présente le carnet d'adresses des lieux d'activités / théâtres. Les champs <u><i>Nom</u></i> / <u><i>Adresse</i></u> / 
               <u><i>Téléphone</u></i> /<u><i>Web</u></i> de chaque entrée peuvent être édités et des boutons permettent d'ajouter / supprimer 
@@ -2151,7 +2151,7 @@ export function openSheetAide() {
                   (i.e. celle pour laquelle vous souhaitez programmer des activités en coactivité).</li>
                 </ul>
               </li>
-              <li><u><i>Automatique</u></i> : utilisez l'<a href="#assistant_programmation"><u><i>Assistant programmation</u></i></a> du menu “...”, lequel génère automatiquement des propositions de plannings d’activités en fonction de critères que vous choisissez.</li>
+              <li><u><i>Automatique</u></i> : utilisez l'<a href="#assistant_programmation"><u><i>Assistant programmation</u></i></a> du menu ..., lequel génère automatiquement des propositions de plannings d’activités en fonction de critères que vous choisissez.</li>
             </ul>
           </div>
         </div>
@@ -2162,7 +2162,7 @@ export function openSheetAide() {
             Retour
           </div>
           <div class="help-block">
-            <p>Le menu "..." en haut à droite de l'application vous donne accès à deux assistants IA:</p>
+            <p>Le menu ... en haut à droite de l'application vous donne accès à deux assistants IA:</p>
             <ul style="margin-top: 0em">
               <li><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 

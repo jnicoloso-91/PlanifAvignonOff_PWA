@@ -685,6 +685,7 @@ main, .page-wrap {
   /* height: calc(var(--bar-height) + var(--safe-gap, 0px) + 12px); */
   height: calc(var(--bar-height) + 20px);
   flex: 0 0 auto;
+  user-select: none;
 }
 
 /* Kill the blue focus ring in Quartz */
@@ -917,6 +918,7 @@ main, .page-wrap {
   background: var(--bg);                                  /* même couleur que le fond */
   z-index: 5000;                                          /* Au dessus des autres y compris les sheets en 4000 */
   pointer-events: none;                                   /* ne bloque aucun geste système */
+  user-select: none;
 }
 
 /*==========================*/
@@ -942,6 +944,8 @@ main, .page-wrap {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform .1s ease, background .15s ease;
+  -webkit-user-select: none;
+  user-select: none;
 }
 @media (max-width: 812px) {
   .bb-icon-btn {
