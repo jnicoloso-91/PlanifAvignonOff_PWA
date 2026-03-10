@@ -2898,6 +2898,20 @@ input[type="range"]:focus::-moz-range-thumb {
   font-size: 1rem;
 }
 
+.prio-note__icon{
+  flex: 0 0 auto;
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.prio-note__text{
+  flex: 1 1 auto;
+}
+
+.prio-note{
+  font-size: 0.82rem;
+  color: #666;
+}
 
 /*=========================
    Wheel

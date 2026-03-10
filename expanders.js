@@ -1293,6 +1293,11 @@ export function getOrCreatePrioPopup() {
       <div class="wheel-wrap">
         <div class="wheel">
           <div class="wheel-spacer"></div>
+          <div class="wheel-item" data-v="-5">-5</div>
+          <div class="wheel-item" data-v="-4">-4</div>
+          <div class="wheel-item" data-v="-3">-3</div>
+          <div class="wheel-item" data-v="-2">-2</div>
+          <div class="wheel-item" data-v="-1">-1</div>
           <div class="wheel-item" data-v="">Aucune</div>
           <div class="wheel-item" data-v="1">1</div>
           <div class="wheel-item" data-v="2">2</div>
@@ -1302,6 +1307,11 @@ export function getOrCreatePrioPopup() {
           <div class="wheel-spacer"></div>
         </div>
         <div class="wheel-indicator"></div>
+      </div>
+
+      <div class="prio-note">
+        <span class="prio-note__icon" aria-hidden="true">ℹ︎</span>
+        <span class="prio-note__text">Marqueur négatif ➜ activité chevauchable</span>
       </div>
 
       <div class="prio-actions">
@@ -1327,6 +1337,8 @@ export function getOrCreatePrioPopup() {
 
   const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".prio-popup"));
   const picker = createWheelPicker(popup.querySelector(".wheel-wrap"));
+
+  requestAnimationFrame(() => { picker.setValue(null); });
 
   const actions = /** @type {HTMLElement} */ (popup.querySelector(".prio-actions"));
   const btnValidate = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-validate"));

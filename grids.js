@@ -1025,6 +1025,71 @@ function buildColumnsActivitesProgrammables() {
 }
 
 // Cell Editors & Filters
+// class IntCellEditor {
+//   init(params) {
+//     this.params = params;
+
+//     const input = document.createElement("input");
+//     input.className = "ag-input ag-text-field-input";
+
+//     // 🔑 CLÉ : clavier numérique iOS / Android
+//     input.type = "tel";
+//     input.setAttribute("inputmode", "numeric");
+//     input.setAttribute("pattern", "[0-9]*");
+//     input.autocomplete = "off";
+
+//     // valeur initiale
+//     input.value = (params.value == null) ? "" : String(params.value);
+
+//     // 🔒 Filtrage live (chiffres uniquement)
+//     input.addEventListener("input", () => {
+//       const cleaned = input.value.replace(/\D+/g, "");
+//       if (input.value !== cleaned) input.value = cleaned;
+//     });
+
+//     // 🔒 Bloque lettres sur desktop (UX propre)
+//     input.addEventListener("keydown", (e) => {
+//       // touches autorisées
+//       if (
+//         e.key === "Backspace" ||
+//         e.key === "Delete" ||
+//         e.key === "Tab" ||
+//         e.key === "ArrowLeft" ||
+//         e.key === "ArrowRight"
+//       ) return;
+
+//       // chiffres seulement
+//       if (!/^\d$/.test(e.key)) {
+//         e.preventDefault();
+//       }
+//     });
+
+//     this.eInput = input;
+//   }
+
+//   getGui() {
+//     return this.eInput;
+//   }
+
+//   afterGuiAttached() {
+//     // ⚠️ Important iOS : focus direct sans preventDefault
+//     this.eInput.focus({ preventScroll: true });
+//     this.eInput.select();
+//   }
+
+//   getValue() {
+//     const v = this.eInput.value.replace(/\D+/g, "");
+//     return v === "" ? null : parseInt(v, 10);
+//   }
+
+//   isCancelBeforeStart() {
+//     return false;
+//   }
+
+//   isCancelAfterEnd() {
+//     return false;
+//   }
+// }
 class IntCellEditor {
   init(params) {
     this.params = params;
@@ -1032,24 +1097,27 @@ class IntCellEditor {
     const input = document.createElement("input");
     input.className = "ag-input ag-text-field-input";
 
-    // 🔑 CLÉ : clavier numérique iOS / Android
+    // clavier numérique mobile
     input.type = "tel";
     input.setAttribute("inputmode", "numeric");
-    input.setAttribute("pattern", "[0-9]*");
     input.autocomplete = "off";
 
-    // valeur initiale
     input.value = (params.value == null) ? "" : String(params.value);
 
-    // 🔒 Filtrage live (chiffres uniquement)
+    // filtrage live
     input.addEventListener("input", () => {
-      const cleaned = input.value.replace(/\D+/g, "");
-      if (input.value !== cleaned) input.value = cleaned;
+      let v = input.value;
+
+      // garde chiffres + éventuellement un "-" en première position
+      v = v.replace(/[^\d-]/g, "");
+      v = v.replace(/(?!^)-/g, ""); // supprime "-" ailleurs qu'en début
+
+      if (input.value !== v) input.value = v;
     });
 
-    // 🔒 Bloque lettres sur desktop (UX propre)
+    // gestion clavier desktop
     input.addEventListener("keydown", (e) => {
-      // touches autorisées
+
       if (
         e.key === "Backspace" ||
         e.key === "Delete" ||
@@ -1058,7 +1126,14 @@ class IntCellEditor {
         e.key === "ArrowRight"
       ) return;
 
-      // chiffres seulement
+      // autorise "-"
+      if (e.key === "-") {
+        if (input.selectionStart !== 0 || input.value.includes("-")) {
+          e.preventDefault();
+        }
+        return;
+      }
+
       if (!/^\d$/.test(e.key)) {
         e.preventDefault();
       }
@@ -1072,23 +1147,18 @@ class IntCellEditor {
   }
 
   afterGuiAttached() {
-    // ⚠️ Important iOS : focus direct sans preventDefault
     this.eInput.focus({ preventScroll: true });
     this.eInput.select();
   }
 
   getValue() {
-    const v = this.eInput.value.replace(/\D+/g, "");
-    return v === "" ? null : parseInt(v, 10);
+    const v = this.eInput.value.replace(/[^\d-]/g, "");
+    if (v === "" || v === "-") return null;
+    return parseInt(v, 10);
   }
 
-  isCancelBeforeStart() {
-    return false;
-  }
-
-  isCancelAfterEnd() {
-    return false;
-  }
+  isCancelBeforeStart() { return false; }
+  isCancelAfterEnd() { return false; }
 }
 
 class CustomDateFilter {

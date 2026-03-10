@@ -1593,6 +1593,8 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
 function _getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
   const dateRef  = ligneRef.Date;
   const debutRef = Number.isFinite(heureMinute(ligneRef)) ? heureMinute(ligneRef) : MIN_DAY;
+  const duRef = Number.isFinite(dureeMinute(ligneRef)) ? dureeMinute(ligneRef) : 0;
+  const finRef = debutRef + duRef;
 
   const sameDay = (activitesProgrammees || [])
     .filter(r => r.Date === dateRef)
@@ -1600,6 +1602,7 @@ function _getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
 
   let prev = null;
   for (const r of sameDay) {
+    if (r.Priorite < 0) continue; // activité chevauchable
     const d = heureMinute(r);
     if (Number.isFinite(d) && d < debutRef) prev = r;
     else if ((d ?? 0) >= debutRef) break;
@@ -1607,7 +1610,7 @@ function _getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
 
   const prevFin = prev ? (heureMinute(prev) + (dureeMinute(prev) || 0)) : MIN_DAY;
   const debut_min = prevFin;
-  const fin_max   = debutRef;
+  const fin_max   = (ligneRef.Priorite < 0) ? finRef : debutRef;   // Prio < 0 => activité chavauchable 
 
   return [debut_min, fin_max, prev];
 }
@@ -1622,9 +1625,9 @@ function _getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
  */
 function _getCreneauBoundsApres(activitesProgrammees, ligneRef) {
   const dateRef  = ligneRef.Date;
-  const dRef = Number.isFinite(heureMinute(ligneRef)) ? heureMinute(ligneRef) : MIN_DAY;
+  const debutRef = Number.isFinite(heureMinute(ligneRef)) ? heureMinute(ligneRef) : MIN_DAY;
   const duRef = Number.isFinite(dureeMinute(ligneRef)) ? dureeMinute(ligneRef) : 0;
-  const finRef = dRef + duRef;
+  const finRef = debutRef + duRef;
 
   if (finRef > MAX_DAY) return [finRef, null, null]; // déborde jour suivant -> pas d'"après"
 
@@ -1634,13 +1637,15 @@ function _getCreneauBoundsApres(activitesProgrammees, ligneRef) {
 
   let next = null;
   for (const r of sameDay) {
+    if (r.Priorite < 0) continue; // activité chevauchable
     const rDeb = heureMinute(r) || 0;
     const rFin = rDeb + (dureeMinute(r) || 0);
     if (rFin > finRef) { next = r; break; }
   }
 
   const fin_max   = next ? heureMinute(next) : null;
-  const debut_min = finRef;
+  const debut_min = (ligneRef.Priorite < 0) ? debutRef : finRef;   // Prio < 0 => activité chavauchable 
+
 
   return [debut_min, fin_max, next];
 }

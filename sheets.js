@@ -1979,8 +1979,9 @@ export function openSheetAide() {
 
             <h4>Couleurs</h4>
             <p>Dans les tableaux <u><i>Programme</u></i>, <u><i>Plages libres</u></i> et <u><i>Programmer…</u></i>, les lignes sont colorisées en fonction de leur <u><i>Date</u></i>.</p>
-            <p>Dans le tableau <u><i>Programme</u></i>, les activités <u><i>réservées</u></i> sont libellées en rouge (une activité réservée ne peut être ni déprogrammée ni reprogrammée).</p>
             <p>Dans le tableau <u><i>Stock</u></i>, les activités programmables (celles pour lesquelles il existe une date de programmation possible) sont colorisées en vert menthe.</p>
+            <p>Dans le tableau <u><i>Programme</u></i>, les activités <u><i>réservées</u></i> sont libellées en rouge (une activité réservée ne peut être ni déprogrammée ni reprogrammée).</p>
+            <p>Les activités <u><i>favorites</u></i> (celles qui ont un <u><i>Marqueur</u></i> non null) sont libellées en bleu.</p>
 
             <h4>Edition, tri, ordre</h4>
             <p>Dans les tableaux <u><i>Programme</u></i> et <u><i>Stock</u></i>, toutes les informations sont éditables, <sauf :</p>
@@ -2124,6 +2125,9 @@ export function openSheetAide() {
               Ces marqueurs peuvent ensuite être utilisés pour filtrer les activités programmables sur les seuls favoris ayant une ou plusieurs valeurs de marqueur.</li>
             </ul>
 
+            <p>⚠️ : un marqueur négatif signifie que l'activité est chevauchable, i.e. que l'on peut programmer des activités en coactivité avec celle-ci. 
+            Ceci permet dans un programme de garder en option plusieurs activités sur le même créneau horaire.</p>
+
             <h4>Méthodes d'élaboration du programme</h4>
             <p>Vous pouvez élaborer votre programme soit en <u><i>manuel</u></i> soit en <u><i>automatique</u></i> :
             <ul>
@@ -2143,6 +2147,8 @@ export function openSheetAide() {
                   <li>Choisissez une plage libre dans la rubrique <u><i>Plages libres</u></i>.</li>
                   <li>Choisissez une activité dans la rubrique <u><i>Programmer...</u></i> et appuyez sur le bouton <u><i>Programmer</u></i>.</li>
                   <li>Et ainsi de suite...</li>
+                  <li>Si vous souhaitez garder en option plusieurs activités sur le même créneau horaire, mettez un marqueur négatif sur l'activité que vous souhaitez rendre chevauchable  
+                  (i.e. celle pour laquelle vous souhaitez programmer des activités en coactivité).</li>
                 </ul>
               </li>
               <li><u><i>Automatique</u></i> : utilisez l'<a href="#assistant_programmation"><u><i>Assistant programmation</u></i></a> du menu “...”, lequel génère automatiquement des propositions de plannings d’activités en fonction de critères que vous choisissez.</li>
