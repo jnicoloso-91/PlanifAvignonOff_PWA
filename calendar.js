@@ -299,7 +299,7 @@ function snapProgrammeCalendar({
     requestAnimationFrame(async () => {
       if (uuid) {
         await waitForScrollCalendarToStabilize();
-        scrollCalendarToEvent(uuid, { smooth: true, preferBottom: false }); 
+        scrollCalendarToEvent(uuid, { dateInt, smooth: true, preferBottom: false }); 
       }
     });
   });
@@ -364,6 +364,7 @@ export function scrollCalendarToDay(dateInt) {
 
 // Scroll le calendrier verticalement pour afficher un event donné
 function scrollCalendarToEvent(uuid, {
+  dateInt = null,
   gapTopPx = 12,
   gapBottomPx = 16,
   smooth = false,
@@ -374,7 +375,19 @@ function scrollCalendarToEvent(uuid, {
   const calA = getCalRoot();
   if (!calA || !uuid) return false;
 
-  const ev = calA.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+  // const ev = calA.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+  let ev = null;
+
+  if (dateInt != null) {
+    ev = calA.querySelector(
+      `.cal-ev[data-uuid="${CSS.escape(uuid)}"][data-dateint="${dateInt}"]`
+    );
+  }
+
+  if (!ev) {
+    ev = calA.querySelector(`.cal-ev[data-uuid="${CSS.escape(uuid)}"]`);
+  }
+
   if (!ev) return false;
 
   const scroller = calA.querySelector(".cal-scroll-y");
@@ -701,11 +714,257 @@ function getProgrammeCalendarScrollTop(daysEl) {
   return scroller ? scroller.scrollTop : 0;
 }
 
+// Set le scroll top du calendar
 function setProgrammeCalendarScrollTop(daysEl, top) {
   const scroller = daysEl?.querySelector(".cal-scroll-y");
   if (scroller) scroller.scrollTop = top || 0;
 }
 
+// Renvoie le next dateint
+function nextDateInt(dateInt) {
+  const s = String(dateInt);
+  const y = Number(s.slice(0,4));
+  const m = Number(s.slice(4,6)) - 1;
+  const d = Number(s.slice(6,8));
+
+  const dt = new Date(y, m, d);
+  dt.setDate(dt.getDate() + 1);
+
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth()+1).padStart(2,"0");
+  const dd = String(dt.getDate()).padStart(2,"0");
+
+  return Number(`${yy}${mm}${dd}`);
+}
+
+// Render du calendar
+// function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
+//   if (!daysEl) return;
+
+//   const days = buildDaysRange(pp) || [];
+
+//   // ---------- byDay ----------
+//   const byDay = new Map();
+//   for (const d of days) byDay.set(d, []);
+
+//   for (const r of (rows || [])) {
+//     const d = r.Date;
+//     if (!d || !byDay.has(d)) continue;
+//     byDay.get(d).push(r);
+//   }
+
+//   for (const [d, list] of byDay) {
+//     list.sort((a, b) => (parseHHMM(a.Debut) ?? 0) - (parseHHMM(b.Debut) ?? 0));
+//   }
+
+//   // ---------- constants ----------
+//   const DAY_MINUTES = 24 * 60;
+//   const timelineH = Math.round(DAY_MINUTES * PX_PER_MIN);
+
+//   const fmtDay = (dint) => {
+//     const s = String(dint);
+//     const y = s.slice(0, 4), m = s.slice(4, 6), d = s.slice(6, 8);
+//     return `${d}/${m}/${y}`;
+//   };
+
+//   // ---------- save previous global scroll ----------
+//   const prevScrollTop = getProgrammeCalendarScrollTop(daysEl);
+
+//   // ---------- reset ----------
+//   daysEl.innerHTML = "";
+//   daysEl.classList.add("cal-grid");
+
+//   // ---------- root structure ----------
+//   const headRow = document.createElement("div");
+//   headRow.className = "cal-head-row";
+
+//   const scrollY = document.createElement("div");
+//   scrollY.className = "cal-scroll-y";
+
+//   const cols = document.createElement("div");
+//   cols.className = "cal-cols";
+
+//   scrollY.appendChild(cols);
+//   daysEl.appendChild(headRow);
+//   daysEl.appendChild(scrollY);
+
+//   for (const dint of days) {
+//     const list = byDay.get(dint) || [];
+//     const isWeekend = isWeekendDateInt(dint);
+
+//     // ===== HEADER =====
+//     const header = document.createElement("div");
+//     header.className = "cal-day__header";
+//     header.dataset.dateint = String(dint);
+
+//     header.innerHTML = `
+//       <div class="cal-day__title">${fmtDay(dint)}</div>
+//       <div class="cal-day__actions">
+//         <div class="cal-day__meta">${list.length} év.</div>
+//       </div>
+//     `;
+
+//     if (isWeekend) {
+//       header.querySelector(".cal-day__title")
+//         ?.setAttribute("data-weekend", "true");
+//     }
+
+//     const headerHandler = (e) => {
+//       e.preventDefault?.();
+//       e.stopPropagation?.();
+//       pickCreneauFromDay(daysEl, header, dint);
+//     };
+
+//     header.addEventListener("click", headerHandler);
+//     header.addEventListener("touchstart", headerHandler, { passive: false });
+
+//     headRow.appendChild(header);
+
+//     // ===== COLUMN =====
+//     const col = document.createElement("div");
+//     col.className = "cal-col";
+//     col.dataset.dateint = String(dint);
+
+//     const tl = document.createElement("div");
+//     tl.className = "cal-timeline";
+//     tl.style.height = `${timelineH}px`;
+//     tl.style.minHeight = `${timelineH}px`;
+//     tl.dataset.pxPerMin = String(PX_PER_MIN);
+
+//     // zone nuit 00:00 → 07:00
+//     const nightStartMin = 0;
+//     const nightEndMin = 7 * 60;
+
+//     const nightTop = Math.round(nightStartMin * PX_PER_MIN);
+//     const nightHeight = Math.round((nightEndMin - nightStartMin) * PX_PER_MIN);
+
+//     const night = document.createElement("div");
+//     night.className = "cal-night";
+//     night.style.top = `${nightTop}px`;
+//     night.style.height = `${nightHeight}px`;
+
+//     tl.appendChild(night);
+
+//     // hour lines + labels
+//     for (let h = 0; h <= 24; h++) {
+//       const y = Math.round(h * 60 * PX_PER_MIN);
+
+//       const hr = document.createElement("div");
+//       hr.className = "cal-hour";
+//       hr.style.top = `${y}px`;
+
+//       const lab = document.createElement("div");
+//       lab.className = "cal-hour__label";
+//       lab.style.top = `${y}px`;
+//       lab.textContent = `${String(h).padStart(2, "0")}:00`;
+
+//       tl.appendChild(hr);
+//       tl.appendChild(lab);
+//     }
+
+//     // events blocks
+//     for (const r of list) {
+//       const startMin = parseHHMM(r.Debut) ?? 0;
+
+//       const durMin =
+//         (typeof prettyToMinutes === "function")
+//           ? prettyToMinutes(r.Duree)
+//           : (parseHHMM(r.Duree) ?? 0);
+
+//       const endMin = clamp(startMin + (durMin || 0), 0, DAY_MINUTES);
+
+//       const top = Math.round(startMin * PX_PER_MIN);
+//       const height = Math.max(18, Math.round((endMin - startMin) * PX_PER_MIN));
+
+//       const ev = document.createElement("div");
+//       ev.className = "cal-ev";
+//       ev.style.top = `${top}px`;
+//       ev.style.height = `${height}px`;
+//       ev.dataset.uuid = r.__uuid || "";
+//       ev.dataset.dateint = String(dint);
+//       ev.dataset.startMin = String(startMin);
+//       ev.dataset.endMin = String(endMin);
+
+//       const timeLabel = `${r.Debut || ""} → ${r.Fin || ""}`.trim();
+
+//       const raw = r.Hyperlien || "";
+//       const href = raw || (
+//         "https://www.festivaloffavignon.com/resultats-recherche?recherche=" +
+//         encodeURIComponent(r.Activite || "")
+//       );
+
+//       const titleHtml =
+//         `<a class="cal-ev__title"
+//             href="${href}"
+//             target="_blank"
+//             rel="noopener">
+//             ${r.Activite ?? ""}
+//         </a>`;
+
+//       const hasInfo = !!(r.__desc_summary || r.__avis_summary);
+//       const infoBtnHtml = hasInfo
+//         ? `<button type="button" class="cal-ev__info" aria-label="Infos" title="Infos">ℹ︎+</button>`
+//         : "";
+
+//       ev.innerHTML = `
+//         <div class="cal-ev__time">
+//           <span class="cal-ev__timeText">${timeLabel}</span>
+//           ${infoBtnHtml}
+//         </div>
+//         ${titleHtml}
+//         <div class="cal-ev__place">${r.Lieu ?? ""}</div>
+//       `;
+
+//       ev.addEventListener("click", (e) => {
+//         e.stopPropagation();
+//         daysEl.querySelectorAll(".cal-ev.is-selected").forEach(x => x.classList.remove("is-selected"));
+//         ev.classList.add("is-selected");
+
+//         snapProgrammeCalendar({
+//           dateInt: dint,
+//           uuid: r.__uuid,
+//           fallbackHour: 9,
+//           smooth: true
+//         });
+
+//         try {
+//           selectRowByUuid?.("grid-programmees", r.__uuid);
+//         } catch {}
+//       });
+
+//       if (hasInfo) {
+//         const btn = ev.querySelector(".cal-ev__info");
+//         if (btn) {
+//           btn.addEventListener("click", (e) => {
+//             e.preventDefault();
+//             e.stopPropagation();
+
+//             openPopoverNear(btn, {
+//               title: r.Activite || r.activite || "Détails",
+//               style: r.Style,
+//               desc: r.__desc_summary,
+//               avis: r.__avis_summary,
+//               mood: r.Mood,
+//               note: r?.Note || null,
+//             });
+//           }, { passive: false });
+//         }
+//       }
+
+//       bindItineraryGesture(ev, r.Lieu);
+
+//       tl.appendChild(ev);
+//     }
+
+//     col.appendChild(tl);
+//     cols.appendChild(col);
+//   }
+
+//   queueMicrotask(() => {
+//     setProgrammeCalendarScrollTop(daysEl, prevScrollTop);
+//     selectCurrentEventInCalendar();
+//   });
+// }
 function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
   if (!daysEl) return;
 
@@ -716,13 +975,46 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
   for (const d of days) byDay.set(d, []);
 
   for (const r of (rows || [])) {
+
     const d = r.Date;
-    if (!d || !byDay.has(d)) continue;
-    byDay.get(d).push(r);
+    if (!d) continue;
+
+    const startMin = parseHHMM(r.Debut) ?? 0;
+
+    const durMin =
+      (typeof prettyToMinutes === "function")
+        ? prettyToMinutes(r.Duree)
+        : (parseHHMM(r.Duree) ?? 0);
+
+    let remaining = durMin || 0;
+    let curDate = d;
+    let curStart = startMin;
+
+    while (remaining > 0) {
+
+      if (!byDay.has(curDate)) break;
+
+      const segEnd = Math.min(24*60, curStart + remaining);
+      const segDur = segEnd - curStart;
+
+      const seg = {
+        ...r,
+        _segStartMin: curStart,
+        _segEndMin: segEnd,
+        _segIsContinuation: curDate !== d,
+        _segContinuesNext: (curStart + remaining) > 24*60
+      };
+
+      byDay.get(curDate).push(seg);
+
+      remaining -= segDur;
+      curDate = nextDateInt(curDate);
+      curStart = 0;
+    }
   }
 
   for (const [d, list] of byDay) {
-    list.sort((a, b) => (parseHHMM(a.Debut) ?? 0) - (parseHHMM(b.Debut) ?? 0));
+    list.sort((a, b) => (a._segStartMin ?? parseHHMM(a.Debut) ?? 0) - (b._segStartMin ?? parseHHMM(b.Debut) ?? 0));
   }
 
   // ---------- constants ----------
@@ -799,6 +1091,20 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
     tl.style.minHeight = `${timelineH}px`;
     tl.dataset.pxPerMin = String(PX_PER_MIN);
 
+    // zone nuit 00:00 → 07:00
+    const nightStartMin = 0;
+    const nightEndMin = 7 * 60;
+
+    const nightTop = Math.round(nightStartMin * PX_PER_MIN);
+    const nightHeight = Math.round((nightEndMin - nightStartMin) * PX_PER_MIN);
+
+    const night = document.createElement("div");
+    night.className = "cal-night";
+    night.style.top = `${nightTop}px`;
+    night.style.height = `${nightHeight}px`;
+
+    tl.appendChild(night);
+
     // hour lines + labels
     for (let h = 0; h <= 24; h++) {
       const y = Math.round(h * 60 * PX_PER_MIN);
@@ -818,14 +1124,14 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
 
     // events blocks
     for (const r of list) {
-      const startMin = parseHHMM(r.Debut) ?? 0;
+      const startMin = r._segStartMin ?? (parseHHMM(r.Debut) ?? 0);
 
       const durMin =
         (typeof prettyToMinutes === "function")
           ? prettyToMinutes(r.Duree)
           : (parseHHMM(r.Duree) ?? 0);
 
-      const endMin = clamp(startMin + (durMin || 0), 0, DAY_MINUTES);
+      const endMin = r._segEndMin ?? clamp(startMin + (durMin || 0), 0, DAY_MINUTES);
 
       const top = Math.round(startMin * PX_PER_MIN);
       const height = Math.max(18, Math.round((endMin - startMin) * PX_PER_MIN));
@@ -838,6 +1144,9 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       ev.dataset.dateint = String(dint);
       ev.dataset.startMin = String(startMin);
       ev.dataset.endMin = String(endMin);
+
+      if (r._segIsContinuation) ev.classList.add("is-continuation-prev");
+      if (r._segContinuesNext) ev.classList.add("is-continuation-next");
 
       const timeLabel = `${r.Debut || ""} → ${r.Fin || ""}`.trim();
 

@@ -2675,6 +2675,16 @@ input[type="range"]:focus::-moz-range-thumb {
   outline: 2px solid rgba(0,120,215,.45);
 }
 
+#programme-panel #calA .cal-ev.is-continuation-prev{
+  border-top-left-radius:0;
+  border-top-right-radius:0;
+}
+
+#programme-panel #calA .cal-ev.is-continuation-next{
+  border-bottom-left-radius:0;
+  border-bottom-right-radius:0;
+}
+
 #programme-panel #calA .cal-ev__time{
   font-size: 11px;
   color: rgba(17,24,39,.75);
@@ -2838,6 +2848,15 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .cal-head-row > .cal-day__header + .cal-day__header{
   border-left: none;
+}
+
+.cal-night{
+  position: absolute;
+  left: 0;
+  right: 0;
+
+  background: rgba(190, 179, 182, 0.15); /* rose clair */
+  pointer-events: none;
 }
 
 
