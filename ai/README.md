@@ -13,7 +13,7 @@ index_global_embeddings.json utilisé par le Worker Cloudflare
 
 ## Utilisation
 
-1. Mettre à jour les catalogues In & Off en faisant un coller de l'adresse du cataloque dans l'application
+1. Mettre à jour les catalogues In & Off en faisant un coller de l'adresse du catalogue dans l'application
 2. Réexporter les catalogues Excel In & Off depuis l'application
 3. Recopier les catalogues Excel dans Google Drive
 4. Mettre à jour les URL Google Drive dans les fonctions d'import de catalogues de l'application 
