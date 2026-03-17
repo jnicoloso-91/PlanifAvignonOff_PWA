@@ -4343,14 +4343,14 @@ export function openSheetAssistantProgrammation() {
             </div>
             
             <div class="form-row">
-              <label>Priorités</label>
+              <label>Marqueurs</label>
 
               <div class="chipbox" id="prog-prio-chipbox">
                 <div class="chipbox-inputwrap">
-                  <input id="prog-prio-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter une priorité…">
+                  <input id="prog-prio-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter un marqueur…">
                   <datalist id="dl-prog-prio"></datalist>
                 </div>
-                <div class="chipbox-chips" aria-label="priorités sélectionnées"></div>
+                <div class="chipbox-chips" aria-label="marqueurs sélectionnés"></div>
               </div>
             </div>
 
