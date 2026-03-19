@@ -2041,7 +2041,7 @@ const gridOptionsActivitesProgrammees = {
     (/** @type {HTMLButtonElement} */ (btn)).disabled = (sel.length > 0) ? activitesAPI.estActiviteReservee(sel[0]) : true;
     const gridId = params?.context?.gridId;  
     if (gridId) saveGridStateToMeta(params, gridId);
-    selectCreneauFromSrcUuid(sel?.[0]?.__uuid);
+    if (params.source === 'rowClicked') selectCreneauFromSrcUuid(sel?.[0]?.__uuid, );
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-prog')); saveGridFilterModelToMeta(p, 'grid-programmees'); },
 }
