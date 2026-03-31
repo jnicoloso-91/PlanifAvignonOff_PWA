@@ -261,7 +261,7 @@ export async function parseAvignonInProgPageUrl(url, { fetcher = _fetchViaCloudF
   const doc  = new DOMParser().parseFromString(html, 'text/html');
   const all = parseAvignonInProgPageDom(doc, url);
 
-  await _enrichAllWithDetails(all, parseAvignonInProgPageDom);
+  await _enrichAllWithDetails(all, parseAvignonInSpecPageUrl);
 
   return all;
 
@@ -769,7 +769,7 @@ export async function parseAvignonOffProgPageUrl(
     if (delayMs) await new Promise(r => setTimeout(r, delayMs));
   }
   
-  await _enrichAllWithDetails(all, parseAvignonOffProgPageDom);
+  await _enrichAllWithDetails(all, parseAvignonOffSpecPageUrl);
 
   return all;
 }
