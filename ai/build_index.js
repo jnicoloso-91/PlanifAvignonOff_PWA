@@ -3,89 +3,10 @@ import fs from "fs/promises";
 import path from "path";
 import process from "process";
 
-import {
-  parseAvignonInSpecPageUrl,
-  parseAvignonOffSpecPageUrl,
-  getAvisBilletReduc,
-} from './parsers.js';
-
 // Config
 const MODEL = "text-embedding-3-small"; // const MODEL = "text-embedding-3-large"; => index > 100Mo
 const EMBEDDING_DIM = 512; // ou 1536 pour rester large
 const BATCH_SIZE = 64;
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Enrichit allRaw "sur place" : Description / Distribution / Avis
-async function enrichAllRawWithDetailsAndAvis(
-  allRaw,
-  { polite = true } = {}
-) {
-  for (let i = 0; i < allRaw.length; i++) {
-    const r = allRaw[i];
-
-    const orga      = (r.Orga || r.orga || "").toLowerCase();
-    const hyperlien = r.Hyperlien || r.hyperlien || null;
-    const hyperlienBR = r.HyperlienBR || r.hyperlienBR || null;
-    const activite  = r.Activite || r.activite || null;
-
-    // --- 1) Détail In / Off → Description + Distribution
-    try {
-      if (hyperlien && activite) {
-        if (orga === "off") {
-          const parsed = await parseAvignonOffSpecPageUrl(hyperlien);
-          const row    = Array.isArray(parsed) ? parsed[0] : parsed;
-
-          if (row) {
-            if (row.Description)  r.Description  = row.Description;
-            if (row.Distribution) r.Distribution = row.Distribution;
-          }
-        } else if (orga === "in") {
-          const parsed = await parseAvignonInSpecPageUrl(hyperlien);
-          const row    = Array.isArray(parsed) ? parsed[0] : parsed;
-
-          if (row) {
-            if (row.Description)  r.Description  = row.Description;
-            if (row.Distribution) r.Distribution = row.Distribution;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Enrichissement In/Off détaillé impossible pour", activite, hyperlien, e);
-    }
-
-    // --- 2) Avis BilletRéduc (via URL de recherche)
-    try {
-      if (activite) {
-        const { avis } = await getAvisBilletReduc(activite);
-        if (avis) {
-          // Tu peux soit stocker l’objet complet, soit une version texte compactée
-          // Ici je fais un texte compact qui passera bien dans les embeddings existants
-          const notePart = avis.Note ? `Note ${avis.Note}` : "";
-          const commentsPart =
-            avis.Comments && avis.Comments.length
-              ? `Commentaires: ${avis.Comments.join(" || ")}`
-              : "";
-
-          const avisText = [notePart, commentsPart].filter(Boolean).join(" — ");
-          if (avisText) {
-            r.Avis = avisText;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Enrichissement Avis BilletReduc impossible pour", activite, e);
-    }
-
-    // --- Throttling "gentil"
-    if (polite) {
-      // On ne fait pas d'appel pour tous les items => ne dormir que si un fetch a vraiment eu lieu
-      await sleep(1500 + Math.random() * 1000); // 1.5–2.5s
-    }
-  }
-}
 
 // Util pour normaliser les champs
 function cleanString(v) {
@@ -95,60 +16,66 @@ function cleanString(v) {
 }
 
 // Charge un JSON (tableau)
+// async function loadJsonArray(filePath) {
+//   const txt = await fs.readFile(filePath, "utf8");
+//   const data = JSON.parse(txt);
+//   if (!Array.isArray(data)) {
+//     throw new Error(`Fichier ${filePath} ne contient pas un tableau JSON`);
+//   }
+//   return data;
+// }
 async function loadJsonArray(filePath) {
-  const txt = await fs.readFile(filePath, "utf8");
-  const data = JSON.parse(txt);
-  if (!Array.isArray(data)) {
-    throw new Error(`Fichier ${filePath} ne contient pas un tableau JSON`);
+  try {
+    const txt = await fs.readFile(filePath, "utf8");
+    const data = JSON.parse(txt);
+
+    if (!Array.isArray(data)) {
+      throw new Error(`Fichier ${filePath} ne contient pas un tableau JSON`);
+    }
+
+    return data;
+
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      console.warn(`⚠️ Fichier absent: ${filePath} → []`);
+      return [];
+    }
+
+    // ❗ JSON invalide ou autre erreur = on ne masque pas
+    throw err;
   }
-  return data;
 }
 
 // Construit le texte pour l'embedding à partir d'une ligne normalisée
-// function buildEmbeddingText(item) {
-//   const parts = [];
-
-//   if (item.activite) parts.push(item.activite);
-//   if (item.debut)    parts.push(item.debut);
-//   if (item.duree)    parts.push(item.duree);
-//   if (item.fin)      parts.push(item.fin);
-//   if (item.style)    parts.push(`Style : ce spectacle est de style ou de catégorie ${item.style}`);
-//   if (item.lieu)     parts.push(`Lieu : ${item.lieu}`);
-//   if (item.section)  parts.push(`Section : ${item.section.toUpperCase()}`);
-//   if (item.avis)     parts.push(`Avis : ${item.avis}`);
-
-//   // On pourrait ajouter un résumé date/heure très compact :
-//   if (Array.isArray(item.seances) && item.seances.length) {
-//     // n’ajoute pas toutes les séances pour éviter d’allonger trop la chaîne
-//     const first = item.seances[0].slice(0, 10); // "YYYY-MM-DD"
-//     parts.push(`Joue en juillet, première séance le ${first}`);
-//   }
-
-//   return parts.join(" | ");
-// }
 function buildEmbeddingText(item) {
   const parts = [];
 
-  // Titre
+  // 1) Titre — toujours utile
   if (item.activite) {
     parts.push(`Titre : ${item.activite}`);
   }
 
-  // Horaire & durée
-  if (item.debut) {
-    parts.push(`Heure de début : ${item.debut}`);
-  }
-  if (item.duree) {
-    parts.push(`Durée : ${item.duree}`);
-  }
-  if (item.fin) {
-    parts.push(`Heure de fin : ${item.fin}`);
+  // 2) Style — signal très important
+  if (item.style) {
+    // phrase explicite
+    parts.push(`Style : ${item.style}`);
+    // duplication légère pour renforcer le style sans faire de hack par catégorie
+    parts.push(`${item.style}`);
   }
 
-  // Style / section / lieu
-  if (item.style) {
-    parts.push(`Style : ce spectacle est de style ou de catégorie ${item.style}`);
+  // 3) Description — cœur sémantique
+  if (item.desc_summary) {
+    parts.push(`Description (résumé) : ${item.desc_summary}`);
+  } else if (item.description) {
+    parts.push(`Description : ${item.description}`);
   }
+
+  // 4) Distribution (auteur·ice / équipe artistique)
+  if (item.distribution) {
+    parts.push(`Distribution (auteur·ice / équipe artistique) : ${item.distribution}`);
+  }
+
+  // 5) Contexte lieu / section — léger
   if (item.lieu) {
     parts.push(`Lieu : ${item.lieu}`);
   }
@@ -156,20 +83,19 @@ function buildEmbeddingText(item) {
     parts.push(`Section : ${item.section.toUpperCase()}`);
   }
 
-  // Description & distribution enrichies (In/Off)
-  if (item.description) {
-    parts.push(`Description : ${item.description}`);
-  }
-  if (item.distribution) {
-    parts.push(`Distribution (auteur·ice / équipe artistique) : ${item.distribution}`);
-  }
-
-  // Avis spectateurs (BilletRéduc ou autres)
-  if (item.avis) {
+  // 6) Avis spectateurs (texto, pas forcément la note brute)
+  if (item.avis_summary) {
+    parts.push(`Avis (résumé) : ${item.avis_summary}`);
+  } else if (item.avis) {
     parts.push(`Avis spectateurs : ${item.avis}`);
   }
+  if (item.avis_obj && (item.avis_obj.note != null || item.avis_obj.count != null)) {
+    const n = item.avis_obj.note != null ? `${item.avis_obj.note}/10` : "n/a";
+    const c = item.avis_obj.count != null ? `${item.avis_obj.count} avis` : "";
+    parts.push(`Note : ${n}${c ? ` (${c})` : ""}`);
+  }
 
-  // Info minimale sur les séances (pour l'ancrage temporel)
+  // 7) Ancrage temporel minimal (sans heures)
   if (Array.isArray(item.seances) && item.seances.length) {
     const first = String(item.seances[0]).slice(0, 10); // "YYYY-MM-DD"
     parts.push(`Première séance en juillet le ${first}`);
@@ -204,6 +130,215 @@ async function fetchEmbeddingsBatch(texts, apiKey) {
   return data.data.map(d => d.embedding);
 }
 
+// 1) Helpers avis_obj
+function parseAvisObject(avisStr) {
+  const s = (avisStr || "").toString();
+  // ex: "Note 10/10 (74 avis) — Commentaires: ..."
+  const m = s.match(/(\d+(?:[.,]\d+)?)\s*\/\s*10.*?\((\d+)\s*avis\)/i);
+  if (m) {
+    const note = Number(String(m[1]).replace(",", "."));
+    const count = Number(m[2]);
+    return {
+      note: Number.isFinite(note) ? note : null,
+      count: Number.isFinite(count) ? count : null
+    };
+  }
+  return { note: null, count: null };
+}
+
+function truncateText(s, max = 1200) {
+  if (!s) return "";
+  const t = String(s);
+  return t.length > max ? (t.slice(0, max) + "…") : t;
+}
+
+// 2) Appel OpenAI pour résumés (offline)
+async function summarizeOneItemPremium(item, apiKey) {
+  const avisObj = item.avis_obj || parseAvisObject(item.avis || "");
+
+  const payload = {
+    activite: item.activite || "",
+    style: item.style || "",
+    description: truncateText(item.description || "", 1600),
+    distribution: truncateText(item.distribution || "", 900),
+    avis_obj: avisObj,
+    avis_brut: truncateText(item.avis || "", 1200)
+  };
+
+  const system = `
+Tu produis des résumés courts et homogènes pour un catalogue du Festival d'Avignon.
+Tu n'inventes rien. Tu utilises UNIQUEMENT les champs fournis.
+Tu renvoies STRICTEMENT un JSON valide, sans texte autour.
+Contraintes:
+- desc_summary: Résume la description en 1 ou 2 phrases maximum (100 mots maximum).
+  Style neutre, informatif. Ne fais pas de promotion. Ne rajoute aucune information absente du texte.
+- avis_summary: À partir des avis spectateurs, fais une synthèse en UNE phrase courte (60 mots maximum). 
+  - Mentionne uniquement les points qui reviennent le plus souvent. Style factuel, pas enthousiaste. Ne recite pas la note globale.
+  - Si pas d'avis (note/count null et avis_brut vide): avis_summary = "Pas d’avis disponibles."
+- mood: En te basant sur la description et les avis, donnes deux ou trois mots-clés décrivant l'ambiance générale du spectacle (ex: "poétique", "engagé", "festif", "intimiste", etc.). Si tu ne peux pas déterminer un mot-clé clair, mets "indéterminé".
+`.trim();
+
+  const user = `
+Données:
+${JSON.stringify(payload, null, 2)}
+
+Réponds au format:
+{
+  "desc_summary": "...",
+  "avis_summary": "..."
+  "mood": "..."  
+}
+`.trim();
+
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user }
+      ],
+      response_format: { type: "json_object" }
+    })
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => "");
+    throw new Error(`summarizeOneItemPremium OpenAI ${resp.status}: ${txt}`);
+  }
+
+  const data = await resp.json();
+  const content = data?.choices?.[0]?.message?.content || "{}";
+  let js;
+  try { js = JSON.parse(content); } catch { js = {}; }
+
+  const desc_summary = cleanString(js?.desc_summary) || null;
+  const avis_summary = cleanString(js?.avis_summary) || null;
+  const mood = cleanString(js?.mood) || null;
+
+  console.log(`${item.activite}: ${desc_summary.length} - ${avis_summary.length} - ${mood.length}`);
+
+  return { avisObj, desc_summary, avis_summary, mood };
+}
+
+// enrichIndexWithPremiumSummaries(allItems, apiKey, options)
+//
+// - allItems : array d'items déjà normalisés (avec uuid, activite, style, description, distribution, avis, ...)
+// - apiKey   : OPENAI_API_KEY
+// - options  : { cachePath, maxItems, force, batch, sleepMs }
+//
+// Dépendances attendues dans le module : fs (fs/promises), parseAvisObject, summarizeOneItemPremium
+export async function enrichIndexWithPremiumSummaries(allItems, apiKey, {
+  cachePath = "summaries_cache.json",
+  maxItems = Infinity,
+  force = false,
+  batch = 6,
+  sleepMs = 350
+} = {}) {
+  
+  // -----------------------------
+  // 0) Load cache
+  // -----------------------------
+  let cache = {};
+  try {
+    const txt = await fs.readFile(cachePath, "utf8");
+    cache = JSON.parse(txt) || {};
+  } catch {
+    cache = {};
+  }
+
+  // -----------------------------
+  // 1) Key builder (stable signature)
+  //    If description/avis/etc change => new key => regenerate
+  // -----------------------------
+  function hash32(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+      h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    }
+    return h;
+  }
+
+  function keyForSummary(it) {
+    const a    = it.activite     || "";
+    const s    = it.style        || "";
+    const d    = it.description  || "";
+    const dist = it.distribution || "";
+    const av   = it.avis         || "";
+    const sig  = `${a}||${s}||${d}||${dist}||${av}`;
+    const h    = hash32(sig);
+    return `${it.uuid}::${h}`;
+  }
+
+  // -----------------------------
+  // 2) Build todo list (items missing cache or forced)
+  // -----------------------------
+  const todo = [];
+  for (const it of allItems) {
+    // always keep avis_obj available (even if summaries are cached)
+    it.avis_obj = it.avis_obj || parseAvisObject(it.avis || "");
+
+    const k = keyForSummary(it);
+    const hit = cache[k];
+
+    if (!force && hit && (hit.desc_summary || hit.avis_summary || hit.mood)) {
+      it.desc_summary = hit.desc_summary || null;
+      it.avis_summary = hit.avis_summary || null;
+      it.avis_obj     = hit.avis_obj || it.avis_obj;
+      it.mood         = hit.mood || null;
+      continue;
+    }
+
+    todo.push({ it, k });
+    if (todo.length >= maxItems) break;
+  }
+
+  console.log(
+    `Premium summaries: ${todo.length} à générer (cache: ${Object.keys(cache).length})`
+  );
+
+  // -----------------------------
+  // 3) Runner (limited concurrency)
+  // -----------------------------
+  let i = 0;
+  while (i < todo.length) {
+    const chunk = todo.slice(i, i + batch);
+
+    await Promise.all(chunk.map(async ({ it, k }) => {
+      const out = await summarizeOneItemPremium(it, apiKey);
+
+      it.avis_obj     = out.avisObj;
+      it.desc_summary = out.desc_summary;
+      it.avis_summary = out.avis_summary;
+      it.mood         = out.mood;
+
+      cache[k] = {
+        avis_obj: out.avisObj,
+        desc_summary: out.desc_summary,
+        avis_summary: out.avis_summary,
+        mood: out.mood
+      };
+    }));
+
+    i += chunk.length;
+
+    // checkpoint write
+    await fs.writeFile(cachePath, JSON.stringify(cache, null, 2), "utf8");
+
+    // polite sleep
+    if (sleepMs) await new Promise(r => setTimeout(r, sleepMs));
+
+    console.log(`Premium summaries: ${i}/${todo.length} OK (checkpoint écrit)`);
+  }
+
+  return allItems;
+}
+
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -211,9 +346,9 @@ async function main() {
     process.exit(1);
   }
 
-  const offPath = process.argv[2] || "off_2025.json";
-  const inPath  = process.argv[3] || "in_2025.json";
-  const outPath = process.argv[4] || "index_avignon_2025.json";
+  const offPath = process.argv[2] || "off_2026.json";
+  const inPath  = process.argv[3] || "in_2026.json";
+  const outPath = process.argv[4] || "index_avignon_2026.json";
 
   console.log(`Chargement Off depuis ${offPath}...`);
   const offData = await loadJsonArray(offPath);
@@ -223,10 +358,6 @@ async function main() {
 
   // 1) Concat brut
   const allRaw = [...offData, ...inData];
-
-  // 2) Enrichissement In/Off (description, distribution) + BilletRéduc (avis)
-  console.log("Enrichissement In / Off (description, distribution) + BilletRéduc (avis)...");
-  await enrichAllRawWithDetailsAndAvis(allRaw, { polite: true });
 
   // 3) Normalisation des items pour l'index
   const allItems = allRaw.map((r, idx) => {
@@ -240,10 +371,12 @@ async function main() {
       fin:         cleanString(r.Fin         ?? r.fin),
       style:       cleanString(r.Style       ?? r.style),
       lieu:        cleanString(r.Lieu        ?? r.lieu),
-      section,
+      session:     cleanString(r.Session     ?? r.session),
+      relache:     cleanString(r.Relache     ?? r.relache),
       seances:     Array.isArray(r.Seances || r.seances)
                      ? (r.Seances || r.seances)
                      : [],
+      section,
       hyperlien:   cleanString(r.Hyperlien   ?? r.hyperlien),
       hyperlienBR: cleanString(r.HyperlienBR ?? r.hyperlienBR),
 
@@ -252,11 +385,19 @@ async function main() {
       distribution: cleanString(r.Distribution ?? r.distribution),
 
       // Avis (potentiellement enrichi via BilletRéduc)
-      avis:        cleanString(r.Avis        ?? r.avis)
+      avis:        cleanString(r.Avis ?? r.avis),
+      avis_obj:    parseAvisObject(r.Avis ?? r.avis),
     };
   });
 
   console.log(`Total items à indexer : ${allItems.length}`);
+
+  await enrichIndexWithPremiumSummaries(allItems, apiKey, {
+    cachePath: "summaries_cache.json",
+    batch: 6,       // concurrency
+    sleepMs: 350,   // “gentil”
+    force: false
+  });
 
   // 4) Construction des textes pour embeddings
   const texts = allItems.map(buildEmbeddingText);
@@ -277,6 +418,10 @@ async function main() {
       }
       indexed.push({
         ...item,
+        avis_obj: item.avis_obj ?? parseAvisObject(item.avis || ""),
+        desc_summary: item.desc_summary ?? null,
+        avis_summary: item.avis_summary ?? null,
+        mood: item.mood ?? null,
         embedding: emb
       });
     });
