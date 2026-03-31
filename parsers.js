@@ -84,23 +84,37 @@ export function getNoteFromAvis(avis) {
 const _summaryCache = new Map(); // key = uuid
 
 /**
- * Enrichissement d'une row Activite avec __desc_summary, __avis_summary et Mood via worker AI
+ * Enrichissement d'une row Activite avec __desc_summary, __avis_summary et Mood via détails BilletReduc et worker AI pour les summaries.
  * A l'issue les champs Description, Distribution, Avis s'ils existent sont supprimés
  * @param {*} row 
  */
 export async function enrichWithAbstractPremiumOneRow(row) {
 
   // Récupération des détails de la page spectacle de BilletReduc associée
-  const details = await getBilletReducDetailedInfos(row);
-  if (!details) {
-    return;
+  let details = null;
+  if (
+    !richValueGoodQuality(row.Debut) ||
+    !richValueGoodQuality(row.Duree) ||
+    (row.__desc_summary === null) ||
+    (row.__avis_summary === null) ||
+    (row.Mood === null)
+  ) {
+    details = await getBilletReducDetailedInfos(row);
   }
+
+  if (!details) return;
 
   // Mise à jour des champs de la row dépendants des détails de la page spectacle de BilletReduc
   if (!richValueGoodQuality(row.Debut) && richValueGoodQuality(details.debut)) row.Debut = details.debut;
   if (!richValueGoodQuality(row.Duree) && richValueGoodQuality(details.duree)) row.Duree = details.duree;
   row.HyperlienBR = details.detailUrl;
   row.Note = getNoteFromAvis(details.avis_obj);
+
+  if (
+    (row.__desc_summary != null) &&
+    (row.__avis_summary != null) &&
+    (row.Mood != null)
+  ) return;
 
   // Construction du paramètre du worker AI
   const item = {
@@ -117,9 +131,9 @@ export async function enrichWithAbstractPremiumOneRow(row) {
 
     const summary = await _summarizeOneItemViaWorker(item);
 
-    row.__desc_summary = summary.desc_summary;
-    row.__avis_summary = summary.avis_summary;
-    row.Mood = summary.mood;
+    if (row.__desc_summary === null) row.__desc_summary = summary.desc_summary;
+    if (row.__avis_summary === null) row.__avis_summary = summary.avis_summary;
+    if (row.Mood === null) row.Mood = summary.mood;
 
   } catch (e) {
     console.log(`ERREUR: ${e?.message || String(e)}`);
@@ -804,7 +818,7 @@ export function parseAvignonOffProgPageDom(doc) {
     // Style (prendre uniquement les <span class="tag">, ignorer le <a class="tag tag-orange"> Ticket'Off)
     const styleSpans = card.querySelectorAll('.liste-tags > span.tag');
     const Style = styleSpans.length
-      ? Array.from(styleSpans).map(el => el.textContent.trim()).filter(Boolean).join(' ')
+      ? (Array.from(styleSpans).map(el => el.textContent.trim()).filter(Boolean).join(' ')).replace(" Ticket'Off","")
       : null;
 
     if (Activite) {
@@ -812,7 +826,7 @@ export function parseAvignonOffProgPageDom(doc) {
         ...PARSED_DEFAULT,
         Activite,
         Lieu,
-        Session: Session || null,                 // si null et tu veux forcer juillet : mettre DEFAULT_MM
+        Session: Session || null,                 // si null et on veut forcer juillet : mettre DEFAULT_MM
         Debut,
         Duree,
         Style,
@@ -953,6 +967,8 @@ export function parseAvignonOffProgPageText(text) {
       break;
     }
 
+    style = style.replace(" Ticket'Off","");
+
     out.push({
       ...PARSED_DEFAULT,
       Activite: activite || null,
@@ -1011,7 +1027,7 @@ export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
   {
     const tagEl = doc.querySelector('.intro-spectacle .liste-tags .tag');
     if (tagEl) {
-      const styleTxt = tagEl.textContent.trim().replace(/\s+/g, ' ');
+      const styleTxt = (tagEl.textContent.trim().replace(/\s+/g, ' ')).replace(" Ticket'Off","");
       if (styleTxt) res.Style = styleTxt;
     }
   }
@@ -1208,7 +1224,7 @@ export function parseAvignonOffSpecPageText(text) {
         if (/^ticket'?off\b/i.test(cand))            { i++; continue; }
         if (/^festival\s+off\s+avignon\s*>/i.test(cand)) { i++; continue; } // sécurité
 
-        res.Style = cand; // ex: "Théâtre classique", "Seul·e en scène", "Humour", etc.
+        res.Style = cand.replace(" Ticket'Off",""); // ex: "Théâtre classique", "Seul·e en scène", "Humour", etc.
         break;
       }
       i++;
