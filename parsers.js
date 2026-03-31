@@ -245,7 +245,12 @@ export async function parseAvignonInProgPageUrl(url, { fetcher = _fetchViaCloudF
   if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
   const html = await res.text();
   const doc  = new DOMParser().parseFromString(html, 'text/html');
-  return parseAvignonInProgPageDom(doc, url);
+  const all = parseAvignonInProgPageDom(doc, url);
+
+  await _enrichAllWithDetails(all, parseAvignonInProgPageDom);
+
+  return all;
+
 }
 
 /**
@@ -750,6 +755,8 @@ export async function parseAvignonOffProgPageUrl(
     if (delayMs) await new Promise(r => setTimeout(r, delayMs));
   }
   
+  await _enrichAllWithDetails(all, parseAvignonOffProgPageDom);
+
   return all;
 }
 
@@ -2666,7 +2673,7 @@ function _mapEventToRow(ev, pageUrl) {
   const id   = ev.id;
   const slug = ev.titleSlug || ev.slug;
   const Hyperlien = (slug && id)
-    ? _absolutize(`/fr/edition-2025/programmation/${slug}-${id}`, pageUrl)
+    ? _absolutize(`/fr/edition-2026/programmation/${slug}-${id}`, pageUrl)
     : (ev.url || null);
 
   // Session & Debut depuis calendar[]
@@ -3001,3 +3008,27 @@ async function _summarizeOneItemViaWorker(item) {
   return res;
 }
 
+async function _enrichAllWithDetails(all, specPageUrlParser) {
+  if (!Array.isArray(all) || all.length === 0) return all;
+
+  await Promise.all(
+    all.map(async (row) => {
+      try {
+        const url = row.Hyperlien;
+        if (!url) return;
+
+        /** @type {any} */
+        const detail = await specPageUrlParser(url);
+        if (!detail) return;
+
+        row.Description  = detail[0].Description || "";
+        row.Distribution = detail[0].Distribution || "";
+
+      } catch (err) {
+        console.warn("[OFF] détail KO:", row.Hyperlien, err);
+      }
+    })
+  );
+
+   return all;
+}

@@ -47,8 +47,9 @@ function downloadJson(data, filename = 'export.json') {
 // Enrichissement d'un df avec champ Mood
 // A utiliser en mode console pour compléter un catalogue avec le champ Mood si absent
 async function enrichDfWithMood(df, {
-  basePath = "./ai",          // chemin relatif depuis la page
-  overwrite = false,          // écraser un mood existant ?
+  basePath = "./ai",                      // chemin relatif depuis la page
+  indexName = "index_avignon_2025.json",  // nom de l'index à utiliser
+  overwrite = false,                      // écraser un mood existant ?
   log = true
 } = {}) {
   if (!Array.isArray(df)) {
@@ -56,7 +57,7 @@ async function enrichDfWithMood(df, {
   }
 
   // 1) Chargement des fichiers
-  const all = await fetch(`${basePath}/index_avignon_2025.json`).then(r => r.json());
+  const all = await fetch(`${basePath}/${indexName}`).then(r => r.json());
 
   // 2) Construction map clé -> mood
   const moodMap = new Map();
@@ -106,8 +107,9 @@ async function enrichDfWithMood(df, {
 // Enrichissement d'un df avec champ __distribution
 // A utiliser en mode console pour compléter un catalogue avec le champ Distribution du json si absent
 async function enrichDfWithDistribution(df, {
-  basePath = "./ai",          // chemin relatif depuis la page
-  overwrite = false,          // écraser un mood existant ?
+  basePath = "./ai",                      // chemin relatif depuis la page
+  indexName = "index_avignon_2025.json",  // nom de l'index à utiliser
+  overwrite = false,                      // écraser un mood existant ?
   log = true
 } = {}) {
   if (!Array.isArray(df)) {
@@ -115,7 +117,7 @@ async function enrichDfWithDistribution(df, {
   }
 
   // 1) Chargement des fichiers
-  const all = await fetch(`${basePath}/index_avignon_2025.json`).then(r => r.json());
+  const all = await fetch(`${basePath}/${indexName}`).then(r => r.json());
 
   // 2) Construction map clé -> distribution
   const distriMap = new Map();
@@ -165,8 +167,9 @@ async function enrichDfWithDistribution(df, {
 // Enrichissement d'un df avec InfoPlus
 // A utiliser en mode console pour compléter un catalogue avec les champs desc_summary et avis_summary si absents
 async function enrichDfWithInfoPlus(df, {
-  basePath = "./ai",          // chemin relatif depuis la page
-  overwrite = false,          // écraser un mood existant ?
+  basePath = "./ai",                      // chemin relatif depuis la page
+  indexName = "index_avignon_2025.json",  // nom de l'index à utiliser
+  overwrite = false,                      // écraser un mood existant ?
   log = true
 } = {}) {
   if (!Array.isArray(df)) {
@@ -174,7 +177,7 @@ async function enrichDfWithInfoPlus(df, {
   }
 
   // 1) Chargement des fichiers
-  const all = await fetch(`${basePath}/index_avignon_2025.json`).then(r => r.json());
+  const all = await fetch(`${basePath}/${indexName}`).then(r => r.json());
 
   console.log(`enrichDfWithInfoPlus: loaded ${all.length} entries from info-plus index`);
 
@@ -233,7 +236,7 @@ async function enrichWithDetailsAndAvis(
   rows,
   { polite = true } = {}
 ) {
-  for (let i = 900; i < rows.length; i++) {
+  for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
 
     const orga      = (r.Orga || r.orga || r.Section || r.section || "").toLowerCase();
@@ -310,7 +313,7 @@ async function enrichWithDetailsAndAvis(
  *
  * @param {Array<object>} df
  * @param {string} sectionLabel                 - "off" ou "in"
- * @param {number|null} editionYear            - ex: 2025 (facultatif, sert de fallback pour l'année)
+ * @param {number|null} editionYear             - ex: 2025 (facultatif, sert de fallback pour l'année)
  */
 function buildAiExportFromDf(df, sectionLabel, editionYear = null) {
   function cleanField(v) {
@@ -392,7 +395,7 @@ function extractNoteFromAvis(avisRaw) {
  * @param {*} orga          doit valoir 'in' ou 'off' 
  * @param {*} editionYear   année de l'édition (2025 par défaut)
  */
-async function exportJsonForAi(orga, editionYear = 2025) {
+export async function exportJsonForAi(orga, editionYear = 2025) {
   const df = ctx.df;
   const jsonData = buildAiExportFromDf(df, orga, editionYear);
   await enrichWithDetailsAndAvis(jsonData, { polite: true });
@@ -403,7 +406,7 @@ async function exportJsonForAi(orga, editionYear = 2025) {
 }
 
 /**
- * Ouvre un catalogue JSON (in_2025.json / off_2025.json)
+ * Demande le nom d'un catalogue JSON (in_20XX.json / off_20XX.json)
  * et met à jour df.Note à partir du champ Avis du JSON,
  * en faisant le matching via makeFullKey(row).
  */

@@ -1471,8 +1471,8 @@ async function _getDatesFestival(state = window.appState) {
   }
 
   // Fallback par défaut (à ajuster si besoin)
-  const FALLBACK_DEBUT = new Date(2026, 6, 6);   // 6 juillet 2026 (mois 0-based)
-  const FALLBACK_FIN   = new Date(2026, 6, 26);  // 26 juillet 2026
+  const FALLBACK_DEBUT = new Date(2026, 6, 4);   // 04 juillet 2026 (mois 0-based)
+  const FALLBACK_FIN   = new Date(2026, 6, 25);  // 25 juillet 2026
 
   // Tente un fetch (souvent bloqué par CORS, donc on timeoute vite)
   async function fetchOffFestivalDates() {

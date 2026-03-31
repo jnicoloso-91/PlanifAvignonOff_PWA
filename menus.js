@@ -20,6 +20,10 @@ import {
 } from './utils-date.js';
 
 import { 
+  exportJsonForAi, 
+} from './utils-json.js';
+
+import { 
   ctx,
   activitesAPI,
 } from './app.js'; 
@@ -1120,6 +1124,8 @@ export function wireAppKebab() {
           ]
         },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
+        { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
+        { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
       ]
     });
   }, { passive: true });
@@ -1495,14 +1501,16 @@ async function doImportExcel() {
 
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
-  const f = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=336819867');
-  importFromXlsxFile(f, {add:true});
+  // const f2025 = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=336819867');
+  // importFromXlsxFile(f2025, {add:true});
+  alert ("Catalogue 2026 disponible mi avril")
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
-  const f = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=781555543');
-  importFromXlsxFile(f, {add:true});
+  // const f2025 = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=781555543');
+  const f2026 = await fetch('https://docs.google.com/spreadsheets/d/1G3BBX1KZflK9BGyKiMqqRIDQNgw40jiH/export?format=xlsx&id=1G3BBX1KZflK9BGyKiMqqRIDQNgw40jiH&gid=1643688045');
+  importFromXlsxFile(f2026, {add:true});
 }
 
 // Export Excel
@@ -1910,10 +1918,10 @@ export async function importFromUrlOrTxt(raw, parser=null) {
 
   if (!parser) {
     if (looksLikeUrl(raw)) { 
-      if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
+      if (raw.includes("https://festival-avignon.com/fr/edition-2026/programmation/par-categorie")) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
       } 
-      else if (raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/")) {
+      else if (raw.includes("https://festival-avignon.com/fr/edition-2026/programmation/")) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonInSpecPageUrl, raw, 'Echec collage');
       } 
       else if (raw.includes("https://www.festivaloffavignon.com/programme")) {
@@ -1957,7 +1965,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
     }
   } else {
     if (parser == 'parseAvignonInProgPage') {
-      if (looksLikeUrl(raw) && raw.includes("https://festival-avignon.com/fr/edition-2025/programmation/par-categorie")) {
+      if (looksLikeUrl(raw) && raw.includes("https://festival-avignon.com/fr/edition-2026/programmation/par-categorie")) {
         parsed = await asyncCallAvecOverlayAttente(parseAvignonInProgPageUrl, raw, 'Echec collage');
       }      
       if (!parsed || parsed.length == 0) {
@@ -2000,7 +2008,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
       (row.Orga.trim().toLowerCase() == 'off') ? 
       `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nom.trim().replace(/\s+/g, '+')}` : 
       (row.Orga.trim().toLowerCase() == 'in') ? 
-      `https://festival-avignon.com/fr/edition-2025/programmation/par-categorie`: 
+      `https://festival-avignon.com/fr/edition-2026/programmation/par-categorie`: 
       `https://www.billetreduc.com/search.htm?se=${nom.trim().replace(/\s+/g, '+')}` :
       null;
 
