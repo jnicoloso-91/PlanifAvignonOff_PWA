@@ -2300,22 +2300,53 @@ export function openSheetFiltres(gridId) {
         return out;
       }
 
-      function sanitizeValue(s) {
-        return String(s)
-          .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-      }
+      // function sanitizeValue(s) {
+      //   return String(s)
+      //     .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, " ")
+      //     .replace(/\s+/g, " ")
+      //     .trim();
+      // }
 
-      function normText(s) {
-        return String(s ?? "")
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/\p{Diacritic}/gu, "")
-          .replace(/[’‘`´']/g, " ")   // 🔥 espace au lieu de suppression
-          .replace(/\s+/g, " ")
-          .trim();
-      }
+      // function normText(s) {
+      //   return String(s ?? "")
+      //     .toLowerCase()
+      //     .normalize("NFD")
+      //     .replace(/\p{Diacritic}/gu, "")
+      //     .replace(/[’‘`´']/g, " ")   // 🔥 espace au lieu de suppression
+      //     .replace(/\s+/g, " ")
+      //     .trim();
+      // }
+function sanitizeValue(s) {
+  return String(s ?? "")
+    // apostrophes / quotes
+    .replace(/[’‘`´ʼʻʹʽ]/g, "'")
+
+    // guillemets
+    .replace(/[“”«»]/g, '"')
+
+    // tirets
+    .replace(/[–—−]/g, "-")
+
+    // espaces exotiques
+    .replace(/[\u00A0\u202F]/g, " ")
+
+    // retours ligne
+    .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, " ")
+
+    // espaces multiples
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normText(s) {
+  return String(s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[’‘`´'ʼʻʹʽ]/g, " ")   // plus large que juste ’
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
         const set = new Set();
@@ -2366,6 +2397,28 @@ export function openSheetFiltres(gridId) {
         }
         return out;
       }
+// function buildSuggestionsForField(field, rows) {
+//   const isMood = String(field).toLowerCase() === "mood";
+//   const isDate = String(field).toLowerCase() === "date";
+
+//   const raw = isMood ? uniqueWords(rows, field) : uniqueValues(rows, field);
+
+//   const seen = new Set();
+//   const out = [];
+
+//   for (const v of raw) {
+//     let label = sanitizeValue(v);
+//     if (isDate) label = dateintStrToPretty(label);
+
+//     const key = normText(label);
+
+//     if (!label || seen.has(key)) continue;
+//     seen.add(key);
+
+//     out.push({ label, key });
+//   }
+//   return out;
+// }
 
       function getColName(col) {
         return (col.colId == "__desc_summary") ? "Description" : col.headerName || col.field || "";
