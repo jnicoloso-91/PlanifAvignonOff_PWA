@@ -2311,8 +2311,8 @@ export function openSheetFiltres(gridId) {
         return String(s ?? "")
           .toLowerCase()
           .normalize("NFD")
-          .replace(/\p{Diacritic}/gu, "")   // enlève accents
-          .replace(/[’‘`´']/g, "")          // enlève apostrophes
+          .replace(/\p{Diacritic}/gu, "")
+          .replace(/[’‘`´']/g, " ")   // 🔥 espace au lieu de suppression
           .replace(/\s+/g, " ")
           .trim();
       }
