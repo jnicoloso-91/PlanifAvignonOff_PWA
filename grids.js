@@ -1787,7 +1787,7 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
       const d = v * dt;
       // let next = cur - d;
       let next = cur + d;
-      next = cur + (next - cur) * 0.9;
+      // next = cur + (next - cur) * 0.9;
 
       if (next < 0) next = 0;
       if (next > maxScroll) next = maxScroll;
