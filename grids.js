@@ -1727,19 +1727,39 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
     while (samples.length > MAX_SAMPLES) samples.shift();
   }
 
+  // function computeVelocity() {
+  //   if (samples.length < 2) return 0;
+  //   const last = samples[samples.length - 1];
+
+  //   let i = samples.length - 2;
+  //   while (i > 0 && (last.t - samples[i].t) < 40) i--;
+  //   const a = samples[i];
+
+  //   const dt = last.t - a.t;
+  //   if (dt <= 0) return 0;
+
+  //   const d = last.value - a.value;
+  //   return d / dt; // >0 = doigt vers + (droite ou bas)
+  // }
   function computeVelocity() {
     if (samples.length < 2) return 0;
+
     const last = samples[samples.length - 1];
 
-    let i = samples.length - 2;
-    while (i > 0 && (last.t - samples[i].t) < 40) i--;
-    const a = samples[i];
+    // prendre un point ~50-90ms avant si possible
+    let a = samples[0];
+    for (let i = samples.length - 2; i >= 0; i--) {
+      const dt = last.t - samples[i].t;
+      if (dt >= 50) {
+        a = samples[i];
+        break;
+      }
+    }
 
     const dt = last.t - a.t;
     if (dt <= 0) return 0;
 
-    const d = last.value - a.value;
-    return d / dt; // >0 = doigt vers + (droite ou bas)
+    return (last.value - a.value) / dt;
   }
 
   function startFlingAxis({
