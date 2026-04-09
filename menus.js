@@ -655,6 +655,9 @@ async function importFromXlsxFile(f, {add=false} = {}) {
         const cell = ws[addr];
         const link = cell?.l?.Target || cell?.l?.target || null;
 
+        // Force type String sur colonne Activite
+        dfRows[i].Activite = String(dfRows[i].Activite ?? "");
+
         // S’il y a déjà une colonne "Hyperlien" dans Excel, on la garde prioritaire,
         // sinon on remplit depuis le lien de la cellule Activité.
         if (!dfRows[i].Hyperlien && link) {
@@ -1124,7 +1127,7 @@ export function wireAppKebab() {
           ]
         },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
-        // { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
+        { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
         // { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
       ]
     });
@@ -1502,8 +1505,8 @@ async function doImportExcel() {
 // Import depuis catalogue du In
 async function doImportFromCatIn() {
   // const f2025 = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=336819867');
-  // importFromXlsxFile(f2025, {add:true});
-  alert ("Catalogue 2026 disponible mi avril")
+  const f2026 = await fetch('https://docs.google.com/spreadsheets/d/1II13iAjOsl9lH40kvuyzgR17a-zVLhNk/export?format=xlsx&id=1II13iAjOsl9lH40kvuyzgR17a-zVLhNk&gid=1067029202');
+  importFromXlsxFile(f2026, {add:true});
 }
 
 // Import depuis catalogue du Off
@@ -2002,7 +2005,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
 
   for (const row of parsed) {
 
-    const nom = row.Activite || null;
+    const nom = String(row.Activite ?? "");
 
     const hyperlienDefault = (nom) ? 
       (row.Orga.trim().toLowerCase() == 'off') ? 
