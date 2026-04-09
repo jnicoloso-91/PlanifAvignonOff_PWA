@@ -1696,8 +1696,8 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
   const MAX_VX = 2.2;      // px/ms
   const MAX_VY = 2.2;      // px/ms 
 
-  const BASE_FRICTION_X = 0.0030; // baisser pour moins de friction
-  const BASE_FRICTION_Y = 0.0030; // baisser pour moins de friction
+  const BASE_FRICTION_X = 0.0024; // baisser pour moins de friction
+  const BASE_FRICTION_Y = 0.0024; // baisser pour moins de friction
 
   const EDGE_ZONE  = 80;
   const EDGE_BOOST = 0.010;
@@ -1771,7 +1771,8 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
       if (next < 0) next = 0;
       if (next > maxScroll) next = maxScroll;
 
-      setPos(next);
+      // setPos(next);
+      setPos(Math.round(next));
 
       const decay = Math.exp(-friction * dt);
       v *= decay;
@@ -1779,7 +1780,7 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
       const atStart = next <= 0.5;
       const atEnd   = next >= (maxScroll - 0.5);
 
-      if (Math.abs(v) < 0.02 || (v > 0 && atStart) || (v < 0 && atEnd)) {
+      if (Math.abs(v) < 0.08 || (v > 0 && atStart) || (v < 0 && atEnd)) {
         stopFling();
         return;
       }
@@ -1794,7 +1795,8 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
     // si pas d'axe confirmé → rien
     if (!(horiz || vert)) { stopFling(); return; }
 
-    v = computeVelocity();
+    // v = computeVelocity();
+    v = computeVelocity() * 0.85;
 
     if (horiz) {
       const maxScroll = Math.max(0, xVp.scrollWidth - xVp.clientWidth);
