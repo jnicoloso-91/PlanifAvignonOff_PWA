@@ -2307,6 +2307,16 @@ export function openSheetFiltres(gridId) {
           .trim();
       }
 
+      function normText(s) {
+        return String(s ?? "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/\p{Diacritic}/gu, "")   // enlève accents
+          .replace(/[’‘`´']/g, "")          // enlève apostrophes
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
         const set = new Set();
         for (const r of rows || []) {
@@ -2346,8 +2356,12 @@ export function openSheetFiltres(gridId) {
         for (const v of raw) {
           let san = sanitizeValue(v);
           if (isDate) san = dateintStrToPretty(san);
-          if (!san || seen.has(san)) continue;
-          seen.add(san);
+
+          // 🔥 clé normalisée pour comparaison uniquement
+          const key = normText(san);
+
+          if (!san || seen.has(key)) continue;
+          seen.add(key);
           out.push(san);
         }
         return out;
@@ -5067,12 +5081,22 @@ export function openSheetAssistantProgrammation() {
       }
 
       // Normalise le texte en supprimant les diacritiques et en convertissant en minuscules.
+      // function normText(s) {
+      //   return (s || "")
+      //     .toString()
+      //     .normalize("NFD")
+      //     .replace(/\p{Diacritic}/gu, "")
+      //     .toLowerCase();
+      // }
       function normText(s) {
         return (s || "")
           .toString()
           .normalize("NFD")
           .replace(/\p{Diacritic}/gu, "")
-          .toLowerCase();
+          .replace(/[’‘`´']/g, "")
+          .toLowerCase()
+          .replace(/\s+/g, " ")
+          .trim();
       }
 
       /**
@@ -7349,13 +7373,6 @@ export async function openSheetReprogrammer(uuid) {
 
 export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
-  // function normText(s){
-  //   return String(s ?? "")
-  //     .toLowerCase()
-  //     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // enlève accents
-  //     .replace(/\s+/g, " ")
-  //     .trim();
-  // }
   function normText(s){
     return String(s ?? "")
       .toLowerCase()
