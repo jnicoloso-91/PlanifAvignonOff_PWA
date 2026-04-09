@@ -14,6 +14,7 @@ import {
   ensureRowVisible,
   getSelectedRow,
   redrawAllGrids, 
+  kickGridViewportIos,
 } from './grids.js';
 
 // Version circulaire avancée (pas de transitions vers vide) pour deux pages
@@ -233,6 +234,7 @@ import {
     try { 
       if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar?.(); 
       redrawAllGrids();
+      kickGridViewportIos("grid-creneaux");
     } catch {}
   }
 

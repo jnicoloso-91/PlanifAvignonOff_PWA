@@ -3191,6 +3191,67 @@ export async function refreshGrid(gridId, fallbackSelection=false) {
   requestAnimationFrame(() => requestAnimationFrame(selectAfterPaint));
 }
 
+// Re-affichage d'une grille quand elle devient visible après avoir été masquée
+export function refreshGridWhenVisible(gridId) {
+  const g = grids.get(gridId);
+  if (!g?.api || !g?.el) return;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        g.api.onGridSizeChanged?.();
+        g.api.refreshCells?.({ force: true });
+        g.api.redrawRows?.();
+      } catch (e) {
+        console.warn(`[GRID] refresh failed for ${gridId}`, e);
+      }
+    });
+  });
+}
+
+// Fix spécifique iOS Safari : grille AG Grid invisible après activation de page
+// (ex: switch catalogue → planning, ou expander ouvert).
+//
+// Symptôme :
+// - grille vide (rows non rendues)
+// - apparaît seulement après interaction (resize splitter, scroll, etc.)
+//
+// Cause probable :
+// - viewport calculé avec mauvaise hauteur
+// - iOS ne déclenche pas correctement le repaint après changement de layout
+//
+// Solution :
+// - double RAF (attendre 2 frames)
+// - onGridSizeChanged() pour recalculer le viewport
+// - micro-scroll (scrollTop ±1) pour forcer un repaint
+// - refreshCells / redrawRows
+//
+// ⚠️ Hack volontaire : ne pas simplifier / supprimer.
+// ⚠️ À appeler UNIQUEMENT après que le layout soit stabilisé
+// (ex: après waitLayoutStable sur la page planning).
+export function kickGridViewportIos(gridId) {
+  const g = grids.get(gridId);
+  if (!g?.api || !g?.el) return;
+
+  const bodyVp = g.el.querySelector(".ag-body-viewport");
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        g.api.onGridSizeChanged?.();
+
+        if (bodyVp) {
+          bodyVp.scrollTop = bodyVp.scrollTop + 1;
+          bodyVp.scrollTop = bodyVp.scrollTop - 1;
+        }
+
+        g.api.refreshCells?.({ force: true });
+        g.api.redrawRows?.();
+      } catch {}
+    });
+  });
+}
+
 // Rafraichit toutes les grilles
 export async function refreshAllGrids() {
   const ids = Array.from(grids.keys());
