@@ -7349,10 +7349,19 @@ export async function openSheetReprogrammer(uuid) {
 
 export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
+  // function normText(s){
+  //   return String(s ?? "")
+  //     .toLowerCase()
+  //     .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // enlève accents
+  //     .replace(/\s+/g, " ")
+  //     .trim();
+  // }
   function normText(s){
     return String(s ?? "")
       .toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // enlève accents
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // accents
+      .replace(/[’‘`´]/g, "'")         // 🔥 normalise apostrophes
       .replace(/\s+/g, " ")
       .trim();
   }
