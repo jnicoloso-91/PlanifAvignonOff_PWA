@@ -2306,46 +2306,44 @@ export function openSheetFiltres(gridId) {
       //     .replace(/\s+/g, " ")
       //     .trim();
       // }
-
-      // function normText(s) {
-      //   return String(s ?? "")
-      //     .toLowerCase()
-      //     .normalize("NFD")
-      //     .replace(/\p{Diacritic}/gu, "")
-      //     .replace(/[’‘`´']/g, " ")   // 🔥 espace au lieu de suppression
-      //     .replace(/\s+/g, " ")
-      //     .trim();
-      // }
 function sanitizeValue(s) {
   return String(s ?? "")
-    // apostrophes / quotes
     .replace(/[’‘`´ʼʻʹʽ]/g, "'")
-
-    // guillemets
     .replace(/[“”«»]/g, '"')
-
-    // tirets
     .replace(/[–—−]/g, "-")
-
-    // espaces exotiques
     .replace(/[\u00A0\u202F]/g, " ")
-
-    // retours ligne
     .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, " ")
-
-    // espaces multiples
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function normText(s) {
+function normalizeSmartPunctuationForInput(s) {
   return String(s ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[’‘`´'ʼʻʹʽ]/g, " ")   // plus large que juste ’
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/[’‘`´ʼʻʹʽ]/g, "'")
+    .replace(/[“”«»]/g, '"')
+    .replace(/[–—−]/g, "-")
+    .replace(/[\u00A0\u202F]/g, " ");
+}
+
+function normalizeInputValueInPlace(inputEl) {
+  if (!inputEl) return;
+
+  const oldVal = inputEl.value;
+  const newVal = normalizeSmartPunctuationForInput(oldVal);
+
+  if (newVal === oldVal) return;
+
+  const start = inputEl.selectionStart ?? oldVal.length;
+  const end   = inputEl.selectionEnd ?? oldVal.length;
+  const delta = oldVal.length - newVal.length;
+
+  inputEl.value = newVal;
+
+  try {
+    const newStart = Math.max(0, start - delta);
+    const newEnd   = Math.max(0, end - delta);
+    inputEl.setSelectionRange(newStart, newEnd);
+  } catch {}
 }
 
       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
@@ -2387,12 +2385,8 @@ function normText(s) {
         for (const v of raw) {
           let san = sanitizeValue(v);
           if (isDate) san = dateintStrToPretty(san);
-
-          // 🔥 clé normalisée pour comparaison uniquement
-          const key = normText(san);
-
-          if (!san || seen.has(key)) continue;
-          seen.add(key);
+          if (!san || seen.has(san)) continue;
+          seen.add(san);
           out.push(san);
         }
         return out;
@@ -2562,6 +2556,16 @@ function normText(s) {
         if (!noSggestionCols.includes(field)) {
           suggestions = buildSuggestionsForField(field, allRows);
         }
+
+inputEl.setAttribute("autocapitalize", "off");
+inputEl.setAttribute("autocomplete", "off");
+inputEl.setAttribute("autocorrect", "off");
+inputEl.setAttribute("spellcheck", "false");
+
+// normalise la saisie iOS AVANT que createChipBox ne filtre les suggestions
+inputEl.addEventListener("input", () => {
+  normalizeInputValueInPlace(inputEl);
+}, { capture: true });
 
         const inst = createChipBox({
           boxEl,
