@@ -570,6 +570,7 @@ const CANON = {
   'relaches': 'Relache',
   'reserve': 'Reserve',
   'priorite': 'Priorite',
+  'marqueur': 'Priorite',
   'ton': 'Mood',
   // tolérances diverses
   'debut (HHhMM)': 'Debut',
@@ -1127,8 +1128,8 @@ export function wireAppKebab() {
           ]
         },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
-        // { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
-        // { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
+        { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
+        { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
       ]
     });
   }, { passive: true });
@@ -1589,8 +1590,8 @@ async function doExportExcel() {
     
     cleanData = cleanRows(cleanData, 
       ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances"],
-      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Priorité", HyperlienBR: "Billet Réduc", HyperlienGoogle: "Google" },
-      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Priorité", "Billet Réduc", "Google", "__desc_summary", "__avis_summary", "__distribution" ],
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Marqueur", HyperlienBR: "Billet Réduc", HyperlienGoogle: "Google" },
+      [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Marqueur", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Billet Réduc", "Google", "__desc_summary", "__avis_summary", "__distribution" ],
       false
     );
 
