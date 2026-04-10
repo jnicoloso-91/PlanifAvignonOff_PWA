@@ -114,27 +114,63 @@ export function mergeRowsNoDup(arr1, arr2, col) {
 }
 
 /**
- * Merge deux tableaux sans duplication.
- * Si deux lignes ont la même valeur sur les colonnes données par keyCols 
- * les valeurs de arr2 sont appliquées sur toutes les colonnes.
- * @param {*} arr1 
- * @param {*} arr2 
- * @param {*} keyCols       colonnes à tester pour considérer qu'il y a doublon.
- * @param {*} normalizer    fonction de normalisation des valeurs à comparer.
- * 
- * @returns 
+ * Merge deux tableaux d'objets sans duplication basée sur une clé composite.
+ *
+ * - Les lignes sont identifiées comme doublons si les valeurs des colonnes `keyCols`
+ *   sont égales (après application éventuelle du `normalizer`).
+ * - Les lignes de `arr1` servent de base.
+ * - Les lignes de `arr2` sont appliquées par-dessus (merge champ par champ).
+ * - Les colonnes listées dans `excludeCols` ne sont jamais écrasées dans `arr1`.
+ *
+ * Comportement :
+ * - Présent uniquement dans arr1 → conservé
+ * - Présent uniquement dans arr2 → ajouté
+ * - Présent dans les deux → merge (arr2 écrase arr1 sauf colonnes exclues)
+ *
+ * @param {Array<Object>} arr1 - Tableau de base (priorité pour les colonnes exclues)
+ * @param {Array<Object>} arr2 - Tableau à merger par-dessus
+ * @param {Array<string>} keyCols - Colonnes constituant la clé de déduplication
+ * @param {Object} [options] - Options de merge
+ * @param {Array<string>} [options.excludeCols=["Marqueur"]] - Colonnes à ne pas écraser dans arr1
+ * @param {(value:any)=>string} [options.normalizer] - Fonction de normalisation appliquée aux valeurs des clés avant comparaison
+ *
+ * @returns {Array<Object>} Nouveau tableau fusionné sans doublons
  */
-export function mergeRowsNoDupMultiKey(arr1, arr2, keyCols, normalizer) {
+export function mergeRowsNoDupMultiKey(
+  arr1,
+  arr2,
+  keyCols,
+  {
+    excludeCols = ["Marqueur"],
+    normalizer = (v) => v
+  } = {}
+) {  
   const map = new Map();
-  // On conserve l’ordre d’arrivée : d’abord arr2, puis arr1
-  for (const r of arr2) {
-    const k = _buildKey(r, keyCols, normalizer);
-    if (!map.has(k)) map.set(k, r);
-  }
+
   for (const r of arr1) {
     const k = _buildKey(r, keyCols, normalizer);
-    if (!map.has(k)) map.set(k, r);
+    map.set(k, { ...r });
   }
+
+  for (const r2 of arr2) {
+    const k = _buildKey(r2, keyCols, normalizer);
+
+    if (!map.has(k)) {
+      map.set(k, { ...r2 });
+    } else {
+      const r1 = map.get(k);
+
+      for (const key of Object.keys(r2)) {
+        if (excludeCols.includes(key)) continue;
+
+        const val = r2[key];
+        if (val !== undefined && val !== null) {
+          r1[key] = val;
+        }
+      }
+    }
+  }
+
   return Array.from(map.values());
 }
 
