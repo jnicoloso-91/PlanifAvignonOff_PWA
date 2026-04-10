@@ -27,17 +27,18 @@ export class ActiviteRenderer {
     a.style.opacity = '.85';
     a.addEventListener('mouseenter', () => a.style.opacity = '1');
     a.addEventListener('mouseleave', () => a.style.opacity = '.85');
+
     //a.addEventListener('click', (ev) => {
-        // important : ne PAS mettre preventDefault ici,
-        // on laisse le navigateur ouvrir le nouvel onglet.
-        //ev.stopPropagation(); // évite de changer la sélection de la ligne
+    //    // important : ne PAS mettre preventDefault ici,
+    //    // on laisse le navigateur ouvrir le nouvel onglet.
+    //    ev.stopPropagation(); // évite de changer la sélection de la ligne
     //});
       
-a.addEventListener('pointerdown', () => {
-  try {
-    params.node?.setSelected?.(true, true);
-  } catch {}
-});
+    a.addEventListener('pointerdown', () => {
+      try {
+        params.node?.setSelected?.(true, true);
+      } catch {}
+    });
 
     const icon = document.createElement('span');
     icon.textContent = '🔗';
