@@ -1457,11 +1457,11 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
 
   const MAX_SAMPLES = 8;
 
-  const MAX_VX = isIOS() ? 1.6 : 2.2;      // px/ms
-  const MAX_VY = isIOS() ? 1.6 : 2.2;      // px/ms 
+  const MAX_VX = 2.2;      // px/ms
+  const MAX_VY = 2.2;      // px/ms 
 
-  const BASE_FRICTION_X = isIOS() ? 0.005 : 0.0024; // baisser pour moins de friction
-  const BASE_FRICTION_Y = isIOS() ? 0.005 : 0.0024; // baisser pour moins de friction
+  const BASE_FRICTION_X = 0.0024; // baisser pour moins de friction
+  const BASE_FRICTION_Y = 0.0024; // baisser pour moins de friction
 
   const EDGE_ZONE  = 80;
   const EDGE_BOOST = 0.010;
@@ -1532,7 +1532,7 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
       // v < 0 => doigt vers - => scroll veut augmenter
       const distToEdge = (v > 0) ? cur : (maxScroll - cur);
       const edgeFactor = Math.max(0, Math.min(1, (EDGE_ZONE - distToEdge) / EDGE_ZONE));
-      const friction = baseFriction + EDGE_BOOST * edgeFactor * edgeFactor;
+      const friction = baseFriction; // + EDGE_BOOST * edgeFactor * edgeFactor;
 
       const d = v * dt;
       // let next = cur - d;
