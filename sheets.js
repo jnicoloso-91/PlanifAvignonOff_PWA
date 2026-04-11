@@ -1568,7 +1568,7 @@ export function openSheetCarnet() {
         defaultColDef: { editable:true, resizable:true, sortable:true, filter:true },
 
         onGridReady: (params) => {
-          requestAnimationFrame(() => wireAgTouchScrollRouter('grid-carnet', { sheetGrid:true} ));
+          if (!isIOS()) requestAnimationFrame(() => wireAgTouchScrollRouter('grid-carnet', { sheetGrid:true} ));
         },
         rowSelection: 'single',
         onCellValueChanged: (p) => {
@@ -7572,7 +7572,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         getRowId: p => p.data?.__uuid,
         rowSelection: "single", 
         onGridReady: (params) => {
-          requestAnimationFrame(() => wireAgTouchScrollRouter('grid-search', { sheetGrid:true} ));
+          if (!isIOS()) requestAnimationFrame(() => wireAgTouchScrollRouter('grid-search', { sheetGrid:true} ));
         },
         onSelectionChanged: () => {
           const sel = gridApi?.getSelectedRows?.()?.[0] || null;

@@ -38,6 +38,117 @@ import { logToPage } from './debug.js';
 export let ctx = null;
 export let activitesAPI = null;
 
+// === DEBUG TOUCH / SCROLL INTERFERENCE ===
+// (function debugPreventDefault() {
+//   if (globalThis.__debugPreventDefaultInstalled) return;
+//   globalThis.__debugPreventDefaultInstalled = true;
+
+//   const orig = Event.prototype.preventDefault;
+
+//   Event.prototype.preventDefault = function() {
+//     if (
+//       this.type === "touchmove" ||
+//       this.type === "pointermove"
+//     ) {
+//       console.log("[preventDefault DETECTED]", {
+//         type: this.type,
+//         target: this.target,
+//         currentTarget: this.currentTarget
+//       });
+//       console.trace();
+//     }
+//     return orig.call(this);
+//   };
+// })();
+
+// === DEBUG POINTER CAPTURE ===
+// (function debugPointerCapture() {
+//   if (!Element.prototype.setPointerCapture) return;
+
+//   const orig = Element.prototype.setPointerCapture;
+
+//   Element.prototype.setPointerCapture = function(pointerId) {
+//     console.log("[setPointerCapture]", this);
+//     console.trace();
+//     return orig.call(this, pointerId);
+//   };
+// })();
+
+// const DBG_PREVENT_KEY = Symbol.for("dbgPreventDefaultInstalled");
+
+// (function debugPreventDefault() {
+//   if (globalThis[DBG_PREVENT_KEY]) return;
+//   globalThis[DBG_PREVENT_KEY] = true;
+
+//   const orig = Event.prototype.preventDefault;
+
+//   Event.prototype.preventDefault = function() {
+//     if (
+//       this.type === "touchmove" ||
+//       this.type === "touchstart" ||
+//       this.type === "pointermove" ||
+//       this.type === "pointerdown" ||
+//       this.type === "wheel"
+//     ) {
+//       console.log("[preventDefault]", {
+//         type: this.type,
+//         target: this.target,
+//         currentTarget: this.currentTarget
+//       });
+//       console.trace();
+//     }
+//     return orig.call(this);
+//   };
+// })();
+
+// const DBG_CAPTURE_KEY = Symbol.for("dbgPointerCaptureInstalled");
+
+// (function debugPointerCapture() {
+//   if (globalThis[DBG_CAPTURE_KEY]) return;
+//   globalThis[DBG_CAPTURE_KEY] = true;
+
+//   const orig = Element.prototype.setPointerCapture;
+//   if (!orig) return;
+
+//   Element.prototype.setPointerCapture = function(pointerId) {
+//     console.log("[setPointerCapture]", this, { pointerId });
+//     console.trace();
+//     return orig.call(this, pointerId);
+//   };
+// })();
+
+// const DBG_LISTENER_KEY = Symbol.for("dbgAddListenerInstalled");
+
+// (function debugAddEventListener() {
+//   if (globalThis[DBG_LISTENER_KEY]) return;
+//   globalThis[DBG_LISTENER_KEY] = true;
+
+//   const orig = EventTarget.prototype.addEventListener;
+
+//   EventTarget.prototype.addEventListener = function(type, listener, options) {
+//     const opts = typeof options === "boolean" ? { capture: options } : (options || {});
+//     if (
+//       type === "touchstart" ||
+//       type === "touchmove" ||
+//       type === "touchend" ||
+//       type === "pointerdown" ||
+//       type === "pointermove" ||
+//       type === "pointerup" ||
+//       type === "wheel"
+//     ) {
+//       console.log("[addEventListener]", {
+//         target: this,
+//         type,
+//         passive: opts.passive,
+//         capture: !!opts.capture,
+//         once: !!opts.once,
+//         listener
+//       });
+//     }
+//     return orig.call(this, type, listener, options);
+//   };
+// })();
+
 function wireContext() {
 
   // Initialisation de la periode de programmation si contexte vide
