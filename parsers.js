@@ -172,6 +172,12 @@ export async function enrichWithAbstractPremium(param) {
   const rows = param.rows;
   const df = param.df;
 
+  const d = new Date();
+  const dateStr = d.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit'
+  });
+
   // Ouverture de la sheet de progression
   const sheet = openSheetProgress({ title: "Génération Infos+", initialTotal: rows.length, cancellable: false });
 
@@ -217,7 +223,7 @@ export async function enrichWithAbstractPremium(param) {
     row.Note = getNoteFromAvis(details.avis_obj);
 
     // Ajout d'un marqueur New sur colonne Priorite
-    row.Priorite = "New";
+    row.Priorite = `New ${dateStr}`;
 
     // Construction du paramètre du worker AI
     const item = {
