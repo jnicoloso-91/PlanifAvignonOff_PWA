@@ -1937,7 +1937,7 @@ function gridOptionsCommon(gridId, el) {
       safeSizeToFitFor(gridId);
       const root = el.querySelector('.ag-root') || el;
       enableTouchEdit(p.api, root, {debug: false /*, forceTouch: true*/});
-      requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
+      // requestAnimationFrame(() => wireAgTouchScrollRouter(gridId));
     },
     onModelUpdated: (ev) => {
       const g = grids.get(gridId);

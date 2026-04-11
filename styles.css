@@ -573,7 +573,7 @@ main, .page-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  touch-action: none;
+  touch-action: auto; /*none;*/
   pointer-events: none;       /* Le splitter ne capte rien, seule la poignée capte */
   z-index: 10;                /* au-dessus des grilles */
 }
@@ -630,6 +630,12 @@ main, .page-wrap {
 /* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
 
+/* Rétablit le scroll natif dans les grilles */
+.ag-body-viewport,
+.ag-body-horizontal-scroll-viewport {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
+}
 
 /*=======================*/
 /* Sélection grilles     */
