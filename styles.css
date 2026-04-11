@@ -631,11 +631,11 @@ main, .page-wrap {
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
 
 /* Rétablit le scroll natif dans les grilles */
-.ag-body-viewport,
+/* .ag-body-viewport,
 .ag-body-horizontal-scroll-viewport {
   touch-action: pan-x pan-y;
   overscroll-behavior: contain;
-}
+} */
 
 /*=======================*/
 /* Sélection grilles     */
