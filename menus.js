@@ -2059,13 +2059,15 @@ export async function importFromUrlOrTxt(raw, parser=null) {
   // Remplacement de Description, Distribution, Avis de nouvellesActivites avec __desc_summary, __avis_summary et Mood via worker AI
   await asyncCallAvecOverlayAttente(enrichWithAbstractPremium, { rows:nouvellesActivites, df: ctx.df }, 'Echec enrichissement résumé');
 
-  if (mergeMode == 1) {
+  // Insertion des nouvelles lignes ou pour les lignes existantes surcharge des colonnes du paramètre overloadCols de overloadRowsOrInsert
+  if (mergeMode == 1) { 
     ctx.mutateDf(rows => { 
       const next = sortDf(overloadRowsOrInsert(rows, nouvellesActivites, ['Activite', 'Lieu'], ['Duree', '__desc_summary', '__avis_summary', 'Mood'])); 
       recalcFinForAll(next); 
       return next;
     });
   }
+  // Insertion des nouvelles lignes ou pour les lignes existantes surcharge de toutes les colonnes sauf la colonne Marqueur (ou les colonnes données par le paramètre excludeCols)
   else {
     recalcFinForAll(nouvellesActivites);
     ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(rows, nouvellesActivites, ['Activite', 'Lieu', 'Debut'])));

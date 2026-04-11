@@ -216,6 +216,9 @@ export async function enrichWithAbstractPremium(param) {
     row.HyperlienBR = details.detailUrl;
     row.Note = getNoteFromAvis(details.avis_obj);
 
+    // Ajout d'un marqueur New sur colonne Priorite
+    row.Priorite = "New";
+
     // Construction du paramètre du worker AI
     const item = {
       activite: row.Activite || '',
