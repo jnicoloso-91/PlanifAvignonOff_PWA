@@ -1864,7 +1864,7 @@ body.lock-page-scroll {
 /* Evite le rebond à la IOS sur le bord des grilles -> comportement sans rebond identique sur IOS et Android */
 .cal-day__body,
 .ag-body-viewport {
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
 }
 
 /* ========================================================================================================*/
