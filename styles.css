@@ -1861,12 +1861,6 @@ body.lock-page-scroll {
    À n’activer que si on n’a pas besoin du scroll horizontal au doigt. */
 /* .ag-body-viewport, .ag-center-cols-viewport { touch-action: pan-y; } */
 
-/* Evite le rebond à la IOS sur le bord des grilles -> comportement sans rebond identique sur IOS et Android */
-.cal-day__body,
-.ag-body-viewport {
-  overscroll-behavior: none;
-}
-
 /* ========================================================================================================*/
 /* Résolution du pb de disparition de la page planning au basculement Iphone si sheet affichée (bug IOS)   */
 /* ========================================================================================================*/
