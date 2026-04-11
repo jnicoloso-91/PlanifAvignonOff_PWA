@@ -2519,31 +2519,31 @@ input[type="range"]:focus::-moz-range-thumb {
 .grid-host { overflow: hidden !important; }
 
 /* 2) Y : le scroller vertical (celui-ci doit rester scrollable) */
-.ag-body-viewport{
+/* .ag-body-viewport{
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-y !important;
   overscroll-behavior: contain;
-}
+} */
 
 /* 3) X : le scroller horizontal officiel (celui qui sync le header) */
-.ag-body-horizontal-scroll-viewport{
+/* .ag-body-horizontal-scroll-viewport{
   overflow-x: auto !important;
   overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x !important;
   overscroll-behavior: contain;
-}
+} */
 
 /* 4) le viewport colonnes ne doit pas "voler" le scroll */
-.ag-center-cols-viewport{
+/* .ag-center-cols-viewport{
   overflow: hidden !important;
   touch-action: auto !important;
-}
+} */
 
 /* 5) header pas scrollable directement (piloté par AG) */
-.ag-header-viewport { overflow: hidden !important; }
+/* .ag-header-viewport { overflow: hidden !important; } */
 
 /* Pour scroll natif dans les grilles */
 .ag-body-viewport,
