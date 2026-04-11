@@ -835,6 +835,34 @@ export function rebuildColumnsForActiviteGrids(dfRows) {
   rebuildColumnsForGrid('grid-programmables', dfRows);
 }
 
+// textMatcher pour la colonne Priorite
+function marqueurTextMatcher(params) {
+  const value = normText(params.value ?? "");
+  const filterText = String(params.filterText ?? "").trim();
+
+  if (!filterText) return true;
+
+  // si tu utilises plusieurs chips concaténées par OR_SEP
+  const OR_SEP = "|";
+  const needles = filterText
+    .split(OR_SEP)
+    .map(s => normText(s))
+    .filter(Boolean);
+
+  if (!needles.length) return true;
+
+  return needles.some((needle) => {
+    // recherche purement numérique => match exact sur "tokens"
+    if (/^\d+$/.test(needle)) {
+      const tokens = value.split(/[^0-9a-z]+/i).filter(Boolean);
+      return tokens.includes(needle);
+    }
+
+    // sinon comportement normal "contains"
+    return value.includes(needle);
+  });
+}
+
 // Colonnes des grilles d'activités programmées et non programmées
 function buildColumnsActivitesCommon(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 80;
@@ -880,7 +908,7 @@ function buildColumnsActivitesCommon(){
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width, editable: false, cellRenderer: NoteRenderer },
-    { field:'Priorite', headerName: 'Marqueur', width:45, minWidth:45, valueParser: valueParserNumerique, cellEditor:IntCellEditor },
+    { field:'Priorite', headerName: 'Marqueur', width:45, minWidth:45, valueParser: valueParserNumerique, cellEditor:IntCellEditor, filter: "agTextColumnFilter", filterParams: {textMatcher: marqueurTextMatcher} },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
@@ -1873,6 +1901,17 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
   }
 }
 
+function normText(s) {
+  return String(s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[’‘`´ʼʻʹʽ']/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// gridOptions communes
 function gridOptionsCommon(gridId, el) {
   return {
     context: { gridId },                 
