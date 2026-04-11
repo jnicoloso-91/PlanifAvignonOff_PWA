@@ -523,20 +523,24 @@ import {
   }
 
   // Écouteurs
-  const IS_IOS =
-    /iP(ad|hone|od)/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const ENABLE_PAGER_SWIPE = false;
+  
+  if (ENABLE_PAGER_SWIPE) {
+    const IS_IOS =
+      /iP(ad|hone|od)/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-  if (!IS_IOS && window.PointerEvent){
-    pager.addEventListener('pointerdown', onStart, { passive: true });
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup',   onEnd,  { passive: true });
-    window.addEventListener('pointercancel', onEnd, { passive: true });
-  } else {
-    pager.addEventListener('touchstart', onStart, { passive: true });
-    window.addEventListener('touchmove',  onMove, { passive: false });
-    window.addEventListener('touchend',   onEnd,  { passive: true });
-    window.addEventListener('pointercancel', onEnd, { passive: true });
+    if (!IS_IOS && window.PointerEvent){
+      pager.addEventListener('pointerdown', onStart, { passive: true });
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup',   onEnd,  { passive: true });
+      window.addEventListener('pointercancel', onEnd, { passive: true });
+    } else {
+      pager.addEventListener('touchstart', onStart, { passive: true });
+      window.addEventListener('touchmove',  onMove, { passive: false });
+      window.addEventListener('touchend',   onEnd,  { passive: true });
+      window.addEventListener('pointercancel', onEnd, { passive: true });
+    }
   }
 
   window.addEventListener('resize', () => { measure(); snapToIndex(index); });

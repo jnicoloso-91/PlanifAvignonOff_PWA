@@ -1552,6 +1552,9 @@ function enableCalAxisLock() {
 
   document.addEventListener("touchmove", (e) => {
     // On ne s’occupe QUE des gestes démarrés dans le body (zone verticale)
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    if (!target.closest("programme-cal")) return;
     if (!isInDayBody(e.target)) return;
 
     const t = e.touches?.[0];
@@ -1636,8 +1639,8 @@ function enableCalAxisLock() {
       }
 
       // ✅ on ne capture le geste que si on bouge réellement
-      e.preventDefault();
-      e.stopPropagation();
+      if (e.cancelable) e.preventDefault();
+      // e.stopPropagation();
 
       daysScroll.scrollLeft = next;
 
