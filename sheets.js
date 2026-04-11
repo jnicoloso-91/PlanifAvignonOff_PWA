@@ -2093,6 +2093,7 @@ export function openSheetAide() {
                   <li><u><i>Ajouter</u></i> : ajout d'une colonne optionnelle supplémentaire dans les tableaux.</li>
                   <li><u><i>Supprimer</u></i> : suppression d'une colonne optionnelle.</li>
                 </ul>
+              <li><u><i>Reinit</u></i> : recharge l'application (à utiliser en cas de changement de version).</li>
               <li><u><i>Aide</u></i> : la présente aide.</li>
             </ul>
 

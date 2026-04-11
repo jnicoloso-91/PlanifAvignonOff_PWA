@@ -1108,6 +1108,15 @@ export function openKebabMenu(anchorBtn, { items = [], side = false } = {}) {
   return { close: closeMenu };
 }
 
+// Rechargement de l'application
+async function resetApp() {
+  await caches.keys().then(keys =>
+    Promise.all(keys.map(k => caches.delete(k)))
+  );
+  localStorage.clear();
+  location.reload();
+}
+
 export function wireAppKebab() {
   const btn = document.getElementById('btn-app-kebab');
   if (!btn) return;
@@ -1127,9 +1136,10 @@ export function wireAppKebab() {
             { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
           ]
         },
+        { id:'reload',    label:'Reinit',                   onClick: async ()=> await resetApp() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
-        { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
-        { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
+        // { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
+        // { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
       ]
     });
   }, { passive: true });
