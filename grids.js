@@ -877,8 +877,8 @@ function buildColumnsActivitesCommon(){
       // par défaut quick filter prend toutes les cols, mais certains setups filtrent
       getQuickFilterText: (p) => (p.value ?? ""),
     })),
-    { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
+    { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width, editable: false, cellRenderer: NoteRenderer },
     { field:'Priorite', headerName: 'Marqueur', width:45, minWidth:45, valueParser: valueParserNumerique, cellEditor:IntCellEditor },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
