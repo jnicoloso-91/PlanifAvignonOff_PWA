@@ -1490,20 +1490,6 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
     while (samples.length > MAX_SAMPLES) samples.shift();
   }
 
-  // function computeVelocity() {
-  //   if (samples.length < 2) return 0;
-  //   const last = samples[samples.length - 1];
-
-  //   let i = samples.length - 2;
-  //   while (i > 0 && (last.t - samples[i].t) < 40) i--;
-  //   const a = samples[i];
-
-  //   const dt = last.t - a.t;
-  //   if (dt <= 0) return 0;
-
-  //   const d = last.value - a.value;
-  //   return d / dt; // >0 = doigt vers + (droite ou bas)
-  // }
   function computeVelocity() {
     if (samples.length < 2) return 0;
 
@@ -1602,6 +1588,7 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
         maxV: MAX_VX,
         baseFriction: BASE_FRICTION_X,
       });
+      stopFling();
       return;
     }
 
@@ -1633,7 +1620,7 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
   // Touch handlers
   // ─────────────────────────────────────────────
   bodyVp.addEventListener("touchstart", (e) => {
-    console.log("ROUTER");
+    // console.log("ROUTER");
     if (!e.touches || e.touches.length !== 1) return;
     stopFling();
 
