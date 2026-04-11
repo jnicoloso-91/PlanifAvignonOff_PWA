@@ -8,6 +8,7 @@ import {
   capitalizeFirst,
   richValueGetValue,
   afterFrames,
+  isIOS,
 } from './utils.js';
 
 import { 
@@ -1456,11 +1457,11 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
 
   const MAX_SAMPLES = 8;
 
-  const MAX_VX = 2.2;      // px/ms
-  const MAX_VY = 2.2;      // px/ms 
+  const MAX_VX = isIOS() ? 1.6 : 2.2;      // px/ms
+  const MAX_VY = isIOS() ? 1.6 : 2.2;      // px/ms 
 
-  const BASE_FRICTION_X = 0.0024; // baisser pour moins de friction
-  const BASE_FRICTION_Y = 0.0024; // baisser pour moins de friction
+  const BASE_FRICTION_X = isIOS() ? 0.005 : 0.0024; // baisser pour moins de friction
+  const BASE_FRICTION_Y = isIOS() ? 0.005 : 0.0024; // baisser pour moins de friction
 
   const EDGE_ZONE  = 80;
   const EDGE_BOOST = 0.010;
@@ -1588,7 +1589,8 @@ export function wireAgTouchScrollRouter(gridId, { sheetGrid=false} = {}) {
         maxV: MAX_VX,
         baseFriction: BASE_FRICTION_X,
       });
-      stopFling();
+
+      // stopFling();
       return;
     }
 

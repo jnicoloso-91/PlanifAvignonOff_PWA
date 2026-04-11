@@ -1136,7 +1136,7 @@ export function wireAppKebab() {
             { id:'suppress-column',  label:'Supprimer',      onClick: ()=>doSupprimerColonne() },
           ]
         },
-        { id:'reload',    label:'Reinit1',                   onClick: async ()=> await resetApp() },
+        { id:'reload',    label:'Reinit 2',                   onClick: async ()=> await resetApp() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
         // { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
         // { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
