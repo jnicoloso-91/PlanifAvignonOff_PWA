@@ -42,6 +42,10 @@ export function infosPlusPopoverCellRenderer(params) {
       e.preventDefault();
       e.stopPropagation(); // évite de sélectionner la ligne / déclencher d’autres handlers
 
+      try {
+        params.node?.setSelected?.(true, true);
+      } catch {}
+
       openPopoverNear(btn, {
         title: row.Activite || row.activite || "Détails",
         // @ts-ignore
