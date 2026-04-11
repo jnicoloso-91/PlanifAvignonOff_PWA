@@ -630,6 +630,13 @@ main, .page-wrap {
 /* (optionnel) un poil d'espace pour éviter les scrollbars visibles sur iOS */
 .ag-body-viewport::-webkit-scrollbar { width: 0; height: 0; }
 
+/* Rétablit le scroll natif dans les grilles */
+.ag-body-viewport,
+.ag-body-horizontal-scroll-viewport {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: contain;
+}
+
 /*=======================*/
 /* Sélection grilles     */
 /* ======================*/
