@@ -45,6 +45,17 @@ export class LieuRenderer {
       window.matchMedia('(display-mode: standalone)').matches ||
       window.navigator.standalone === true;
 
+    this.onIconPointerDown = () => {
+      try {
+        if (p.column && p.node?.rowIndex != null) {
+          p.api?.setFocusedCell?.(p.node.rowIndex, p.column);
+        }
+        p.node?.setSelected?.(true, true);
+      } catch {}
+    };
+
+    this.$icon.addEventListener('pointerdown', this.onIconPointerDown);      
+
     // handler click unique (réutilisé à chaque refresh)
     this.onIconClick = (e) => {
       // 'url' est recalculée dans refresh et posée sur dataset

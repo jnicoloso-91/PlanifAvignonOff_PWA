@@ -48,6 +48,7 @@ import { HyperlienRenderer } from './HyperlienRenderer.js';
 import { HyperlienBRRenderer } from './HyperlienBRRenderer.js';
 import { AvisRenderer } from './AvisRenderer.js';
 import { LieuRenderer } from './LieuRenderer.js';
+import { NoteRenderer } from './NoteRenderer.js';
 import { infosPlusPopoverCellRenderer } from './infos-plus.js';
 
 // Palette de couleurs de jours pour colorisation des activités programmées
@@ -878,7 +879,7 @@ function buildColumnsActivitesCommon(){
     })),
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
-    { field:'Note', headerName: 'Note', width, minWidth:width },
+    { field:'Note', headerName: 'Note', width, minWidth:width, editable: false, cellRenderer: NoteRenderer },
     { field:'Priorite', headerName: 'Marqueur', width:45, minWidth:45, valueParser: valueParserNumerique, cellEditor:IntCellEditor },
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
