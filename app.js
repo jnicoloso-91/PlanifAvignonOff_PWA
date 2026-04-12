@@ -38,42 +38,7 @@ import { logToPage } from './debug.js';
 export let ctx = null;
 export let activitesAPI = null;
 
-// === DEBUG TOUCH / SCROLL INTERFERENCE ===
-// (function debugPreventDefault() {
-//   if (globalThis.__debugPreventDefaultInstalled) return;
-//   globalThis.__debugPreventDefaultInstalled = true;
-
-//   const orig = Event.prototype.preventDefault;
-
-//   Event.prototype.preventDefault = function() {
-//     if (
-//       this.type === "touchmove" ||
-//       this.type === "pointermove"
-//     ) {
-//       console.log("[preventDefault DETECTED]", {
-//         type: this.type,
-//         target: this.target,
-//         currentTarget: this.currentTarget
-//       });
-//       console.trace();
-//     }
-//     return orig.call(this);
-//   };
-// })();
-
-// === DEBUG POINTER CAPTURE ===
-// (function debugPointerCapture() {
-//   if (!Element.prototype.setPointerCapture) return;
-
-//   const orig = Element.prototype.setPointerCapture;
-
-//   Element.prototype.setPointerCapture = function(pointerId) {
-//     console.log("[setPointerCapture]", this);
-//     console.trace();
-//     return orig.call(this, pointerId);
-//   };
-// })();
-
+// === DEBUG PREVENT DEFAULT ===
 // const DBG_PREVENT_KEY = Symbol.for("dbgPreventDefaultInstalled");
 
 // (function debugPreventDefault() {
@@ -101,6 +66,7 @@ export let activitesAPI = null;
 //   };
 // })();
 
+// === DEBUG POINTER CAPTURE ===
 // const DBG_CAPTURE_KEY = Symbol.for("dbgPointerCaptureInstalled");
 
 // (function debugPointerCapture() {
@@ -117,6 +83,7 @@ export let activitesAPI = null;
 //   };
 // })();
 
+// === DEBUG EVENT LISTENER ===
 // const DBG_LISTENER_KEY = Symbol.for("dbgAddListenerInstalled");
 
 // (function debugAddEventListener() {

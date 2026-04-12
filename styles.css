@@ -2518,7 +2518,7 @@ input[type="range"]:focus::-moz-range-thumb {
 .ag-root-wrapper-body { overflow: hidden !important; }
 .grid-host { overflow: hidden !important; }
 
-/* Pour scroll natif dans les grilles */
+/* Autorise le scroll natif dans les grilles */
 .ag-body-viewport,
 .ag-body-horizontal-scroll-viewport {
   touch-action: pan-x pan-y;

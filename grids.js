@@ -1430,10 +1430,9 @@ export function enableTouchEdit(api, gridEl, opts = {}) {
 }
 
 // Router gérant le momemtum scrolling en x ey y sur les grilles.
-// Les handlers actifs (passive: false) du pager et autres éléments de la page planning
-// qui agissent sur touchmove ou pointermove en coactivité ne permettent pas en effet de passer 
-// par le scrolling natif (notamment sur Android). Cette fonction installe donc les handlers 
-// permettant de gérer par JS le scrolling en x et y des grilles sur iOS Safari + Android Chrome.
+// Pour une raison non identifiée (preventDefault sur touchmove ou pointermove au dessus des grilles, touch-action:none, ...)
+// le scrolling natif des grilles (via touch-action: pan-x pan-y) est bloqué hors IOS. Cette fonction installe donc les handlers 
+// permettant de gérer le scrolling en x et y des grilles par JS hors iOS.
 // Ne pas "simplifier".
 // Ne pas "nettoyer".
 // Ne pas "optimiser".

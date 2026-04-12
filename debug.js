@@ -126,3 +126,35 @@ export function dbg(tag, obj) {
   window.__bbLog?.(`${tag}: `, obj);
 }
 
+// Helpers à lancer en mode console (F12)
+// BLOQUE TOUT preventDefault sur touch
+// (function () {
+//   const orig = Event.prototype.preventDefault;
+//   Event.prototype.preventDefault = function () {
+//     if (this.type.includes("touch") || this.type.includes("pointer")) {
+//       console.log("BLOCK preventDefault", this.type);
+//       return;
+//     }
+//     return orig.apply(this, arguments);
+//   };
+// })(); 
+
+// Log le touch-action sur la chaine des parents
+// function debugTouchChain(target) {
+//   let n = target;
+//   const chain = [];
+//   while (n) {
+//     if (n.nodeType === 1) {
+//       const cs = getComputedStyle(n);
+//       chain.push({
+//         el: n.className || n.tagName,
+//         touchAction: cs.touchAction,
+//         overflowX: cs.overflowX,
+//         overflowY: cs.overflowY,
+//         pointerEvents: cs.pointerEvents
+//       });
+//     }
+//     n = n.parentElement;
+//   }
+//   console.table(chain);
+// }
