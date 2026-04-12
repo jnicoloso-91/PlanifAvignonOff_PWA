@@ -2124,7 +2124,7 @@ const gridOptionsActivitesNonProgrammees = {
   onSelectionChanged: (p) => {
     const hasSel = !!p.api.getSelectedRows()?.length;
     document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSel);
-    synchronizeSelection(p, 'grid-programmables'); 
+    if (p.source === 'rowClicked') synchronizeSelection(p, 'grid-programmables'); 
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
   },
@@ -2144,10 +2144,9 @@ const gridOptionsCreneaux = {
 
 const gridOptionsActivitesProgrammables = {
   onSelectionChanged: (p) => {
-    const sels = p.api.getSelectedRows();
-    const hasSel = !!sels?.length;
+    const hasSel = !!p.api.getSelectedRows()?.length;
     document.getElementById('btn-programmer')?.toggleAttribute('disabled', !hasSel);
-    synchronizeSelection(p, 'grid-non-programmees'); 
+    if (p.source === 'rowClicked') synchronizeSelection(p, 'grid-non-programmees'); 
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
   },
