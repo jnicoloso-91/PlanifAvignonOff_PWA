@@ -3020,10 +3020,11 @@ export async function refreshAllGrids() {
 }
 
 // Rafraichit toutes les grilles d'activités (utilisé par la callback de modification de contexte ctx.onChange sur df)
-// Sauf 'grid-programmables' qui se redessine automatiquement du fait de la callback onSelectionChanged sur la grille des créneaux disponibles
+// Y compris 'grid-programmables' car la callback onSelectionChanged sur la grille des créneaux disponibles n'est pas necessairement appellée.  
 export async function refreshActivitesGrids() {
   refreshGrid('grid-programmees');
   refreshGrid('grid-creneaux');
+  refreshGrid('grid-programmables');
   refreshGrid('grid-non-programmees');
 
   // ✅ si on est en mode calendrier : re-render du calendrier
