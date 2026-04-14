@@ -75,6 +75,13 @@ export function infosPlusPopoverCellRenderer(params) {
  * }} opts
  */
 export function openPopoverNear(anchorEl, { title = "Détails", style, desc, avis, mood, note=null, innerHTML=null } = {}) {
+
+  // 🔥 TOGGLE : si déjà ouvert sur le même bouton → fermer
+  if (_openPopover && _openPopover.anchorEl === anchorEl) {
+    closePopover();
+    return;
+  }
+  
   closePopover();
 
   const pop = document.createElement("div");
