@@ -70,10 +70,11 @@ export function infosPlusPopoverCellRenderer(params) {
  *   desc?: string,
  *   avis?: string,
  *   mood?: string,
- *   note?: (string|number|null)
+ *   note?: (string|number|null),
+ *   innerHTML?: string
  * }} opts
  */
-export function openPopoverNear(anchorEl, { title = "Détails", style, desc, avis, mood, note=null } = {}) {
+export function openPopoverNear(anchorEl, { title = "Détails", style, desc, avis, mood, note=null, innerHTML=null } = {}) {
   closePopover();
 
   const pop = document.createElement("div");
@@ -81,7 +82,12 @@ export function openPopoverNear(anchorEl, { title = "Détails", style, desc, avi
 
   const safe = (v) => (v == null || String(v).trim() === "" ? "—" : String(v));
 
-   pop.innerHTML = `
+  if (innerHTML) pop.innerHTML = `
+    <div class="bb-popover-body">
+      ${innerHTML}
+    </div>
+  `;
+  else pop.innerHTML = `
     <div class="bb-popover-body">
       <div>
         <span class="bb-k">${escapeHtml(safe(title))}</span>

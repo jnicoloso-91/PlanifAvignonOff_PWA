@@ -22,7 +22,7 @@ body {
 
 
 /* =============================== */
-/* App logo                        */
+/* Entête                          */
 /* =============================== */
    
 /* barre haute fixe */
@@ -34,6 +34,7 @@ body {
   display: flex; align-items: center; gap: .75rem;
   background: var(--header-bg);
   z-index: 2000;                          /* au-dessus des grilles/splitters */
+  justify-content: flex-start;
 }
 
 /* Masquage du header */
@@ -47,6 +48,27 @@ body:not(.hide-app-header) header.app-header {
   pointer-events: auto;
 }
 
+.pageprog-info-btn {
+  visibility: hidden;
+  pointer-events: none;
+
+  margin-left: auto;
+  margin-right: .2rem;
+
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 15px;
+  border-radius: 8px;
+  border: 1px solid #c7cfdd;
+  background: #f3f6fb;
+  cursor: pointer;
+  user-select: none; -webkit-user-select: none;
+}
+
+body:has(.page--planning.is-active) .pageprog-info-btn {
+  visibility: visible;
+  pointer-events: auto;
+}
 
 /* =============================== */
 /* Overlay attente                 */
