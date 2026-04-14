@@ -1165,7 +1165,7 @@ export function wireAppKebab() {
       <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Plages libres :</b></p> 
       <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
         <li>Plages libres dans votre programme de spectacles.</li>
-        <li>Pour programmer un spectacle, sélectionner une plage libre dans cette liste, puis un spectacle à programmer dans la liste <i>Programmer...</i></li>
+        <li>Pour programmer un spectacle, sélectionner une plage libre dans cette liste, puis un spectacle à programmer dans la liste <i>Programmer...</i>, puis cliquer sur le bouton <i>Programmer</i>.</li>
         <li>Utiliser le bouton <i>Pauses</i> pour tenir compte ou pas des pauses repas.</li>
       </ul>
       <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Programmer... :</b></p> 
