@@ -1142,8 +1142,8 @@ export function wireAppKebab() {
         },
         { id:'reload',    label:'Reinit',                   onClick: async ()=> await resetApp() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
-        { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
-        { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
+        // { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
+        // { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
       ]
     });
   }, { passive: true });
