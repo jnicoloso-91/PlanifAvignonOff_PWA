@@ -16,6 +16,7 @@ import {
 import {
   rebuildColumnsForActiviteGrids,
   refreshActivitesGrids,
+  wakeActivitesGridsHorizontalRender,
   wireGrids,
 } from './grids.js';
 
@@ -187,7 +188,7 @@ function handleVisibilityChange() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try {
-            refreshActivitesGrids?.();
+            wakeActivitesGridsHorizontalRender?.();
           } catch {}
 
           // kick spécifique des grilles visibles
