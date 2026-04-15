@@ -179,6 +179,44 @@ function handleVisibilityChange() {
       window.pager?.getPageIndexByClass?.("page--planning") ?? 1,
       false
     );
+
+    // kick layout sur les grilles pour éviter des grilles partiellement redessinées
+    try {
+      // petit délai pour laisser iOS finir de restaurer viewport/layout
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            refreshActivitesGrids?.();
+          } catch {}
+
+          // kick spécifique des grilles visibles
+          try {
+            for (const g of (window.grids?.values?.() || [])) {
+              if (!g?.api || !g?.el) continue;
+
+              const cs = getComputedStyle(g.el);
+              const visible =
+                cs.display !== "none" &&
+                cs.visibility !== "hidden" &&
+                g.el.offsetParent !== null;
+
+              if (!visible) continue;
+
+              g.api.onGridSizeChanged?.();
+              g.api.refreshCells?.({ force: true });
+              g.api.redrawRows?.();
+
+              const bodyVp = g.el.querySelector(".ag-body-viewport");
+              if (bodyVp) {
+                bodyVp.scrollTop = bodyVp.scrollTop + 1;
+                bodyVp.scrollTop = bodyVp.scrollTop - 1;
+              }
+            }
+          } catch {}
+
+        });
+      });
+    } catch {}    
   }
 
   window.addEventListener("pageshow", () => handleReturnToApp());
