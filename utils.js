@@ -141,7 +141,7 @@ export function mergeRowsNoDupMultiKey(
   arr2,
   keyCols,
   {
-    excludeCols = ["Marqueur"],
+    excludeCols = ["Priorite"],
     normalizer = (v) => v
   } = {}
 ) {  
@@ -154,7 +154,6 @@ export function mergeRowsNoDupMultiKey(
 
   for (const r2 of arr2) {
     const k = _buildKey(r2, keyCols, normalizer);
-
     if (!map.has(k)) {
       map.set(k, { ...r2 });
     } else {
