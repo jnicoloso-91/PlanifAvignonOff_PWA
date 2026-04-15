@@ -203,6 +203,8 @@ function handleVisibilityChange() {
 
               if (!visible) continue;
 
+              logToPage(`Refresh`);
+
               g.api.onGridSizeChanged?.();
               g.api.refreshCells?.({ force: true });
               g.api.redrawRows?.();
