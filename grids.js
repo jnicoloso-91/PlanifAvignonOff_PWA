@@ -3013,6 +3013,49 @@ export function kickGridViewportIos(gridId) {
   });
 }
 
+// Redraw grille avec simulation bump scrolling pour forcer le RAZ du cache de redraw d'AgGrid
+// Autre version de kickGridViewportIos
+export function wakeGridRendering(gridId) {
+  const g = grids.get(gridId);
+  if (!g?.el || !g?.api) return;
+
+  const xVp = g.el.querySelector(".ag-body-horizontal-scroll-viewport");
+  const centerVp = g.el.querySelector(".ag-center-cols-viewport");
+  if (!xVp && !centerVp) return;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        g.api.onGridSizeChanged?.();
+
+        const targets = [xVp, centerVp].filter(Boolean);
+
+        for (const el of targets) {
+          const start = el.scrollLeft || 0;
+          const bump = Math.min(start + 1, (el.scrollWidth || 0) - (el.clientWidth || 0));
+
+          el.scrollLeft = bump;
+          el.dispatchEvent(new Event("scroll", { bubbles: true }));
+
+          el.scrollLeft = start;
+          el.dispatchEvent(new Event("scroll", { bubbles: true }));
+        }
+
+        g.api.refreshCells?.({ force: true });
+        g.api.redrawRows?.();
+      } catch {}
+    });
+  });
+}
+
+// Redraw des grilles de la page planning avec simulation bump scrolling pour forcer le RAZ du cache de redraw d'AgGrid
+export function wakeActivitesGridsRendering() {
+  wakeGridRendering('grid-programmees');
+  wakeGridRendering('grid-creneaux');
+  wakeGridRendering('grid-programmables');
+  wakeGridRendering('grid-non-programmees');
+}
+
 // Rafraichit toutes les grilles
 export async function refreshAllGrids() {
   const ids = Array.from(grids.keys());
@@ -3052,47 +3095,6 @@ export async function doRechargerGrilles() {
   const activeGridId = getActiveGridId();
   if (activeGridId) await refreshGrid(activeGridId);
   else await refreshAllGrids();
-}
-
-// Redraw grille avec simulation bump scrolling pour forcer RAZ cache 
-export function wakeGridHorizontalRender(gridId) {
-  const g = grids.get(gridId);
-  if (!g?.el || !g?.api) return;
-
-  const xVp = g.el.querySelector(".ag-body-horizontal-scroll-viewport");
-  const centerVp = g.el.querySelector(".ag-center-cols-viewport");
-  if (!xVp && !centerVp) return;
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      try {
-        g.api.onGridSizeChanged?.();
-
-        const targets = [xVp, centerVp].filter(Boolean);
-
-        for (const el of targets) {
-          const start = el.scrollLeft || 0;
-          const bump = Math.min(start + 1, (el.scrollWidth || 0) - (el.clientWidth || 0));
-
-          el.scrollLeft = bump;
-          el.dispatchEvent(new Event("scroll", { bubbles: true }));
-
-          el.scrollLeft = start;
-          el.dispatchEvent(new Event("scroll", { bubbles: true }));
-        }
-
-        g.api.refreshCells?.({ force: true });
-        g.api.redrawRows?.();
-      } catch {}
-    });
-  });
-}
-
-export function wakeActivitesGridsHorizontalRender() {
-  wakeGridHorizontalRender('grid-programmees');
-  wakeGridHorizontalRender('grid-creneaux');
-  wakeGridHorizontalRender('grid-programmables');
-  wakeGridHorizontalRender('grid-non-programmees');
 }
 
 export function wireGrids() {

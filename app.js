@@ -16,7 +16,7 @@ import {
 import {
   rebuildColumnsForActiviteGrids,
   refreshActivitesGrids,
-  wakeActivitesGridsHorizontalRender,
+  wakeActivitesGridsRendering,
   wireGrids,
 } from './grids.js';
 
@@ -188,7 +188,7 @@ function handleVisibilityChange() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try {
-            wakeActivitesGridsHorizontalRender?.();
+            wakeActivitesGridsRendering?.();
           } catch {}
         });
       });
