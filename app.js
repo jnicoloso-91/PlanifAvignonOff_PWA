@@ -186,6 +186,7 @@ function handleVisibilityChange() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try {
+            logToPage('✅ refresh');
             refreshActivitesGrids?.();
           } catch {}
 
@@ -193,6 +194,8 @@ function handleVisibilityChange() {
           try {
             for (const g of (window.grids?.values?.() || [])) {
               if (!g?.api || !g?.el) continue;
+
+              logToPage(`✅ kick`);
 
               const cs = getComputedStyle(g.el);
               const visible =
