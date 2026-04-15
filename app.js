@@ -190,34 +190,6 @@ function handleVisibilityChange() {
           try {
             wakeActivitesGridsHorizontalRender?.();
           } catch {}
-
-          // kick spécifique des grilles visibles
-          try {
-            for (const g of (window.grids?.values?.() || [])) {
-              if (!g?.api || !g?.el) continue;
-
-              const cs = getComputedStyle(g.el);
-              const visible =
-                cs.display !== "none" &&
-                cs.visibility !== "hidden" &&
-                g.el.offsetParent !== null;
-
-              if (!visible) continue;
-
-              // logToPage(`Refresh`);
-
-              g.api.onGridSizeChanged?.();
-              g.api.refreshCells?.({ force: true });
-              g.api.redrawRows?.();
-
-              const bodyVp = g.el.querySelector(".ag-body-viewport");
-              if (bodyVp) {
-                bodyVp.scrollTop = bodyVp.scrollTop + 1;
-                bodyVp.scrollTop = bodyVp.scrollTop - 1;
-              }
-            }
-          } catch {}
-
         });
       });
     } catch {}    
