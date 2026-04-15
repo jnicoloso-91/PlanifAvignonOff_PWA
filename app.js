@@ -170,7 +170,6 @@ function handleVisibilityChange() {
     if (document.visibilityState !== "visible") return;
 
     const force = sessionStorage.getItem("forceProgrammeOnReturn");
-    logToPage(`✅ handleReturnToApp ${force}`);
 
     if (force) {
       sessionStorage.removeItem("forceProgrammeOnReturn");
@@ -188,7 +187,6 @@ function handleVisibilityChange() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           try {
-            logToPage('✅ refresh');
             refreshActivitesGrids?.();
           } catch {}
 
