@@ -170,15 +170,17 @@ function handleVisibilityChange() {
     if (document.visibilityState !== "visible") return;
 
     const force = sessionStorage.getItem("forceProgrammeOnReturn");
-    if (!force) return;
+    logToPage(`✅ handleReturnToApp ${force}`);
 
-    sessionStorage.removeItem("forceProgrammeOnReturn");
+    if (force) {
+      sessionStorage.removeItem("forceProgrammeOnReturn");
 
-    // 🔁 retour forcé sur la page Programme
-    window.pager?.setPage?.(
-      window.pager?.getPageIndexByClass?.("page--planning") ?? 1,
-      false
-    );
+      // 🔁 retour forcé sur la page Programme
+      window.pager?.setPage?.(
+        window.pager?.getPageIndexByClass?.("page--planning") ?? 1,
+        false
+      );
+    }
 
     // kick layout sur les grilles pour éviter des grilles partiellement redessinées
     try {
@@ -194,8 +196,6 @@ function handleVisibilityChange() {
           try {
             for (const g of (window.grids?.values?.() || [])) {
               if (!g?.api || !g?.el) continue;
-
-              logToPage(`✅ kick`);
 
               const cs = getComputedStyle(g.el);
               const visible =
