@@ -1572,7 +1572,7 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
     const h_debut = d, h_fin = d + du;
 
     const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - _MARGE);
-    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
+    if (h_debut >= (debut_min + _MARGE) && ((borneHaute == MAX_DAY) || (h_fin <= borneHaute)) && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
       const nouvelle = { ...row }; //delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
