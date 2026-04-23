@@ -782,7 +782,7 @@ async function importFromXlsxFile(f, {add=false} = {}) {
       recalcFinForAll(dfRows);
       if (!dfRows || dfRows.length == 0) return;
       // ctx.mutateDf(rows => sortDf([...nouvellesActivites, ...rows]));
-      ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(rows, dfRows, ['Activite', 'Debut', 'Session'])));
+      ctx.mutateDf(rows => sortDf(mergeRowsNoDupMultiKey(rows, dfRows, ['Activite', 'Debut', 'Lieu', 'Session'])));
 
       // Maj des sélections
       setTimeout(() => {
