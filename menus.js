@@ -244,7 +244,7 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers le calendrier</span>
-          <span class="file-sheet__subtitle">Exporte le filtre sur le programme d'activités vers l'application calendrier</span>
+          <span class="file-sheet__subtitle">Exporte le filtre ou la sélection sur le programme d'activités vers l'application calendrier</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="rapportCoherence">
@@ -280,7 +280,7 @@ function openFileMenu(anchorBtn) {
   // items
   const items = [
     { id:'new',  label:'Nouveau contexte'     },
-    { id:'initProg',  label:'hMaxCurprogramme'     },
+    { id:'initProg',  label:'Nouveau programme'     },
     { id:'open', label:'Importer depuis Excel'      },
     { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
     { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
@@ -1142,8 +1142,8 @@ export function wireAppKebab() {
         },
         { id:'reload',    label:'Reinit',                   onClick: async ()=> await resetApp() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
-        // { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
-        // { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
+        { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
+        { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
       ]
     });
   }, { passive: true });
@@ -1699,13 +1699,73 @@ async function doExportExcel() {
   }
 }
 
-// Export du programme au format Ics
+// Choix du mode d'export au format Ics
+function chooseIcsExportMode() {
+  return new Promise(resolve => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "bb-dialog";
+
+    dlg.innerHTML = `
+      <form method="dialog" class="bb-dialog-body">
+
+        <div class="bb-dialog-header">
+          <h4>Exporter vers calendrier</h4>
+          <button class="bb-dialog-close" value="cancel" aria-label="Fermer">x</button>
+        </div>
+
+        <div class="bb-dialog-actions">
+          <button value="full" class="bb-btn is-primary">Programme complet</button>
+          <button value="selected" class="bb-btn">Activité sélectionnée</button>
+        </div>
+
+      </form>
+    `;
+
+    document.body.appendChild(dlg);
+
+    dlg.addEventListener("close", () => {
+      const val = dlg.returnValue || "cancel";
+      dlg.remove();
+      resolve(val);
+    }, { once: true });
+
+    dlg.showModal();
+  });
+}
+
+// Export du programme (complet ou activité sélectionnée) au format Ics
 async function doExportIcs() {
+  const choice = await chooseIcsExportMode();
+
+  if (choice === "full") {
+    return exportIcs();
+  }
+
+  if (choice === "selected") {
+    return exportIcsSelected();
+  }
+}
+
+// Export du programme complet au format Ics
+async function exportIcs() {
   const filteredRows = [];
   window.grids?.get('grid-programmees').api.forEachNodeAfterFilterAndSort(node => {
     filteredRows.push(node.data);
   });  
   rowsToICS(activitesAPI.getActivitesProgrammees(filteredRows));
+}
+
+// Export de l'activité programmée sélectionnée au format Ics
+async function exportIcsSelected() {
+  const api = window.grids?.get('grid-programmees')?.api;
+  if (!api) return;
+
+  const selected = api.getSelectedRows?.() || [];
+  if (!selected.length) return;
+
+  rowsToICS(
+    activitesAPI.getActivitesProgrammees(selected)
+  );
 }
 
 // Détecte l’année de session à partir des champs Session et Relache

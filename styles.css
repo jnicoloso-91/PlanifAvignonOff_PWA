@@ -3161,3 +3161,45 @@ input[type="range"]:focus::-moz-range-thumb {
   background: rgba(0,0,0,0.18);
 }
 
+/*=========================
+   Boites de dialogue
+  =========================*/
+
+.bb-dialog{
+  background: white;
+  border: none;
+  outline: none;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.25);
+}
+
+.bb-dialog-header {
+  position: relative;
+  display: flex;
+  justify-content: center;   /* centre le titre */
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.bb-dialog-close {
+  position: absolute;
+  right: 0;
+  top: 0;
+  border: none;
+  background: transparent;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+}
+
+.bb-dialog h4 {
+  margin: 0 0 12px 0;  
+  text-align: center;
+  font-weight: 600;
+}
+
+.bb-dialog-actions {
+  margin-top: 20px;
+}
