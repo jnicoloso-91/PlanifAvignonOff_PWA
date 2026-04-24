@@ -142,7 +142,7 @@ export function mergeRowsNoDupMultiKey(
   keyCols,
   {
     excludeCols = ["Priorite"],
-    normalizer = (v) => v
+    normalizer = _defaultNormalizer
   } = {}
 ) {  
   const map = new Map();
