@@ -237,14 +237,14 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers Excel</span>
-          <span class="file-sheet__subtitle">Sauvegarde la liste d'activités dans un fichier Excel</span>
+          <span class="file-sheet__subtitle">Exporte la liste d'activités dans un fichier Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="exportIcs">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers le calendrier</span>
-          <span class="file-sheet__subtitle">Exporte le filtre ou la sélection sur le programme d'activités vers l'application calendrier</span>
+          <span class="file-sheet__subtitle">Exporte le programme d'activités vers l'application calendrier</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="rapportCoherence">
