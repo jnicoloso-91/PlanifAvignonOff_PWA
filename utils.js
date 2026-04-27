@@ -142,7 +142,7 @@ export function mergeRowsNoDupMultiKey(
   keyCols,
   {
     excludeCols = ["Priorite"],
-    normalizer = _defaultNormalizer
+    normalizer = defaultNormalizer
   } = {}
 ) {  
   const map = new Map();
@@ -258,14 +258,14 @@ export function capitalizeFirst(str) {
 }
 
 // Normalizer par défaut : trim + lower + sans accents
-const _defaultNormalizer = v => String(v ?? '')
+export const defaultNormalizer = v => String(v ?? '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .replace(/\s+/g, ' ').trim().toLowerCase();
 
 // Séparateur sûr (Unit Separator) pour éviter les collisions
 const SEP = '\x1F';
 
-function _buildKey(row, cols, normalizer = _defaultNormalizer) {
+function _buildKey(row, cols, normalizer = defaultNormalizer) {
   return cols.map(c => normalizer(row?.[c])).join(SEP);
 }
 

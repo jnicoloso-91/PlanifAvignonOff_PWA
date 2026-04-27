@@ -3,6 +3,7 @@
 import { 
   richValueGoodQuality,
   includesSafe,
+  defaultNormalizer,
   stripOrigin,
 } from './utils.js';
 
@@ -158,8 +159,8 @@ export async function enrichWithAbstractPremium(param) {
   function _getRowsWithAbstractPremium(df, key) {
       // Filtrer les lignes qui correspondent à la clé donnée et ont les champs requis et non nuls
       const matchingRows = df.filter(row =>
-          row.Activite === key.Activite &&
-          row.Lieu === key.Lieu &&
+          defaultNormalizer(row.Activite) === defaultNormalizer(key.Activite) &&
+          defaultNormalizer(row.Lieu) === defaultNormalizer(key.Lieu) &&
           '__desc_summary' in row && row.__desc_summary != null &&
           '__avis_summary' in row && row.__avis_summary != null &&
           'Mood' in row && row.Mood != null
