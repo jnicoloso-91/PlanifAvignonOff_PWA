@@ -1309,6 +1309,10 @@ export function getOrCreatePrioPopup() {
         <div class="wheel-indicator"></div>
       </div>
 
+      <div class="prio-input-wrap">
+        <input type="text" class="prio-input bb-input" placeholder="Valeur personnalisée">
+      </div>
+
       <div class="prio-note">
         <span class="prio-note__icon" aria-hidden="true">ℹ︎</span>
         <span class="prio-note__text">Marqueur négatif ➜ activité chevauchable</span>
@@ -1336,7 +1340,16 @@ export function getOrCreatePrioPopup() {
   document.body.appendChild(backdrop);
 
   const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".prio-popup"));
-  const picker = createWheelPicker(popup.querySelector(".wheel-wrap"));
+  const input = /** @type {HTMLInputElement} */ (popup.querySelector(".prio-input"));
+
+  const picker = createWheelPicker(
+    popup.querySelector(".wheel-wrap"),
+    {
+      onChange: (val) => {
+        if (input) input.value = val ?? "";
+      }
+    }
+  );
 
   requestAnimationFrame(() => { picker.setValue(null); });
 
@@ -1344,6 +1357,17 @@ export function getOrCreatePrioPopup() {
   const btnValidate = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-validate"));
   const btnFilter = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="filter"]'));
   const btnSel = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="selection"]'));
+
+  picker.onChange?.((val) => {
+    if (input) input.value = val ?? "";
+  });
+
+  popup.querySelectorAll(".wheel-item").forEach(el => {
+    const h = /** @type {HTMLElement} */ (el);
+    h.addEventListener("click", () => {
+      input.value = h.dataset.v ?? "";
+    });
+  });
 
   // wiring du bouton close
   const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-close"));
@@ -1354,12 +1378,34 @@ export function getOrCreatePrioPopup() {
   }, true);
 
   // 2) état dynamique (mis à jour à chaque open)
-  let gridApi = null;
+  /** @type {{ df: any[], mutateDf: Function } | null} */
   let ctx = null;
+  let gridApi = null;
 
   let bulkUuids = null;     // Set
   let bulkAddRows = null;   // Array
   let mode = "standard";    // "standard" | "bulk"
+
+  const wheel = popup.querySelector(".wheel");
+
+  function getExistingMarkers(df) {
+    const set = new Set();
+
+    for (const r of df || []) {
+      const v = r?.Priorite;
+      if (v == null || v === "") continue;
+      set.add(String(v));
+    }
+
+    return [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+  }
+
+  function normalizeMarker(v) {
+    return String(v ?? "")
+      .replace(/\s+/g, " ")
+      .replace(/[’‘`´']/g, "'")
+      .trim();
+  }
 
   function close() { backdrop.hidden = true; }
 
@@ -1389,7 +1435,7 @@ export function getOrCreatePrioPopup() {
 
       if (!ctx) { close(); return; }
 
-      const prioVal = picker.getValue();
+      const prioVal = normalizeMarker(input?.value);
       const action = btn.dataset.action;
 
       // ---- BULK (ajout simultané de rows utilisé en sortie de chat) ----
@@ -1439,6 +1485,27 @@ export function getOrCreatePrioPopup() {
       const tEl = popup.querySelector(".prio-title");
       if (tEl) tEl.textContent = title || (mode === "bulk" ? "Marqueur des activités collées" : "Marqueur");
 
+      // supprime anciens items dynamiques
+      wheel.querySelectorAll(".wheel-item.dynamic").forEach(el => el.remove());
+
+      if (ctx?.df) {
+        const existing = getExistingMarkers(ctx.df);
+
+        for (const v of existing) {
+          // éviter doublons avec -5..5 et "Aucune"
+          if (wheel.querySelector(`.wheel-item[data-v="${v}"]`)) continue;
+
+          const el = document.createElement("div");
+          el.className = "wheel-item dynamic";
+          el.dataset.v = v;
+          el.textContent = v;
+
+          // insérer avant le spacer final
+          const spacer = wheel.querySelector(".wheel-spacer:last-of-type");
+          wheel.insertBefore(el, spacer);
+        }
+      }
+
       // toggle boutons
       if (btnValidate) btnValidate.hidden = (mode !== "bulk");
       if (btnFilter)   btnFilter.hidden   = (mode === "bulk");
@@ -1450,8 +1517,11 @@ export function getOrCreatePrioPopup() {
         btnSel.disabled = !hasSelection;
       }
 
-      picker.setValue(defaultValue);
       backdrop.hidden = false;
+
+      if (defaultValue !== null) picker.setValue(defaultValue);
+      if (input) input.value = picker.getValue() ?? "";
+
     },
     close
   };

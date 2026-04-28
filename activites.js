@@ -1310,8 +1310,30 @@ function _estActiviteReservee(row) {
  * @returns 
  */
 function _estActivitePriorisee(row) {
-  return Number.isInteger(row.Priorite);
+  return (row.Priorite !== null && row.Priorite !== ""); // Number.isInteger(row.Priorite);
 };
+
+/**
+ * Détermine si une activité (row) est chevauchable
+ * (Priorite négative ou commençant par '-')
+ * @param {{ Priorite?: any }} row
+ * @returns {boolean}
+ */
+function _estActiviteChevauchable(row) {
+  const p = row?.Priorite;
+  if (p == null) return false;
+
+  // cas number
+  if (typeof p === "number") {
+    return p < 0;
+  }
+
+  // cas string
+  const s = String(p).trim();
+  if (!s) return false;
+
+  return s.startsWith("-");
+} 
 
 /**
  * Renvoie true si une activité est valide à une date donnée
@@ -1572,7 +1594,7 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
     const h_debut = d, h_fin = d + du;
 
     const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - _MARGE);
-    if (h_debut >= (debut_min + _MARGE) && ((borneHaute == MAX_DAY) || (h_fin <= borneHaute)) && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
+    if (h_debut >= (debut_min + _MARGE) && h_fin <= borneHaute && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
       const nouvelle = { ...row }; //delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -1602,7 +1624,7 @@ function _getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
 
   let prev = null;
   for (const r of sameDay) {
-    if (r.Priorite < 0) continue; // activité chevauchable
+    if (_estActiviteChevauchable(r)) continue; // activité chevauchable
     const d = heureMinute(r);
     if (Number.isFinite(d) && d < debutRef) prev = r;
     else if ((d ?? 0) >= debutRef) break;
@@ -1610,7 +1632,7 @@ function _getCreneauBoundsAvant(activitesProgrammees, ligneRef) {
 
   const prevFin = prev ? (heureMinute(prev) + (dureeMinute(prev) || 0)) : MIN_DAY;
   const debut_min = prevFin;
-  const fin_max   = (ligneRef.Priorite < 0) ? finRef : debutRef;   // Prio < 0 => activité chavauchable 
+  const fin_max   = _estActiviteChevauchable(ligneRef) ? finRef : debutRef;   // Prio < 0 => activité chavauchable 
 
   return [debut_min, fin_max, prev];
 }
@@ -1637,14 +1659,14 @@ function _getCreneauBoundsApres(activitesProgrammees, ligneRef) {
 
   let next = null;
   for (const r of sameDay) {
-    if (r.Priorite < 0) continue; // activité chevauchable
+    if (_estActiviteChevauchable(r)) continue; // activité chevauchable
     const rDeb = heureMinute(r) || 0;
     const rFin = rDeb + (dureeMinute(r) || 0);
     if (rFin > finRef) { next = r; break; }
   }
 
   const fin_max   = next ? heureMinute(next) : null;
-  const debut_min = (ligneRef.Priorite < 0) ? debutRef : finRef;   // Prio < 0 => activité chavauchable 
+  const debut_min = _estActiviteChevauchable(ligneRef) ? debutRef : finRef;   // Prio < 0 => activité chavauchable 
 
 
   return [debut_min, fin_max, next];

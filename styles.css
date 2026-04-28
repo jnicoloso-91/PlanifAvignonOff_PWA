@@ -2929,6 +2929,24 @@ input[type="range"]:focus::-moz-range-thumb {
   color: #666;
 }
 
+.prio-input-wrap {
+  margin-top: 10px;
+  margin-bottom: 8px;
+}
+
+.prio-input {
+  width: 100%;
+  text-align: center;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+}
+.prio-input:focus {
+  outline: none;
+  border-color: #bbb;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
+}
+
 /*=========================
    Wheel
   =========================*/

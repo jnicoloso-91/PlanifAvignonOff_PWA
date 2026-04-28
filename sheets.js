@@ -7085,7 +7085,7 @@ export function createWheelPicker(wrapEl, { itemPx = 36, onChange = null } = {})
   function getValue() {
     const it = /** @type {HTMLElement} */ (getCenteredItem());
     const v = it?.dataset?.v ?? "";
-    return v === "" ? null : parseInt(v, 10);
+    return v === "" ? null : v; //parseInt(v, 10);
   }
 
   function setValue(v, { behavior = "auto" } = {}) {

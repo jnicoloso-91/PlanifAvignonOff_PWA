@@ -7,7 +7,6 @@ export class NoteRenderer {
     e.style.display = 'block';
     e.style.width = '100%';
     e.style.height = '100%';
-    e.style.cursor = 'pointer';
     e.style.overflow = 'hidden';
     e.style.textOverflow = 'ellipsis';
     e.style.whiteSpace = 'nowrap';
@@ -22,6 +21,16 @@ export class NoteRenderer {
 
     e.textContent = label;
 
+    const hasNote = (params.data?.Note != null) && String(params.data?.Note).trim() !== "";
+
+    if (!hasNote) {
+      // Cellule passive
+      this.eGui = e;
+      return;
+    }
+
+    e.style.cursor = 'pointer';
+    
     // hover visuel (optionnel mais sympa)
     e.addEventListener('mouseenter', () => {
       e.style.textDecoration = 'underline';
