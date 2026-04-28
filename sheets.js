@@ -2377,9 +2377,10 @@ function normalizeInputValueInPlace(inputEl) {
 
       function buildSuggestionsForField(field, rows) {
         const isMood = String(field).toLowerCase() === "mood";
+        const isPrio = String(field).toLowerCase() === "priorite";
         const isDate = String(field).toLowerCase() === "date";
 
-        const raw = isMood ? uniqueWords(rows, field) : uniqueValues(rows, field);
+        const raw = (isMood || isPrio) ? uniqueWords(rows, field) : uniqueValues(rows, field);
 
         const seen = new Set();
         const out = [];
