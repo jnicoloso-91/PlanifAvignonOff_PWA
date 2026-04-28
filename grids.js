@@ -911,7 +911,7 @@ function buildColumnsActivitesCommon(){
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
     { field:'Note', headerName: 'Note', width, minWidth:width, editable: false, cellRenderer: NoteRenderer },
-    { field:'Priorite', headerName: 'Marqueur', width:45, minWidth:45, filter: "agTextColumnFilter", filterParams: {textMatcher: marqueurTextMatcher} }, //, valueParser: valueParserNumerique, cellEditor:IntCellEditor
+    { field:'Priorite', headerName: 'Marqueur', width:45, minWidth:45, filter: "agTextColumnFilter", filterParams: {textMatcher: marqueurTextMatcher}, valueGetter: (p) => { const v = p.data?.Priorite; return v == null ? "" : String(v); } }, //, valueParser: valueParserNumerique, cellEditor:IntCellEditor
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
