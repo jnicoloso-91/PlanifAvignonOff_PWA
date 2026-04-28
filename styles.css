@@ -2940,12 +2940,21 @@ input[type="range"]:focus::-moz-range-thumb {
   border-radius: 10px;
   border: 1px solid #ddd;
   padding: 8px 12px;
-  font-size: 16px !important; /* Evite zoom IOS */
 }
+
 .prio-input:focus {
   outline: none;
   border-color: #bbb;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
+}
+
+/* Evite zoom IOS */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 812px) {
+    .prio-input {
+      font-size: 16px !important;
+    }
+  }
 }
 
 /*=========================
