@@ -1315,7 +1315,7 @@ export function getOrCreatePrioPopup() {
 
       <div class="prio-note">
         <span class="prio-note__icon" aria-hidden="true">ℹ︎</span>
-        <span class="prio-note__text">Marqueur négatif ➜ activité chevauchable</span>
+        <span class="prio-note__text">Préfixe &quot;-&quot; ➜ activité chevauchable</span>
       </div>
 
       <div class="prio-actions">

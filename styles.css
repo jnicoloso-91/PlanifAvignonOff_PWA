@@ -2922,9 +2922,12 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .prio-note__text{
   flex: 1 1 auto;
+  text-align: center;
 }
 
 .prio-note{
+  display: flex;
+  align-items: center;
   font-size: 0.82rem;
   color: #666;
 }
