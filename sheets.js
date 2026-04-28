@@ -5198,15 +5198,31 @@ export function openSheetAssistantProgrammation() {
         //
         // 2) Mots-clés sur la colonne Priorite 
         //
-        const prios = constraints.prios || [];
-        if (prios.length) {
-          const prioSet = new Set(
-            prios
-              .map(s => Number(String(s).trim()))
-              .filter(n => Number.isFinite(n))
-          );
-          rows = rows.filter(r => prioSet.has(Number(r.Priorite)));
-        }
+        //const prios = constraints.prios || [];
+        //if (prios.length) {
+          //const prioSet = new Set(
+            //prios
+        //      .map(s => Number(String(s).trim()))
+        //      .filter(n => Number.isFinite(n))
+          //);
+          //rows = rows.filter(r => prioSet.has(Number(r.Priorite)));
+        //}
+
+const prios = constraints.prios || [];
+
+if (prios.length) {
+  const norm = (v) => String(v ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  const prioSet = new Set(
+    prios.map(norm).filter(Boolean)
+  );
+
+  rows = rows.filter(r => prioSet.has(norm(r.Priorite)));
+}
 
         //
         // 3) Mots-clés sur la colonne Style 
