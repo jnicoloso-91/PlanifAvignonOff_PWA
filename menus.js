@@ -1142,48 +1142,48 @@ export function wireAppKebab() {
         },
         { id:'reload',    label:'Reinit',                   onClick: async ()=> await resetApp() },
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
-        // { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
-        // { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
+        { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
+        { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
       ]
     });
   }, { passive: true });
 
   // Câblage du bouton infos sur page--planning
   document.querySelector(".pageprog-info-btn")?.addEventListener("click", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
 
-  openPopoverNear(e.currentTarget, {
-    innerHTML: `
-      <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Programme :</b></p> 
-      <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
-        <li>Votre programme de spectacles.</li>
-        <li>Utiliser le menu <i>.../Paramètres</i> pour définir la période de programmation.</li>
-        <li>Utiliser le bouton <i>Calendrier</i> pour passer en mode Calendrier ou en mode Liste.</li>
-        <li>En mode Calendrier: double-click sur un spectacle -> application itinéraire, appui long sur un spectacle -> modification de la date de programmation.</li>
-      </ul>
-      <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Plages libres :</b></p> 
-      <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
-        <li>Plages libres dans votre programme de spectacles.</li>
-        <li>Pour programmer un spectacle, sélectionner une plage libre dans cette liste, puis un spectacle à programmer dans la liste <i>Programmer...</i>, puis cliquer sur le bouton <i>Programmer</i>.</li>
-        <li>Utiliser le bouton <i>Pauses</i> pour tenir compte ou pas des pauses repas.</li>
-      </ul>
-      <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Programmer... :</b></p> 
-      <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
-        <li>Spectacles programmables dans la plage libre sélectionnée.</li>
-        <li>Sélectionner un spectacle dans cette liste et cliquer sur le bouton <i>Programmer</i> pour l'insérer dans le programme.</li>
-        <li>Filtrer sur vos favoris pour être sûr de ne programmer que vos favoris.</li>
-      </ul>
-      <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Stock :</b></p> 
-      <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
-        <li>Ensemble des spectacles chargés dans votre application.</li>
-        <li>Utiliser le menu <i>Fichier</i> pour charger le fichier Excel d'un programme préalablement exporté, ou importer un catalogue.</li>
-        <li>Utiliser le bouton <i>Favori</i> pour mettre un marqueur de favoris sur le spectacle sélectionné ou le filtre courant.</li>
-      </ul>
-      <p style="margin-top: 0em; margin-bottom: 0.2em">Utiliser le menu <i>.../Aide</i> pour une aide détaillée.</p> 
-    `
+    openPopoverNear(e.currentTarget, {
+      innerHTML: `
+        <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Programme :</b></p> 
+        <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+          <li>Votre programme de spectacles.</li>
+          <li>Utiliser le menu <i>.../Paramètres</i> pour définir la période de programmation.</li>
+          <li>Utiliser le bouton <i>Calendrier</i> pour passer en mode Calendrier ou en mode Liste.</li>
+          <li>En mode Calendrier: double-click sur un spectacle -> application itinéraire, appui long sur un spectacle -> modification de la date de programmation.</li>
+        </ul>
+        <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Plages libres :</b></p> 
+        <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+          <li>Plages libres dans votre programme de spectacles.</li>
+          <li>Pour programmer un spectacle, sélectionner une plage libre dans cette liste, puis un spectacle à programmer dans la liste <i>Programmer...</i>, puis cliquer sur le bouton <i>Programmer</i>.</li>
+          <li>Utiliser le bouton <i>Pauses</i> pour tenir compte ou pas des pauses repas.</li>
+        </ul>
+        <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Programmer... :</b></p> 
+        <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+          <li>Spectacles programmables dans la plage libre sélectionnée.</li>
+          <li>Sélectionner un spectacle dans cette liste et cliquer sur le bouton <i>Programmer</i> pour l'insérer dans le programme.</li>
+          <li>Filtrer sur vos favoris pour être sûr de ne programmer que vos favoris.</li>
+        </ul>
+        <p style="margin-top: 0em; margin-bottom: 0.2em"><b>Stock :</b></p> 
+        <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+          <li>Ensemble des spectacles chargés dans votre application.</li>
+          <li>Utiliser le menu <i>Fichier</i> pour charger le fichier Excel d'un programme préalablement exporté, ou importer un catalogue.</li>
+          <li>Utiliser le bouton <i>Favori</i> pour mettre un marqueur de favoris sur le spectacle sélectionné ou le filtre courant.</li>
+        </ul>
+        <p style="margin-top: 0em; margin-bottom: 0.2em">Utiliser le menu <i>.../Aide</i> pour une aide détaillée.</p> 
+      `
+    });
   });
-});
 }
 
 // ===== Actions =====

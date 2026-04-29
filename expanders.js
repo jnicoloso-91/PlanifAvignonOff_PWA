@@ -41,6 +41,10 @@ import {
   createWheelPicker,
 } from './sheets.js';
 
+import {
+  openPopoverNear,
+} from './infos-plus.js';
+
 const $ = id => document.getElementById(id);
 const MIN_OPEN_PX = 16;          // jamais ouvrir en dessous de ça
 const ANIM_TIMEOUT_OPEN  = 900;  // fallback Safari si pas de transitionend
@@ -1286,7 +1290,8 @@ export function getOrCreatePrioPopup() {
   backdrop.innerHTML = `
     <div class="prio-popup" role="dialog" aria-modal="true">
       <div class="prio-head">
-        <div class="prio-title">Priorité Favori</div>
+        <button type="button" class="prio-info" aria-label="Info" title="Info">i</button>
+        <div class="prio-title">Marqueur</div>
         <button type="button" class="prio-close" aria-label="Fermer" title="Fermer">×</button>
       </div>
 
@@ -1311,11 +1316,6 @@ export function getOrCreatePrioPopup() {
 
       <div class="prio-input-wrap">
         <input type="text" class="prio-input bb-input" placeholder="Valeur personnalisée">
-      </div>
-
-      <div class="prio-note">
-        <span class="prio-note__icon" aria-hidden="true">ℹ︎</span>
-        <span class="prio-note__text">Préfixe &quot;-&quot; ➜ activité chevauchable</span>
       </div>
 
       <div class="prio-actions">
@@ -1366,6 +1366,23 @@ export function getOrCreatePrioPopup() {
     const h = /** @type {HTMLElement} */ (el);
     h.addEventListener("click", () => {
       input.value = h.dataset.v ?? "";
+    });
+  });
+
+  // Wiring du bouton info
+  document.querySelector(".prio-info")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    openPopoverNear(e.currentTarget, {
+      innerHTML: `
+        <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+          <li>Un marqueur vous permet de filtrer vos favoris en filtrant les activités sur la colonne Marqueur.</li>
+          <li>Utilisez la roue codeuse pour choisir une valeur existante.</li>
+          <li>Utilisez le champ texte pour en créer une nouvelle.</li>
+          <li>Préfixer le marqueur par un tiret pour rendre l'activité chevauchable dans le programme.</li>
+        </ul>
+      `
     });
   });
 

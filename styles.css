@@ -2319,7 +2319,7 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .bb-popover{
   position: fixed;
-  z-index: 99999;
+  z-index: 999999;
   max-width: min(300px, 75vw);
   min-width: 260px;
   background: #fff;
@@ -2903,6 +2903,17 @@ input[type="range"]:focus::-moz-range-thumb {
   margin-bottom: 12px;
 }
 
+.prio-info{
+  position: absolute;
+  left: 0px;
+  margin-bottom: 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  font-size: 1rem;
+}
+
 .prio-close{
   position: absolute;
   right: 0px;
@@ -2933,6 +2944,7 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 .prio-input-wrap {
+  margin: 0 12px;
   margin-top: 10px;
   margin-bottom: 8px;
 }
@@ -2942,7 +2954,7 @@ input[type="range"]:focus::-moz-range-thumb {
   text-align: center;
   border-radius: 10px;
   border: 1px solid #ddd;
-  padding: 8px 12px;
+  padding: 12px 12px;
 }
 
 .prio-input:focus {

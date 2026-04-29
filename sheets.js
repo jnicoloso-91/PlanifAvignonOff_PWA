@@ -2301,51 +2301,45 @@ export function openSheetFiltres(gridId) {
         return out;
       }
 
-      // function sanitizeValue(s) {
-      //   return String(s)
-      //     .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, " ")
-      //     .replace(/\s+/g, " ")
-      //     .trim();
-      // }
-function sanitizeValue(s) {
-  return String(s ?? "")
-    .replace(/[’‘`´ʼʻʹʽ]/g, "'")
-    .replace(/[“”«»]/g, '"')
-    .replace(/[–—−]/g, "-")
-    .replace(/[\u00A0\u202F]/g, " ")
-    .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+      function sanitizeValue(s) {
+        return String(s ?? "")
+          .replace(/[’‘`´ʼʻʹʽ]/g, "'")
+          .replace(/[“”«»]/g, '"')
+          .replace(/[–—−]/g, "-")
+          .replace(/[\u00A0\u202F]/g, " ")
+          .replace(/(\r\n|\n|\r|\\r\\n|\\n|\\r)+/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
 
-function normalizeSmartPunctuationForInput(s) {
-  return String(s ?? "")
-    .replace(/[’‘`´ʼʻʹʽ]/g, "'")
-    .replace(/[“”«»]/g, '"')
-    .replace(/[–—−]/g, "-")
-    .replace(/[\u00A0\u202F]/g, " ");
-}
+      function normalizeSmartPunctuationForInput(s) {
+        return String(s ?? "")
+          .replace(/[’‘`´ʼʻʹʽ]/g, "'")
+          .replace(/[“”«»]/g, '"')
+          .replace(/[–—−]/g, "-")
+          .replace(/[\u00A0\u202F]/g, " ");
+      }
 
-function normalizeInputValueInPlace(inputEl) {
-  if (!inputEl) return;
+      function normalizeInputValueInPlace(inputEl) {
+        if (!inputEl) return;
 
-  const oldVal = inputEl.value;
-  const newVal = normalizeSmartPunctuationForInput(oldVal);
+        const oldVal = inputEl.value;
+        const newVal = normalizeSmartPunctuationForInput(oldVal);
 
-  if (newVal === oldVal) return;
+        if (newVal === oldVal) return;
 
-  const start = inputEl.selectionStart ?? oldVal.length;
-  const end   = inputEl.selectionEnd ?? oldVal.length;
-  const delta = oldVal.length - newVal.length;
+        const start = inputEl.selectionStart ?? oldVal.length;
+        const end   = inputEl.selectionEnd ?? oldVal.length;
+        const delta = oldVal.length - newVal.length;
 
-  inputEl.value = newVal;
+        inputEl.value = newVal;
 
-  try {
-    const newStart = Math.max(0, start - delta);
-    const newEnd   = Math.max(0, end - delta);
-    inputEl.setSelectionRange(newStart, newEnd);
-  } catch {}
-}
+        try {
+          const newStart = Math.max(0, start - delta);
+          const newEnd   = Math.max(0, end - delta);
+          inputEl.setSelectionRange(newStart, newEnd);
+        } catch {}
+      }
 
       function uniqueValues(rows, field, { max = 500, includeEmpty = false } = {}) {
         const set = new Set();
@@ -2393,28 +2387,6 @@ function normalizeInputValueInPlace(inputEl) {
         }
         return out;
       }
-// function buildSuggestionsForField(field, rows) {
-//   const isMood = String(field).toLowerCase() === "mood";
-//   const isDate = String(field).toLowerCase() === "date";
-
-//   const raw = isMood ? uniqueWords(rows, field) : uniqueValues(rows, field);
-
-//   const seen = new Set();
-//   const out = [];
-
-//   for (const v of raw) {
-//     let label = sanitizeValue(v);
-//     if (isDate) label = dateintStrToPretty(label);
-
-//     const key = normText(label);
-
-//     if (!label || seen.has(key)) continue;
-//     seen.add(key);
-
-//     out.push({ label, key });
-//   }
-//   return out;
-// }
 
       function getColName(col) {
         return (col.colId == "__desc_summary") ? "Description" : col.headerName || col.field || "";
@@ -5199,31 +5171,21 @@ export function openSheetAssistantProgrammation() {
         //
         // 2) Mots-clés sur la colonne Priorite 
         //
-        //const prios = constraints.prios || [];
-        //if (prios.length) {
-          //const prioSet = new Set(
-            //prios
-        //      .map(s => Number(String(s).trim()))
-        //      .filter(n => Number.isFinite(n))
-          //);
-          //rows = rows.filter(r => prioSet.has(Number(r.Priorite)));
-        //}
+        const prios = constraints.prios || [];
 
-const prios = constraints.prios || [];
+        if (prios.length) {
+          const norm = (v) => String(v ?? "")
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
 
-if (prios.length) {
-  const norm = (v) => String(v ?? "")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+          const prioSet = new Set(
+            prios.map(norm).filter(Boolean)
+          );
 
-  const prioSet = new Set(
-    prios.map(norm).filter(Boolean)
-  );
-
-  rows = rows.filter(r => prioSet.has(norm(r.Priorite)));
-}
+          rows = rows.filter(r => prioSet.has(norm(r.Priorite)));
+        }
 
         //
         // 3) Mots-clés sur la colonne Style 
