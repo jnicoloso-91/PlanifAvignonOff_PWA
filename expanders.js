@@ -1379,8 +1379,10 @@ export function getOrCreatePrioPopup() {
         <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
           <li>Un marqueur vous permet de filtrer vos favoris en filtrant les activités sur la colonne Marqueur.</li>
           <li>Utilisez la roue codeuse pour choisir une valeur existante.</li>
-          <li>Utilisez le champ texte pour en créer une nouvelle.</li>
-          <li>Préfixer le marqueur par un tiret pour rendre l'activité chevauchable dans le programme.</li>
+          <li>Utilisez le champ texte sous la roue codeuse pour en créer une nouvelle.</li>
+          <li>Préfixer le marqueur par un tiret pour rendre l'activité chevauchable (i.e. programmable en même temps qu'une autre).</li>
+          <li>Le bouton <i>Appliquer à filtre</i> applique la valeur choisie à l'ensemble du filtre appliqué sur le stock.</li>
+          <li>Le bouton <i>Appliquer à sélection</i> applique la valeur choisie à la seule activité sélectionnée.</li>
         </ul>
       `
     });
