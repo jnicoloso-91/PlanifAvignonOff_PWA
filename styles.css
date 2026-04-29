@@ -2854,10 +2854,10 @@ input[type="range"]:focus::-moz-range-thumb {
 
 
 /*=========================
-   SetPrio
+   SetMarq
   =========================*/
 
-.prio-popup-backdrop{
+.marq-popup-backdrop{
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.35);
@@ -2866,11 +2866,11 @@ input[type="range"]:focus::-moz-range-thumb {
   align-items: center;
   justify-content: center;
 }
-.prio-popup-backdrop[hidden]{
+.marq-popup-backdrop[hidden]{
   display: none;
 }
 
-.prio-popup{
+.marq-popup{
   width: 280px;
   background: white;
   border-radius: 14px;
@@ -2878,18 +2878,18 @@ input[type="range"]:focus::-moz-range-thumb {
   box-shadow: 0 20px 40px rgba(0,0,0,.25);
 }
 
-.prio-actions{
+.marq-actions{
   display: flex;
   justify-content: center;     
   gap: 1.6rem;
   padding-top: 1rem; 
 }
-.prio-actions button{
+.marq-actions button{
   flex: 1;
   padding: 10px;
 }
 
-.prio-head{
+.marq-head{
   position: relative;
   display: flex;
   align-items:center;
@@ -2897,13 +2897,13 @@ input[type="range"]:focus::-moz-range-thumb {
   gap:12px;
 }
 
-.prio-title{
+.marq-title{
   text-align: center;
   font-weight: 600;
   margin-bottom: 12px;
 }
 
-.prio-info{
+.marq-info{
   position: absolute;
   left: 0px;
   margin-bottom: 12px;
@@ -2914,7 +2914,7 @@ input[type="range"]:focus::-moz-range-thumb {
   font-size: 1rem;
 }
 
-.prio-close{
+.marq-close{
   position: absolute;
   right: 0px;
   margin-bottom: 12px;
@@ -2925,31 +2925,31 @@ input[type="range"]:focus::-moz-range-thumb {
   font-size: 1rem;
 }
 
-.prio-note__icon{
+.marq-note__icon{
   flex: 0 0 auto;
   font-size: 1rem;
   opacity: 0.9;
 }
 
-.prio-note__text{
+.marq-note__text{
   flex: 1 1 auto;
   text-align: center;
 }
 
-.prio-note{
+.marq-note{
   display: flex;
   align-items: center;
   font-size: 0.82rem;
   color: #666;
 }
 
-.prio-input-wrap {
+.marq-input-wrap {
   margin: 0 12px;
   margin-top: 10px;
   margin-bottom: 8px;
 }
 
-.prio-input {
+.marq-input {
   width: 100%;
   text-align: center;
   border-radius: 10px;
@@ -2957,7 +2957,7 @@ input[type="range"]:focus::-moz-range-thumb {
   padding: 12px 12px;
 }
 
-.prio-input:focus {
+.marq-input:focus {
   outline: none;
   border-color: #bbb;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
@@ -2966,7 +2966,7 @@ input[type="range"]:focus::-moz-range-thumb {
 /* Evite zoom IOS */
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 812px) {
-    .prio-input {
+    .marq-input {
       font-size: 16px !important;
     }
   }

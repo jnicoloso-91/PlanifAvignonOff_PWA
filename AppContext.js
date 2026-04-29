@@ -85,7 +85,12 @@ export class AppContext {
         df_getAllOrdered().catch(() => []),
         carnet_getAll?.().catch?.(() => []) || Promise.resolve([]),
       ]);
-      this.#df = Array.isArray(df) ? sortDf(df) : [];
+
+      const migratedDf = Array.isArray(df)
+      ? migratePrioriteToMarqueur(df)
+      : [];
+
+      this.#df = sortDf(migratedDf);
       this.#carnet = Array.isArray(carnet) ? sortCarnet(carnet) : [];
 
       // --- Meta depuis IndexedDB
@@ -94,6 +99,7 @@ export class AppContext {
         meta = createDefaultMeta();
         await meta_put(meta);
       }
+      meta = migrateGridStatePrioriteToMarqueur(meta);
       meta = normalizeMeta(meta);
 
       this.#meta = meta;
@@ -639,4 +645,48 @@ function normalizeMeta(m = {}) {
     DUREE_REPAS: Number(m?.DUREE_REPAS ?? 60),
     DUREE_CAFE: Number(m?.DUREE_CAFE ?? 15),
   };
+}
+
+function migratePrioriteToMarqueur(rows) {
+  return (rows || []).map(r => {
+    if (!r || typeof r !== "object") return r;
+
+    const hasPriorite = Object.prototype.hasOwnProperty.call(r, "Priorite");
+    const hasMarqueur = Object.prototype.hasOwnProperty.call(r, "Marqueur");
+
+    if (!hasPriorite || hasMarqueur) return r;
+
+    const out = {};
+
+    for (const [key, value] of Object.entries(r)) {
+      if (key === "Priorite") {
+        out.Marqueur = value;   // même position que Priorite
+      } else {
+        out[key] = value;
+      }
+    }
+
+    return out;
+  });
+}
+
+function migrateGridStatePrioriteToMarqueur(meta) {
+  if (!meta?.gridState) return meta;
+
+  for (const gridId of Object.keys(meta.gridState)) {
+    const grid = meta.gridState[gridId];
+    if (!grid?.columnState) continue;
+
+    grid.columnState = grid.columnState.map(col => {
+      if (!col) return col;
+
+      if (col.colId === "Priorite") {
+        return { ...col, colId: "Marqueur" };
+      }
+
+      return col;
+    });
+  }
+
+  return meta;
 }

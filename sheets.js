@@ -45,7 +45,7 @@ import {
 
 import { 
   openExpander, 
-  getOrCreatePrioPopup,
+  getOrCreateMarqueurPopup,
 } from './expanders.js'; 
 
 import {
@@ -2371,7 +2371,7 @@ export function openSheetFiltres(gridId) {
 
       function buildSuggestionsForField(field, rows) {
         const isMood = String(field).toLowerCase() === "mood";
-        const isPrio = String(field).toLowerCase() === "priorite";
+        const isPrio = String(field).toLowerCase() === "marqueur";
         const isDate = String(field).toLowerCase() === "date";
 
         const raw = (isMood || isPrio) ? uniqueWords(rows, field) : uniqueValues(rows, field);
@@ -4142,8 +4142,8 @@ export function openSheetAssistantChat() {
           return;
         }
 
-        // Ouvre la popup SetPrio en mode bulk (un seul bouton Valider)
-        getOrCreatePrioPopup().open({
+        // Ouvre la popup SetMarq en mode bulk (un seul bouton Valider)
+        getOrCreateMarqueurPopup().open({
           ctx,
           uuids: affectedUuids,
           title: "Marqueur des activités collées",
@@ -4390,9 +4390,9 @@ export function openSheetAssistantProgrammation() {
             <div class="form-row">
               <label>Marqueurs</label>
 
-              <div class="chipbox" id="prog-prio-chipbox">
+              <div class="chipbox" id="prog-marq-chipbox">
                 <div class="chipbox-inputwrap">
-                  <input id="prog-prio-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter un marqueur…">
+                  <input id="prog-marq-input" class="chipbox-input bb-input" type="text" placeholder="Ajouter un marqueur…">
                   <datalist id="dl-prog-prio"></datalist>
                 </div>
                 <div class="chipbox-chips" aria-label="marqueurs sélectionnés"></div>
@@ -4484,8 +4484,8 @@ export function openSheetAssistantProgrammation() {
       const moodBox    = body.querySelector("#prog-mood-chipbox");
       const moodDL     = body.querySelector("#dl-prog-mood");
 
-      const prioInput  = body.querySelector("#prog-prio-input");
-      const prioBox    = body.querySelector("#prog-prio-chipbox");
+      const prioInput  = body.querySelector("#prog-marq-input");
+      const prioBox    = body.querySelector("#prog-marq-chipbox");
       const prioDL     = body.querySelector("#dl-prog-prio");
 
       let _prevStyles = (aiProg?.mots_cles_style || []).slice();
@@ -4520,7 +4520,7 @@ export function openSheetAssistantProgrammation() {
           onChange: null,
         });
 
-        const prioSuggestions = uniqueWordsFromRows(rows, 'Priorite', { max: 500, sep: ',' });
+        const prioSuggestions = uniqueWordsFromRows(rows, 'Marqueur', { max: 500, sep: ',' });
         const chipPrio = createChipBox({
           boxEl: prioBox,
           inputEl: prioInput,
@@ -5169,7 +5169,7 @@ export function openSheetAssistantProgrammation() {
 
 
         //
-        // 2) Mots-clés sur la colonne Priorite 
+        // 2) Mots-clés sur la colonne Marqueur 
         //
         const prios = constraints.prios || [];
 
@@ -5184,7 +5184,7 @@ export function openSheetAssistantProgrammation() {
             prios.map(norm).filter(Boolean)
           );
 
-          rows = rows.filter(r => prioSet.has(norm(r.Priorite)));
+          rows = rows.filter(r => prioSet.has(norm(r.Marqueur)));
         }
 
         //

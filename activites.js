@@ -441,8 +441,8 @@ export function creerActivitesAPI(ctx) {
      * @param {*} activite 
      * @returns 
      */
-    estActivitePriorisee(activite) {
-      return _estActivitePriorisee(activite);
+    estActiviteMarquee(activite) {
+      return _estActiviteMarquee(activite);
     },
 
     /**
@@ -530,7 +530,7 @@ export function creerActivitesAPI(ctx) {
           Style: null,
           Orga: null,
           Reserve: null, 
-          Priorite: null, 
+          Marqueur: null, 
           Hyperlien: `https://www.festivaloffavignon.com/resultats-recherche?recherche=${nouveauNom.trim().replace(/\s+/g, '+')}`,
         }
       nouvelleActivite.Fin = recalcFin(nouvelleActivite);
@@ -1309,18 +1309,18 @@ function _estActiviteReservee(row) {
  * @param {*} row 
  * @returns 
  */
-function _estActivitePriorisee(row) {
-  return (row.Priorite !== null && row.Priorite !== ""); // Number.isInteger(row.Priorite);
+function _estActiviteMarquee(row) {
+  return (row.Marqueur !== null && row.Marqueur !== ""); // Number.isInteger(row.Marqueur);
 };
 
 /**
  * Détermine si une activité (row) est chevauchable
- * (Priorite négative ou commençant par '-')
- * @param {{ Priorite?: any }} row
+ * (Marqueur négatif ou commençant par '-')
+ * @param {{ Marqueur?: any }} row
  * @returns {boolean}
  */
 function _estActiviteChevauchable(row) {
-  const p = row?.Priorite;
+  const p = row?.Marqueur;
   if (p == null) return false;
 
   // cas number
@@ -2167,7 +2167,7 @@ function _getActivitesProgrammablesSurJourneeEntiere(dateRef, traiterPauses = tr
       Date: dateRef,    // conserve ton dateRef
       Reserve: '',
       Relache: '',
-      Priorite: '',
+      Marqueur: '',
       Lieu: '',
     });
 

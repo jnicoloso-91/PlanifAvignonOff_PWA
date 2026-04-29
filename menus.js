@@ -573,8 +573,7 @@ const CANON = {
   'relache': 'Relache',
   'relaches': 'Relache',
   'reserve': 'Reserve',
-  'priorite': 'Priorite',
-  'marqueur': 'Priorite',
+  'marqueur': 'Marqueur',
   'ton': 'Mood',
   // tolérances diverses
   'debut (HHhMM)': 'Debut',
@@ -1202,7 +1201,7 @@ const MANDATORY_COLS = new Set([
   'Mood',
   'Orga',
   'Reserve',
-  'Priorite',
+  'Marqueur',
   'Note',
   'Hyperlien',
   'HyperlienGoogle',
@@ -1641,7 +1640,7 @@ async function doExportExcel() {
     
     cleanData = cleanRows(cleanData, 
       ["__uuid", "Hyperlien", "__order", "__type_activite", "__index", "__seances"],
-      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", Priorite: "Marqueur", HyperlienBR: "Billet Réduc", HyperlienGoogle: "Google" },
+      { Debut: "Début", Duree: "Durée", Activite: "Activité", Session: "Séances", Relache: "Relâches", Mood: "Ton", Reserve: "Réservé", HyperlienBR: "Billet Réduc", HyperlienGoogle: "Google" },
       [ "Date", "Début", "Activité", "Style", "Ton", "Note", "Marqueur", "Durée", "Fin", "Lieu", "Séances", "Relâches", "Orga", "Réservé", "Billet Réduc", "Google", "__desc_summary", "__avis_summary", "__distribution" ],
       false
     );
@@ -2149,7 +2148,7 @@ export async function importFromUrlOrTxt(raw, parser=null) {
         Relache: row.Relache || null, 
         Orga: row.Orga || null,
         Reserve: null, 
-        Priorite: null, 
+        Marqueur: null, 
         Note: note,
         Hyperlien: row.Hyperlien || hyperlienDefault,
         HyperlienGoogle: row.HyperlienGoogle || hyperlienGoogleDefault,

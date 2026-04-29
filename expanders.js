@@ -646,11 +646,11 @@ export function wireExpanderButtons() {
     onClick: async () => {await doProgrammerActivite();},
   });
 
-  // Bouton SetPrio sur Activités Non Programmées
+  // Bouton SetMarq sur Activités Non Programmées
   addExpanderButton({
     expanderId: 'exp-non-programmees',
-    id: 'btn-setprio-non-prog',
-    title: 'SetPrio', 
+    id: 'btn-setmarq-non-prog',
+    title: 'SetMarq', 
     innerHTML: `
       <span class="exp-icon" aria-hidden="true">
         <!-- Icône étoile fine (priorité) -->
@@ -662,7 +662,7 @@ export function wireExpanderButtons() {
       </span>
       <span class="exp-label">Favori</span>
     `,
-    onClick: () => { doSetPrio(); },
+    onClick: () => { doSetMarqueur(); },
   });
 
   // Bouton Supprimer sur Activités Non Programmées
@@ -1260,8 +1260,8 @@ function getUuidsFromFilter(gridApi) {
   return s;
 }
 
-// Applique une priorité à un tableau d'uuid
-function applyPrioriteImmutable(df, uuids, prioVal) {
+// Applique un marqueur à un tableau d'uuid
+function applyPrioriteImmutable(df, uuids, marqVal) {
   if (!uuids.size) return df;
   let changed = false;
   const out = df.slice();
@@ -1269,7 +1269,7 @@ function applyPrioriteImmutable(df, uuids, prioVal) {
   for (let i = 0; i < out.length; i++) {
     const r = out[i];
     if (uuids.has(r?.__uuid)) {
-      out[i] = { ...r, Priorite: prioVal };
+      out[i] = { ...r, Marqueur: marqVal };
       changed = true;
     }
   }
@@ -1279,20 +1279,20 @@ function applyPrioriteImmutable(df, uuids, prioVal) {
 let _prioPopup = null;
 
 // Crée la popup Prio
-export function getOrCreatePrioPopup() {
+export function getOrCreateMarqueurPopup() {
   if (_prioPopup) return _prioPopup;
 
   // 1) créer DOM une fois
   const backdrop = document.createElement("div");
-  backdrop.className = "prio-popup-backdrop";
+  backdrop.className = "marq-popup-backdrop";
   backdrop.hidden = true;
 
   backdrop.innerHTML = `
-    <div class="prio-popup" role="dialog" aria-modal="true">
-      <div class="prio-head">
-        <button type="button" class="prio-info" aria-label="Info" title="Info">i</button>
-        <div class="prio-title">Marqueur</div>
-        <button type="button" class="prio-close" aria-label="Fermer" title="Fermer">×</button>
+    <div class="marq-popup" role="dialog" aria-modal="true">
+      <div class="marq-head">
+        <button type="button" class="marq-info" aria-label="Info" title="Info">i</button>
+        <div class="marq-title">Marqueur</div>
+        <button type="button" class="marq-close" aria-label="Fermer" title="Fermer">×</button>
       </div>
 
       <div class="wheel-wrap">
@@ -1314,11 +1314,11 @@ export function getOrCreatePrioPopup() {
         <div class="wheel-indicator"></div>
       </div>
 
-      <div class="prio-input-wrap">
-        <input type="text" class="prio-input bb-input" placeholder="Valeur personnalisée">
+      <div class="marq-input-wrap">
+        <input type="text" class="marq-input bb-input" placeholder="Valeur personnalisée">
       </div>
 
-      <div class="prio-actions">
+      <div class="marq-actions">
         <button type="button" class="bb-btn is-primary" data-action="filter">
           Appliquer à filtre
         </button>
@@ -1328,7 +1328,7 @@ export function getOrCreatePrioPopup() {
 
         <!-- ✅ mode bulk -->
         <button type="button"
-                class="bb-btn is-primary prio-validate"
+                class="bb-btn is-primary marq-validate"
                 data-action="validate"
                 hidden>
           Valider
@@ -1339,8 +1339,8 @@ export function getOrCreatePrioPopup() {
 
   document.body.appendChild(backdrop);
 
-  const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".prio-popup"));
-  const input = /** @type {HTMLInputElement} */ (popup.querySelector(".prio-input"));
+  const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".marq-popup"));
+  const input = /** @type {HTMLInputElement} */ (popup.querySelector(".marq-input"));
 
   const picker = createWheelPicker(
     popup.querySelector(".wheel-wrap"),
@@ -1353,8 +1353,8 @@ export function getOrCreatePrioPopup() {
 
   requestAnimationFrame(() => { picker.setValue(null); });
 
-  const actions = /** @type {HTMLElement} */ (popup.querySelector(".prio-actions"));
-  const btnValidate = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-validate"));
+  const actions = /** @type {HTMLElement} */ (popup.querySelector(".marq-actions"));
+  const btnValidate = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-validate"));
   const btnFilter = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="filter"]'));
   const btnSel = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="selection"]'));
 
@@ -1370,7 +1370,7 @@ export function getOrCreatePrioPopup() {
   });
 
   // Wiring du bouton info
-  document.querySelector(".prio-info")?.addEventListener("click", (e) => {
+  document.querySelector(".marq-info")?.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -1389,7 +1389,7 @@ export function getOrCreatePrioPopup() {
   });
 
   // wiring du bouton close
-  const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".prio-close"));
+  const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-close"));
   btnClose?.addEventListener("click", (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
@@ -1411,7 +1411,7 @@ export function getOrCreatePrioPopup() {
     const set = new Set();
 
     for (const r of df || []) {
-      const v = r?.Priorite;
+      const v = r?.Marqueur;
       if (v == null || v === "") continue;
       set.add(String(v));
     }
@@ -1428,17 +1428,17 @@ export function getOrCreatePrioPopup() {
 
   function close() { backdrop.hidden = true; }
 
-  // Effectue à la fois un ajout de ligne et l'application d'une priorité 
-  function applyBulk(df, addRows, uuids, prioVal) {
+  // Effectue à la fois un ajout de ligne et l'application d'un marqueur 
+  function applyBulk(df, addRows, uuids, marqVal) {
     let out = df;
 
     // 1) append new rows
     if (Array.isArray(addRows) && addRows.length) out = out.concat(addRows);
 
     // 2) apply prio on affected uuids
-    if (uuids && uuids.size) out = applyPrioriteImmutable(out, uuids, prioVal);
+    if (uuids && uuids.size) out = applyPrioriteImmutable(out, uuids, marqVal);
 
-    // 3) sort (si tu veux que la prio influe sur le tri, il faut que sortDf tienne compte de Priorite)
+    // 3) sort (si l'on veut que la prio influe sur le tri, il faut que sortDf tienne compte de Marqueur)
     out = sortDf(out);
 
     return out;
@@ -1454,7 +1454,7 @@ export function getOrCreatePrioPopup() {
 
       if (!ctx) { close(); return; }
 
-      const prioVal = normalizeMarker(input?.value);
+      const marqVal = normalizeMarker(input?.value);
       const action = btn.dataset.action;
 
       // ---- BULK (ajout simultané de rows utilisé en sortie de chat) ----
@@ -1462,7 +1462,7 @@ export function getOrCreatePrioPopup() {
         const uuids = bulkUuids instanceof Set ? bulkUuids : new Set();
         const addRows = Array.isArray(bulkAddRows) ? bulkAddRows : [];
 
-        ctx.mutateDf((df) => applyBulk(df, addRows, uuids, prioVal));
+        ctx.mutateDf((df) => applyBulk(df, addRows, uuids, marqVal));
 
         refreshGrid("grid-programmables");
         close();
@@ -1484,7 +1484,7 @@ export function getOrCreatePrioPopup() {
           ? getUuidsFromSelection(gridApi)
           : getUuidsFromFilter(gridApi);
 
-      ctx.mutateDf((df) => applyPrioriteImmutable(df, uuids, prioVal));
+      ctx.mutateDf((df) => applyPrioriteImmutable(df, uuids, marqVal));
       refreshGrid("grid-programmables");
       close();
     }, true);
@@ -1501,7 +1501,7 @@ export function getOrCreatePrioPopup() {
       mode = bulkUuids ? "bulk" : "standard";
 
       // titre
-      const tEl = popup.querySelector(".prio-title");
+      const tEl = popup.querySelector(".marq-title");
       if (tEl) tEl.textContent = title || (mode === "bulk" ? "Marqueur des activités collées" : "Marqueur");
 
       // supprime anciens items dynamiques
@@ -1549,15 +1549,15 @@ export function getOrCreatePrioPopup() {
 }
 
 // Ouvre la popup Prio
-function openPrioPopup({ gridApi, ctx, defaultValue = null }) {
-  getOrCreatePrioPopup().open({ gridApi, ctx, defaultValue });
+function openMarqueurPopup({ gridApi, ctx, defaultValue = null }) {
+  getOrCreateMarqueurPopup().open({ gridApi, ctx, defaultValue });
 }
 
-// Assigne une priorité à la ligne sélectionnée ou au filtre courant
-function doSetPrio() {
+// Assigne un marqueur à la ligne sélectionnée ou au filtre courant
+function doSetMarqueur() {
   const h = grids.get("grid-non-programmees");
   const gridApi = h?.api;
-  openPrioPopup({ gridApi, ctx, defaultValue: null });
+  openMarqueurPopup({ gridApi, ctx, defaultValue: null });
 }
 
 // Ajout activité
