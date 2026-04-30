@@ -2095,7 +2095,7 @@ export function openSheetAide() {
               <li id="assistant_programmation"><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
               courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris. 
-              Vous pouvez regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
+              Vous pouvez regénérer de nouvelles solutions en ré-appuyant sur le bouton <u><i>Générer</i></u>. 
               Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre. 
               Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
               <li id="assistant_chat"><u><i>Assistant chat</u></i> : permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
@@ -2191,7 +2191,7 @@ export function openSheetAide() {
               <li><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
               courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris. 
-              Vous pouvez regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
+              Vous pouvez regénérer de nouvelles solutions en ré-appuyant sur le bouton <u><i>Générer</i></u>. 
               Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre. 
               Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
               <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
@@ -4283,7 +4283,7 @@ export function openSheetAssistantProgrammation() {
       <li>L'<u><i>Assistant programmation</u></i> vous permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
       et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
       courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris.</li>
-      <li>Vous pouvez regénérer de nouvelles solutions avec les mêmes critères en appuyant sur le bouton <u><i>Générer</i></u>.</li>
+      <li>Vous pouvez regénérer de nouvelles solutions avec les mêmes critères en ré-appuyant sur le bouton <u><i>Générer</i></u>.</li>
       <li>Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre.</li>
       <li>Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
     </ul>
