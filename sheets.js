@@ -70,6 +70,10 @@ import {
   PX_PER_MIN,
 } from './calendar.js';
 
+import {
+  openPopoverNear,
+} from './infos-plus.js';
+
 import { sortCarnet } from './carnet.js'; 
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
@@ -1019,6 +1023,10 @@ function openSheet({
   const header = document.createElement('div');
   header.className = 'sheet-header';
 
+  const infoBtn = document.createElement('button');
+  infoBtn.className = 'sheet-info';
+  infoBtn.innerHTML = 'i';
+
   const h = document.createElement('div');
   h.className = 'sheet-title';
   h.textContent = title || '';
@@ -1027,7 +1035,7 @@ function openSheet({
   closeBtn.className = 'sheet-close';
   closeBtn.innerHTML = '✕';
 
-  header.append(h, closeBtn);
+  header.append(infoBtn, h, closeBtn);
 
   const body = document.createElement('div');
   body.className = 'sheet-body';
@@ -1275,6 +1283,7 @@ function openSheet({
  */
 export function openSheetExclusive({
   title = '',
+  textInfo = null,
   mount,            // (bodyEl, helpers) => { bodyEl.innerHTML='...' }
   classes = {       // mapping classes (noms par défaut)
     wrap: 'sheet-wrap',
@@ -1284,6 +1293,7 @@ export function openSheetExclusive({
     handle: 'sheet-handle',
     title: 'sheet-title',
     actions: 'sheet-actions',
+    infoBtn: 'sheet-info',
     closeBtn: 'sheet-close',
     body: 'sheet-body',
     // états
@@ -1310,6 +1320,7 @@ export function openSheetExclusive({
          style="max-height:${panelMaxHeight};height:${panelHeight}">
       <span class="${classes.handle}" aria-hidden="true"></span>
       <header class="${classes.header}" data-drag-region>
+        <button class="${classes.infoBtn}" title="Info" aria-label="Info">i</button>
         <div class="${classes.title}">${title || ''}</div>
         <button class="${classes.closeBtn}" title="Fermer" aria-label="Fermer">×</button>
       </header>
@@ -1319,13 +1330,23 @@ export function openSheetExclusive({
 
   document.body.appendChild(root);
 
-
   const /** @type {HTMLElement} */ panel    = root.querySelector('.' + classes.panel);
   const /** @type {HTMLElement} */ header   = root.querySelector('.' + classes.header);
   const /** @type {HTMLElement} */ headerRow= root.querySelector('.' + classes.headerRow);
   const /** @type {HTMLElement} */ bodyEl   = root.querySelector('[data-body]');
   const /** @type {HTMLElement} */ backdrop = root.querySelector('[data-backdrop]');
   const /** @type {HTMLElement} */ closeBtn = root.querySelector('.' + classes.closeBtn);
+  const /** @type {HTMLElement} */ infoBtn = root.querySelector('.' + classes.infoBtn);
+
+  // Wiring de la popup info
+  infoBtn.hidden = textInfo === null;
+  infoBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openPopoverNear(e.currentTarget, {
+      innerHTML: textInfo
+    });
+  });
 
   // contenu
   const helpers = {
@@ -2073,11 +2094,13 @@ export function openSheetAide() {
               d'appeler le numéro de téléphone ou aller sur le site Web correspondant. Les adresses ainsi renseignées sont utilisées pour la recherche d'itinéraire.</li>
               <li id="assistant_programmation"><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
-              courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
-              Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web. Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie.</li>
+              courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris. 
+              Vous pouvez regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
+              Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre. 
+              Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
               <li id="assistant_chat"><u><i>Assistant chat</u></i> : permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
               mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
-              <li><u><i>Assistant infos+</u></i> : permet de générer les informations complémentaires affichables dans les popup i+ disponibles dans les grilles et les plannings: 
+              <li><u><i>Assistant infos+</u></i> : permet de générer les informations complémentaires affichées dans les popup i+ disponibles dans les grilles et le calendrier du programme : 
               résumé du spectacle et des avis spectateurs, évaluation du ton du spectacle.</li>
               <li><u><i>Paramètres</u></i> : permet d'éditer les paramètres de l'application comprenant:
                 <ul>
@@ -2167,11 +2190,13 @@ export function openSheetAide() {
             <ul style="margin-top: 0em">
               <li><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
-              courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs. Vous pouvez aisément regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
-              Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web. Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie.</li>
+              courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris. 
+              Vous pouvez regénérer de nouvelles solutions en appuyant sur le bouton <u><i>Générer</i></u>. 
+              Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre. 
+              Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
               <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
               mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
-              <li><u><i>Assistant infos+</u></i> : permet de générer les informations complémentaires affichables dans les popup i+ disponibles dans les grilles et les plannings: 
+              <li><u><i>Assistant infos+</u></i> : permet de générer les informations complémentaires affichées dans les popup i+ disponibles dans les grilles et le calendrier du programme : 
               résumé du spectacle et des avis spectateurs, évaluation du ton du spectacle.</li>
             </ul>                        
           </div>
@@ -2829,8 +2854,19 @@ let lastPresentedResults = []; // à alimenter quand on affiches une liste pour 
 export function openSheetAssistantChat() {
   // const contextSnapshot = buildAIContext(); // ton contexte global (planning, etc.)
 
+  const textInfo = `
+    <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+      <li>L'<u><i>Assistant chat</u></i> vous permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
+      mis à disposition par l'application.</li>
+      <Li>Le bouton <u><i>Nouveau chat</u></i> permet de démarrer une nouvelle discussion.</li>
+      <Li>Le bouton <u><i>Envoyer</u></i> permet d'envoyer à l'IA la question posée dans le champ text prévu à cet effet.</li>
+      <Li>Le bouton <u><i>Coller les résultats</u></i> permet de coller les résultats proposés par l'IA dans votre stock.</li>
+    </ul>
+  `;
+
   openSheetExclusive({
     title: "Assistant IA (bêta)",
+    textInfo: textInfo,
     panelHeight: "auto",
     panelMaxHeight: "80vh",
     mount: (body, { close }) => {
@@ -4242,8 +4278,20 @@ export function openSheetAssistantProgrammation() {
 
   const defaultGap = params.MARGE != null ? Number(params.MARGE) : 30;
 
+  const textInfo = `
+    <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+      <li>L'<u><i>Assistant programmation</u></i> vous permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
+      et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
+      courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris.</li>
+      <li>Vous pouvez regénérer de nouvelles solutions avec les mêmes critères en appuyant sur le bouton <u><i>Générer</i></u>.</li>
+      <li>Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre.</li>
+      <li>Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
+    </ul>
+  `;
+
   openSheetExclusive({
     title: "Assistant programmation",
+    textInfo: textInfo,
     panelHeight: "auto",
     panelMaxHeight: "85vh",
     mount: (body, { close }) => {
@@ -6699,8 +6747,19 @@ export function openSheetInfosPlus({
 
   let cancelled = false;
 
+  const textInfo = `
+    <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+      <li>L'<u><i>Assistant infos+</u></i> vous permet de générer les informations complémentaires affichées dans les popup i+ disponibles dans les grilles et le calendrier du programme : 
+      résumé du spectacle et des avis spectateurs, évaluation du ton du spectacle.</li>
+      <li>Ces informations sont générées par IA à partir de la description du spectacle disponible dans le catalogue ad-hoc et des avis spectateurs du site Billet réduc.</li>
+      <li>La génération n'est lancée que sur les activités sur lesquelles ces informations ne sont pas disponibles.</li>
+      <li>Un journal des activités traitées est affiché.</li>
+    </ul>
+  `;
+
   openSheetExclusive({
     title,
+    textInfo: textInfo,
     panelMaxHeight: "70vh",
     panelHeight: "60vh",
     mount: (body, { close }) => {
