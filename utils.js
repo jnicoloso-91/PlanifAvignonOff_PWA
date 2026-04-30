@@ -141,7 +141,7 @@ export function mergeRowsNoDupMultiKey(
   arr2,
   keyCols,
   {
-    excludeCols = ["Priorite"],
+    excludeCols = ["Marqueur"],
     normalizer = defaultNormalizer
   } = {}
 ) {  
