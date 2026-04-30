@@ -2095,8 +2095,9 @@ export function openSheetAide() {
               <li id="assistant_programmation"><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
               courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris. 
+              Après avoir renseigné vos critères, appuyez sur le bouton <u><i>Générer</i></u> pour générer une première solution de programme correspondant à ces critères.
               Vous pouvez regénérer de nouvelles solutions en ré-appuyant sur le bouton <u><i>Générer</i></u>. 
-              Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre. 
+              Pour chaque spectacle proposé dans une solution, vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre. 
               Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
               <li id="assistant_chat"><u><i>Assistant chat</u></i> : permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
               mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
@@ -2191,8 +2192,9 @@ export function openSheetAide() {
               <li><u><i>Assistant programmation</u></i> : permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
               et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
               courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris. 
+              Après avoir renseigné vos critères, appuyez sur le bouton <u><i>Générer</i></u> pour générer une première solution de programme correspondant à ces critères.
               Vous pouvez regénérer de nouvelles solutions en ré-appuyant sur le bouton <u><i>Générer</i></u>. 
-              Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre. 
+              Pour chaque spectacle proposé dans une solution, vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre. 
               Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
               <li><u><i>Assistant chat</u></i>: permet d'interroger une IA au travers d'une interface de chat sur les catalogues de spectacles 
               mis à disposition par l'application. Les résultats proposés par l'IA peuvent être collés dans votre stock.</li>
@@ -4283,8 +4285,12 @@ export function openSheetAssistantProgrammation() {
       <li>L'<u><i>Assistant programmation</u></i> vous permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
       et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
       courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris.</li>
+      <li>Si vous sélectionnez plusieurs styles de spectacles, vous pouvez doser les pourcentages respectifs de chaque style avec la rubrique <u><i>Dosage des styles</i></u>. 
+      <li>Le programmateur attribue à chaque spectacle une note qualifiant son adéquation à vos préférences données par texte libre. 
+      La rubrique <u><i>Inluence de la note</u></i> permet de doser l'influence de cette note dans le choix des spectacles sélectionnés par le programmateur.</li>
+      <li>Après avoir renseigné vos critères, appuyez sur le bouton <u><i>Générer</i></u> pour générer une première solution de programme correspondant à ces critères.</li>
       <li>Vous pouvez regénérer de nouvelles solutions avec les mêmes critères en ré-appuyant sur le bouton <u><i>Générer</i></u>.</li>
-      <li>Pour chaque spectacle proposé vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre.</li>
+      <li>Pour chaque spectacle proposé dans une solution, vous pouvez l'activer, le désactiver, avoir une info bulle de détail ou aller sur sa page Web en cliquant sur le titre.</li>
       <li>Le bouton <u><i>Appliquer</i></u> vous permet d'appliquer la solution choisie à votre programme courant.</li>
     </ul>
   `;
