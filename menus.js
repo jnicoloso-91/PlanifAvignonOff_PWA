@@ -1179,7 +1179,7 @@ export function wireAppKebab() {
           <li>Utiliser le menu <i>Fichier</i> pour charger le fichier Excel d'un programme préalablement exporté, ou importer un catalogue.</li>
           <li>Utiliser le bouton <i>Favori</i> pour mettre un marqueur de favoris sur le spectacle sélectionné ou le filtre courant.</li>
         </ul>
-        <p style="margin-top: 0em; margin-bottom: 0.2em">Utiliser le menu <i>.../Aide</i> pour une aide détaillée.</p> 
+        <p style="margin-top: 0em; margin-bottom: 0.2em">Consulter le menu <i>.../Aide</i> pour une aide détaillée.</p> 
       `
     });
   });
