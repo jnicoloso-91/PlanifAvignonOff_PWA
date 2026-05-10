@@ -41,21 +41,43 @@ export class NoteRenderer {
       e.style.opacity = '1';
     });
 
-    // 👉 sélection AVANT navigation
-    e.addEventListener('pointerdown', () => {
-      try {
-        if (params.column && params.node?.rowIndex != null) {
-          params.api?.setFocusedCell?.(params.node.rowIndex, params.column);
-        }
-        params.node?.setSelected?.(true, true);
-      } catch {}
-    });
+    // // 👉 sélection AVANT navigation
+    // e.addEventListener('pointerdown', () => {
+    //   try {
+    //     if (params.column && params.node?.rowIndex != null) {
+    //       params.api?.setFocusedCell?.(params.node.rowIndex, params.column);
+    //     }
+    //     params.node?.setSelected?.(true, true);
+    //   } catch {}
+    // });
 
-    // 👉 ouverture lien
+    // // 👉 ouverture lien
+    // e.addEventListener('click', (ev) => {
+    //   ev.stopPropagation();
+
+    //   // même logique que tes autres renderers
+    //   window.open(href, '_blank', 'noopener');
+    // });
     e.addEventListener('click', (ev) => {
       ev.stopPropagation();
 
-      // même logique que tes autres renderers
+      const alreadySelected = !!params.node?.isSelected?.();
+
+      // 1er clic : sélection seulement
+      if (!alreadySelected) {
+        ev.preventDefault();
+
+        try {
+          if (params.column && params.node?.rowIndex != null) {
+            params.api?.setFocusedCell?.(params.node.rowIndex, params.column);
+          }
+          params.node?.setSelected?.(true, true);
+        } catch {}
+
+        return;
+      }
+
+      // 2e clic sur ligne déjà sélectionnée : ouverture
       window.open(href, '_blank', 'noopener');
     });
 
