@@ -836,6 +836,32 @@ export function rebuildColumnsForActiviteGrids(dfRows) {
   rebuildColumnsForGrid('grid-programmables', dfRows);
 }
 
+// textMatcher insensible aux accents et majuscules minuscules
+function accentInsensitiveMatcher(params) {
+
+  function norm(s) {
+    return String(s ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  const value = norm(params.value);
+  const filterText = String(params.filterText ?? "").trim();
+
+  if (!filterText) return true;
+
+  const needles = filterText
+    .split("|")
+    .map(norm)
+    .filter(Boolean);
+
+  if (!needles.length) return true;
+
+  return needles.some(needle => value.includes(needle));
+}
+
 // textMatcher pour la colonne Marqueur
 // Reconnait le séparateur OR dans le filtre (le filtre "Toto | Titi" matche Marqueur = "Toto" ou Marqueur = "Titi")
 // Distingue filtres numériques et textes (le filtre "1" ne matche pas "New 11/04")
@@ -888,7 +914,7 @@ function buildColumnsActivitesCommon(){
         return ma-mb;
       }
     },
-    { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer },
+    { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'__desc_summary', headerName: '', width:30, minWidth:30, sortable: false ,  editable: false, cellClass: "col-padding-tight", cellRenderer: infosPlusPopoverCellRenderer },
     ...HIDDEN_TEXT_COLS.map(c => ({
       ...c,
@@ -908,16 +934,16 @@ function buildColumnsActivitesCommon(){
       // par défaut quick filter prend toutes les cols, mais certains setups filtrent
       getQuickFilterText: (p) => (p.value ?? ""),
     })),
-    { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6 },
-    { field:'Style', headerName: 'Style', minWidth:150, flex:0.6 },
+    { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
+    { field:'Style', headerName: 'Style', minWidth:150, flex:0.6, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'Note', headerName: 'Note', width, minWidth:width, editable: false, cellRenderer: NoteRenderer },
     { field:'Marqueur', headerName: 'Marqueur', width:45, minWidth:45, filter: "agTextColumnFilter", filterParams: {textMatcher: marqueurTextMatcher}, valueGetter: (p) => { const v = p.data?.Marqueur; return v == null ? "" : String(v); } }, //, valueParser: valueParserNumerique, cellEditor:IntCellEditor
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
-    { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer },
+    { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'Session', headerName: 'Séances', width:widthSR, minWidth:widthSR, valueParser: valueParserSession, onCellValueChanged: updSeances },
     { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
-    { field:'Orga', headerName: 'Orga', width, minWidth:width },
+    { field:'Orga', headerName: 'Orga', width, minWidth:width, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
     { field:'HyperlienGoogle', headerName: 'Google', minWidth:120, flex:1, cellRenderer: AvisRenderer },

@@ -159,13 +159,20 @@ function createChipBox({
   }
 
   // Normalisation clef
+  // function normKey(s) {
+  //   // pour dédoublonner : insensible casse + accents
+  //   return normToken(s)
+  //     .normalize("NFD")
+  //     .replace(/\p{Diacritic}/gu, "")
+  //     .toLowerCase();
+  // }
   function normKey(s) {
-    // pour dédoublonner : insensible casse + accents
     return normToken(s)
       .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[\u0300-\u036f]/g, "") // 🔥 plus robuste que Diacritic
       .toLowerCase();
   }
+
 
   function initChipBoxCore(refreshSuggestions=null) {
 
@@ -424,12 +431,14 @@ function createChipBox({
 
       // 1) calculer filtered (pour custom)
       const all = normalizeSuggestionList(suggestions);
-      const q = normToken(inputEl.value || "").toLowerCase();
+      // const q = normToken(inputEl.value || "").toLowerCase();
+      const q = normKey(inputEl.value || "");
 
       if (!q) {
         filtered = all;
       } else {
-        filtered = all.filter(x => x.toLowerCase().includes(q));
+        // filtered = all.filter(x => x.toLowerCase().includes(q));
+        filtered = all.filter(x => normKey(x).includes(q));
       }
 
       // reset active index propre
@@ -454,58 +463,6 @@ function createChipBox({
       refreshSuggestions();
     }
 
-    // function ensureDD() {
-    //   if (dd) return dd;
-
-    //   dd = document.createElement("div");
-    //   dd.className = "chipbox-dd";
-    //   dd.setAttribute("role", "listbox");
-    //   dd.setAttribute("aria-label", "Suggestions");
-
-    //   if (NEED_PORTAL) {
-    //     dd.style.position = "fixed";
-    //     dd.style.zIndex = "999999";
-    //     dd.hidden = true;
-    //     document.body.appendChild(dd);
-    //   } else {
-    //     dd.setAttribute("role", "listbox");
-    //     dd.setAttribute("aria-label", "Suggestions");
-
-    //     const wrap = inputEl.closest(".chipbox-inputwrap") || boxEl;
-    //     wrap.appendChild(dd);
-      
-    //     const onPickFromDD = (ev) => {
-    //       // event delegation
-    //       const target = ev.target instanceof Element ? ev.target : null;
-    //       if (!target) return;
-
-    //       const item = target.closest(".chipbox-dditem");
-    //       if (!item || !dd.contains(item)) return;
-
-    //       // IMPORTANT: empêcher blur + empêcher un handler document de fermer avant
-    //       ev.preventDefault();
-    //       ev.stopPropagation();
-
-    //       const label = item.textContent || "";
-    //       if (!label) return;
-
-    //       addToken(label);
-    //       inputEl.value = "";
-
-    //       closeDD();
-
-    //       // garder le focus (optionnel) — mais sans forcer des scrolls
-    //       try { inputEl.focus({ preventScroll: true }); } catch { inputEl.focus(); }
-    //     };
-
-    //   // Triple binding = robuste Android + émulation
-    //   dd.addEventListener("pointerdown", onPickFromDD, { passive: false });
-    //   dd.addEventListener("touchstart", onPickFromDD, { passive: false });
-    //   dd.addEventListener("click", onPickFromDD);
-    //   }
-
-    //   return dd;
-    // }    
     let lastPick = 0;
     function ensureDD() {
       if (dd) return dd;
@@ -1809,35 +1766,6 @@ export function openSheetParams() {
 
       body.querySelector('#p-cancel')?.addEventListener('click', close);
 
-      // body.querySelector('#p-save')?.addEventListener('click', () => {
-      //   const d1 = isoDateToLocalDate($deb.value);
-      //   const d2 = isoDateToLocalDate($fin.value);
-
-      //   if (!d1 || !d2 || d2 < d1) {
-      //     alert('Dates invalides (fin >= début).');
-      //   }
-
-      //   const mar = Math.max(0, Number($mar.value||0)|0);
-      //   const rep = Math.max(0, Number($rep.value||0)|0);
-      //   const caf = 30; //Math.max(0, Number($caf.value||0)|0);
-      //   const it = $it.value;
-      //   const ci = $ci.value;
-
-      //   ctx?.updMetaParams({
-      //     periode_a_programmer_debut: d1,
-      //     periode_a_programmer_fin:   d2,
-      //     MARGE:          mar,
-      //     DUREE_REPAS:    rep,
-      //     DUREE_CAFE:     caf,
-      //     itineraire_app: it,
-      //     city_default:   ci,
-      //   });
-
-      //   // si des calculs/affichages dépendent de ces params :
-      //   refreshAllGrids?.();
-
-      //   close();
-      // });
       body.querySelector('#p-save')?.addEventListener('click', () => {
         const d1 = isoDateToLocalDate($deb.value);
         const d2 = isoDateToLocalDate($fin.value);
@@ -2558,15 +2486,15 @@ export function openSheetFiltres(gridId) {
           suggestions = buildSuggestionsForField(field, allRows);
         }
 
-inputEl.setAttribute("autocapitalize", "off");
-inputEl.setAttribute("autocomplete", "off");
-inputEl.setAttribute("autocorrect", "off");
-inputEl.setAttribute("spellcheck", "false");
+        inputEl.setAttribute("autocapitalize", "off");
+        inputEl.setAttribute("autocomplete", "off");
+        inputEl.setAttribute("autocorrect", "off");
+        inputEl.setAttribute("spellcheck", "false");
 
-// normalise la saisie iOS AVANT que createChipBox ne filtre les suggestions
-inputEl.addEventListener("input", () => {
-  normalizeInputValueInPlace(inputEl);
-}, { capture: true });
+        // normalise la saisie iOS AVANT que createChipBox ne filtre les suggestions
+        inputEl.addEventListener("input", () => {
+          normalizeInputValueInPlace(inputEl);
+        }, { capture: true });
 
         const inst = createChipBox({
           boxEl,
