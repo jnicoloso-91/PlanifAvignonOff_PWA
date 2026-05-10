@@ -20,9 +20,8 @@ export class CarnetNomRenderer {
       return;
     }
 
-    const href =
-      "https://www.festivaloffavignon.com/resultats-recherche?recherche=" +
-      encodeURIComponent(label);
+    const raw   = params.data?.Hyperlien || '';
+    const href  = String(raw || ("https://www.festivaloffavignon.com/resultats-recherche?recherche="+encodeURIComponent(label)));
 
     e.style.cursor = 'pointer';
 
