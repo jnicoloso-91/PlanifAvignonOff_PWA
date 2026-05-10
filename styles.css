@@ -2865,7 +2865,7 @@ input[type="range"]:focus::-moz-range-thumb {
 
 
 /*=========================
-   SetMarq
+   SetMarqueur
   =========================*/
 
 .marq-popup-backdrop{
@@ -2982,6 +2982,16 @@ input[type="range"]:focus::-moz-range-thumb {
     }
   }
 }
+
+.marq-wheel-actions {
+  margin: 12px 12px 20px;
+}
+
+.marq-toggle-marker {
+  width: 100%;
+  min-height: 44px;
+}
+
 
 /*=========================
    Wheel

@@ -1279,6 +1279,274 @@ function applyPrioriteImmutable(df, uuids, marqVal) {
 let _prioPopup = null;
 
 // Crée la popup Prio
+// export function getOrCreateMarqueurPopup() {
+//   if (_prioPopup) return _prioPopup;
+
+//   // 1) créer DOM une fois
+//   const backdrop = document.createElement("div");
+//   backdrop.className = "marq-popup-backdrop";
+//   backdrop.hidden = true;
+
+//   backdrop.innerHTML = `
+//     <div class="marq-popup" role="dialog" aria-modal="true">
+//       <div class="marq-head">
+//         <button type="button" class="marq-info" aria-label="Info" title="Info">i</button>
+//         <div class="marq-title">Marqueur</div>
+//         <button type="button" class="marq-close" aria-label="Fermer" title="Fermer">×</button>
+//       </div>
+
+//       <div class="wheel-wrap">
+//         <div class="wheel">
+//           <div class="wheel-spacer"></div>
+//           <div class="wheel-item" data-v="-5">-5</div>
+//           <div class="wheel-item" data-v="-4">-4</div>
+//           <div class="wheel-item" data-v="-3">-3</div>
+//           <div class="wheel-item" data-v="-2">-2</div>
+//           <div class="wheel-item" data-v="-1">-1</div>
+//           <div class="wheel-item" data-v="">Aucune</div>
+//           <div class="wheel-item" data-v="1">1</div>
+//           <div class="wheel-item" data-v="2">2</div>
+//           <div class="wheel-item" data-v="3">3</div>
+//           <div class="wheel-item" data-v="4">4</div>
+//           <div class="wheel-item" data-v="5">5</div>
+//           <div class="wheel-spacer"></div>
+//         </div>
+//         <div class="wheel-indicator"></div>
+//       </div>
+
+//       <div class="marq-input-wrap">
+//         <input type="text" class="marq-input bb-input" placeholder="Valeur personnalisée">
+//       </div>
+
+//       <div class="marq-actions">
+//         <button type="button" class="bb-btn is-primary" data-action="filter">
+//           Appliquer à filtre
+//         </button>
+//         <button type="button" class="bb-btn is-primary" data-action="selection">
+//           Appliquer à sélection
+//         </button>
+
+//         <!-- ✅ mode bulk -->
+//         <button type="button"
+//                 class="bb-btn is-primary marq-validate"
+//                 data-action="validate"
+//                 hidden>
+//           Valider
+//         </button>
+//       </div>
+//     </div>
+//   `;
+
+//   document.body.appendChild(backdrop);
+
+//   const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".marq-popup"));
+//   const input = /** @type {HTMLInputElement} */ (popup.querySelector(".marq-input"));
+
+//   const picker = createWheelPicker(
+//     popup.querySelector(".wheel-wrap"),
+//     {
+//       onChange: (val) => {
+//         if (input) input.value = val ?? "";
+//       }
+//     }
+//   );
+
+//   requestAnimationFrame(() => { picker.setValue(null); });
+
+//   const actions = /** @type {HTMLElement} */ (popup.querySelector(".marq-actions"));
+//   const btnValidate = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-validate"));
+//   const btnFilter = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="filter"]'));
+//   const btnSel = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="selection"]'));
+
+//   picker.onChange?.((val) => {
+//     if (input) input.value = val ?? "";
+//   });
+
+//   popup.querySelectorAll(".wheel-item").forEach(el => {
+//     const h = /** @type {HTMLElement} */ (el);
+//     h.addEventListener("click", () => {
+//       input.value = h.dataset.v ?? "";
+//     });
+//   });
+
+//   // Wiring du bouton info
+//   document.querySelector(".marq-info")?.addEventListener("click", (e) => {
+//     e.preventDefault();
+//     e.stopPropagation();
+
+//     openPopoverNear(e.currentTarget, {
+//       innerHTML: `
+//         <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+//           <li>Un marqueur vous permet de filtrer vos favoris en filtrant les activités sur la colonne Marqueur.</li>
+//           <li>Utilisez la roue codeuse pour choisir une valeur existante.</li>
+//           <li>Utilisez le champ texte sous la roue codeuse pour en créer une nouvelle.</li>
+//           <li>Préfixer le marqueur par un tiret pour rendre l'activité chevauchable (i.e. programmable en même temps qu'une autre).</li>
+//           <li>Le bouton <i>Appliquer à filtre</i> applique la valeur choisie à l'ensemble du filtre appliqué sur le stock.</li>
+//           <li>Le bouton <i>Appliquer à sélection</i> applique la valeur choisie à la seule activité sélectionnée.</li>
+//         </ul>
+//       `
+//     });
+//   });
+
+//   // wiring du bouton close
+//   const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-close"));
+//   btnClose?.addEventListener("click", (ev) => {
+//     ev.preventDefault();
+//     ev.stopPropagation();
+//     close();
+//   }, true);
+
+//   // 2) état dynamique (mis à jour à chaque open)
+//   /** @type {{ df: any[], mutateDf: Function } | null} */
+//   let ctx = null;
+//   let gridApi = null;
+
+//   let bulkUuids = null;     // Set
+//   let bulkAddRows = null;   // Array
+//   let mode = "standard";    // "standard" | "bulk"
+
+//   const wheel = popup.querySelector(".wheel");
+
+//   function getExistingMarkers(df) {
+//     const set = new Set();
+
+//     for (const r of df || []) {
+//       const v = r?.Marqueur;
+//       if (v == null || v === "") continue;
+//       set.add(String(v));
+//     }
+
+//     return [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+//   }
+
+//   function normalizeMarker(v) {
+//     return String(v ?? "")
+//       .replace(/\s+/g, " ")
+//       .replace(/[’‘`´']/g, "'")
+//       .trim();
+//   }
+
+//   function close() { backdrop.hidden = true; }
+
+//   // Effectue à la fois un ajout de ligne et l'application d'un marqueur 
+//   function applyBulk(df, addRows, uuids, marqVal) {
+//     let out = df;
+
+//     // 1) append new rows
+//     if (Array.isArray(addRows) && addRows.length) out = out.concat(addRows);
+
+//     // 2) apply prio on affected uuids
+//     if (uuids && uuids.size) out = applyPrioriteImmutable(out, uuids, marqVal);
+
+//     // 3) sort (si l'on veut que la prio influe sur le tri, il faut que sortDf tienne compte de Marqueur)
+//     out = sortDf(out);
+
+//     return out;
+//   }
+
+//   // 3) listeners (boutons)
+//   popup.querySelectorAll("button[data-action]").forEach((b) => {
+//     const btn = /** @type {HTMLElement} */ (b);
+
+//     btn.addEventListener("click", (ev) => {
+//       ev.preventDefault();
+//       ev.stopPropagation();
+
+//       if (!ctx) { close(); return; }
+
+//       const marqVal = normalizeMarker(input?.value);
+//       const action = btn.dataset.action;
+
+//       // ---- BULK (ajout simultané de rows utilisé en sortie de chat) ----
+//       if (mode === "bulk" && action === "validate") {
+//         const uuids = bulkUuids instanceof Set ? bulkUuids : new Set();
+//         const addRows = Array.isArray(bulkAddRows) ? bulkAddRows : [];
+
+//         ctx.mutateDf((df) => applyBulk(df, addRows, uuids, marqVal));
+
+//         refreshGrid("grid-programmables");
+//         close();
+
+//         requestAnimationFrame(() => {
+//           if (addRows.length > 0) {
+//             alert(`${addRows.length} spectacle(s) ajouté(s) au stock.`);
+//           }
+//         });
+
+//         return;
+//       }
+
+//       // ---- STANDARD ----
+//       if (!gridApi) { close(); return; }
+
+//       const uuids =
+//         action === "selection"
+//           ? getUuidsFromSelection(gridApi)
+//           : getUuidsFromFilter(gridApi);
+
+//       ctx.mutateDf((df) => applyPrioriteImmutable(df, uuids, marqVal));
+//       refreshGrid("grid-programmables");
+//       close();
+//     }, true);
+//   });
+
+//   _prioPopup = {
+//     /** @ts-ignore */
+//     open({ gridApi: ga, ctx: c, defaultValue = null, uuids = null, title = null, _bulkAddRows = null } = {}) {
+//       gridApi = ga || null;
+//       ctx = c || null;
+
+//       bulkUuids = (uuids instanceof Set) ? uuids : null;
+//       bulkAddRows = Array.isArray(_bulkAddRows) ? _bulkAddRows : null;
+//       mode = bulkUuids ? "bulk" : "standard";
+
+//       // titre
+//       const tEl = popup.querySelector(".marq-title");
+//       if (tEl) tEl.textContent = title || (mode === "bulk" ? "Marqueur des activités collées" : "Marqueur");
+
+//       // supprime anciens items dynamiques
+//       wheel.querySelectorAll(".wheel-item.dynamic").forEach(el => el.remove());
+
+//       if (ctx?.df) {
+//         const existing = getExistingMarkers(ctx.df);
+
+//         for (const v of existing) {
+//           // éviter doublons avec -5..5 et "Aucune"
+//           if (wheel.querySelector(`.wheel-item[data-v="${v}"]`)) continue;
+
+//           const el = document.createElement("div");
+//           el.className = "wheel-item dynamic";
+//           el.dataset.v = v;
+//           el.textContent = v;
+
+//           // insérer avant le spacer final
+//           const spacer = wheel.querySelector(".wheel-spacer:last-of-type");
+//           wheel.insertBefore(el, spacer);
+//         }
+//       }
+
+//       // toggle boutons
+//       if (btnValidate) btnValidate.hidden = (mode !== "bulk");
+//       if (btnFilter)   btnFilter.hidden   = (mode === "bulk");
+//       if (btnSel)      btnSel.hidden      = (mode === "bulk");
+
+//       // état bouton sélection (standard)
+//       if (mode === "standard" && btnSel) {
+//         const hasSelection = gridApi?.getSelectedNodes?.().length > 0;
+//         btnSel.disabled = !hasSelection;
+//       }
+
+//       backdrop.hidden = false;
+
+//       if (defaultValue !== null) picker.setValue(defaultValue);
+//       if (input) input.value = picker.getValue() ?? "";
+
+//     },
+//     close
+//   };
+
+//   return _prioPopup;
+// }
 export function getOrCreateMarqueurPopup() {
   if (_prioPopup) return _prioPopup;
 
@@ -1298,20 +1566,17 @@ export function getOrCreateMarqueurPopup() {
       <div class="wheel-wrap">
         <div class="wheel">
           <div class="wheel-spacer"></div>
-          <div class="wheel-item" data-v="-5">-5</div>
-          <div class="wheel-item" data-v="-4">-4</div>
-          <div class="wheel-item" data-v="-3">-3</div>
-          <div class="wheel-item" data-v="-2">-2</div>
-          <div class="wheel-item" data-v="-1">-1</div>
-          <div class="wheel-item" data-v="">Aucune</div>
-          <div class="wheel-item" data-v="1">1</div>
-          <div class="wheel-item" data-v="2">2</div>
-          <div class="wheel-item" data-v="3">3</div>
-          <div class="wheel-item" data-v="4">4</div>
-          <div class="wheel-item" data-v="5">5</div>
+          <div class="wheel-item" data-v="">Aucun</div>
+          <div class="wheel-item" data-v="-">-</div>
           <div class="wheel-spacer"></div>
         </div>
         <div class="wheel-indicator"></div>
+      </div>
+
+      <div class="marq-wheel-actions">
+        <button type="button" class="bb-btn is-primary marq-toggle-marker">
+          Ajouter / retirer
+        </button>
       </div>
 
       <div class="marq-input-wrap">
@@ -1345,29 +1610,17 @@ export function getOrCreateMarqueurPopup() {
   const picker = createWheelPicker(
     popup.querySelector(".wheel-wrap"),
     {
-      onChange: (val) => {
-        if (input) input.value = val ?? "";
+      onChange: () => {
+        updateToggleButtonLabel();
       }
     }
   );
 
   requestAnimationFrame(() => { picker.setValue(null); });
 
-  const actions = /** @type {HTMLElement} */ (popup.querySelector(".marq-actions"));
   const btnValidate = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-validate"));
   const btnFilter = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="filter"]'));
   const btnSel = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="selection"]'));
-
-  picker.onChange?.((val) => {
-    if (input) input.value = val ?? "";
-  });
-
-  popup.querySelectorAll(".wheel-item").forEach(el => {
-    const h = /** @type {HTMLElement} */ (el);
-    h.addEventListener("click", () => {
-      input.value = h.dataset.v ?? "";
-    });
-  });
 
   // Wiring du bouton info
   document.querySelector(".marq-info")?.addEventListener("click", (e) => {
@@ -1388,6 +1641,19 @@ export function getOrCreateMarqueurPopup() {
     });
   });
 
+  // wiring du bouton Ajouter / Retirer
+  const btnToggleMarker =
+    /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-toggle-marker"));
+
+  btnToggleMarker?.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const v = picker.getValue?.();
+    toggleMarkerInInput(v);
+    updateToggleButtonLabel();
+  });
+
   // wiring du bouton close
   const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-close"));
   btnClose?.addEventListener("click", (ev) => {
@@ -1395,6 +1661,11 @@ export function getOrCreateMarqueurPopup() {
     ev.stopPropagation();
     close();
   }, true);
+
+  // wiring du click sur input
+  input.addEventListener("input", () => {
+    updateToggleButtonLabel();
+  });
 
   // 2) état dynamique (mis à jour à chaque open)
   /** @type {{ df: any[], mutateDf: Function } | null} */
@@ -1407,16 +1678,53 @@ export function getOrCreateMarqueurPopup() {
 
   const wheel = popup.querySelector(".wheel");
 
+  function isDashMarker(v) {
+    return normalizeMarker(v) === "-";
+  }
+
+  function isNegativeMarker(v) {
+    return normalizeMarker(v).startsWith("-");
+  }
+
+  function stripLeadingDash(v) {
+    return normalizeMarker(v).replace(/^-+/, "");
+  }
+
+  function hasDashFlag(parts) {
+    return parts.some(isDashMarker) || parts.some(isNegativeMarker);
+  }
+
   function getExistingMarkers(df) {
     const set = new Set();
 
     for (const r of df || []) {
-      const v = r?.Marqueur;
-      if (v == null || v === "") continue;
-      set.add(String(v));
+      const raw = r?.Marqueur;
+      if (raw == null || raw === "") continue;
+
+      for (const part of String(raw).split(",")) {
+        const v = normalizeMarker(part);
+        if (!v) continue;
+
+        if (v.startsWith("-")) {
+          set.add("-");
+
+          const stripped = v.replace(/^-+/, "").trim();
+          if (stripped) set.add(stripped);
+        } else {
+          set.add(v);
+        }
+      }
     }
 
-    return [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+    return [...set].sort((a, b) => {
+      if (a === "-" && b !== "-") return -1;
+      if (a !== "-" && b === "-") return 1;
+
+      return a.localeCompare(b, "fr", {
+        numeric: true,
+        sensitivity: "base"
+      });
+    });
   }
 
   function normalizeMarker(v) {
@@ -1424,6 +1732,132 @@ export function getOrCreateMarqueurPopup() {
       .replace(/\s+/g, " ")
       .replace(/[’‘`´']/g, "'")
       .trim();
+  }
+
+  function setInputValue(v) {
+    input.value = v == null ? "" : String(v);
+  }
+
+  function markerKey(v) {
+    return normalizeMarker(v)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  }
+
+  function splitMarkers(s) {
+    return String(s ?? "")
+      .split(",")
+      .map(x => normalizeMarker(x))
+      .filter(Boolean);
+  }
+
+  function joinMarkers(arr) {
+    return arr.join(", ");
+  }
+
+  function sortMarkers(arr) {
+    return [...arr].sort((a, b) => {
+      const ka = markerKey(a);
+      const kb = markerKey(b);
+
+      const aNeg = ka.startsWith("-");
+      const bNeg = kb.startsWith("-");
+
+      if (aNeg && !bNeg) return -1; // les marqueurs "-" d'abord
+      if (!aNeg && bNeg) return 1;
+
+      return a.localeCompare(b, "fr", {
+        numeric: true,
+        sensitivity: "base"
+      });
+    });
+  }
+
+  function writeMarkers(arr) {
+
+    let parts = sortMarkers(arr);
+
+    // 🔥 traitement spécial du marqueur "-"
+    const hasDash = parts.some(x => normalizeMarker(x) === "-");
+
+    if (hasDash) {
+
+      // enlève le "-"
+      parts = parts.filter(x => normalizeMarker(x) !== "-");
+
+      // colle le premier marqueur
+      if (parts.length > 0) {
+        parts[0] = "-" + normalizeMarker(parts[0]).replace(/^-+/,"");
+      }
+    }
+
+    input.value = joinMarkers(parts);
+  }
+
+  function toggleMarkerInInput(v) {
+    const m = normalizeMarker(v);
+    let parts = splitMarkers(input.value);
+
+    // Aucun => reset input
+    if (!m) {
+      input.value = "";
+      return;
+    }
+
+    // Cas spécial "-"
+    if (isDashMarker(m)) {
+      const hasFlag = hasDashFlag(parts);
+
+      if (hasFlag) {
+        // supprime le mode chevauchable
+        parts = parts
+          .filter(x => !isDashMarker(x))
+          .map(x => isNegativeMarker(x) ? stripLeadingDash(x) : x);
+      } else {
+        // ajoute le flag "-"
+        parts.push("-");
+      }
+
+      writeMarkers(parts);
+      return;
+    }
+
+    // Cas normal : on compare sans le "-" initial
+    const key = markerKey(stripLeadingDash(m));
+    const exists = parts.some(x => markerKey(stripLeadingDash(x)) === key);
+
+    if (exists) {
+      parts = parts.filter(x => markerKey(stripLeadingDash(x)) !== key);
+    } else {
+      parts.push(m);
+    }
+
+    writeMarkers(parts);
+  }
+  
+  function updateToggleButtonLabel() {
+    if (!btnToggleMarker) return;
+
+    const v = normalizeMarker(picker.getValue?.());
+    const parts = splitMarkers(input.value);
+
+    if (!v) {
+      btnToggleMarker.textContent = "RAZ";
+      return;
+    }
+
+    if (isDashMarker(v)) {
+      btnToggleMarker.textContent = hasDashFlag(parts)
+        ? "Supprimer"
+        : "Ajouter";
+      return;
+    }
+
+    const key = markerKey(stripLeadingDash(v));
+    const exists = parts.some(x => markerKey(stripLeadingDash(x)) === key);
+
+    btnToggleMarker.textContent = exists ? "Supprimer" : "Ajouter";
   }
 
   function close() { backdrop.hidden = true; }
@@ -1538,8 +1972,13 @@ export function getOrCreateMarqueurPopup() {
 
       backdrop.hidden = false;
 
-      if (defaultValue !== null) picker.setValue(defaultValue);
-      if (input) input.value = picker.getValue() ?? "";
+      // if (defaultValue !== null) picker.setValue(defaultValue);
+      // if (input) input.value = picker.getValue() ?? "";
+      picker.setValue(null);
+
+      // valeur courante de la colonne Marqueur
+      setInputValue(defaultValue);
+      updateToggleButtonLabel();
 
     },
     close
@@ -1554,10 +1993,24 @@ function openMarqueurPopup({ gridApi, ctx, defaultValue = null }) {
 }
 
 // Assigne un marqueur à la ligne sélectionnée ou au filtre courant
+// function doSetMarqueur() {
+//   const h = grids.get("grid-non-programmees");
+//   const gridApi = h?.api;
+//   openMarqueurPopup({ gridApi, ctx, defaultValue: null });
+// }
 function doSetMarqueur() {
   const h = grids.get("grid-non-programmees");
   const gridApi = h?.api;
-  openMarqueurPopup({ gridApi, ctx, defaultValue: null });
+
+  let defaultValue = null;
+
+  const sel = gridApi?.getSelectedNodes?.() || [];
+
+  if (sel.length > 0) {
+    defaultValue = sel[0]?.data?.Marqueur ?? null;
+  }
+
+  openMarqueurPopup({ gridApi, ctx, defaultValue });
 }
 
 // Ajout activité
