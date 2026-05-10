@@ -1555,6 +1555,8 @@ export function getOrCreateMarqueurPopup() {
   backdrop.className = "marq-popup-backdrop";
   backdrop.hidden = true;
 
+  let lastWheelValue = null;
+
   backdrop.innerHTML = `
     <div class="marq-popup" role="dialog" aria-modal="true">
       <div class="marq-head">
@@ -1650,6 +1652,7 @@ export function getOrCreateMarqueurPopup() {
     ev.stopPropagation();
 
     const v = picker.getValue?.();
+    lastWheelValue = v;
     toggleMarkerInInput(v);
     updateToggleButtonLabel();
   });
@@ -1860,6 +1863,10 @@ export function getOrCreateMarqueurPopup() {
     btnToggleMarker.textContent = exists ? "Supprimer" : "Ajouter";
   }
 
+  function wheelHasValue(v) {
+    return !!wheel.querySelector(`.wheel-item[data-v="${CSS.escape(String(v ?? ""))}"]`);
+  }
+
   function close() { backdrop.hidden = true; }
 
   // Effectue à la fois un ajout de ligne et l'application d'un marqueur 
@@ -1972,9 +1979,8 @@ export function getOrCreateMarqueurPopup() {
 
       backdrop.hidden = false;
 
-      // if (defaultValue !== null) picker.setValue(defaultValue);
-      // if (input) input.value = picker.getValue() ?? "";
-      picker.setValue(null);
+      const wheelValue = wheelHasValue(lastWheelValue) ? lastWheelValue : null;
+      picker.setValue(wheelValue);
 
       // valeur courante de la colonne Marqueur
       setInputValue(defaultValue);
