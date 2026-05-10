@@ -556,7 +556,17 @@ function createChipBox({
       if (!dd) return;
       dd.replaceChildren();
 
-      if (!filtered.length) { closeDD(); return; }
+      // Bug Samsung
+      // if (!filtered.length) { closeDD(); return; }
+      if (!filtered.length) {
+        setTimeout(() => {
+          // on revérifie après stabilisation clavier/input
+          refreshSuggestions();
+          if (!filtered.length) closeDD();
+        }, 60);
+        return;
+      }
+      // Bug Samsung
 
       const list = document.createElement("div");
       list.className = "chipbox-ddlist";
@@ -814,10 +824,34 @@ function createChipBox({
       try { kbFix.reset?.(); } catch {}
     });
 
+    // Bug Samsung
+    // inputEl.addEventListener("input", () => {
+    //   refreshSuggestions();
+    //   if (dd) openDD();
+    // });
+    let inputRefreshTimer = 0;
+
     inputEl.addEventListener("input", () => {
+      clearTimeout(inputRefreshTimer);
+
+      inputRefreshTimer = window.setTimeout(() => {
+        ensureDD();
+        refreshSuggestions();
+
+        if (dd && filtered.length) {
+          openDD();
+        } else {
+          closeDD({ reason: "empty" });
+        }
+      }, 40);
+    });
+
+    inputEl.addEventListener("keyup", () => {
+      ensureDD();
       refreshSuggestions();
       if (dd) openDD();
     });
+    // Bug Samsung
 
     // Entrée => chip (pas virgule)
     inputEl.addEventListener("keydown", (ev) => {
@@ -2326,10 +2360,48 @@ export function openSheetFiltres(gridId) {
 
       function buildSuggestionsForField(field, rows) {
         const isMood = String(field).toLowerCase() === "mood";
-        const isPrio = String(field).toLowerCase() === "marqueur";
+        const isMarq = String(field).toLowerCase() === "marqueur";
         const isDate = String(field).toLowerCase() === "date";
 
-        const raw = (isMood || isPrio) ? uniqueWords(rows, field) : uniqueValues(rows, field);
+        // const raw = (isMood || isMarq) ? uniqueWords(rows, field) : uniqueValues(rows, field);
+        let raw;
+
+        if (isMarq) {
+          const set = new Set();
+
+          for (const r of rows || []) {
+            const v = r?.[field];
+            if (v == null || v === "") continue;
+
+            for (let part of String(v).split(",")) {
+
+              part = sanitizeValue(part);
+
+              if (!part) continue;
+
+              // cas spécial "-Jo"
+              if (part.startsWith("-")) {
+                set.add("-");
+                part = part.replace(/^-+/, "").trim();
+              }
+
+              if (part) set.add(part);
+            }
+          }
+
+          raw = [...set].sort((a, b) =>
+            a.localeCompare(b, "fr", {
+              numeric: true,
+              sensitivity: "base"
+            })
+          );
+        }
+
+        else {
+          raw = isMood
+            ? uniqueWords(rows, field)
+            : uniqueValues(rows, field);
+        }
 
         const seen = new Set();
         const out = [];

@@ -1568,8 +1568,8 @@ export function getOrCreateMarqueurPopup() {
       <div class="wheel-wrap">
         <div class="wheel">
           <div class="wheel-spacer"></div>
-          <div class="wheel-item" data-v="">Aucun</div>
           <div class="wheel-item" data-v="-">-</div>
+          <div class="wheel-item" data-v="">Aucun</div>
           <div class="wheel-spacer"></div>
         </div>
         <div class="wheel-indicator"></div>
@@ -1633,8 +1633,10 @@ export function getOrCreateMarqueurPopup() {
       innerHTML: `
         <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
           <li>Un marqueur vous permet de filtrer vos favoris en filtrant les activités sur la colonne Marqueur.</li>
-          <li>Utilisez la roue codeuse pour choisir une valeur existante.</li>
-          <li>Utilisez le champ texte sous la roue codeuse pour en créer une nouvelle.</li>
+          <li>Un marqueur est une liste de mots séparés par des virgules, éventuellement précédée d'un tiret (ex. Alice, Bob).</li>
+          <li>Le champ texte sous la roue codeuse contient la valeur courante du marqueur.</li>
+          <li>Utilisez la roue codeuse pour choisir un mot existant et l'ajouter ou le supprimer du marqueur.</li>
+          <li>Utilisez le champ texte pour ajouter de nouveaux mots dans le marqueur.</li>
           <li>Préfixer le marqueur par un tiret pour rendre l'activité chevauchable (i.e. programmable en même temps qu'une autre).</li>
           <li>Le bouton <i>Appliquer à filtre</i> applique la valeur choisie à l'ensemble du filtre appliqué sur le stock.</li>
           <li>Le bouton <i>Appliquer à sélection</i> applique la valeur choisie à la seule activité sélectionnée.</li>

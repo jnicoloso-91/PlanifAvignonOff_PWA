@@ -28,17 +28,33 @@ export class HyperlienBRRenderer {
     a.addEventListener('mouseenter', () => a.style.opacity = '1');
     a.addEventListener('mouseleave', () => a.style.opacity = '.85');
     
-    // a.addEventListener('click', (ev) => {
-    //     // important : ne PAS mettre preventDefault ici,
-    //     // on laisse le navigateur ouvrir le nouvel onglet.
-    //     ev.stopPropagation(); // évite de changer la sélection de la ligne
-    // });
+    a.addEventListener('click', (ev) => {
 
-    a.addEventListener('pointerdown', () => {
-      try {
-        params.node?.setSelected?.(true, true);
-      } catch {}
+      const alreadySelected = !!params.node?.isSelected?.();
+
+      // Toujours empêcher la propagation
+      ev.stopPropagation();
+
+      // Si pas encore sélectionnée :
+      // on sélectionne ET on bloque la navigation
+      if (!alreadySelected) {
+        ev.preventDefault();
+
+        try {
+          params.node?.setSelected?.(true, true);
+        } catch {}
+
+        return;
+      }
+
+      // sinon : navigation autorisée
     });
+
+    // a.addEventListener('pointerdown', () => {
+    //   try {
+    //     params.node?.setSelected?.(true, true);
+    //   } catch {}
+    // });
 
     const icon = document.createElement('span');
     icon.textContent = '🔗';
