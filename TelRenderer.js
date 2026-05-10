@@ -26,7 +26,34 @@ export class TelRenderer {
     if (href) a.href = href;
 
     // éviter de perturber la sélection/édition AG Grid
-    a.addEventListener('click', ev => ev.stopPropagation());
+    // a.addEventListener('click', ev => ev.stopPropagation());
+
+    // 1er clic = sélection
+    // 2e clic = lancement appel
+    a.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+
+      const alreadySelected = !!params.node?.isSelected?.();
+
+      if (!alreadySelected) {
+        ev.preventDefault();
+
+        try {
+          if (params.column && params.node?.rowIndex != null) {
+            params.api?.setFocusedCell?.(
+              params.node.rowIndex,
+              params.column
+            );
+          }
+
+          params.node?.setSelected?.(true, true);
+        } catch {}
+
+        return;
+      }
+
+      window.open(href, '_blank', 'noopener');
+    });
 
     // texte (affiche tel principal “joli”)
     const txt = document.createElement('span');

@@ -29,12 +29,59 @@ export class LieuRenderer {
     title.style.overflow = 'hidden';
     title.style.textOverflow = 'ellipsis';
 
+    title.style.cursor = 'pointer';
+    title.title = 'Recherche Google';
+
+    this.onTitleClick = (e) => {
+      const lieu = this.$title.textContent?.trim() || "";
+      if (!lieu) return;
+
+      e.stopPropagation();
+
+      const alreadySelected = !!this.p.node?.isSelected?.();
+
+      // 1er clic : sélection seulement
+      if (!alreadySelected) {
+        e.preventDefault();
+
+        try {
+          if (this.p.column && this.p.node?.rowIndex != null) {
+            this.p.api?.setFocusedCell?.(
+              this.p.node.rowIndex,
+              this.p.column
+            );
+          }
+
+          this.p.node?.setSelected?.(true, true);
+        } catch {}
+
+        return;
+      }
+
+      // 2e clic : recherche Google
+      const href = buildGoogleSearchUrl(lieu);
+      window.open(href, '_blank', 'noopener');
+    };
+
     e.append(a, title); //, sub);
 
     // mémos
     this.el = e;
     this.$icon = a;
     this.$title = title;
+
+    // Branchement du click sur title
+    this.$title.addEventListener('click', this.onTitleClick);
+
+    this.$title.addEventListener('mouseenter', () => {
+      this.$title.style.textDecoration = 'underline';
+      this.$title.style.opacity = '0.9';
+    });
+
+    this.$title.addEventListener('mouseleave', () => {
+      this.$title.style.textDecoration = 'none';
+      this.$title.style.opacity = '1';
+    });
 
     // config plateforme (détermine la façon d’ouvrir)
     const ua = navigator.userAgent || '';
@@ -87,6 +134,15 @@ export class LieuRenderer {
 
     // Mise à jour du contenu texte
     this.$title.textContent = lieu || '';
+
+    if (lieu) {
+      this.$title.style.pointerEvents = 'auto';
+      this.$title.style.opacity = '1';
+    } else {
+      this.$title.style.pointerEvents = 'none';
+      this.$title.style.opacity = '0.6';
+    }
+
     this.el.title           = [lieu, addr].filter(Boolean).join('\n');
 
     // Mise à jour de l’icône + lien
@@ -116,6 +172,12 @@ export class LieuRenderer {
     // nettoyage listener
     if (this.$icon && this.onIconClick) {
       this.$icon.removeEventListener('click', this.onIconClick);
+    }
+    if (this.$icon && this.onIconPointerDown) {
+      this.$icon.removeEventListener('pointerdown', this.onIconPointerDown);
+    }
+    if (this.$title && this.onTitleClick) {
+      this.$title.removeEventListener('click', this.onTitleClick);
     }
   }
 }
@@ -156,6 +218,32 @@ export function resolveAddress(lieu) {
   return addr ?? `${lieu} (${cityDefault})`;
 }
 
+export function resolveWebAddress(lieu) {
+  if (!lieu) return '';
+  const carnet = window.ctx?.carnet;
+  const cityDefault = window.ctx?.meta?.city_default || 'Avignon';
+
+  const key = normalizeText(lieu);
+  let addr = null;
+
+  if (Array.isArray(carnet) && carnet.length > 0) {
+    // 1️⃣ recherche exacte
+    let hit = carnet.find(r => normalizeText(r.Nom) === key);
+
+    // 2️⃣ sinon "contains"
+    if (!hit && key) {
+      hit = carnet.find(r => normalizeText(r.Nom).includes(key));
+    }
+
+    // 3️⃣ Si trouvé → récupérer Adresse
+    if (hit?.Adresse) {
+      addr = String(hit.Web).trim();
+    }
+  }
+
+  return addr ?? `${lieu} ${cityDefault}`;
+}
+
 export function buildDirectionsUrl(address) {
   const q = encodeURIComponent(address);
   const ua = navigator.userAgent || '';
@@ -190,3 +278,8 @@ function openExternalSmart(url) {
     window.location.assign(url);
   }
 }
+
+export function buildGoogleSearchUrl(lieu) {
+  return `https://www.google.com/search?q=${encodeURIComponent(resolveWebAddress(lieu))}`;
+}
+

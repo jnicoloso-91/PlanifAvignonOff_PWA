@@ -75,6 +75,7 @@ import {
 } from './infos-plus.js';
 
 import { sortCarnet } from './carnet.js'; 
+import { CarnetNomRenderer } from './CarnetNomRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 import { logToPage } from './debug.js';
@@ -159,13 +160,6 @@ function createChipBox({
   }
 
   // Normalisation clef
-  // function normKey(s) {
-  //   // pour dédoublonner : insensible casse + accents
-  //   return normToken(s)
-  //     .normalize("NFD")
-  //     .replace(/\p{Diacritic}/gu, "")
-  //     .toLowerCase();
-  // }
   function normKey(s) {
     return normToken(s)
       .normalize("NFD")
@@ -7602,7 +7596,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       let gridApi = null;
 
       const colDefs = [
-        { headerName: "Activité", field: "Activite", flex: 2, minWidth: 160 },
+        { headerName: "Activité", field: "Activite", flex: 2, minWidth: 160, cellRenderer: CarnetNomRenderer },
         { headerName: "Lieu", field: "Lieu", flex: 1, minWidth: 120 },
         { headerName: "Date", field: "Date", width: 105 },
         { headerName: "Début", field: "Debut", width: 80 },

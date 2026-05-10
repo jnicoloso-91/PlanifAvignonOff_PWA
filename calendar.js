@@ -1104,8 +1104,17 @@ async function showProgrammeCalendar() {
   }
 
   // toggle (ne dépend que de hidden)
-  if (gridA) gridA.style.display = "none";
-  calA.hidden = false;
+  // if (gridA) gridA.style.display = "none";
+  // calA.hidden = false;
+  if (gridA) {
+    gridA.hidden = true;
+    gridA.style.display = "none";
+  }
+
+  if (calA) {
+    calA.hidden = false;
+    calA.style.display = "";
+  }
 
   window.__applyProgrammeCalHeight?.();
 
@@ -1142,8 +1151,17 @@ function showProgrammeGrid() {
   const gridA = document.getElementById("gridA");
   const calA  = document.getElementById("calA");
 
-  if (calA) calA.hidden = true;
-  if (gridA) gridA.style.display = "";
+  // if (calA) calA.hidden = true;
+  // if (gridA) gridA.style.display = "";
+  if (calA) {
+    calA.hidden = true;
+    calA.style.display = "none";
+  }
+
+  if (gridA) {
+    gridA.hidden = false;
+    gridA.style.display = "";
+  }
 
   try {
     const h = window.grids.get("grid-programmees");
