@@ -75,7 +75,7 @@ import {
 } from './infos-plus.js';
 
 import { sortCarnet } from './carnet.js'; 
-import { CarnetNomRenderer } from './CarnetNomRenderer.js';
+import { SearchActiviteRenderer } from './SearchActiviteRenderer.js';
 import { TelRenderer } from './TelRenderer.js';
 import { WebRenderer } from './WebRenderer.js';
 import { logToPage } from './debug.js';
@@ -7596,7 +7596,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       let gridApi = null;
 
       const colDefs = [
-        { headerName: "Activité", field: "Activite", flex: 2, minWidth: 160, cellRenderer: CarnetNomRenderer },
+        { headerName: "Activité", field: "Activite", flex: 2, minWidth: 160, cellRenderer: SearchActiviteRenderer },
         { headerName: "Lieu", field: "Lieu", flex: 1, minWidth: 120 },
         { headerName: "Date", field: "Date", width: 105 },
         { headerName: "Début", field: "Debut", width: 80 },

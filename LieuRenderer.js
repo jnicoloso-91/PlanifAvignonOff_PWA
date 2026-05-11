@@ -60,7 +60,8 @@ export class LieuRenderer {
 
       // 2e clic : recherche Google
       const href = buildGoogleSearchUrl(lieu);
-      window.open(href, '_blank', 'noopener');
+      openExternalSmart(href);
+      // window.open(href, '_blank', 'noopener');
     };
 
     e.append(a, title); //, sub);

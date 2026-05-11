@@ -18,7 +18,7 @@ const OFFLINE_ASSETS = [
   "./HyperlienBRRenderer.js",
   "./AvisRenderer.js",
   "./NoteRenderer.js",
-  "./CarnetNomRenderer.js",
+  "./SearchActiviteRenderer.js",
   "./TelRenderer.js",
   "./WebRenderer.js",
   "./ui_state.mjs",
