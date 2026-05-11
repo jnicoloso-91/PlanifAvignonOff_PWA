@@ -61,7 +61,6 @@ export class LieuRenderer {
       // 2e clic : recherche Google
       const href = buildGoogleSearchUrl(lieu);
       openExternalSmart(href);
-      // window.open(href, '_blank', 'noopener');
     };
 
     e.append(a, title); //, sub);
@@ -259,22 +258,47 @@ export function buildDirectionsUrl(address) {
     : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`;
 }
 
+// function openExternalSmart(url) {
+//   if (!url) return;
+//   const ua = navigator.userAgent || '';
+//   const isIOS = /iPad|iPhone|iPod/.test(ua); 
+//     // || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+//   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+//   try {
+//     if (isIOS && isStandalone) {
+//       // PWA iOS : naviguer dans l’onglet courant (pas de _blank)
+//       window.location.assign(url);
+//     } else {
+//       // Safari / Desktop : _blank ok
+//       const w = window.open(url, '_blank', 'noopener,noreferrer');
+//       if (!w) window.location.assign(url); // fallback si popup bloquée
+//     }
+//   } catch {
+//     window.location.assign(url);
+//   }
+// }
 function openExternalSmart(url) {
   if (!url) return;
-  const ua = navigator.userAgent || '';
-  const isIOS = /iPad|iPhone|iPod/.test(ua); 
-    // || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+  const ua = navigator.userAgent || "";
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
 
   try {
+    // Cas problématique uniquement : PWA iOS
     if (isIOS && isStandalone) {
-      // PWA iOS : naviguer dans l’onglet courant (pas de _blank)
       window.location.assign(url);
-    } else {
-      // Safari / Desktop : _blank ok
-      const w = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!w) window.location.assign(url); // fallback si popup bloquée
+      return;
     }
+
+    // Tous les autres cas : nouvel onglet normal
+    window.open(url, "_blank", "noopener");
   } catch {
     window.location.assign(url);
   }
