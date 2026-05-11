@@ -32,81 +32,58 @@ export class LieuRenderer {
     title.style.cursor = 'pointer';
     title.title = 'Recherche Google';
 
-    // this.onTitleClick = (e) => {
-    //   const lieu = this.$title.textContent?.trim() || "";
-    //   if (!lieu) return;
+    const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 
-    //   e.stopPropagation();
+    this.onTitlePointerUp = (e) => {
+      // Desktop souris uniquement
+      if (isCoarsePointer) return;
+      if (e.pointerType && e.pointerType !== "mouse") return;
 
-    //   const alreadySelected = !!this.p.node?.isSelected?.();
+      if (!(e.ctrlKey || e.metaKey)) return;
 
-    //   // 1er clic : sélection seulement
-    //   if (!alreadySelected) {
-    //     e.preventDefault();
-
-    //     try {
-    //       if (this.p.column && this.p.node?.rowIndex != null) {
-    //         this.p.api?.setFocusedCell?.(
-    //           this.p.node.rowIndex,
-    //           this.p.column
-    //         );
-    //       }
-
-    //       this.p.node?.setSelected?.(true, true);
-    //     } catch {}
-
-    //     return;
-    //   }
-
-    //   // 2e clic : recherche Google
-    //   const href = buildGoogleSearchUrl(lieu);
-    //   openExternalSmart(href);
-    // };
-    this.onTitleClick = (e) => {
       const lieu = this.$title.textContent?.trim() || "";
       if (!lieu) return;
 
-      // Desktop : Ctrl/Cmd+clic => ouvrir Google
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
 
-        const href = buildGoogleSearchUrl(lieu);
-        // const w = window.open(href, "_blank", "noopener");
-        // try { w?.focus?.(); } catch {}
-        // if (!w) window.location.assign(href);
-        window.location.assign(href);
+      window.location.assign(buildGoogleSearchUrl(lieu));
+    };
+
+    this.onTitleClick = (e) => {
+      // Mobile / tactile uniquement
+      if (!isCoarsePointer) return;
+
+      const lieu = this.$title.textContent?.trim() || "";
+      if (!lieu) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation?.();
+
+      const alreadySelected = !!this.p.node?.isSelected?.();
+
+      if (!alreadySelected) {
+        try {
+          if (this.p.column && this.p.node?.rowIndex != null) {
+            this.p.api?.setFocusedCell?.(this.p.node.rowIndex, this.p.column);
+          }
+          this.p.node?.setSelected?.(true, true);
+        } catch {}
 
         return;
       }
 
-      // Mobile/tactile : logique NoteRenderer
-      if (e.pointerType !== "mouse") {
+      openExternalSmart(buildGoogleSearchUrl(lieu));
+    };
 
-        e.stopPropagation();
+    this.onTitleDblClick = (e) => {
+      // Empêche AG Grid de transformer un tap mobile/émulation en édition
+      if (!isCoarsePointer) return;
 
-        const alreadySelected = !!this.p.node?.isSelected?.();
-
-        if (!alreadySelected) {
-          e.preventDefault();
-
-          try {
-            if (this.p.column && this.p.node?.rowIndex != null) {
-              this.p.api?.setFocusedCell?.(
-                this.p.node.rowIndex,
-                this.p.column
-              );
-            }
-
-            this.p.node?.setSelected?.(true, true);
-          } catch {}
-
-          return;
-        }
-
-        const href = buildGoogleSearchUrl(lieu);
-        openExternalSmart(href);
-      }
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation?.();
     };
 
     e.append(a, title); //, sub);
@@ -117,8 +94,9 @@ export class LieuRenderer {
     this.$title = title;
 
     // Branchement du click sur title
-    // this.$title.addEventListener('click', this.onTitleClick);
-    this.$title.addEventListener("pointerup", this.onTitleClick);
+    this.$title.addEventListener("pointerup", this.onTitlePointerUp);
+    this.$title.addEventListener("click", this.onTitleClick);
+    this.$title.addEventListener("dblclick", this.onTitleDblClick);
 
 
     this.$title.addEventListener('mouseenter', () => {
@@ -224,9 +202,14 @@ export class LieuRenderer {
     if (this.$icon && this.onIconPointerDown) {
       this.$icon.removeEventListener('pointerdown', this.onIconPointerDown);
     }
+    if (this.$title && this.onTitlePointerUp) {
+      this.$title.removeEventListener("pointerup", this.onTitlePointerUp);
+    }
     if (this.$title && this.onTitleClick) {
-      // this.$title.removeEventListener('click', this.onTitleClick);
-      this.$title.removeEventListener('pointerup', this.onTitleClick);
+      this.$title.removeEventListener("click", this.onTitleClick);
+    }
+    if (this.$title && this.onTitleDblClick) {
+      this.$title.removeEventListener("dblclick", this.onTitleDblClick);
     }
   }
 }
