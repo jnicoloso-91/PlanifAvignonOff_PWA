@@ -1267,12 +1267,13 @@ function valueParserNumerique (params) {
 
 // ===== Options de grilles =====
 function onCellValueChangedCommon(p) {
-  if (p.colDef.field == "Date") return;
+  const field = p.colDef.field ;
+  if (!field || field === "Date") return;
   const uuid = p.node.id;
   let df = ctx.getDf().slice(); 
   const idx = df.findIndex(r => r.__uuid === uuid);
   if (idx < 0) return;
-  df[idx] = { ...df[idx], ...p.data }; 
+  df[idx] = { ...df[idx], [field]: p.newValue }; 
   df = sortDf(df);
   ctx.setDf(df);        
 }
@@ -2641,13 +2642,16 @@ export async function dropRowFromSrcGridToDstGrid(srcGrid, dstGrid, dstExp, srcU
 
 // Quand on édite une colonne qui nécessite de recalculer Fin
 function updFin(params) {
+  const field = params.colDef.field ;
+  if (!field || field === "Date") return;
+
   const uuid = params.node.id;
   let df = ctx.getDf().slice();
   const idx = df.findIndex(r => r.__uuid === uuid);
   if (idx < 0) return;
 
   // 1) on construit la ligne mise à jour
-  let row = { ...df[idx], ...params.data };
+  let row = { ...df[idx], [field]: params.newValue };
 
   // 2) on recalcule Fin à partir de cette ligne
   row.Fin = recalcFin(row);
@@ -2661,13 +2665,16 @@ function updFin(params) {
 
 // Quand on édite une Session ou Relache
 function updSeances(params) {
+  const field = params.colDef.field ;
+  if (!field || field === "Date") return;
+
   const uuid = params.node.id;
   let df = ctx.getDf().slice();
   const idx = df.findIndex(r => r.__uuid === uuid);
   if (idx < 0) return;
 
   // 1) on construit la ligne mise à jour
-  let row = { ...df[idx], ...params.data };
+  let row = { ...df[idx], [field]: params.newValue };
 
   // 2) on recalcule Fin à partir de cette ligne
   row.__seances = activitesAPI.buildSeancesFromSessionRelache(row.Session, row.Relache);

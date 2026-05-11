@@ -527,6 +527,10 @@ function wireHiddenFileInput(){
 
     importFromXlsxFile(f);
 
+    ctx.setMetaParam('excelFileName', f.name);
+    const btn = document.getElementById("pg-next");
+    btn.innerHTML = f.name;
+
     input.value = ''; // reset pour permettre un re-import du même fichier
   });
 }
@@ -1485,6 +1489,12 @@ async function doNouveauContexte() {
   }
   activitesAPI.initPeriodeProgrammation(ctx.getDf());
   rebuildColumnsForActiviteGrids([]);
+
+  const fn = '&#8644;';
+  ctx.setMetaParam('excelFileName', fn);
+  const btn = document.getElementById("pg-next");
+  btn.innerHTML = fn;
+
 }
 
 // Reset du programme

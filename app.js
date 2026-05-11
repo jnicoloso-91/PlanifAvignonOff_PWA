@@ -200,6 +200,14 @@ function handleVisibilityChange() {
   document.addEventListener("visibilitychange", () => handleReturnToApp());
 }
 
+// Affiche le nom du fichier Excel courant
+function showExcelFileName() {
+    const fn = ctx.getMetaParam?.('excelFileName');
+    const btn = document.getElementById("pg-next");
+    btn.innerHTML = fn;
+
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('⏳ DOM prêt, initialisation du contexte...');
 
@@ -225,6 +233,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
   handleVisibilityChange();
+  showExcelFileName();
 
   console.log('✅ Application initialisée');
 
