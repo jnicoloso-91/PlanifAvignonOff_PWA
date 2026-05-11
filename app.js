@@ -204,7 +204,7 @@ function handleVisibilityChange() {
 function showExcelFileName() {
     const fn = ctx.getMetaParam?.('excelFileName');
     const btn = document.getElementById("pg-next");
-    btn.innerHTML = fn;
+    btn.innerHTML = (fn) ? fn : '&#8644;';
 
 }
 
