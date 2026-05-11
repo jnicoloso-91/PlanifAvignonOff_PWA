@@ -110,7 +110,7 @@ export function mmToHhmm(total) {
   return `${h}h${pad2(mm)}`;
 }
 
-// "XhYY" -> minutes (ex: "1h20" => 80)
+// "HhMM" -> minutes (ex: "1h20" => 80)
 export function mmFromHhMM(s) {
   if (!s) return null;
   const m = String(s).match(/^\s*(\d{1,2})h(\d{2})\s*$/i);

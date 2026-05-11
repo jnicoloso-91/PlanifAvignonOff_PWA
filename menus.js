@@ -8,6 +8,7 @@ import {
   looksLikeUrl, 
   mergeRowsNoDupMultiKey, 
   overloadRowsOrInsert,
+  escapeHtml,
 } from './utils.js';
 
 import { 
@@ -17,6 +18,8 @@ import {
   ymdToDateint, 
   recalcFinForAll,
   isDateint,
+  mmFromHHhMM,
+  recalcFin,
 } from './utils-date.js';
 
 import { 
@@ -80,6 +83,7 @@ import {
   openSheetImportBilletReduc,
   openSheetInfosPlus,
   openSheetSearch,
+  openSheetProgramPreview,
 } from './sheets.js';
 
 import {
@@ -195,7 +199,7 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Nouveau contexte</span>
-          <span class="file-sheet__subtitle">Réinitialise le programme et le stock d'activités</span>
+          <span class="file-sheet__subtitle">Réinitialise le programme et stock d'activités</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="initProg">
@@ -208,8 +212,22 @@ const fileMenuSheetInnerHtml = () => {
       <li class="file-sheet__item" data-action="open">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
-          <span class="file-sheet__titleText">Importer depuis Excel</span>
-          <span class="file-sheet__subtitle">Importe un fichier Excel contenant une liste d'activités</span>
+          <span class="file-sheet__titleText">Importer contexte</span>
+          <span class="file-sheet__subtitle">Importe un programme et un stock d'activités depuis un fichier Excel</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="importProgram">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Importer programme</span>
+          <span class="file-sheet__subtitle">Importe un programme d'activités depuis un fichier Excel</span>
+        </div>
+      </li>
+      <li class="file-sheet__item" data-action="importMarkers">
+        <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
+        <div class="file-sheet__text">
+          <span class="file-sheet__titleText">Importer marqueurs</span>
+          <span class="file-sheet__subtitle">Importe des marqueurs depuis un fichier Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importCatIn">
@@ -281,9 +299,11 @@ function openFileMenu(anchorBtn) {
   const items = [
     { id:'new',  label:'Nouveau contexte'     },
     { id:'initProg',  label:'Nouveau programme'     },
-    { id:'open', label:'Importer depuis Excel'      },
-    { id:'importCatIn', label:'Importer depuis le catalogue du In'      },
-    { id:'importCatOff', label:'Importer depuis le catalogue du Off'      },
+    { id:'open', label:'Importer contexte'      },
+    { id:'importProgram', label:'Importer programme'      },
+    { id:'importMarkers', label:'Importer marqueurs'      },
+    { id:'importCatIn', label:'Importer le catalogue du In'      },
+    { id:'importCatOff', label:'Importer le catalogue du Off'      },
     { id:'importBilletReduc', label:'Importer depuis Billet Réduc'      },
     { id:'exportExcel', label:'Exporter vers Excel' },
     { id:'exportIcs', label:'Exporter vers le calendrier' },
@@ -313,6 +333,8 @@ function openFileMenu(anchorBtn) {
       if (act === 'new')  doNouveauContexte?.();
       if (act === 'initProg')  doNouveauProgramme?.();
       if (act === 'open') doImportExcel?.();
+      if (act === 'importProgram') doImportProgram?.();
+      if (act === 'importMarkers') doImportMarkers?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'importBilletReduc') openSheetImportBilletReduc?.();
@@ -386,6 +408,8 @@ function openFileSheet() {
       if (act === 'new')  doNouveauContexte?.();
       if (act === 'initProg')  doNouveauProgramme?.();
       if (act === 'open') doImportExcel?.();
+      if (act === 'importProgram') doImportProgram?.();
+      if (act === 'importMarkers') doImportMarkers?.();
       if (act === 'importCatIn') doImportFromCatIn?.();
       if (act === 'importCatOff') doImportFromCatOff?.();
       if (act === 'importBilletReduc') openSheetImportBilletReduc?.();
@@ -525,11 +549,24 @@ function wireHiddenFileInput(){
     const f = input.files?.[0];
     if (!f) return;   
 
-    importFromXlsxFile(f);
+    try {
+      if (pendingFileMode === "markers") {
+        await importMarkersFromXlsxFile(f);
+      } else if (pendingFileMode === "program") {
+        await importProgramFromXlsxFile(f);
+      } else {
+        await importContextFromXlsxFile(f);
 
-    ctx.setMetaParam('excelFileName', f.name);
-    const btn = document.getElementById("pg-next");
-    btn.innerHTML = f.name;
+        // Mise à jour du nom de fichier en entête de page
+        ctx.setMetaParam('excelFileName', f.name);
+        const btn = document.getElementById("pg-next");
+        btn.innerHTML = f.name;
+
+      }
+    } finally {
+      pendingFileMode = "import";
+      input.value = "";
+    }
 
     input.value = ''; // reset pour permettre un re-import du même fichier
   });
@@ -632,7 +669,7 @@ function normalizeImportedRows(rows) {
 }
 
 // Import de fichier Excel
-async function importFromXlsxFile(f, {add=false} = {}) {
+async function importContextFromXlsxFile(f, {add=false} = {}) {
 
   if (!f) return;
   try {
@@ -801,6 +838,377 @@ async function importFromXlsxFile(f, {add=false} = {}) {
   } finally {
     overlayAttente.hidden = true; // Masque l'overlay d'attente
   }
+}
+
+// Importe un programme à partir d'un fichier Excel
+async function importProgramFromXlsxFile(f) {
+  if (!f) return;
+
+  try {
+    overlayAttente.hidden = false;
+
+    const importedRows = await readDfRowsFromXlsxFile(f);
+    const selectedByDay = selectedByDayFromProgramRows(importedRows);
+
+    const addedCount = Array.from(selectedByDay.values())
+      .reduce((n, slots) => n + slots.length, 0);
+
+    if (!addedCount) {
+      alert("Aucune activité programmée trouvée dans ce fichier.");
+      return;
+    }
+
+    openSheetProgramPreview(selectedByDay, addedCount);
+
+  } catch (e) {
+    alert("Échec import programme : " + e.message);
+  } finally {
+    overlayAttente.hidden = true;
+  }
+}
+
+// Importe des marqueurs à partir d'un fichier Excel
+async function importMarkersFromXlsxFile(f) {
+  if (!f) return;
+
+  try {
+    overlayAttente.hidden = false;
+
+    const importedRows = await readDfRowsFromXlsxFile(f);
+    const markers = getMarkersFromRows(importedRows);
+
+    if (!markers.length) {
+      alert("Aucun marqueur trouvé dans le fichier.");
+      return;
+    }
+
+    const selected = await chooseMarkersPopup(markers);
+    if (!selected.length) return;
+
+    ctx.mutateDf(rows =>
+      sortDf(applyImportedMarkers(rows, importedRows, selected))
+    );
+
+  } catch (e) {
+    alert("Échec import marqueurs : " + e.message);
+  } finally {
+    overlayAttente.hidden = true;
+  }
+}
+
+// Lit un DataFrame depuis un fichier Excel
+async function readDfRowsFromXlsxFile(f, {add=false} = {}) {
+
+  if (!f) return;
+  try {
+    overlayAttente.hidden = false; // Affiche l'overlay d'attente
+
+    const buf = await f.arrayBuffer();
+    const wb  = XLSX.read(buf, { type: 'array' });
+    const ws  = wb.Sheets[wb.SheetNames[0]];
+
+    // 1) JSON “classique” (valeurs) — garde toutes les colonnes
+    let dfRows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+    dfRows = normalizeRowsKeys(dfRows);
+
+    // 2) range de la feuille
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+
+    // 3) Récupère la ligne d'entêtes brute (array)
+    const headerRow = (XLSX.utils.sheet_to_json(ws, { header: 1, range: range.s.r })[0] || []);
+
+    // 4) Trouve l'index de la colonne "Activite" en normalisant l'entête
+    const colActivite = headerRow.findIndex(h => normalizeHeaderToCanon(h) === 'Activite');
+
+    // 5) Si on a une colonne Activité, on va lire les hyperliens des cellules (A2..An selon la colonne)
+    if (typeof colActivite === 'number' && colActivite >= 0) {
+      for (let i = 0; i < dfRows.length; i++) {
+        const r = i + 1; // +1 car row 0 = ligne 2 en Excel (entête sur r0)
+        const addr = XLSX.utils.encode_cell({ r: range.s.r + 1 + i, c: colActivite });
+        const cell = ws[addr];
+        const link = cell?.l?.Target || cell?.l?.target || null;
+
+        // Force type String sur colonne Activite
+        dfRows[i].Activite = String(dfRows[i].Activite ?? "");
+
+        // S’il y a déjà une colonne "Hyperlien" dans Excel, on la garde prioritaire,
+        // sinon on remplit depuis le lien de la cellule Activité.
+        if (!dfRows[i].Hyperlien && link) {
+          dfRows[i].Hyperlien = link;
+        }
+
+        // S’il y a déjà une colonne "HyperlienGoogle" dans Excel, on la garde prioritaire,
+        // sinon on remplit depuis le lien de la cellule Activité.
+        if (!dfRows[i].HyperlienGoogle) {
+          dfRows[i].HyperlienGoogle = `https://www.google.com/search?q=spectacle+${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
+        }
+
+        // S’il y a déjà une colonne "HyperlienBR" dans Excel, on la garde prioritaire,
+        // sinon on remplit depuis le lien de la cellule Activité.
+        if (!dfRows[i].HyperlienBR) {
+          dfRows[i].HyperlienBR = `https://www.billetreduc.com/search.htm?se=${dfRows[i].Activite.trim().replace(/\s+/g, '+')}`;
+        }
+      }
+    }
+    else { 
+      alert("Echec de l'import : colonne Activite non trouvée");
+      return;
+    }
+
+    // 6) normalisation colonnes + __uuid + Date->dateint 
+    dfRows = dfRows.map((r, i) => {
+      const o = { ...r };
+
+      // --- Date -> dateint ---
+      // Accepte Excel serial ou "dd/mm[/yy]"
+      let di = null;
+      if (o.Date != null && String(o.Date).trim() !== '') {
+        // d'abord tentative pretty
+        di = prettyToDateint(String(o.Date).trim());
+        // sinon Excel serial
+        if (!isDateint(di) && typeof o.Date === 'number') {
+          const ymd = excelSerialToYMD(o.Date);
+          if (ymd) di = ymdToDateint(ymd);
+        }
+      }
+      o.Date = di || null; // stock interne = dateint ou null
+
+      // Accepte Excel serial sur Session et Relache
+      if (typeof o.Session === 'number') {
+        if (o.Session < 0 || o.Session > 31) {
+          const ymd = excelSerialToYMD(o.Session);
+          if (ymd) {
+            const di = ymdToDateint(ymd);
+            o.Session = (isDateint(di)) ? dateintToPretty(di) : String(o.Session).trim();
+          } else String(o.Session).trim();
+        } else String(o.Session).trim();
+      }
+      if (typeof o.Relache === 'number') {
+        if (o.Relache < 0 || o.Relache > 31) {
+          const ymd = excelSerialToYMD(o.Relache);
+          if (ymd) {
+            const di = ymdToDateint(ymd);
+            o.Relache = (isDateint(di)) ? dateintToPretty(di) : String(o.Relache).trim();
+          } else String(o.Relache).trim();
+        } else String(o.Relache).trim();
+      }
+
+      // 7) __uuid garanti
+      if (!o.__uuid) {
+        o.__uuid = genUUID();
+      }
+      return o;
+    });
+
+    recalcFinForAll(dfRows);
+    
+    return dfRows;
+  }
+
+  catch (e) {
+    alert("Echec de l'import : " + e.message);
+  } finally {
+    overlayAttente.hidden = true; // Masque l'overlay d'attente
+  }
+}
+
+function normalizeMarker(v) {
+  return String(v ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/[’‘`´']/g, "'")
+    .trim();
+}
+
+function splitMarkers(s) {
+  return String(s ?? "")
+    .split(",")
+    .map(normalizeMarker)
+    .filter(Boolean);
+}
+
+function markerKey(v) {
+  return normalizeMarker(v)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function joinMarkers(arr) {
+  return arr.join(", ");
+}
+
+function sortMarkers(arr) {
+  return [...arr].sort((a, b) => {
+    if (a === "-" && b !== "-") return -1;
+    if (a !== "-" && b === "-") return 1;
+
+    return a.localeCompare(b, "fr", {
+      numeric: true,
+      sensitivity: "base"
+    });
+  });
+}
+
+function writeMarkers(arr) {
+  return joinMarkers(sortMarkers(arr));
+}
+
+function getMarkersFromRows(rows) {
+  const set = new Map(); // key -> label
+
+  for (const r of rows || []) {
+    const raw = r?.Marqueur;
+    if (!raw) continue;
+
+    for (let m of splitMarkers(raw)) {
+      if (m.startsWith("-")) {
+        set.set("-", "-");
+
+        const stripped = m.replace(/^-+/, "").trim();
+        if (stripped) set.set(markerKey(stripped), stripped);
+      } else {
+        set.set(markerKey(m), m);
+      }
+    }
+  }
+
+  return [...set.values()].sort((a, b) => {
+    if (a === "-" && b !== "-") return -1;
+    if (a !== "-" && b === "-") return 1;
+    return a.localeCompare(b, "fr", { numeric: true, sensitivity: "base" });
+  });
+}
+
+function chooseMarkersPopup(markers) {
+  return new Promise(resolve => {
+    const dlg = document.createElement("dialog");
+    dlg.className = "bb-dialog";
+
+    dlg.innerHTML = `
+      <form method="dialog" class="bb-dialog-body">
+        <div class="bb-dialog-header">
+          <h4>Importer marqueurs</h4>
+          <button class="bb-dialog-close" value="cancel" aria-label="Fermer">×</button>
+        </div>
+
+        <div class="marker-choice-list">
+          ${markers.map(m => `
+            <label class="marker-choice">
+              <input type="checkbox" value="${escapeHtml(m)}">
+              <span>${escapeHtml(m)}</span>
+            </label>
+          `).join("")}
+        </div>
+
+        <div class="bb-dialog-actions">
+          <button value="cancel" class="bb-btn is-primary">Annuler</button>
+          <button value="apply" class="bb-btn is-primary">Importer</button>
+        </div>
+      </form>
+    `;
+
+    document.body.appendChild(dlg);
+
+    dlg.addEventListener("close", () => {
+      if (dlg.returnValue !== "apply") {
+        dlg.remove();
+        resolve([]);
+        return;
+      }
+
+      const selected = [...dlg.querySelectorAll("input[type='checkbox']:checked")]
+        .map(el => /** @type {HTMLInputElement} */ (el).value);
+
+      dlg.remove();
+      resolve(selected);
+    }, { once: true });
+
+    dlg.showModal();
+  });
+}
+
+function buildImportKey(r) {
+  return [
+    r?.Activite,
+    r?.Debut,
+    r?.Lieu,
+    r?.Session
+  ].map(v => String(v ?? "").trim()).join("||");
+}
+
+function applyImportedMarkers(currentRows, importedRows, selectedMarkers) {
+  const selectedKeys = new Set(selectedMarkers.map(markerKey));
+
+  const importedByKey = new Map();
+
+  for (const r of importedRows || []) {
+    const importedMarkers = splitMarkers(r.Marqueur)
+      .flatMap(m => {
+        if (m.startsWith("-")) {
+          const stripped = m.replace(/^-+/, "").trim();
+          return stripped ? ["-", stripped] : ["-"];
+        }
+        return [m];
+      })
+      .filter(m => selectedKeys.has(markerKey(m)));
+
+    if (!importedMarkers.length) continue;
+
+    importedByKey.set(buildImportKey(r), importedMarkers);
+  }
+
+  return (currentRows || []).map(r => {
+    const existing = splitMarkers(r.Marqueur);
+
+    // 1) enlever partout les marqueurs choisis
+    let next = existing.filter(m => !selectedKeys.has(markerKey(m)));
+
+    // 2) remettre ceux du nouveau fichier au bon emplacement
+    const imported = importedByKey.get(buildImportKey(r));
+    if (imported?.length) {
+      const keys = new Set(next.map(markerKey));
+      for (const m of imported) {
+        if (!keys.has(markerKey(m))) {
+          next.push(m);
+          keys.add(markerKey(m));
+        }
+      }
+    }
+
+    return {
+      ...r,
+      Marqueur: writeMarkers(next)
+    };
+  });
+}
+
+function selectedByDayFromProgramRows(rows) {
+  const selectedByDay = new Map();
+
+  const progRows = activitesAPI.getActivitesProgrammees(rows) || [];
+
+  for (const r of progRows) {
+    const dateInt = Number(r.Date || 0);
+    if (!dateInt) continue;
+
+    let startMin = mmFromHHhMM(r.Debut);
+    let endMin   = mmFromHHhMM(r.Fin || recalcFin(r));
+
+    if (startMin == null || endMin == null) continue;
+    if (endMin < startMin) endMin += 1440;
+
+    const slot = {
+      row: r,
+      dateInt,
+      startMin,
+      endMin
+    };
+
+    if (!selectedByDay.has(dateInt)) selectedByDay.set(dateInt, []);
+    selectedByDay.get(dateInt).push(slot);
+  }
+
+  return selectedByDay;
 }
 
 function wireBottomBarToggle() {
@@ -1556,9 +1964,28 @@ async function doNouveauProgramme() {
   rebuildColumnsForActiviteGrids([]);
 }
 
+let pendingFileMode = 'import';
+
 // Import Excel
 async function doImportExcel() {
-  // déclenche l’input caché
+  // déclenche l’input caché en mode import
+  pendingFileMode = 'import';
+  const fi = $('fileInput');
+  if (fi) fi.click();
+}
+
+// Import Programme
+async function doImportProgram() {
+  // déclenche l’input caché en mode import
+  pendingFileMode = 'program';
+  const fi = $('fileInput');
+  if (fi) fi.click();
+}
+
+// Import Marqueurs
+async function doImportMarkers() {
+  // déclenche l’input caché en mode import
+  pendingFileMode = 'markers';
   const fi = $('fileInput');
   if (fi) fi.click();
 }
@@ -1567,14 +1994,14 @@ async function doImportExcel() {
 async function doImportFromCatIn() {
   // const f2025 = await fetch('https://docs.google.com/spreadsheets/d/1pZvcYOYfhllj95PQlpUunbyklXteMiGs/export?format=xlsx&id=1pZvcYOYfhllj95PQlpUunbyklXteMiGs&gid=336819867');
   const f2026 = await fetch('https://docs.google.com/spreadsheets/d/1II13iAjOsl9lH40kvuyzgR17a-zVLhNk/export?format=xlsx&id=1II13iAjOsl9lH40kvuyzgR17a-zVLhNk&gid=1067029202');
-  importFromXlsxFile(f2026, {add:true});
+  importContextFromXlsxFile(f2026, {add:true});
 }
 
 // Import depuis catalogue du Off
 async function doImportFromCatOff() {
   // const f2025 = await fetch('https://docs.google.com/spreadsheets/d/17qBLtxLC4S-e21zk1mPAD214aUilq_e7/export?format=xlsx&id=17qBLtxLC4S-e21zk1mPAD214aUilq_e7&gid=781555543');
   const f2026 = await fetch('https://docs.google.com/spreadsheets/d/1G3BBX1KZflK9BGyKiMqqRIDQNgw40jiH/export?format=xlsx&id=1G3BBX1KZflK9BGyKiMqqRIDQNgw40jiH&gid=1643688045');
-  importFromXlsxFile(f2026, {add:true});
+  importContextFromXlsxFile(f2026, {add:true});
 }
 
 // Export Excel

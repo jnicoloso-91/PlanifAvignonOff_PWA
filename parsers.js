@@ -779,7 +779,7 @@ export async function parseAvignonOffProgPageUrl(
     if (delayMs) await new Promise(r => setTimeout(r, delayMs));
   }
   
-  await _enrichAllWithDetails(all, parseAvignonOffSpecPageUrl);
+  await _enrichAllWithDetails(all, parseAvignonOffSpecPageUrl, true);
 
   return all;
 }
@@ -3034,7 +3034,7 @@ async function _summarizeOneItemViaWorker(item) {
   return res;
 }
 
-async function _enrichAllWithDetails(all, specPageUrlParser) {
+async function _enrichAllWithDetails(all, specPageUrlParser, withSessionRelache = false) {
   if (!Array.isArray(all) || all.length === 0) return all;
 
   await Promise.all(
@@ -3046,6 +3046,11 @@ async function _enrichAllWithDetails(all, specPageUrlParser) {
         /** @type {any} */
         const detail = await specPageUrlParser(url);
         if (!detail) return;
+
+        if (withSessionRelache) {
+          row.Session = detail[0].Session || row.Session;
+          row.Relache = detail[0].Relache || row.Relache;
+        }
 
         row.Description  = detail[0].Description || "";
         row.Distribution = detail[0].Distribution || "";

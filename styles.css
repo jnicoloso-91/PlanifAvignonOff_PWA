@@ -3267,3 +3267,41 @@ input[type="range"]:focus::-moz-range-thumb {
 .bb-dialog-actions {
   margin-top: 20px;
 }
+
+/*=========================
+   Import marqueurs
+  =========================*/
+
+.marker-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+  max-height: 40vh;
+  overflow: auto;
+}
+
+.marker-choice {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/*=========================
+   Import programme
+  =========================*/
+
+#import-prog-response .prog-day-list,
+#import-prog-response .prog-row {
+  white-space: normal;
+}
+
+#import-prog-response .prog-row.is-disabled {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+#import-prog-response .prog-row.is-disabled .prog-link,
+#import-prog-response .prog-row.is-disabled .prog-title {
+  pointer-events: none;
+}

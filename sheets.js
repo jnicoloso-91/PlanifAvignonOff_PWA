@@ -5024,11 +5024,11 @@ export function openSheetAssistantProgrammation() {
       // Map<slotKey, boolean> implicite : un Set des slots EXCLUS
       let excludedKeys = new Set();
 
-      // Génère une clé unique pour un créneau horaire en combinant __uuid, dayInt, et startMin.
-      function slotKey(dayInt, slot) {
-        const r = slot.row || {};
-        return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
-      }
+      // // Génère une clé unique pour un créneau horaire en combinant __uuid, dayInt, et startMin.
+      // function slotKey(dayInt, slot) {
+      //   const r = slot.row || {};
+      //   return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
+      // }
 
       const showError = (msg) => {
         elErr.textContent = msg || "";
@@ -5138,16 +5138,16 @@ export function openSheetAssistantProgrammation() {
         return !(A2 <= B1 || B2 <= A1); // overlap avec marge
       }
 
-      // Transforme un dateint en label
-      function dateintToLabel(di) {
-        if (!di) return "";
-        const s = String(di);
-        if (s.length !== 8) return s;
-        const y = s.slice(0, 4);
-        const m = s.slice(4, 6);
-        const d = s.slice(6, 8);
-        return `${y}-${m}-${d}`; // ou format FR "dd/mm/yyyy" 
-      }
+      // // Transforme un dateint en label
+      // function dateintToLabel(di) {
+      //   if (!di) return "";
+      //   const s = String(di);
+      //   if (s.length !== 8) return s;
+      //   const y = s.slice(0, 4);
+      //   const m = s.slice(4, 6);
+      //   const d = s.slice(6, 8);
+      //   return `${y}-${m}-${d}`; // ou format FR "dd/mm/yyyy" 
+      // }
 
       // Normalise les minutes de début et de fin, ajustant la fin au lendemain si nécessaire.
       function normalizeStartEnd(sMin, eMin) {
@@ -6509,8 +6509,8 @@ export function openSheetAssistantProgrammation() {
         return addedCount;
       }
 
-      // Présentation du programme proposé
-      function summarizeProgram(selectedByDay, addedCount) {
+      // Présentation d'un programme dactivité
+      function summarizeProgram(selectedByDay, addedCount, { excludedKeys = new Set() } = {}) {
         if (!addedCount) {
           return `<p>Aucune activité supplémentaire ne peut être proposée avec ces hypothèses.</p>`;
         }
@@ -6658,7 +6658,7 @@ export function openSheetAssistantProgrammation() {
             console.groupEnd();
           })();
 
-          const summary       = summarizeProgram(selectedByDay, addedCount);
+          const summary       = summarizeProgram(selectedByDay, addedCount, { excludedKeys });
           elResp.innerHTML    = summary;
           body.scrollTop = body.scrollHeight;
           btnApply.disabled = (addedCount <= 0);
@@ -7739,3 +7739,260 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     }
   });
 }
+
+// Preview d'un programme d'activités
+export function openSheetProgramPreview(selectedByDay, addedCount) {
+  const excludedKeys = new Set();
+
+  // Présentation du programme d'activités importé
+  function summarizeProgram(selectedByDay, addedCount, { excludedKeys = new Set() } = {}) {
+    if (!addedCount) {
+      return `<p>Aucune activité supplémentaire ne peut être proposée avec ces hypothèses.</p>`;
+    }
+
+    const parts = [];
+    parts.push((addedCount == 1) ? `<p>✅ ${addedCount} nouvelle activité sélectionnée:</p>` : `<p>✅ ${addedCount} nouvelles activités sélectionnées:</p>` );
+
+    const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
+
+    for (const dayInt of days) {
+      const slots = selectedByDay.get(dayInt) || [];
+      if (!slots.length) continue;
+
+      const dayLabel = dateintToLabel(dayInt);
+      parts.push(`<h4 class="prog-day">📅 ${dayLabel}</h4>`);
+      parts.push(`<ul class="prog-day-list">`);
+
+      // tri par heure
+      const sortedSlots = [...slots].sort((a, b) => a.startMin - b.startMin);
+
+      for (const slot of sortedSlots) {
+        const r = slot.row || {};
+        const h = mmToHHhMM(slot.startMin);
+        const titre   = r.Activite || "(sans titre)";
+        const style = r.Style || "";
+        const theatre = r.Lieu   || "";
+        const theatrePart = theatre ? ` <span class="prog-theatre">@ ${escapeHtml(theatre)}</span>` : "";
+        const href    = r.Hyperlien || null;
+
+        const desc = r.__desc_summary || "";
+        const avis = r.__avis_summary || "";
+        const mood = r.Mood || "";
+
+        // bouton seulement si on a au moins un champ utile
+        const infoBtnHtml =
+          (desc || avis || mood)
+            ? ` <button type="button"
+                  class="bb-info-btn prog-info-btn"
+                  data-title="${escapeAttr(titre)}"
+                  data-style="${escapeAttr(style)}"
+                  data-desc="${escapeAttr(desc)}"
+                  data-avis="${escapeAttr(avis)}"
+                  data-mood="${escapeAttr(mood)}"
+                >ℹ︎</button>`
+            : "";
+
+        const key     = slotKey(dayInt, slot);
+        const isExcluded = excludedKeys.has(key);
+        const checkedAttr = isExcluded ? "" : " checked";
+
+        const avisObj = r.__avis_summary || null;
+
+        let avisTxt = null;
+        if (avisObj && (avisObj.note || avisObj.count != null)) {
+          // exemples : "9/10 (35 avis)" ou juste "9/10" ou juste "(35 avis)"
+          const partsAvis = [];
+          if (avisObj.note) {
+            partsAvis.push(String(avisObj.note));
+          }
+          else {
+            partsAvis.push('?');
+          }
+          if (avisObj.count != null) {
+            partsAvis.push(`(${avisObj.count} avis)`);
+          }
+          if (partsAvis.length) {
+            avisTxt = `${escapeHtml(`${partsAvis[0]} ${partsAvis[1]}`)}`; // note (count avis)
+          }
+        }
+
+        const scoreTxt = null;
+          // (typeof r._aiScore === "number")
+          //   ? `score : ${r._aiScore.toFixed(2)}`
+          //   : null;
+
+        const metaTxt = [avisTxt, scoreTxt, r.Style].filter(Boolean).join(" - ");
+
+        const metaHtml = metaTxt
+          ? ` <span class="prog-meta">${metaTxt}</span>`
+          : "";
+
+        const titleHtml = href
+          ? `<a href="${href}" target="_blank" rel="noopener" class="prog-link">${escapeHtml(titre)}</a>${metaHtml}`
+          : `<span class="prog-title">${escapeHtml(titre)}</span>${metaHtml}`;
+
+        parts.push(`
+          <li class="prog-row" data-slot-key="${key}">
+            <label class="prog-toggle-wrap">
+              <input type="checkbox" class="prog-toggle-input"${checkedAttr}>
+              <span class="prog-toggle-ui"></span>
+            </label>
+            <div class="prog-main">
+              <span class="prog-time">${h}</span>
+              ${titleHtml}${theatrePart}
+            </div>
+            ${infoBtnHtml}
+          </li>
+        `);
+      }
+
+      parts.push(`</ul>`);
+    }
+
+    return parts.join("");
+  }
+
+  function programImportKey(r) {
+    return [
+      r?.Activite,
+      r?.Debut,
+      r?.Lieu,
+      r?.Session
+    ].map(v => String(v ?? "").trim()).join("||");
+  }
+
+  function getDisabledImportedSlotKeys(selectedByDay) {
+    const disabled = new Set();
+
+    for (const [dayInt, slots] of selectedByDay.entries()) {
+      for (const slot of slots || []) {
+        const r = slot.row;
+        const key = slotKey(dayInt, slot);
+
+        if (!activitesAPI.estActiviteProgrammableADate(r, dayInt)) {
+          disabled.add(key);
+        }
+      }
+    }
+
+    return disabled;
+  }
+
+  function applyImportedProgramToCurrentDf(selectedByDay, excludedKeys, disabledKeys) {
+    const dateByKey = new Map();
+
+    for (const [dayInt, slots] of selectedByDay.entries()) {
+      for (const slot of slots || []) {
+        const skey = slotKey(dayInt, slot);
+
+        if (excludedKeys.has(skey)) continue;
+        if (disabledKeys.has(skey)) continue;
+
+        const r = slot.row;
+        if (!r) continue;
+
+        dateByKey.set(programImportKey(r), dayInt);
+      }
+    }
+
+    if (!dateByKey.size) return;
+
+    ctx.mutateDf(rows => {
+      const next = (rows || []).map(r => {
+        const d = dateByKey.get(programImportKey(r));
+        if (!d) return r;
+
+        return {
+          ...r,
+          Date: d
+        };
+      });
+
+      return sortDf(next);
+    });
+
+  }
+
+  openSheetExclusive({
+    title: "Programme importé",
+    panelHeight: "auto",
+    panelMaxHeight: "85vh",
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="form">
+          <div id="import-prog-response-box"
+               class="ai-response-box"
+               style="width:100%;">
+            <div class="ai-response-label">Programme importé</div>
+            <div id="import-prog-response" class="ai-response-bubble"></div>
+          </div>
+        </div>
+
+        <div class="sheet-footer has-border">
+          <div class="form-actions">
+            <button class="bb-btn" id="btn-import-prog-cancel">Annuler</button>
+            <button class="bb-btn is-primary" id="btn-import-prog-apply">Appliquer</button>
+          </div>
+        </div>
+      `;
+
+      const elResp = body.querySelector("#import-prog-response");
+      elResp.innerHTML = summarizeProgram(selectedByDay, addedCount, { excludedKeys });
+
+      const disabledKeys = getDisabledImportedSlotKeys(selectedByDay);
+
+      elResp.innerHTML = summarizeProgram(selectedByDay, addedCount);
+
+      for (const key of disabledKeys) {
+        const li = elResp.querySelector(`.prog-row[data-slot-key="${CSS.escape(key)}"]`);
+        if (!li) continue;
+
+        li.classList.add("is-disabled");
+
+        const input = li.querySelector(".prog-toggle-input");
+        if (input) {
+          input.checked = false;
+          input.disabled = true;
+        }
+      }
+
+      body.querySelector("#btn-import-prog-cancel")
+        ?.addEventListener("click", () => close());
+
+      body.querySelector("#btn-import-prog-apply")?.addEventListener("click", () => {
+        applyImportedProgramToCurrentDf(selectedByDay, excludedKeys, disabledKeys);
+        close();
+      });
+
+      elResp.addEventListener("change", (e) => {
+        const input = e.target.closest(".prog-toggle-input");
+        if (!input) return;
+
+        const li = input.closest(".prog-row");
+        const key = li?.dataset.slotKey;
+        if (!key) return;
+
+        if (input.checked) excludedKeys.delete(key);
+        else excludedKeys.add(key);
+      });
+    }
+  });
+}
+
+// Transforme un dateint en label
+function dateintToLabel(di) {
+  if (!di) return "";
+  const s = String(di);
+  if (s.length !== 8) return s;
+  const y = s.slice(0, 4);
+  const m = s.slice(4, 6);
+  const d = s.slice(6, 8);
+  return `${y}-${m}-${d}`; // ou format FR "dd/mm/yyyy" 
+}
+
+// Génère une clé unique pour un créneau horaire en combinant __uuid, dayInt, et startMin.
+function slotKey(dayInt, slot) {
+  const r = slot.row || {};
+  return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
+}
+

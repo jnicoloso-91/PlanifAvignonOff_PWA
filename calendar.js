@@ -1004,7 +1004,7 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
 }
 
 // Re-render calendar (data + sélection + scroll)
-export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9, defaultDay = null } = {}) {
+export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9, defaultDay = null, snapFirstEvent = false } = {}) {
   const calA = document.getElementById("calA");
   const calADays = document.getElementById("calADays");
   if (!calA || !calADays) return;
@@ -1026,6 +1026,9 @@ export function rerenderProgrammeCalendar({ snapDay = true, defaultHour = 9, def
     if (selUuid) {
       ensureCalendarEventVisible(selUuid);                          // scroll minimal pour rendre l’event visible
       selectEventByUuid(selUuid);                                   // sélection visuelle de l’event  
+    }
+    else if (snapFirstEvent && rows.length > 0) {
+      ensureCalendarEventVisible(rows[0].__uuid); 
     }
   });
 }
@@ -1139,7 +1142,7 @@ async function showProgrammeCalendar() {
     const selected = getSelectedRowUuid('grid-programmees'); 
     snapProgrammeCalendar({
       dateInt: selD || (buildDaysRange(activitesAPI.getPeriodeProgrammation())?.[0]),
-      uuid: selected || null,
+      uuid: selected || (rows.length > 0 ? rows[0].__uuid : null),
       fallbackHour: 9,
       smooth: false  // au premier affichage, souvent mieux en auto
     });

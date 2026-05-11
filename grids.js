@@ -76,7 +76,7 @@ window.grids = grids;
 export let activeGridId = null;
 
 // ------- Créneau sélectionné -------
-let selectedSlot = null;
+// let selectedSlot = null;
 
 // ------- Helpers -------
 const $ = id => document.getElementById(id);
@@ -2402,7 +2402,16 @@ function nextPaint(times=2) {
   });
 }
 
+// Renvoie le creneau sélectionné courant
+function getSelectedSlot() {
+    const g = grids.get('grid-creneaux');
+  if (!g?.api) return;
+  const sel = g.api.getSelectedRows?.() || [];
+  return sel[0] || null;
+}
+
 async function loadGridActivitesProgrammables(){
+  const selectedSlot = getSelectedSlot();
   if (!selectedSlot) return [];
   const activites = ctx.df;                      
   // Two-level shallow copy OBLIGATOIRE sinon AgGrid écrit directement dans les tableaux de ctx => catastrophe !!
@@ -2741,12 +2750,7 @@ async function onNonProgGridDateCommitted(params) {
 
 function onCreneauxSelectionChanged(){
   // if (e.source === 'programmatic') return; // ignorer les sélections internes
-  const g = grids.get('grid-creneaux');
-  if (!g?.api) return;
-  const sel = g.api.getSelectedRows?.() || [];
-  selectedSlot = sel[0] || null;
-
-  // rafraîchir la grille 4 (programmables)
+  // rafraîchir la grille des activités programmables
   refreshGrid('grid-programmables', true);
 }
 

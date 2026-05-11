@@ -232,7 +232,7 @@ import {
     await waitLayoutStable(planningPage, { minH: 80, timeout: 2000 });
 
     try { 
-      if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar?.(); 
+      if (isProgrammeCalendarVisible()) rerenderProgrammeCalendar?.({ snapFirstEvent: true }); 
       redrawAllGrids();
       kickGridViewportIos("grid-creneaux");
     } catch {}

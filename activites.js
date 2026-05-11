@@ -225,7 +225,7 @@ export function creerActivitesAPI(ctx) {
           ligneRef = activitesProgrammees.find(r => r.__uuid === idx);
           if (!ligneRef) throw new Error("uuid source du créneau introuvable dans activités programmées");
         } catch (err) {
-          console.warn("Erreur getActivitesProgrammables :", err);
+          // console.warn("Erreur getActivitesProgrammables :", err);
           return proposables;
         }
 
@@ -364,7 +364,7 @@ export function creerActivitesAPI(ctx) {
         
         if (
           ((plDeb  <= mmFromHHhMM(activite.Debut) - marge) || plDeb == 0) && 
-          ((mmFromHHhMM(activite.Fin) + marge <= plFin) || plFin == mmFromHHhMM('23h59'))
+          ((mmFromHHhMM(activite.Debut) + mmFromHHhMM(activite.Duree) + marge <= plFin) || plFin == mmFromHHhMM('23h59'))
         ) return true;
       }
 
