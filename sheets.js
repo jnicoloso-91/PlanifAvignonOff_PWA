@@ -2032,7 +2032,7 @@ export function openSheetAide() {
               <li><u><i>Fichier</u></i> : nouveau programme ou stock, import Excel, import depuis catalogues en ligne, export vers Excel ou le calendrier, rapport de cohérence.</li>
               <li><u><i>Défaire</u></i> / <u><i>Refaire</u></i> : annuler ou rétablir une opération.</li>
               <li><u><i>Coller</u></i> : collage d’activités depuis le presse-papier (via URL ou copie du contenu d’une page catalogue ou d'une page de détail d'une activité).</li>
-              <li><u><i>Ajouter</u></i> : recherche d’une activité. Une page de dialogue s'affiche vous permettant d'entrer le texte à rechercher dans l'ensemble du stock et du programme. Une fois le texte entré trois actions possibles :
+              <li><u><i>Chercher</u></i> : recherche d’une activité. Une page de dialogue s'affiche vous permettant d'entrer le texte à rechercher dans l'ensemble du stock et du programme. Une fois le texte entré trois actions possibles :
                 <ul>
                   <li><u><i>Annuler</u></i> : annule la recherche.</li>
                   <li><u><i>Chercher</u></i> : lance la recherche et les affiche les occurences dans un tableau.</li>
@@ -2118,10 +2118,8 @@ export function openSheetAide() {
                   <li>Chargez un ou plusieurs catalogues dans le stock.</li>
                   <li>Sélectionnez vos favoris :
                     <ul>
-                      <li>soit en filtrant le stock par exemple par <u><i>Lieu</u></i>, puis en choisissant un marqueur sur Filtre avec le bouton <u><i>Favori</u></i> 
-                      pour mettre un marqueur sur toutes les activités filtrées</li>
-                      <li>soit en naviguant dans le stock en utilisant les boutons i+ ou <span class="help-icon" role="img" aria-label="Lien Web">🔗</span>, 
-                      puis en choisissant un marqueur sur Sélection avec le bouton <u><i>Favori</u></i> pour mettre un marqueur sur la seule activité sélectionnée.</li>
+                      <li>soit en choisissant un marqueur sur Filtre avec le bouton <u><i>Favori</u></i> pour mettre un marqueur sur toutes les activités filtrées</li>
+                      <li>soit en choisissant un marqueur sur Sélection avec le bouton <u><i>Favori</u></i> pour mettre un marqueur sur la seule activité sélectionnée.</li>
                     </ul>
                   <li>Filtrez les activités de la rubrique <u><i>Programmer...</u></i> selon vos favoris, en filtrant la colonne <u><i>Marqueur</u></i> selon les valeurs 
                   de marqueurs correspondant à vos favoris.</li>

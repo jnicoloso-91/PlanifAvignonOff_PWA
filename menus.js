@@ -199,7 +199,7 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Nouveau contexte</span>
-          <span class="file-sheet__subtitle">Réinitialise le programme et stock d'activités</span>
+          <span class="file-sheet__subtitle">Réinitialise le programme et le stock d'activités</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="initProg">
@@ -213,35 +213,35 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer contexte</span>
-          <span class="file-sheet__subtitle">Importe un programme et un stock d'activités depuis un fichier Excel</span>
+          <span class="file-sheet__subtitle">Importe un programme et un stock d'activités depuis Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importProgram">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer programme</span>
-          <span class="file-sheet__subtitle">Importe un programme d'activités depuis un fichier Excel</span>
+          <span class="file-sheet__subtitle">Importe un programme d'activités depuis Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importMarkers">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer marqueurs</span>
-          <span class="file-sheet__subtitle">Importe des marqueurs depuis un fichier Excel</span>
+          <span class="file-sheet__subtitle">Importe des marqueurs depuis Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importCatIn">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer le catalogue du In</span>
-          <span class="file-sheet__subtitle">Importe le programme du catalogue du In</span>
+          <span class="file-sheet__subtitle">Importe le catalogue du In</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importCatOff">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer le catalogue du Off</span>
-          <span class="file-sheet__subtitle">Importe le programme du catalogue du Off</span>
+          <span class="file-sheet__subtitle">Importe le catalogue du Off</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importBilletReduc">
@@ -255,14 +255,14 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers Excel</span>
-          <span class="file-sheet__subtitle">Exporte la liste d'activités dans un fichier Excel</span>
+          <span class="file-sheet__subtitle">Exporte le programme et le stock d'activités vers Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="exportIcs">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Exporter vers le calendrier</span>
-          <span class="file-sheet__subtitle">Exporte le programme d'activités vers l'application calendrier</span>
+          <span class="file-sheet__subtitle">Exporte le programme d'activités vers le calendrier</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="rapportCoherence">
