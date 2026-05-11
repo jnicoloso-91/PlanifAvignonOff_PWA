@@ -32,35 +32,81 @@ export class LieuRenderer {
     title.style.cursor = 'pointer';
     title.title = 'Recherche Google';
 
+    // this.onTitleClick = (e) => {
+    //   const lieu = this.$title.textContent?.trim() || "";
+    //   if (!lieu) return;
+
+    //   e.stopPropagation();
+
+    //   const alreadySelected = !!this.p.node?.isSelected?.();
+
+    //   // 1er clic : sélection seulement
+    //   if (!alreadySelected) {
+    //     e.preventDefault();
+
+    //     try {
+    //       if (this.p.column && this.p.node?.rowIndex != null) {
+    //         this.p.api?.setFocusedCell?.(
+    //           this.p.node.rowIndex,
+    //           this.p.column
+    //         );
+    //       }
+
+    //       this.p.node?.setSelected?.(true, true);
+    //     } catch {}
+
+    //     return;
+    //   }
+
+    //   // 2e clic : recherche Google
+    //   const href = buildGoogleSearchUrl(lieu);
+    //   openExternalSmart(href);
+    // };
     this.onTitleClick = (e) => {
       const lieu = this.$title.textContent?.trim() || "";
       if (!lieu) return;
 
-      e.stopPropagation();
-
-      const alreadySelected = !!this.p.node?.isSelected?.();
-
-      // 1er clic : sélection seulement
-      if (!alreadySelected) {
+      // Desktop : Ctrl/Cmd+clic => ouvrir Google
+      if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
+        e.stopPropagation();
 
-        try {
-          if (this.p.column && this.p.node?.rowIndex != null) {
-            this.p.api?.setFocusedCell?.(
-              this.p.node.rowIndex,
-              this.p.column
-            );
-          }
-
-          this.p.node?.setSelected?.(true, true);
-        } catch {}
+        const href = buildGoogleSearchUrl(lieu);
+        // const w = window.open(href, "_blank", "noopener");
+        // try { w?.focus?.(); } catch {}
+        // if (!w) window.location.assign(href);
+        window.location.assign(href);
 
         return;
       }
 
-      // 2e clic : recherche Google
-      const href = buildGoogleSearchUrl(lieu);
-      openExternalSmart(href);
+      // Mobile/tactile : logique NoteRenderer
+      if (e.pointerType !== "mouse") {
+
+        e.stopPropagation();
+
+        const alreadySelected = !!this.p.node?.isSelected?.();
+
+        if (!alreadySelected) {
+          e.preventDefault();
+
+          try {
+            if (this.p.column && this.p.node?.rowIndex != null) {
+              this.p.api?.setFocusedCell?.(
+                this.p.node.rowIndex,
+                this.p.column
+              );
+            }
+
+            this.p.node?.setSelected?.(true, true);
+          } catch {}
+
+          return;
+        }
+
+        const href = buildGoogleSearchUrl(lieu);
+        openExternalSmart(href);
+      }
     };
 
     e.append(a, title); //, sub);
@@ -71,7 +117,9 @@ export class LieuRenderer {
     this.$title = title;
 
     // Branchement du click sur title
-    this.$title.addEventListener('click', this.onTitleClick);
+    // this.$title.addEventListener('click', this.onTitleClick);
+    this.$title.addEventListener("pointerup", this.onTitleClick);
+
 
     this.$title.addEventListener('mouseenter', () => {
       this.$title.style.textDecoration = 'underline';
@@ -177,7 +225,8 @@ export class LieuRenderer {
       this.$icon.removeEventListener('pointerdown', this.onIconPointerDown);
     }
     if (this.$title && this.onTitleClick) {
-      this.$title.removeEventListener('click', this.onTitleClick);
+      // this.$title.removeEventListener('click', this.onTitleClick);
+      this.$title.removeEventListener('pointerup', this.onTitleClick);
     }
   }
 }
