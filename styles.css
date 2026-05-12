@@ -601,19 +601,6 @@ main, .page-wrap {
 }
 
 /* Caption */
-/* .v-expander__caption {
-  flex: 1 1 auto;
-  min-width: 0;
-
-  font-size: .82rem;
-  opacity: .72;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  padding-left: .5rem;
-} */
 .v-expander__caption {
   position: absolute;
   left: .5rem;
@@ -3183,7 +3170,7 @@ input[type="range"]:focus::-moz-range-thumb {
 
 
 /*=========================
-   Sheet Chercher
+   Sheet Search
   =========================*/
 
 .sheet-body--search{
@@ -3251,6 +3238,29 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .search-clear-btn:active{
   background: rgba(0,0,0,0.18);
+}
+
+.search-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.icon-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+
+  font-size: .82rem;
+  opacity: .85;
+  line-height: 1;
+}
+
+.icon-toggle-icon {
+  display: flex;
+  align-items: center;
 }
 
 /*=========================

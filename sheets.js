@@ -1977,12 +1977,14 @@ export function openSheetAide() {
             <h4>Navigation</h4>
             <p>Dans les tableaux d'activités, des icônes associées à certaines colonnes permettent de naviguer vers des informations complémentaires:
             <ul>
-              <li>L'icône <span class="help-icon" role="img" aria-label="Lien Web">🔗</span> des colonnes <u><i>Activité</u></i> et <u><i>Page Web</u></i> 
-              permet d'afficher la page Web de l'activité,</li>
-              <li>L'icône <span class="help-icon" role="img" aria-label="Itineraire">🧭</span> de la colonne <u><i>Lieu</u></i> permet de lancer une recherche d'itinéraire 
-              sur le lieu de l'activité,</li>
-              <li>L'icône <span class="help-icon" role="img" aria-label="Lien Web">🔗</span> des colonnes <u><i>Google</u></i> et <u><i>Billet Réduc</u></i> permet de lancer une recherche de l'activité sur Google et le site Billet Réduc.
-              <li>L'icône <span class="help-icon" role="img" aria-label="Lien Web">i+</span> affiche des informations complémentaires sur les activités des catalogues : description, style, ton, avis.
+              <li>Une tape sur l'icône <span class="help-icon" role="img" aria-label="Lien Web">🔗</span> des colonnes <u><i>Activité</u></i> et <u><i>Page Web</u></i>  
+              affiche la page Web de l'activité dans le catalogue,</li>
+              <li>Une tape sur l'icône <span class="help-icon" role="img" aria-label="Lien Web">🔗</span> des colonnes <u><i>Google</u></i> et <u><i>Billet Réduc</u></i> 
+              lance une recherche de l'activité sur Google et le site Billet Réduc,</li>
+              <li>Une tape sur l'icône <span class="help-icon" role="img" aria-label="Itineraire">🧭</span> de la colonne <u><i>Lieu</u></i> 
+              lance une recherche d'itinéraire sur le lieu de l'activité,</li>
+              <li>Une tape sur la cellule <u><i>Lieu</u></i> de l'activité sélectionnée affiche la page Google du lieu de l'activité,</li>
+              <li>Une tape sur l'icône <span class="help-icon" role="img" aria-label="Lien Web">i+</span> de l'activité sélectionnée affiche des informations complémentaires : description, style, ton, avis.</li>
             </ul>
 
             <p>La recherche d'itinéraire utilise l'application de recherche d'itinéraire choisie dans les paramètres de l'application (voir menu <u><i>Paramètres</u></i>) 
@@ -2097,16 +2099,17 @@ export function openSheetAide() {
               <li><u><i>Filtrer</u></i> : permet de filtrer les activités programmables selon la valeur des colonnes d'activités.</li>
             </ul>
 
-            <h4>Boutons de la rubrique Stock</h4>
+            <h4>Boutons et autres actions sur la rubrique Stock</h4>
             <ul>
               <li><u><i>Ajouter</u></i> : ajoute une activité dans le stock.</li>
               <li><u><i>Filtrer</u></i> : permet de filtrer les activités du stock selon la valeur des colonnes d'activités.</li>
               <li><u><i>Supprimer</u></i> : supprime l'activité sélectionnée du stock.</li>
               <li><u><i>Favori</u></i> : permet d'affecter un marqueur à l'activité sélectionnée dans le stock ou à l'ensemble des activités filtrées du stock.
               Ces marqueurs peuvent ensuite être utilisés pour filtrer les activités programmables sur les seuls favoris ayant une ou plusieurs valeurs de marqueur.</li>
+              <li>Un appui long sur une ligne permet de la dupliquer (utile si vous souhaitez programmer la même activité à des jours différents).</li>
             </ul>
 
-            <p>⚠️ : un marqueur négatif signifie que l'activité est chevauchable, i.e. que l'on peut programmer des activités en coactivité avec celle-ci. 
+            <p>⚠️ : un marqueur précédé d'un tiret signifie que l'activité est chevauchable, i.e. que l'on peut programmer des activités en coactivité avec celle-ci. 
             Ceci permet dans un programme de garder en option plusieurs activités sur le même créneau horaire.</p>
 
             <h4>Méthodes d'élaboration du programme</h4>
@@ -2126,7 +2129,7 @@ export function openSheetAide() {
                   <li>Choisissez une plage libre dans la rubrique <u><i>Plages libres</u></i>.</li>
                   <li>Choisissez une activité dans la rubrique <u><i>Programmer...</u></i> et appuyez sur le bouton <u><i>Programmer</u></i>.</li>
                   <li>Et ainsi de suite...</li>
-                  <li>Si vous souhaitez garder en option plusieurs activités sur le même créneau horaire, mettez un marqueur négatif sur l'activité que vous souhaitez rendre chevauchable  
+                  <li>Si vous souhaitez garder en option plusieurs activités sur le même créneau horaire, précédez d'un tiret le marqueur de l'activité que vous souhaitez rendre chevauchable  
                   (i.e. celle pour laquelle vous souhaitez programmer des activités en coactivité).</li>
                 </ul>
               </li>
@@ -7477,9 +7480,11 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       .trim();
   }
 
-  function buildHaystack(row){
-    // ⚠️ mettre ici ce que l'on veut inclure dans la recherche
-    // (y compris colonnes cachées)
+  function buildHaystack(row, mode = "all"){
+    if (mode === "activity") {
+      return normText(row.Activite);
+    }
+
     return normText([
       row.Activite,
       row.Lieu,
@@ -7492,13 +7497,13 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     ].filter(Boolean).join(" • "));
   }
 
-  function matchQuery(row, query){
+  function matchQuery(row, query, mode = "all"){
     const q = normText(query);
     if (!q) return true;
 
     // AND par défaut (mots séparés par espaces)
     const parts = q.split(" ").filter(Boolean);
-    const hay = buildHaystack(row);
+    const hay = buildHaystack(row, mode);
 
     return parts.every(p => hay.includes(p));
   } 
@@ -7555,6 +7560,14 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     mount: (body, { close }) => {
       body.innerHTML = `
         <div class="sheet-body">
+
+          <div class="search-toolbar">
+            <label class="icon-toggle" id="searchActivityOnlyToggle">
+              <span class="icon-toggle-icon" id="searchActivityOnlyIcon"></span>
+              <span class="icon-toggle-label">Activité seule</span>
+            </label>
+          </div>
+
           <div class="search-input-wrap has-label" id="searchWrap">
             <textarea id="searchInput"
                       class="ai-input"
@@ -7579,6 +7592,53 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           <button type="button" class="bb-btn is-primary" id="btnSearchSelect" disabled>Sélectionner</button>
         </div>
       `;
+
+      // Gestion du mode
+      let searchMode = ctx.getMetaParam?.("lastSearchMode") || "all";
+
+      const ICON_SEARCH_ACTIVITY_ON = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+          <path d="M8 12l3 3 5-5"/>
+        </svg>`;
+
+      const ICON_SEARCH_ACTIVITY_OFF = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+        </svg>`;
+
+      const toggleActivityOnly =
+        body.querySelector("#searchActivityOnlyToggle");
+
+      const toggleActivityOnlyIcon =
+        body.querySelector("#searchActivityOnlyIcon");
+
+      let activityOnly =
+        ctx.getMetaParam?.("lastSearchMode") === "activity";
+
+      function refreshActivityOnlyUI() {
+        toggleActivityOnlyIcon.innerHTML =
+          activityOnly
+            ? ICON_SEARCH_ACTIVITY_ON
+            : ICON_SEARCH_ACTIVITY_OFF;
+      }
+
+      toggleActivityOnly?.addEventListener("click", () => {
+        activityOnly = !activityOnly;
+
+        searchMode = activityOnly ? "activity" : "all";
+
+        ctx.setMetaParam?.("lastSearchMode", searchMode);
+
+        refreshActivityOnlyUI();
+        runSearch();
+      });
+
+      refreshActivityOnlyUI();
 
       /** @type {HTMLInputElement} */
       const input = body.querySelector("#searchInput");
@@ -7642,7 +7702,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         }
 
         const df = ctx.getDf?.() || ctx.df || [];
-        const out = (df || []).filter(r => r && matchQuery(r, q));
+        const out = (df || []).filter(r => r && matchQuery(r, q, searchMode));
 
         if (info) info.textContent = `${out.length} résultat(s)`;
 
