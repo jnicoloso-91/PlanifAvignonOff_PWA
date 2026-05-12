@@ -1814,13 +1814,16 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   // } 
 
   // Version à l'essai
-  if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
-    if (displayable >= nbRows) { 
-      n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-    } else { 
-      return null;        // sinon pas de resize auto 
-    }
-  } 
+  // if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
+  //   if (displayable >= nbRows) { 
+  //     n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
+  //   } else { 
+  //     if (gridId === 'grid-programmables') n = displayable;
+  //     else return null;        // sinon pas de resize auto 
+  //   }
+  // } 
+
+  if (nbRows > maxRows) n = Math.min(nbRows, displayable);
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 0 : 0; 
@@ -1848,15 +1851,15 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
   let h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows, nbRowsPred,  maxRows });
 
   // Workaround pour IOS sur grille grid-programmables
-  // A chaque refresh cette grille est redessinnée plusieurs fois du fait des callbacks qui l'appellent
+  // A chaque refresh cette grille est redessinnée plusieurs fois du fait des callbacks qui l'appellent.
   // Sur IOS la conséquence est que le premier appel fait avec nbRows = 0 et nbRowsPred != 0 entraine 
-  // un collapse de la hauteur de grille qui n'est pas corrigé par les appels ultérieurs
+  // un collapse de la hauteur de grille qui n'est pas corrigé par les appels ultérieurs.
   if (gridId === 'grid-programmables') {
-    if (nbRows == 0 && nbRowsPred != 0) h = null;
+    // if (nbRows == 0 && nbRowsPred != 0) h = null;
   }
   
   if (gridId === 'grid-programmables') {
-    console.log(gridId, autoSizePanelFromRowCountCalls++, h, nbRows, nbRowsPred,  maxRows);
+    console.log(`${gridId} calls ${autoSizePanelFromRowCountCalls++} h ${h} displayable ${visibleRowsInPane(pane, gridEl)} nbRows ${nbRows}, nbRowsP ${nbRowsPred}  maxR ${maxRows}`);
   }
   
   if (h == null) return;
