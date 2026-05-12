@@ -1823,7 +1823,7 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
   //   }
   // } 
 
-  if (nbRows > maxRows) n = Math.min(nbRows, displayable);
+  if (nbRows > maxRows) n = Math.max(Math.min(nbRows, displayable), maxRows);
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 0 : 0; 
