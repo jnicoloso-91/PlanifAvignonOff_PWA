@@ -9,6 +9,7 @@ import {
   richValueGetValue,
   afterFrames,
   isIOS,
+  genUUID,
 } from './utils.js';
 
 import { 
@@ -3108,5 +3109,104 @@ export function wireGrids() {
     optionsPatch: gridOptionsActivitesNonProgrammees,
   });
 
+  wireLongPressDuplicate( {
+    onDuplicate: (row) => {
+      duplicateActivite(row);
+    }
+});
+
+
 }
 
+/**
+ * Wiring de duplication de ligne dans le stock
+ * @param {*} param0 
+ * @returns 
+ */
+function wireLongPressDuplicate({
+  delay = 600,
+  onDuplicate
+} = {}) {
+
+  let timer = null;
+  let targetNode = null;
+  let moved = false;
+
+  const clear = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    targetNode = null;
+    moved = false;
+  };
+
+  const h = grids.get('grid-non-programmees');
+  if (!h) return;
+  const gridApi = h.api;
+  const rootEl = h.el;
+  
+  rootEl.addEventListener("pointerdown", (ev) => {
+    const rowEl = ev.target.closest(".ag-row");
+    if (!rowEl) return;
+
+    const rowIndex = Number(rowEl.getAttribute("row-index"));
+    if (!Number.isFinite(rowIndex)) return;
+
+    const node = gridApi.getDisplayedRowAtIndex?.(rowIndex);
+    if (!node?.data) return;
+
+    targetNode = node;
+
+    timer = setTimeout(() => {
+      timer = null;
+
+      if (moved || !targetNode) return;
+
+      navigator.vibrate?.(30);
+
+      onDuplicate?.(targetNode.data, targetNode);
+    }, delay);
+  });
+
+  rootEl.addEventListener("pointermove", () => {
+    moved = true;
+    clear();
+  });
+
+  rootEl.addEventListener("pointerup", clear);
+  rootEl.addEventListener("pointercancel", clear);
+  rootEl.addEventListener("scroll", clear, true);
+}
+
+function duplicateActivite(sel) {
+  if (!sel) return;
+
+  const rootTitle = String(sel.Activite || "")
+    .trim()
+    .replace(/\s+#\d+$/, "");
+
+  const rows = ctx.getDf?.() || [];
+
+  let maxN = 0;
+
+  for (const r of rows) {
+    const t = String(r?.Activite || "").trim();
+
+    const m = t.match(
+      new RegExp(
+        "^" + rootTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?:\\s+#(\\d+))?$"
+      )
+    );
+
+    if (!m) continue;
+
+    maxN = Math.max(maxN, Number(m[1] || 0));
+  }
+
+  const copy = {
+    ...structuredClone(sel),
+    __uuid: genUUID(),
+    Activite: `${rootTitle} #${maxN + 1}`
+  };
+
+  ctx.mutateDf(df => sortDf([copy, ...(df || [])]));
+}
