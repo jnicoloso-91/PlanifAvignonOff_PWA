@@ -3174,10 +3174,16 @@ input[type="range"]:focus::-moz-range-thumb {
   =========================*/
 
 .sheet-body--search{
-  overflow-y: auto;
-  overflow-x: visible;
-  padding-bottom: 12px;
+  display: flex;
+  padding: 10px 12px 0px 12px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  gap: 5px;
+  overflow: hidden;
+  padding-top: 0px;
 }
+
 
 /* footer toujours visible */
 .sheet-footer--search{
