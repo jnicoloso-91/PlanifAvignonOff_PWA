@@ -1731,6 +1731,7 @@ function autosizeFromGridSafe(handle, pane) {
   };
 }
 
+// Renvoie la taille des rows et du header
 function measureRowAndHeader(gridEl){
   // valeurs par défaut / variables CSS
   const cs = getComputedStyle(gridEl);
@@ -1746,6 +1747,7 @@ function measureRowAndHeader(gridEl){
   return { rowH, headerH };
 }
 
+// Nombre de rows affichables dans la pane compte tenu de sa hauteur
 function visibleRowsInPane(pane, gridEl){
   if (!pane || !gridEl) return 0;
   const paneH = Math.max(0, Math.round(pane.getBoundingClientRect().height));
@@ -1792,19 +1794,32 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
     if (v) rowH = parseFloat(v) || rowH;
   } catch {}
 
-  // nombre de lignes affichées
-  const displayed = visibleRowsInPane(pane, gridEl);   
+  // nombre de lignes affichables dans la pane compte tenu de sa hauteur
+  const displayable = visibleRowsInPane(pane, gridEl);   
 
   // nb de lignes à prendre en compte pour le calcul
   let n = Math.min(maxRows, nbRows);
+
+  // Version de référence (mais ne retaille pas si le nombre rows devient inférieur à displayable)
+  // if (nbRows > maxRows && nbRowsPred > maxRows) return null; // pas de resize auto si nbRows et nbRowsPred > 5 lignes
+
+  //  Version pathologique
   // if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
-  //   if (displayed >= nbRows) { 
+  //   if (displayable >= nbRows) { 
   //     n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
   //   } else if (nbRows <= nbRowsPred) { 
   //     return null;        // pas de resize auto
   //   }
   // } 
-  if (nbRows > maxRows && nbRowsPred > maxRows) return null; // pas de resize auto si nbRows et nbRowsPred > 5 lignes
+
+  // Version à l'essai
+  if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
+    if (displayable >= nbRows) { 
+      n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
+    } else { 
+      return null;        // sinon pas de resize auto 
+    }
+  } 
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
   const paddingPane = (nbRows > n) ? 0 : 0; 
@@ -3240,7 +3255,8 @@ function refreshCreneauCaption(gridId, splId) {
   const row = getSelectedRow(gridId);
 
   const txt = row
-    ? `🕓 ${dateintStrToPretty(row.Date)} : ${row.Début} → ${row.Fin}`
+    // ? `🕓 ${dateintStrToPretty(row.Date)} : ${row.Début} → ${row.Fin}`
+    ? `🕓 ${row.Début} → ${row.Fin}`
     : "";
 
   updateExpanderCaption(
