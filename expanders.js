@@ -548,6 +548,93 @@ export function wireExpanders(){
   });
 }
 
+function openMenuAjouter(btnId) {
+
+  const btnAjouter = document.getElementById(btnId); 
+  if (!btnAjouter) return;
+
+  openPopoverMenu(btnAjouter, {
+    items: [
+
+      {
+        icon: "➕",
+        label: "Ajouter une activité",
+        action: () => {
+          doAjouterActivite?.();
+        }
+      },
+
+      {
+        icon: "📋",
+        label: "Dupliquer l’activité sélectionnée",
+        disabled: !getSelectedRow?.("grid-non-programmees"),
+        action: () => {
+          const row = getSelectedRow?.("grid-non-programmees");
+          if (row) duplicateActivite?.(row);
+        }
+      }
+
+    ]
+  });
+
+}
+
+function openPopoverMenu(anchorEl, { items = [] } = {}) {
+  document.querySelector(".mini-menu-pop")?.remove();
+
+  const pop = document.createElement("div");
+  pop.className = "mini-menu-pop";
+
+  items.forEach((it) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mini-menu-item";
+    btn.disabled = !!it.disabled;
+
+    btn.innerHTML = `
+      <span class="mini-menu-icon">${it.icon || ""}</span>
+      <span class="mini-menu-label">${it.label || ""}</span>
+    `;
+
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      if (btn.disabled) return;
+
+      pop.remove();
+      it.action?.();
+    });
+
+    pop.appendChild(btn);
+  });
+
+  document.body.appendChild(pop);
+
+  const r = anchorEl.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+
+  let left = r.right - pr.width;
+  let top = r.bottom + 6;
+
+  left = Math.max(8, Math.min(left, window.innerWidth - pr.width - 8));
+  top = Math.max(8, Math.min(top, window.innerHeight - pr.height - 8));
+
+  pop.style.left = `${left}px`;
+  pop.style.top = `${top}px`;
+
+  requestAnimationFrame(() => {
+    const close = (ev) => {
+      if (!pop.contains(ev.target) && ev.target !== anchorEl) {
+        pop.remove();
+        document.removeEventListener("pointerdown", close, true);
+      }
+    };
+
+    document.addEventListener("pointerdown", close, true);
+  });
+}
+
 export function wireExpanderButtons() {
 
   // Bouton Supprimer sur Activités Programmées
@@ -728,7 +815,7 @@ export function wireExpanderButtons() {
       </span>
       <span class="exp-label">Ajouter</span>
     `,
-    onClick: () => { doAjouterActivite(); },
+    onClick: () => { openMenuAjouter('btn-add-non-prog'); },
   });
 
   // Bouton Filtres sur Creneaux disponibles
@@ -1278,275 +1365,7 @@ function applyPrioriteImmutable(df, uuids, marqVal) {
 
 let _prioPopup = null;
 
-// Crée la popup Prio
-// export function getOrCreateMarqueurPopup() {
-//   if (_prioPopup) return _prioPopup;
-
-//   // 1) créer DOM une fois
-//   const backdrop = document.createElement("div");
-//   backdrop.className = "marq-popup-backdrop";
-//   backdrop.hidden = true;
-
-//   backdrop.innerHTML = `
-//     <div class="marq-popup" role="dialog" aria-modal="true">
-//       <div class="marq-head">
-//         <button type="button" class="marq-info" aria-label="Info" title="Info">i</button>
-//         <div class="marq-title">Marqueur</div>
-//         <button type="button" class="marq-close" aria-label="Fermer" title="Fermer">×</button>
-//       </div>
-
-//       <div class="wheel-wrap">
-//         <div class="wheel">
-//           <div class="wheel-spacer"></div>
-//           <div class="wheel-item" data-v="-5">-5</div>
-//           <div class="wheel-item" data-v="-4">-4</div>
-//           <div class="wheel-item" data-v="-3">-3</div>
-//           <div class="wheel-item" data-v="-2">-2</div>
-//           <div class="wheel-item" data-v="-1">-1</div>
-//           <div class="wheel-item" data-v="">Aucune</div>
-//           <div class="wheel-item" data-v="1">1</div>
-//           <div class="wheel-item" data-v="2">2</div>
-//           <div class="wheel-item" data-v="3">3</div>
-//           <div class="wheel-item" data-v="4">4</div>
-//           <div class="wheel-item" data-v="5">5</div>
-//           <div class="wheel-spacer"></div>
-//         </div>
-//         <div class="wheel-indicator"></div>
-//       </div>
-
-//       <div class="marq-input-wrap">
-//         <input type="text" class="marq-input bb-input" placeholder="Valeur personnalisée">
-//       </div>
-
-//       <div class="marq-actions">
-//         <button type="button" class="bb-btn is-primary" data-action="filter">
-//           Appliquer à filtre
-//         </button>
-//         <button type="button" class="bb-btn is-primary" data-action="selection">
-//           Appliquer à sélection
-//         </button>
-
-//         <!-- ✅ mode bulk -->
-//         <button type="button"
-//                 class="bb-btn is-primary marq-validate"
-//                 data-action="validate"
-//                 hidden>
-//           Valider
-//         </button>
-//       </div>
-//     </div>
-//   `;
-
-//   document.body.appendChild(backdrop);
-
-//   const popup = /** @type {HTMLElement} */ (backdrop.querySelector(".marq-popup"));
-//   const input = /** @type {HTMLInputElement} */ (popup.querySelector(".marq-input"));
-
-//   const picker = createWheelPicker(
-//     popup.querySelector(".wheel-wrap"),
-//     {
-//       onChange: (val) => {
-//         if (input) input.value = val ?? "";
-//       }
-//     }
-//   );
-
-//   requestAnimationFrame(() => { picker.setValue(null); });
-
-//   const actions = /** @type {HTMLElement} */ (popup.querySelector(".marq-actions"));
-//   const btnValidate = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-validate"));
-//   const btnFilter = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="filter"]'));
-//   const btnSel = /** @type {HTMLButtonElement|null} */ (popup.querySelector('button[data-action="selection"]'));
-
-//   picker.onChange?.((val) => {
-//     if (input) input.value = val ?? "";
-//   });
-
-//   popup.querySelectorAll(".wheel-item").forEach(el => {
-//     const h = /** @type {HTMLElement} */ (el);
-//     h.addEventListener("click", () => {
-//       input.value = h.dataset.v ?? "";
-//     });
-//   });
-
-//   // Wiring du bouton info
-//   document.querySelector(".marq-info")?.addEventListener("click", (e) => {
-//     e.preventDefault();
-//     e.stopPropagation();
-
-//     openPopoverNear(e.currentTarget, {
-//       innerHTML: `
-//         <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
-//           <li>Un marqueur vous permet de filtrer vos favoris en filtrant les activités sur la colonne Marqueur.</li>
-//           <li>Utilisez la roue codeuse pour choisir une valeur existante.</li>
-//           <li>Utilisez le champ texte sous la roue codeuse pour en créer une nouvelle.</li>
-//           <li>Préfixer le marqueur par un tiret pour rendre l'activité chevauchable (i.e. programmable en même temps qu'une autre).</li>
-//           <li>Le bouton <i>Appliquer à filtre</i> applique la valeur choisie à l'ensemble du filtre appliqué sur le stock.</li>
-//           <li>Le bouton <i>Appliquer à sélection</i> applique la valeur choisie à la seule activité sélectionnée.</li>
-//         </ul>
-//       `
-//     });
-//   });
-
-//   // wiring du bouton close
-//   const btnClose = /** @type {HTMLButtonElement|null} */ (popup.querySelector(".marq-close"));
-//   btnClose?.addEventListener("click", (ev) => {
-//     ev.preventDefault();
-//     ev.stopPropagation();
-//     close();
-//   }, true);
-
-//   // 2) état dynamique (mis à jour à chaque open)
-//   /** @type {{ df: any[], mutateDf: Function } | null} */
-//   let ctx = null;
-//   let gridApi = null;
-
-//   let bulkUuids = null;     // Set
-//   let bulkAddRows = null;   // Array
-//   let mode = "standard";    // "standard" | "bulk"
-
-//   const wheel = popup.querySelector(".wheel");
-
-//   function getExistingMarkers(df) {
-//     const set = new Set();
-
-//     for (const r of df || []) {
-//       const v = r?.Marqueur;
-//       if (v == null || v === "") continue;
-//       set.add(String(v));
-//     }
-
-//     return [...set].sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
-//   }
-
-//   function normalizeMarker(v) {
-//     return String(v ?? "")
-//       .replace(/\s+/g, " ")
-//       .replace(/[’‘`´']/g, "'")
-//       .trim();
-//   }
-
-//   function close() { backdrop.hidden = true; }
-
-//   // Effectue à la fois un ajout de ligne et l'application d'un marqueur 
-//   function applyBulk(df, addRows, uuids, marqVal) {
-//     let out = df;
-
-//     // 1) append new rows
-//     if (Array.isArray(addRows) && addRows.length) out = out.concat(addRows);
-
-//     // 2) apply prio on affected uuids
-//     if (uuids && uuids.size) out = applyPrioriteImmutable(out, uuids, marqVal);
-
-//     // 3) sort (si l'on veut que la prio influe sur le tri, il faut que sortDf tienne compte de Marqueur)
-//     out = sortDf(out);
-
-//     return out;
-//   }
-
-//   // 3) listeners (boutons)
-//   popup.querySelectorAll("button[data-action]").forEach((b) => {
-//     const btn = /** @type {HTMLElement} */ (b);
-
-//     btn.addEventListener("click", (ev) => {
-//       ev.preventDefault();
-//       ev.stopPropagation();
-
-//       if (!ctx) { close(); return; }
-
-//       const marqVal = normalizeMarker(input?.value);
-//       const action = btn.dataset.action;
-
-//       // ---- BULK (ajout simultané de rows utilisé en sortie de chat) ----
-//       if (mode === "bulk" && action === "validate") {
-//         const uuids = bulkUuids instanceof Set ? bulkUuids : new Set();
-//         const addRows = Array.isArray(bulkAddRows) ? bulkAddRows : [];
-
-//         ctx.mutateDf((df) => applyBulk(df, addRows, uuids, marqVal));
-
-//         refreshGrid("grid-programmables");
-//         close();
-
-//         requestAnimationFrame(() => {
-//           if (addRows.length > 0) {
-//             alert(`${addRows.length} spectacle(s) ajouté(s) au stock.`);
-//           }
-//         });
-
-//         return;
-//       }
-
-//       // ---- STANDARD ----
-//       if (!gridApi) { close(); return; }
-
-//       const uuids =
-//         action === "selection"
-//           ? getUuidsFromSelection(gridApi)
-//           : getUuidsFromFilter(gridApi);
-
-//       ctx.mutateDf((df) => applyPrioriteImmutable(df, uuids, marqVal));
-//       refreshGrid("grid-programmables");
-//       close();
-//     }, true);
-//   });
-
-//   _prioPopup = {
-//     /** @ts-ignore */
-//     open({ gridApi: ga, ctx: c, defaultValue = null, uuids = null, title = null, _bulkAddRows = null } = {}) {
-//       gridApi = ga || null;
-//       ctx = c || null;
-
-//       bulkUuids = (uuids instanceof Set) ? uuids : null;
-//       bulkAddRows = Array.isArray(_bulkAddRows) ? _bulkAddRows : null;
-//       mode = bulkUuids ? "bulk" : "standard";
-
-//       // titre
-//       const tEl = popup.querySelector(".marq-title");
-//       if (tEl) tEl.textContent = title || (mode === "bulk" ? "Marqueur des activités collées" : "Marqueur");
-
-//       // supprime anciens items dynamiques
-//       wheel.querySelectorAll(".wheel-item.dynamic").forEach(el => el.remove());
-
-//       if (ctx?.df) {
-//         const existing = getExistingMarkers(ctx.df);
-
-//         for (const v of existing) {
-//           // éviter doublons avec -5..5 et "Aucune"
-//           if (wheel.querySelector(`.wheel-item[data-v="${v}"]`)) continue;
-
-//           const el = document.createElement("div");
-//           el.className = "wheel-item dynamic";
-//           el.dataset.v = v;
-//           el.textContent = v;
-
-//           // insérer avant le spacer final
-//           const spacer = wheel.querySelector(".wheel-spacer:last-of-type");
-//           wheel.insertBefore(el, spacer);
-//         }
-//       }
-
-//       // toggle boutons
-//       if (btnValidate) btnValidate.hidden = (mode !== "bulk");
-//       if (btnFilter)   btnFilter.hidden   = (mode === "bulk");
-//       if (btnSel)      btnSel.hidden      = (mode === "bulk");
-
-//       // état bouton sélection (standard)
-//       if (mode === "standard" && btnSel) {
-//         const hasSelection = gridApi?.getSelectedNodes?.().length > 0;
-//         btnSel.disabled = !hasSelection;
-//       }
-
-//       backdrop.hidden = false;
-
-//       if (defaultValue !== null) picker.setValue(defaultValue);
-//       if (input) input.value = picker.getValue() ?? "";
-
-//     },
-//     close
-//   };
-
-//   return _prioPopup;
-// }
+// Crée la popup Marqueur
 export function getOrCreateMarqueurPopup() {
   if (_prioPopup) return _prioPopup;
 
@@ -2032,7 +1851,7 @@ async function doAjouterActivite() {
     openExpander?.('exp-non-programmees');
     selectRowByUuid('grid-non-programmees', nouvelleActivite.__uuid, { ensure: 'center', flash: null });
   }, 50);
-}
+} 
 
 // Suppression d'une activité
 async function doSupprimerActivite() {
@@ -2116,3 +1935,38 @@ async function doDeprogrammerActivite() {
 
   dropRowFromSrcGridToDstGrid('grid-programmees', 'grid-non-programmees', 'exp-non-programmees', uuidVoisin, uuid, {scroll:false});
 }
+
+export function duplicateActivite(sel) {
+  if (!sel) return;
+
+  const rootTitle = String(sel.Activite || "")
+    .trim()
+    .replace(/\s+#\d+$/, "");
+
+  const rows = ctx.getDf?.() || [];
+
+  let maxN = 0;
+
+  for (const r of rows) {
+    const t = String(r?.Activite || "").trim();
+
+    const m = t.match(
+      new RegExp(
+        "^" + rootTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?:\\s+#(\\d+))?$"
+      )
+    );
+
+    if (!m) continue;
+
+    maxN = Math.max(maxN, Number(m[1] || 0));
+  }
+
+  const copy = {
+    ...structuredClone(sel),
+    __uuid: genUUID(),
+    Activite: `${rootTitle} #${maxN + 1}`
+  };
+
+  ctx.mutateDf(df => sortDf([copy, ...(df || [])]));
+}
+

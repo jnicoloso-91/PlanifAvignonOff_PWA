@@ -34,6 +34,7 @@ import {
   openExpanderAsync,
   scrollExpanderIntoViewCenteredAsync,
   openExpander,
+  duplicateActivite,
 } from './expanders.js'; 
 
 import {
@@ -1846,8 +1847,15 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
   // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
   let h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows, nbRowsPred,  maxRows });
 
+  // Workaround pour IOS sur grille grid-programmables
+  // A chaque refresh cette grille est redessinnée plusieurs fois du fait des callbacks qui l'appellent
+  // Sur IOS la conséquence est que le premier appel fait avec nbRows = 0 et nbRowsPred != 0 entraine 
+  // un collapse de la hauteur de grille qui n'est pas corrigé par les appels ultérieurs
   if (gridId === 'grid-programmables') {
-    if (nbRows == 0) h = null;
+    if (nbRows == 0 && nbRowsPred != 0) h = null;
+  }
+  
+  if (gridId === 'grid-programmables') {
     console.log(gridId, autoSizePanelFromRowCountCalls++, h, nbRows, nbRowsPred,  maxRows);
   }
   
@@ -3129,12 +3137,12 @@ export function wireGrids() {
     optionsPatch: gridOptionsActivitesNonProgrammees,
   });
 
-  wireLongPressDuplicate( {
-    onDuplicate: (row) => {
+  // Mis en commentaire car ce long press interfère avec double-click notamment sur Android 
+  wireActiviteNonProgrammeesLongPress( {
+    action: (row) => {
       duplicateActivite(row);
     }
-});
-
+  });
 
 }
 
@@ -3143,9 +3151,9 @@ export function wireGrids() {
  * @param {*} param0 
  * @returns 
  */
-function wireLongPressDuplicate({
+function wireActiviteNonProgrammeesLongPress({
   delay = 600,
-  onDuplicate
+  action
 } = {}) {
 
   let timer = null;
@@ -3183,7 +3191,7 @@ function wireLongPressDuplicate({
 
       navigator.vibrate?.(30);
 
-      onDuplicate?.(targetNode.data, targetNode);
+      action?.(targetNode.data, targetNode);
     }, delay);
   });
 
@@ -3195,40 +3203,6 @@ function wireLongPressDuplicate({
   rootEl.addEventListener("pointerup", clear);
   rootEl.addEventListener("pointercancel", clear);
   rootEl.addEventListener("scroll", clear, true);
-}
-
-function duplicateActivite(sel) {
-  if (!sel) return;
-
-  const rootTitle = String(sel.Activite || "")
-    .trim()
-    .replace(/\s+#\d+$/, "");
-
-  const rows = ctx.getDf?.() || [];
-
-  let maxN = 0;
-
-  for (const r of rows) {
-    const t = String(r?.Activite || "").trim();
-
-    const m = t.match(
-      new RegExp(
-        "^" + rootTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?:\\s+#(\\d+))?$"
-      )
-    );
-
-    if (!m) continue;
-
-    maxN = Math.max(maxN, Number(m[1] || 0));
-  }
-
-  const copy = {
-    ...structuredClone(sel),
-    __uuid: genUUID(),
-    Activite: `${rootTitle} #${maxN + 1}`
-  };
-
-  ctx.mutateDf(df => sortDf([copy, ...(df || [])]));
 }
 
 // Mise à jour d'un expander caption
