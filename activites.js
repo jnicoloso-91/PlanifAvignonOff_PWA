@@ -114,19 +114,21 @@ export function creerActivitesAPI(ctx) {
         }
       }
 
-      if ((activitesProgrammees?.length || 0) > 0) {
+      const apNonChevauchables = activitesProgrammees.filter( a => !_estActiviteChevauchable(a));
+
+      if ((apNonChevauchables?.length || 0) > 0) {
         // let jourCourant = activitesProgrammees[0].Date;
 
-        for (let i = 0; i < activitesProgrammees.length; i++) {
-          const row = activitesProgrammees[i];
+        for (let i = 0; i < apNonChevauchables.length; i++) {
+          const row = apNonChevauchables[i];
           const d = heureMinute(row), du = dureeMinute(row);
           const heureDebut = Number.isFinite(d) ? d : null;
           const heureFin   = (Number.isFinite(d) && Number.isFinite(du)) ? d + du : null;
 
           // ---- Créneau AVANT ----
           if (heureDebut != null) {
-            if (_getActivitesProgrammablesAvant(df, activitesProgrammees, row, traiter_pauses).length > 0) {
-              const [bMin, bMax, prev] = _getCreneauBoundsAvant(activitesProgrammees, row);
+            if (_getActivitesProgrammablesAvant(df, apNonChevauchables, row, traiter_pauses).length > 0) {
+              const [bMin, bMax, prev] = _getCreneauBoundsAvant(apNonChevauchables, row);
               if (bMin < bMax) {
                 const key = `${row.Date}-${bMin}-${bMax}`;
                 if (!bornes.includes(key)) {
@@ -141,8 +143,8 @@ export function creerActivitesAPI(ctx) {
 
           // ---- Créneau APRÈS ----
           if (heureFin != null) {
-            if (_getActivitesProgrammablesApres(df, activitesProgrammees, row, traiter_pauses).length > 0) {
-              const [bMin, bMax, next] = _getCreneauBoundsApres(activitesProgrammees, row);
+            if (_getActivitesProgrammablesApres(df, apNonChevauchables, row, traiter_pauses).length > 0) {
+              const [bMin, bMax, next] = _getCreneauBoundsApres(apNonChevauchables, row);
               const max = (bMax == null ? MAX_DAY : bMax);
               if (bMin < max) {
                 const key = `${row.Date}-${bMin}-${max}`;
