@@ -2072,6 +2072,7 @@ const gridOptionsActivitesProgrammees = {
     const gridId = params?.context?.gridId;  
     if (gridId) saveGridStateToMeta(params, gridId);
     if (params.source === 'rowClicked') selectCreneauFromSrcUuid(sel?.[0]?.__uuid, );
+    refreshActiviteCaption('grid-programmees', 'spl-programmees');
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-prog')); saveGridFilterModelToMeta(p, 'grid-programmees'); },
 }
@@ -2092,6 +2093,7 @@ const gridOptionsActivitesNonProgrammees = {
     if (p.source === 'rowClicked') synchronizeSelection(p, 'grid-programmables'); 
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
+    refreshActiviteCaption('grid-non-programmees', 'spl-non-programmees');
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-non-prog')); saveGridFilterModelToMeta(p, 'grid-non-programmees'); },
 }
@@ -2103,6 +2105,7 @@ const gridOptionsCreneaux = {
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
     if (p.source === 'rowClicked') selectSrcUuidFromCreneau(sel?.[0]);
+    refreshCreneauCaption('grid-creneaux', 'spl-creneaux');
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-creneaux')); saveGridFilterModelToMeta(p, 'grid-creneaux'); },
 }
@@ -2114,6 +2117,7 @@ const gridOptionsActivitesProgrammables = {
     if (p.source === 'rowClicked') synchronizeSelection(p, 'grid-non-programmees'); 
     const gridId = p?.context?.gridId;  
     if (gridId) saveGridStateToMeta(p, gridId);
+    refreshActiviteCaption('grid-programmables', 'spl-programmables');
   },
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-programmables')); saveGridFilterModelToMeta(p, 'grid-programmables'); },
 }
@@ -3209,4 +3213,38 @@ function duplicateActivite(sel) {
   };
 
   ctx.mutateDf(df => sortDf([copy, ...(df || [])]));
+}
+
+// Mise à jour d'un expander caption
+function updateExpanderCaption(splId, text) {
+  const el = document
+    .getElementById(splId)
+    ?.querySelector(".v-expander__caption");
+  if (!el) return;
+
+  el.textContent = text || "";
+}
+
+// Refresh du caption d'une grille d'activités
+function refreshActiviteCaption(gridId, splId) {
+  const row = getSelectedRow(gridId);
+
+  updateExpanderCaption(
+    splId,
+    `🎭 ${row?.Activite || ""}`
+  );
+}
+
+// Refresh du caption de la grille creneaux
+function refreshCreneauCaption(gridId, splId) {
+  const row = getSelectedRow(gridId);
+
+  const txt = row
+    ? `🕓 ${dateintStrToPretty(row.Date)} : ${row.Début} → ${row.Fin}`
+    : "";
+
+  updateExpanderCaption(
+    splId,
+    txt
+  );
 }

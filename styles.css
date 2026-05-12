@@ -600,6 +600,21 @@ main, .page-wrap {
   z-index: 10;                /* au-dessus des grilles */
 }
 
+/* Caption */
+.v-expander__caption {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  font-size: .82rem;
+  opacity: .72;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  padding-left: .5rem;
+}
+
 /* Poignée : zone tactile large et au centre */
 .v-splitter__handle {
   position: absolute;
