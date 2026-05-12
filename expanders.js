@@ -1961,12 +1961,21 @@ export function duplicateActivite(sel) {
     maxN = Math.max(maxN, Number(m[1] || 0));
   }
 
+  const uuid = genUUID();
+
   const copy = {
     ...structuredClone(sel),
-    __uuid: genUUID(),
+    __uuid: uuid,
     Activite: `${rootTitle} #${maxN + 1}`
   };
 
   ctx.mutateDf(df => sortDf([copy, ...(df || [])]));
+
+  // Maj des sélections
+  setTimeout(() => {
+    scrollToExpander?.('exp-non-programmees');
+    openExpander?.('exp-non-programmees');
+    selectRowByUuid('grid-non-programmees', uuid, { ensure: 'center', flash: null });
+  }, 50);
 }
 
