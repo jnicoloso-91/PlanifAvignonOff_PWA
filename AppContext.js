@@ -1,4 +1,4 @@
-// context.mjs
+// AppContext.js
 import { genUUID } from './utils.js';
 import { sortDf } from './activites.js';
 import { sortCarnet } from './carnet.js';

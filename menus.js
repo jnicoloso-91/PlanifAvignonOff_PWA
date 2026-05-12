@@ -818,6 +818,10 @@ async function importContextFromXlsxFile(f, {add=false} = {}) {
 
       // 13) Mise à jour des colonnes de grilles
       rebuildColumnsForActiviteGrids(dfRows);
+
+      // 14) RAZ contextState
+      contextState.modified = false;
+      ctx.setMetaParam('contextState', contextState);
     }
     else {
       recalcFinForAll(dfRows);
@@ -1889,6 +1893,11 @@ export function doSupprimerColonne() {
 
 // Reset du contexte
 async function doNouveauContexte() {
+
+  const ok = await maybeExportBeforeImportOrReset();
+
+  if (!ok) return;
+
   ctx.beginAction('Nouveau contexte');
   try {
   ctx.setDf([]);
@@ -1904,6 +1913,10 @@ async function doNouveauContexte() {
   const btn = document.getElementById("pg-next");
   btn.innerHTML = fn;
 
+
+  // 14) RAZ contextState
+  contextState.modified = false;
+  ctx.setMetaParam('contextState', contextState);
 }
 
 // Reset du programme
@@ -1965,25 +1978,122 @@ async function doNouveauProgramme() {
   rebuildColumnsForActiviteGrids([]);
 }
 
-let pendingFileMode = 'import';
+// Boite de dialogue de confirmation
+function openConfirmDialog({
+  title = "",
+  message = "",
+  buttons = []
+} = {}) {
 
-async function maybeExportBeforeImport() {
+  const overlay = document.createElement("div");
+  overlay.className = "bb-dialog-overlay";
+
+  const dlg = document.createElement("div");
+  dlg.className = "bb-dialog";
+
+  dlg.innerHTML = `
+    <div class="bb-dialog-title">${title}</div>
+
+    <div class="bb-dialog-body">
+      ${String(message).replace(/\n/g, "<br>")}
+    </div>
+
+    <div class="bb-dialog-actions"></div>
+  `;
+
+  const actions = dlg.querySelector(".bb-dialog-actions");
+
+  buttons.forEach(btn => {
+
+    const b = document.createElement("button");
+
+    b.type = "button";
+
+    b.className =
+      "bb-btn" + (btn.primary ? " is-primary" : "");
+
+    if (btn.role === "cancel") {
+      b.classList.add("is-cancel");
+    }
+
+    b.textContent = btn.label || "OK";
+
+    b.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      try {
+        await btn.action?.();
+      }
+      finally {
+        overlay.remove();
+      }
+    });
+
+    actions.appendChild(b);
+  });
+
+  overlay.appendChild(dlg);
+  document.body.appendChild(overlay);
+
+  requestAnimationFrame(() => {
+    dlg.classList.add("is-visible");
+  });
+
+  return {
+    close() {
+      overlay.remove();
+    }
+  };
+}
+
+async function maybeExportBeforeImportOrReset() {
+
   if (!contextState.modified) return true;
 
-  const ok = window.confirm(
-    "Le contexte courant a été modifié.\n\nVoulez-vous le sauvegarder avant d'importer un nouveau fichier ?"
-  );
+  return new Promise((resolve) => {
 
-  if (ok) {
-    await doExportExcel();
-  }
+    openConfirmDialog({
+      title: "Contexte modifié",
+      message:
+        "Le contexte courant a été modifié.\n" +
+        "Voulez-vous le sauvegarder avant de continuer ?",
 
-  return true;
+      buttons: [
+
+        {
+          label: "Annuler",
+          role: "cancel",
+          action: () => resolve(false)
+        },
+
+        {
+          label: "Non",
+          action: () => resolve(true)
+        },
+
+        {
+          label: "Oui",
+          primary: true,
+          action: async () => {
+            await doExportExcel();
+            resolve(true);
+          }
+        }
+      ]
+    });
+
+  });
 }
+
+let pendingFileMode = 'import';
 
 // Import Excel
 async function doImportExcel() {
-  await maybeExportBeforeImport();
+  const ok = await maybeExportBeforeImportOrReset();
+
+  if (!ok) return;
+
   // déclenche l’input caché en mode import
   pendingFileMode = 'import';
   const fi = $('fileInput');
@@ -2146,6 +2256,7 @@ async function doExportExcel() {
 
     XLSX.writeFile(wb, 'In & Off.xlsx');
     contextState.modified = false;
+    ctx.setMetaParam('contextState', contextState);
 
   } catch (e) {
     console.error(e);

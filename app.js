@@ -124,9 +124,12 @@ function wireContext() {
   // Initialisation de la periode de programmation si contexte vide
   if (!ctx.df || ctx.df?.length == 0) activitesAPI.initPeriodeProgrammation();
 
+  contextState.modified = ctx.getMetaParam('contextState')?.modified || false;
+
   ctx.on('df:changed',        () => {
     refreshActivitesGrids(); 
     contextState.modified = true;
+    ctx.setMetaParam('contextState', contextState);
   });
 
   // ctx.on('carnet:changed',    () => {

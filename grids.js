@@ -1800,29 +1800,6 @@ function desiredPaneHeightForRows(pane, gridEl, api, gridId,  { nbRows=null, nbR
 
   // nb de lignes à prendre en compte pour le calcul
   let n = Math.min(maxRows, nbRows);
-
-  // Version de référence (mais ne retaille pas si le nombre rows devient inférieur à displayable)
-  // if (nbRows > maxRows && nbRowsPred > maxRows) return null; // pas de resize auto si nbRows et nbRowsPred > 5 lignes
-
-  //  Version pathologique
-  // if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
-  //   if (displayable >= nbRows) { 
-  //     n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-  //   } else if (nbRows <= nbRowsPred) { 
-  //     return null;        // pas de resize auto
-  //   }
-  // } 
-
-  // Version à l'essai
-  // if (nbRows > maxRows) { // dans ce cas on interdit seulement de dépasser le nombre de lignes du tableau à afficher
-  //   if (displayable >= nbRows) { 
-  //     n = nbRows;         // interdiction de dépasser le nombre de lignes du tableau à afficher
-  //   } else { 
-  //     if (gridId === 'grid-programmables') n = displayable;
-  //     else return null;        // sinon pas de resize auto 
-  //   }
-  // } 
-
   if (nbRows > maxRows) n = Math.max(Math.min(nbRows, displayable), maxRows);
 
   // padding interne du pane si il y en a (à ajuster si nécessaire)
@@ -1850,17 +1827,9 @@ function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbR
   // Hauteur calculée : on ne dépasse pas rowCount et on autosize si rowCount < 5
   let h = desiredPaneHeightForRows(pane, gridEl, api, gridId, { nbRows, nbRowsPred,  maxRows });
 
-  // Workaround pour IOS sur grille grid-programmables
-  // A chaque refresh cette grille est redessinnée plusieurs fois du fait des callbacks qui l'appellent.
-  // Sur IOS la conséquence est que le premier appel fait avec nbRows = 0 et nbRowsPred != 0 entraine 
-  // un collapse de la hauteur de grille qui n'est pas corrigé par les appels ultérieurs.
-  if (gridId === 'grid-programmables') {
-    // if (nbRows == 0 && nbRowsPred != 0) h = null;
-  }
-  
-  if (gridId === 'grid-programmables') {
-    console.log(`${gridId} calls ${autoSizePanelFromRowCountCalls++} h ${h} displayable ${visibleRowsInPane(pane, gridEl)} nbRows ${nbRows}, nbRowsP ${nbRowsPred}  maxR ${maxRows}`);
-  }
+  // if (gridId === 'grid-programmables') {
+  //   console.log(`${gridId} calls ${autoSizePanelFromRowCountCalls++} h ${h} displayable ${visibleRowsInPane(pane, gridEl)} nbRows ${nbRows}, nbRowsP ${nbRowsPred}  maxR ${maxRows}`);
+  // }
   
   if (h == null) return;
 

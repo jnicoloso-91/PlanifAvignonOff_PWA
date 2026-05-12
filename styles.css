@@ -3348,40 +3348,6 @@ input[type="range"]:focus::-moz-range-thumb {
    Mini menus
   =========================*/
 
-/* 
-.mini-menu-pop{
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 6px;
-  box-shadow: 0 6px 24px rgba(0,0,0,.18);
-  min-width: 220px;
-  touch-action: manipulation;
-}
-
-.mini-menu-item{
-  width:100%;
-  border:none;
-  background:none;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
-  border-radius:8px;
-  cursor:pointer;
-  text-align:left;
-}
-
-.mini-menu-item:hover{
-  background: rgba(120,120,120,.10);
-}
-
-.mini-menu-item:disabled{
-  opacity:.45;
-  cursor:default;
-}
- */
-
  .mini-menu-pop{
   position: fixed;
   z-index: 10000;
@@ -3448,4 +3414,59 @@ input[type="range"]:focus::-moz-range-thumb {
   justify-content:center;
 
   font-size: .95rem;
+}
+
+
+/*=========================
+   openConfirmDialog
+  =========================*/
+
+.bb-dialog-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  background: rgba(0,0,0,.28);
+}
+
+.bb-dialog{
+  min-width: 320px;
+  max-width: min(92vw, 420px);
+
+  background: var(--card-bg, #fff);
+
+  border-radius: 14px;
+
+  box-shadow:
+    0 10px 32px rgba(0,0,0,.22);
+
+  padding: 16px;
+}
+
+.bb-dialog-title{
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.bb-dialog-body{
+  font-size: .92rem;
+  line-height: 1.35;
+  opacity: .9;
+}
+
+.bb-dialog-actions{
+  display:flex;
+  justify-content:center;
+  gap: 8px;
+
+  margin-top: 18px;
+}
+
+.bb-dialog-actions .bb-btn{
+  min-width:100px;
 }
