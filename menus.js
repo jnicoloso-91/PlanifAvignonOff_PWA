@@ -29,6 +29,7 @@ import {
 import { 
   ctx,
   activitesAPI,
+  contextState,
 } from './app.js'; 
 
 import { 
@@ -1966,8 +1967,23 @@ async function doNouveauProgramme() {
 
 let pendingFileMode = 'import';
 
+async function maybeExportBeforeImport() {
+  if (!contextState.modified) return true;
+
+  const ok = window.confirm(
+    "Le contexte courant a été modifié.\n\nVoulez-vous le sauvegarder avant d'importer un nouveau fichier ?"
+  );
+
+  if (ok) {
+    await doExportExcel();
+  }
+
+  return true;
+}
+
 // Import Excel
 async function doImportExcel() {
+  await maybeExportBeforeImport();
   // déclenche l’input caché en mode import
   pendingFileMode = 'import';
   const fi = $('fileInput');
@@ -2129,6 +2145,8 @@ async function doExportExcel() {
     }
 
     XLSX.writeFile(wb, 'In & Off.xlsx');
+    contextState.modified = false;
+
   } catch (e) {
     console.error(e);
     alert('❌ Export KO');

@@ -38,8 +38,10 @@ import { logToPage } from './debug.js';
 
 export let ctx = null;
 export let activitesAPI = null;
+export const contextState = { modified: false };
 
 // === DEBUG PREVENT DEFAULT ===
+// ===    A Conserver...     ===
 // const DBG_PREVENT_KEY = Symbol.for("dbgPreventDefaultInstalled");
 
 // (function debugPreventDefault() {
@@ -124,6 +126,7 @@ function wireContext() {
 
   ctx.on('df:changed',        () => {
     refreshActivitesGrids(); 
+    contextState.modified = true;
   });
 
   // ctx.on('carnet:changed',    () => {
