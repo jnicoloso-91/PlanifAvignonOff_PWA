@@ -601,7 +601,7 @@ main, .page-wrap {
 }
 
 /* Caption */
-.v-expander__caption {
+/* .v-expander__caption {
   flex: 1 1 auto;
   min-width: 0;
 
@@ -613,6 +613,19 @@ main, .page-wrap {
   text-overflow: ellipsis;
 
   padding-left: .5rem;
+} */
+.v-expander__caption {
+  position: absolute;
+  left: .5rem;
+  right: calc(50% + 60px); /* laisse la place au handle centré */
+
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  font-size: .7rem;
+  opacity: .72;
 }
 
 /* Poignée : zone tactile large et au centre */
