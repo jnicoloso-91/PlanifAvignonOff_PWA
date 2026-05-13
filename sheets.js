@@ -7532,7 +7532,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       if (!expEl) return;
 
       expEl.scrollIntoView({
-        behavior: "auto",   // ou "auto" instantané
+        behavior: "smooth",   // ou "auto" instantané
         block: "nearest",     // "start" | "center" | "end" | "nearest"
       });
     }
