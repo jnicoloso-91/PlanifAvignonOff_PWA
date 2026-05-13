@@ -7555,8 +7555,8 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
   openSheetExclusive({
     title,
-    panelHeight: "70vh",
-    panelMaxHeight: "80vh",
+    panelHeight: "55vh",
+    panelMaxHeight: "55vh",
     mount: (body, { close }) => {
       body.innerHTML = `
         <div class="sheet-body--search">
