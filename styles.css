@@ -3370,7 +3370,7 @@ input[type="range"]:focus::-moz-range-thumb {
   align-items: center;
   gap: 6px;
 
-  font-size: small;
+  font-size: .9rem;
   font-weight: 500;
   color: inherit;
 
