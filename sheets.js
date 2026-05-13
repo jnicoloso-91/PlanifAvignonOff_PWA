@@ -4280,7 +4280,7 @@ export function openSheetAssistantProgrammation() {
       <li>L'<u><i>Assistant programmation</u></i> vous permet de générer automatiquement un programme de spectacles en donnant vos préférences par texte libre 
       et/ou en sélectionnant des critères de dates, horaires, nombre de spectacles par jour, prise en compte ou non du filtrage 
       courant sur le stock, mots clefs portant sur le style, le ton, les auteurs, les acteurs, valeurs de marqueurs sur vos favoris.</li>
-      <li>Si vous sélectionnez plusieurs styles de spectacles, vous pouvez doser les pourcentages respectifs de chaque style avec la rubrique <u><i>Dosage des styles</i></u>. 
+      <li>Si vous sélectionnez plusieurs styles de spectacles, vous pouvez doser les pourcentages respectifs de chaque style avec la rubrique <u><i>Dosage des styles</i></u></li>. 
       <li>Le programmateur attribue à chaque spectacle une note qualifiant son adéquation à vos préférences données par texte libre. 
       La rubrique <u><i>Inluence de la note</u></i> permet de doser l'influence de cette note dans le choix des spectacles sélectionnés par le programmateur.</li>
       <li>Après avoir renseigné vos critères, appuyez sur le bouton <u><i>Générer</i></u> pour générer une première solution de programme correspondant à ces critères.</li>
@@ -7995,8 +7995,19 @@ export function openSheetImportProgram(selectedByDay, addedCount) {
 
   }
 
+  const textInfo = `
+    <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+      <li>L'ensemble du programme importé est affiché en distinguant les activités importables (celles compatibles avec votre programme courant) de celles qui ne le sont pas
+      (affichées en grisé).</li>
+      <li>Vous pouvez sélectionner ou désélectionner les activités importables, soit individuallement (boutons à gauche des noms d'activités), soit globalement (boutons <u><i>Tous désélectionner</u></i> et <u><i>Tous sélectionner</u></i>).</li>
+      <li>Vous pouvez aller sur la page détail des catalogues en cliquant sur le nom de l'activité, ou afficher des informations complémentaires sur une activité avec le bouton <u><i>i</u></i>.</li>
+      <li>Une fois les activités à importer sélectionnées, appuyez sur le bouton <u><i>Importer</u></i> pour les importer dans votre programme courant ou sur le bouton <u><i>Annuler</u></i> pour annuler.</li>
+    </ul>
+  `;
+
   openSheetExclusive({
-    title: "Programme importé",
+    title: "Sélection des activités à importer",
+    textInfo: textInfo,
     panelHeight: "auto",
     panelMaxHeight: "85vh",
     mount: (body, { close }) => {
@@ -8012,7 +8023,7 @@ export function openSheetImportProgram(selectedByDay, addedCount) {
         <div class="sheet-footer has-border">
           <div class="form-actions">
             <button class="bb-btn" id="btn-import-prog-cancel">Annuler</button>
-            <button class="bb-btn is-primary" id="btn-import-prog-apply">Appliquer</button>
+            <button class="bb-btn is-primary" id="btn-import-prog-apply">Importer</button>
           </div>
         </div>
       `;

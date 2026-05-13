@@ -3370,7 +3370,7 @@ input[type="range"]:focus::-moz-range-thumb {
   align-items: center;
   gap: 6px;
 
-  font-size: smaller;
+  font-size: small;
   font-weight: 500;
   color: inherit;
 
@@ -3378,7 +3378,7 @@ input[type="range"]:focus::-moz-range-thumb {
   cursor: pointer;
 
   border: 1px solid #ccc;
-  min-width: 120px;
+  min-width: 130px;
   justify-content: center;
   padding: 6px;
   margin: 6px;
