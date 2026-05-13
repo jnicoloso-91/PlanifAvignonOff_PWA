@@ -84,7 +84,7 @@ import {
   openSheetImportBilletReduc,
   openSheetInfosPlus,
   openSheetSearch,
-  openSheetImportProgram,
+  openSheetSelectInProgram,
 } from './sheets.js';
 
 import {
@@ -849,6 +849,50 @@ async function importContextFromXlsxFile(f, {add=false} = {}) {
 async function importProgramFromXlsxFile(f) {
   if (!f) return;
 
+  function programImportKey(r) {
+    return [
+      r?.Activite,
+      r?.Debut,
+      r?.Lieu,
+      r?.Session
+    ].map(v => String(v ?? "").trim()).join("||");
+  }
+
+  function mergeProgramRowsIntoDf(currentRows, importRows) {
+    const importedByKey = new Map();
+
+    for (const r of importRows || []) {
+      importedByKey.set(programImportKey(r), r);
+    }
+
+    const next = [];
+    const alreadyPresent = new Set();
+
+    for (const r of currentRows || []) {
+      const key = programImportKey(r);
+      const imported = importedByKey.get(key);
+
+      if (!imported) {
+        next.push(r);
+        continue;
+      }
+
+      alreadyPresent.add(key);
+
+      next.push({
+        ...r,
+        Date: imported.Date
+      });
+    }
+
+    for (const [key, imported] of importedByKey.entries()) {
+      if (alreadyPresent.has(key)) continue;
+      next.push(imported);
+    }
+
+    return sortDf(next);
+  }
+
   try {
     overlayAttente.hidden = false;
 
@@ -863,7 +907,23 @@ async function importProgramFromXlsxFile(f) {
       return;
     }
 
-    openSheetImportProgram(selectedByDay, addedCount);
+    const textInfo = `
+      <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+        <li>L'ensemble du programme importé est affiché en distinguant les activités importables (celles compatibles avec votre programme courant) de celles qui ne le sont pas
+        (affichées en grisé).</li>
+        <li>Vous pouvez sélectionner ou désélectionner les activités importables, soit individuallement (boutons à gauche des noms d'activités), soit globalement (boutons <u><i>Tous désélectionner</u></i> et <u><i>Tous sélectionner</u></i>).</li>
+        <li>Vous pouvez aller sur la page détail des catalogues en cliquant sur le nom de l'activité, ou afficher des informations complémentaires sur une activité avec le bouton <u><i>i</u></i>.</li>
+        <li>Une fois les activités à importer sélectionnées, appuyez sur le bouton <u><i>Importer</u></i> pour les importer dans votre programme courant ou sur le bouton <u><i>Annuler</u></i> pour annuler.</li>
+      </ul>
+    `;
+
+    const rowsToImport =  await openSheetSelectInProgram(selectedByDay, addedCount, { title:"Sélection des activités à importer", qualifier:"importable", textInfo, applyLabel:"Importer" });
+
+    if (!rowsToImport.length) return;
+
+    ctx.mutateDf(rows =>
+      mergeProgramRowsIntoDf(rows, rowsToImport)
+    );
 
   } catch (e) {
     alert("Échec import programme : " + e.message);
@@ -2300,24 +2360,58 @@ function chooseIcsExportMode() {
 
 // Export du programme (complet ou activité sélectionnée) au format Ics
 async function doExportIcs() {
-  const choice = await chooseIcsExportMode();
+  try {
+    // overlayAttente.hidden = false;
 
-  if (choice === "full") {
-    return exportIcs();
+    const filteredRows = [];
+    window.grids?.get('grid-programmees').api.forEachNodeAfterFilterAndSort(node => {
+      filteredRows.push(node.data);
+    });  
+    const rows = activitesAPI.getActivitesProgrammees(filteredRows)
+    const selectedByDay = selectedByDayFromProgramRows(rows);
+
+    const addedCount = Array.from(selectedByDay.values())
+      .reduce((n, slots) => n + slots.length, 0);
+
+    if (!addedCount) {
+      alert("Aucune activité programmée à exporter.");
+      return;
+    }
+
+    const textInfo = `
+      <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
+        <li>Cette fenêtre affiche votre programme d'activités tel que filtré dans la rubrique <u><i>Programme</u></i>.</li>
+        <li>Vous pouvez sélectionner ou désélectionner les activités à exporter, soit individuallement (boutons à gauche des noms d'activités), soit globalement (boutons <u><i>Tous désélectionner</u></i> et <u><i>Tous sélectionner</u></i>).</li>
+        <li>Vous pouvez aller sur la page détail des catalogues en cliquant sur le nom de l'activité, ou afficher des informations complémentaires sur une activité avec le bouton <u><i>i</u></i>.</li>
+        <li>Une fois les activités à exporter sélectionnées, appuyez sur le bouton <u><i>Exporter</u></i> pour les exporter dans votre calendrier ou sur le bouton <u><i>Annuler</u></i> pour annuler.</li>
+      </ul>
+    `;
+
+    const rowsToExport =  await openSheetSelectInProgram(selectedByDay, addedCount, { title:"Sélection des activités à exporter", qualifier:"exportable", textInfo, applyLabel:"Exporter", checkCompatibility:false });
+
+    if (!rowsToExport.length) return;
+
+    rowsToICS(rowsToExport);
+
+  } catch (e) {
+    alert("Échec export programme : " + e.message);
+  } finally {
+    overlayAttente.hidden = true;
   }
 
-  if (choice === "selected") {
-    return exportIcsSelected();
-  }
 }
 
-// Export du programme complet au format Ics
-async function exportIcs() {
-  const filteredRows = [];
-  window.grids?.get('grid-programmees').api.forEachNodeAfterFilterAndSort(node => {
-    filteredRows.push(node.data);
-  });  
-  rowsToICS(activitesAPI.getActivitesProgrammees(filteredRows));
+// Export d'un tableau d'activités au format Ics
+// Par defaut export du programme d'activités courant filtré
+async function exportIcs(df=null) {
+  if (!df) {
+    const filteredRows = [];
+    window.grids?.get('grid-programmees').api.forEachNodeAfterFilterAndSort(node => {
+      filteredRows.push(node.data);
+    });  
+    df = activitesAPI.getActivitesProgrammees(filteredRows)
+  }
+  rowsToICS(df);
 }
 
 // Export de l'activité programmée sélectionnée au format Ics

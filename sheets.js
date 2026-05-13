@@ -7799,36 +7799,36 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 }
 
 // Preview d'un programme d'activités
-export function openSheetImportProgram(selectedByDay, addedCount) {
+export async function openSheetSelectInProgram(selectedByDay, addedCount, { title="Sélection des activités", qualifier=null, textInfo=null, applyLabel="Appliquer", checkCompatibility=true } = {}) {
   const excludedKeys = new Set();
 
-  // Présentation du programme d'activités importé
   function summarizeProgram(selectedByDay, addedCount, { excludedKeys = new Set() } = {}) {
     if (!addedCount) {
       return `<p>Aucune activité programmée dans ce fichier.</p>`;
     }
 
     const parts = [];
-    const totalSuffix = addedCount > 1 ? ' activités importables dont ' : ' activité importable dont ';
-    const selectedSuffix = addedCount > 1 ? ' sélectionnées' : ' sélectionnée';
+    qualifier = qualifier ? ` ${qualifier.trim()}` : "";
+    const totalSuffix = (addedCount > 1 && qualifier) ? ` activités${qualifier}s dont ` : ` activité${qualifier} dont `;
+    const selectedSuffix = addedCount > 1 ? ` sélectionnées` : ` sélectionnée`;
     parts.push(
-      `<div class ="import-prog-sticky-head">
-        <div class="import-prog-summary">
-          ✅ <span id="import-prog-count-total">${addedCount}</span>
-          <span id="import-prog-count-total-suffix">${totalSuffix}</span>
-          <span id="import-prog-count-selected">${addedCount}</span>
-          <span id="import-prog-count-selected-suffix">${selectedSuffix}</span>
+      `<div class ="select-prog-sticky-head">
+        <div class="select-prog-summary">
+          ✅ <span id="select-prog-count-total">${addedCount}</span>
+          <span id="select-prog-count-total-suffix">${totalSuffix}</span>
+          <span id="select-prog-count-selected">${addedCount}</span>
+          <span id="select-prog-count-selected-suffix">${selectedSuffix}</span>
         </div>
 
-        <div class="import-prog-toolbar-actions">
+        <div class="select-prog-toolbar-actions">
           <button type="button"
                   class="exp-toolbar-btn"
-                  id="btn-import-prog-none">
+                  id="btn-select-prog-none">
             <span>Tout désélectionner</span>
           </button>
           <button type="button"
                   class="exp-toolbar-btn"
-                  id="btn-import-prog-all">
+                  id="btn-select-prog-all">
             <span>Tout sélectionner</span>
           </button>
         </div>
@@ -7934,16 +7934,7 @@ export function openSheetImportProgram(selectedByDay, addedCount) {
     return parts.join("");
   }
 
-  function programImportKey(r) {
-    return [
-      r?.Activite,
-      r?.Debut,
-      r?.Lieu,
-      r?.Session
-    ].map(v => String(v ?? "").trim()).join("||");
-  }
-
-  function getDisabledImportedSlotKeys(selectedByDay) {
+  function getDisabledSlotKeys(selectedByDay) {
     const disabled = new Set();
 
     for (const [dayInt, slots] of selectedByDay.entries()) {
@@ -7960,8 +7951,8 @@ export function openSheetImportProgram(selectedByDay, addedCount) {
     return disabled;
   }
 
-  function applyImportedProgramToCurrentDf(selectedByDay, excludedKeys, disabledKeys) {
-    const dateByKey = new Map();
+  function getSelectedProgramRows(selectedByDay, excludedKeys, disabledKeys) {
+    const out = [];
 
     for (const [dayInt, slots] of selectedByDay.entries()) {
       for (const slot of slots || []) {
@@ -7973,155 +7964,141 @@ export function openSheetImportProgram(selectedByDay, addedCount) {
         const r = slot.row;
         if (!r) continue;
 
-        dateByKey.set(programImportKey(r), dayInt);
+        out.push({
+          ...r,
+          Date: dayInt
+        });
       }
     }
 
-    if (!dateByKey.size) return;
-
-    ctx.mutateDf(rows => {
-      const next = (rows || []).map(r => {
-        const d = dateByKey.get(programImportKey(r));
-        if (!d) return r;
-
-        return {
-          ...r,
-          Date: d
-        };
-      });
-
-      return sortDf(next);
-    });
-
+    return sortDf(out);
   }
 
-  const textInfo = `
-    <ul style="padding-left: 1rem; margin-top: 0em; margin-bottom: 1em">
-      <li>L'ensemble du programme importé est affiché en distinguant les activités importables (celles compatibles avec votre programme courant) de celles qui ne le sont pas
-      (affichées en grisé).</li>
-      <li>Vous pouvez sélectionner ou désélectionner les activités importables, soit individuallement (boutons à gauche des noms d'activités), soit globalement (boutons <u><i>Tous désélectionner</u></i> et <u><i>Tous sélectionner</u></i>).</li>
-      <li>Vous pouvez aller sur la page détail des catalogues en cliquant sur le nom de l'activité, ou afficher des informations complémentaires sur une activité avec le bouton <u><i>i</u></i>.</li>
-      <li>Une fois les activités à importer sélectionnées, appuyez sur le bouton <u><i>Importer</u></i> pour les importer dans votre programme courant ou sur le bouton <u><i>Annuler</u></i> pour annuler.</li>
-    </ul>
-  `;
-
-  openSheetExclusive({
-    title: "Sélection des activités à importer",
-    textInfo: textInfo,
-    panelHeight: "auto",
-    panelMaxHeight: "85vh",
-    mount: (body, { close }) => {
-      body.innerHTML = `
-        <div class="form">
-          <div id="import-prog-response-box"
-               class="ai-response-box"
-               style="width:100%;">
-            <div id="import-prog-response" class="ai-response-bubble"></div>
+  return new Promise((resolve) => {
+    openSheetExclusive({
+      title,
+      textInfo,
+      panelHeight: "auto",
+      panelMaxHeight: "85vh",
+      mount: (body, { close }) => {
+        body.innerHTML = `
+          <div class="form">
+            <div id="select-prog-response-box"
+                class="ai-response-box"
+                style="width:100%;">
+              <div id="select-prog-response" class="ai-response-bubble"></div>
+            </div>
           </div>
-        </div>
 
-        <div class="sheet-footer has-border">
-          <div class="form-actions">
-            <button class="bb-btn" id="btn-import-prog-cancel">Annuler</button>
-            <button class="bb-btn is-primary" id="btn-import-prog-apply">Importer</button>
+          <div class="sheet-footer has-border">
+            <div class="form-actions">
+              <button class="bb-btn" id="btn-select-prog-cancel">Annuler</button>
+              <button class="bb-btn is-primary" id="btn-select-prog-apply">${applyLabel}</button>
+            </div>
           </div>
-        </div>
-      `;
+        `;
 
-      const elResp = body.querySelector("#import-prog-response");
-      elResp.innerHTML = summarizeProgram(selectedByDay, addedCount, { excludedKeys });
+        const elResp = body.querySelector("#select-prog-response");
+        elResp.innerHTML = summarizeProgram(selectedByDay, addedCount, { excludedKeys });
 
-      const disabledKeys = getDisabledImportedSlotKeys(selectedByDay);
+        function refreshImportSelectionUI() {
+          const selectableInputs = [...elResp.querySelectorAll(".prog-toggle-input:not(:disabled)")];
+          const selectedInputs = selectableInputs.filter(i => i.checked);
 
-      function refreshImportSelectionUI() {
-        const selectableInputs = [...elResp.querySelectorAll(".prog-toggle-input:not(:disabled)")];
-        const selectedInputs = selectableInputs.filter(i => i.checked);
+          const totalEl = elResp.querySelector("#select-prog-count-total");
+          const selectedEl = elResp.querySelector("#select-prog-count-selected");
 
-        const totalEl = elResp.querySelector("#import-prog-count-total");
-        const selectedEl = elResp.querySelector("#import-prog-count-selected");
+          if (totalEl) totalEl.textContent = String(selectableInputs.length);
+          if (selectedEl) selectedEl.textContent = String(selectedInputs.length);
 
-        if (totalEl) totalEl.textContent = String(selectableInputs.length);
-        if (selectedEl) selectedEl.textContent = String(selectedInputs.length);
+          const totalSuffixEl = elResp.querySelector("#select-prog-count-total-suffix");
+          const selectedSuffixEl = elResp.querySelector("#select-prog-count-selected-suffix");
 
-        const totalSuffixEl = elResp.querySelector("#import-prog-count-total-suffix");
-        const selectedSuffixEl = elResp.querySelector("#import-prog-count-selected-suffix");
+          const totalSuffix = selectableInputs.length > 1 ? ` activités${qualifier}s dont ` : ` activité${qualifier} dont `;
+          const selectedSuffix = selectedInputs.length > 1 ? ` sélectionnées` : ` sélectionnée`;
+          
+          if (totalSuffixEl) totalSuffixEl.textContent = totalSuffix;
+          if (selectedSuffixEl) selectedSuffixEl.textContent = selectedSuffix;
+          
+        }
 
-        const totalSuffix = selectableInputs.length > 1 ? ' activités importables dont ' : ' activité importable dont ';
-        const selectedSuffix = selectedInputs.length > 1 ? ' sélectionnées' : ' sélectionnée';
-        
-        if (totalSuffixEl) totalSuffixEl.textContent = totalSuffix;
-        if (selectedSuffixEl) selectedSuffixEl.textContent = selectedSuffix;
-        
-      }
+        function syncExcludedKeysFromUI() {
+          elResp.querySelectorAll(".prog-row").forEach(li => {
+            const key = li.dataset.slotKey;
+            const input = li.querySelector(".prog-toggle-input");
+            if (!key || !input || input.disabled) return;
 
-      function syncExcludedKeysFromUI() {
-        elResp.querySelectorAll(".prog-row").forEach(li => {
-          const key = li.dataset.slotKey;
-          const input = li.querySelector(".prog-toggle-input");
-          if (!key || !input || input.disabled) return;
+            if (input.checked) excludedKeys.delete(key);
+            else excludedKeys.add(key);
+          });
+        }
+
+        let disabledKeys = new Set();
+        if (checkCompatibility) {
+          disabledKeys = getDisabledSlotKeys(selectedByDay);
+
+          for (const key of disabledKeys) {
+            const li = elResp.querySelector(`.prog-row[data-slot-key="${CSS.escape(key)}"]`);
+            if (!li) continue;
+
+            li.classList.add("is-disabled");
+
+            const input = li.querySelector(".prog-toggle-input");
+            if (input) {
+              input.checked = false;
+              input.disabled = true;
+            }
+          }
+
+          syncExcludedKeysFromUI();
+          refreshImportSelectionUI();
+        }
+
+        body.querySelector("#btn-select-prog-cancel")?.addEventListener("click", () => {
+          close()
+          resolve([]);
+        });
+
+        body.querySelector("#btn-select-prog-apply")?.addEventListener("click", () => {
+          const rowsToImport = getSelectedProgramRows(selectedByDay, excludedKeys,disabledKeys);
+          close();
+          resolve(rowsToImport);
+        });
+
+        body.querySelector("#btn-select-prog-none")?.addEventListener("click", () => {
+          elResp.querySelectorAll(".prog-toggle-input:not(:disabled)").forEach(input => {
+            input.checked = false;
+          });
+
+          syncExcludedKeysFromUI();
+          refreshImportSelectionUI();
+        });
+
+        body.querySelector("#btn-select-prog-all")?.addEventListener("click", () => {
+          elResp.querySelectorAll(".prog-toggle-input:not(:disabled)").forEach(input => {
+            input.checked = true;
+          });
+
+          syncExcludedKeysFromUI();
+          refreshImportSelectionUI();
+        });
+
+        elResp.addEventListener("change", (e) => {
+          const input = e.target.closest(".prog-toggle-input");
+          if (!input) return;
+
+          const li = input.closest(".prog-row");
+          const key = li?.dataset.slotKey;
+          if (!key) return;
 
           if (input.checked) excludedKeys.delete(key);
           else excludedKeys.add(key);
+
+          refreshImportSelectionUI();
         });
+
       }
-
-      for (const key of disabledKeys) {
-        const li = elResp.querySelector(`.prog-row[data-slot-key="${CSS.escape(key)}"]`);
-        if (!li) continue;
-
-        li.classList.add("is-disabled");
-
-        const input = li.querySelector(".prog-toggle-input");
-        if (input) {
-          input.checked = false;
-          input.disabled = true;
-        }
-      }
-
-      syncExcludedKeysFromUI();
-      refreshImportSelectionUI();
-
-      body.querySelector("#btn-import-prog-cancel")
-        ?.addEventListener("click", () => close());
-
-      body.querySelector("#btn-import-prog-apply")?.addEventListener("click", () => {
-        applyImportedProgramToCurrentDf(selectedByDay, excludedKeys, disabledKeys);
-        close();
-      });
-
-      body.querySelector("#btn-import-prog-none")?.addEventListener("click", () => {
-        elResp.querySelectorAll(".prog-toggle-input:not(:disabled)").forEach(input => {
-          input.checked = false;
-        });
-
-        syncExcludedKeysFromUI();
-        refreshImportSelectionUI();
-      });
-
-      body.querySelector("#btn-import-prog-all")?.addEventListener("click", () => {
-        elResp.querySelectorAll(".prog-toggle-input:not(:disabled)").forEach(input => {
-          input.checked = true;
-        });
-
-        syncExcludedKeysFromUI();
-        refreshImportSelectionUI();
-      });
-
-      elResp.addEventListener("change", (e) => {
-        const input = e.target.closest(".prog-toggle-input");
-        if (!input) return;
-
-        const li = input.closest(".prog-row");
-        const key = li?.dataset.slotKey;
-        if (!key) return;
-
-        if (input.checked) excludedKeys.delete(key);
-        else excludedKeys.add(key);
-
-        refreshImportSelectionUI();
-      });
-
-    }
+    });
   });
 }
 

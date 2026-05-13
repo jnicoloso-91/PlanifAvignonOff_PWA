@@ -3289,29 +3289,29 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 /*=========================
-   Import programme
+   Sheet Selection dans Programme
   =========================*/
 
-#import-prog-response {
+#select-prog-response {
   overscroll-behavior-x: none;
   touch-action: pan-y;
 }
-#import-prog-response .prog-day-list,
-#import-prog-response .prog-row {
+#select-prog-response .prog-day-list,
+#select-prog-response .prog-row {
   white-space: normal;
 }
 
-#import-prog-response .prog-row.is-disabled {
+#select-prog-response .prog-row.is-disabled {
   opacity: 0.35;
   filter: grayscale(1);
 }
 
-#import-prog-response .prog-row.is-disabled .prog-link,
-#import-prog-response .prog-row.is-disabled .prog-title {
+#select-prog-response .prog-row.is-disabled .prog-link,
+#select-prog-response .prog-row.is-disabled .prog-title {
   pointer-events: none;
 }
 
-.import-prog-sticky-head {
+.select-prog-sticky-head {
   position: sticky;
   top: 0;
   z-index: 20;
@@ -3323,7 +3323,7 @@ input[type="range"]:focus::-moz-range-thumb {
   white-space: normal;
 }
 
-.import-prog-sticky-head::before {
+.select-prog-sticky-head::before {
   content: "";
   position: absolute;
   inset: -12px -12px -5px -12px;
@@ -3333,7 +3333,7 @@ input[type="range"]:focus::-moz-range-thumb {
   border-bottom: 1px solid #ccc;
 }
 
-.import-prog-sticky-head .import-prog-summary {
+.select-prog-sticky-head .select-prog-summary {
   margin: 0;
   padding-top: 8px;
   padding-bottom: 0px;
@@ -3342,7 +3342,7 @@ input[type="range"]:focus::-moz-range-thumb {
   background: var(--bg); 
 }
 
-.import-prog-sticky-head .import-prog-toolbar {
+.select-prog-sticky-head .select-prog-toolbar {
   position: static; /* important : plus de sticky interne */
   margin: 0;
   padding: 0;
@@ -3354,7 +3354,7 @@ input[type="range"]:focus::-moz-range-thumb {
   gap: 10px;
 }
 
-.import-prog-toolbar-actions {
+.select-prog-toolbar-actions {
   display: flex;
   justify-content: center;
   gap: 18px;
