@@ -2093,7 +2093,7 @@ export function openSheetAide() {
               <li><u><i>Filtrer</u></i> : permet de filtrer les plages libres selon la valeur des colonnes de plages libres.</li>
             </ul>
 
-            <h4>Boutons de la rubrique Programmer...</h4>
+            <h4>Boutons de la rubrique Candidats</h4>
             <ul>
               <li><u><i>Programmer</u></i> : insère dans le programme l'activité sélectionnée dans le tableau des activités programmables.</li>
               <li><u><i>Filtrer</u></i> : permet de filtrer les activités programmables selon la valeur des colonnes d'activités.</li>
@@ -2124,10 +2124,10 @@ export function openSheetAide() {
                       <li>soit en choisissant un marqueur sur Filtre avec le bouton <u><i>Favori</u></i> pour mettre un marqueur sur toutes les activités filtrées</li>
                       <li>soit en choisissant un marqueur sur Sélection avec le bouton <u><i>Favori</u></i> pour mettre un marqueur sur la seule activité sélectionnée.</li>
                     </ul>
-                  <li>Filtrez les activités de la rubrique <u><i>Programmer...</u></i> selon vos favoris, en filtrant la colonne <u><i>Marqueur</u></i> selon les valeurs 
+                  <li>Filtrez les activités de la rubrique <u><i>Candidats</u></i> selon vos favoris, en filtrant la colonne <u><i>Marqueur</u></i> selon les valeurs 
                   de marqueurs correspondant à vos favoris.</li>
                   <li>Choisissez une plage libre dans la rubrique <u><i>Plages libres</u></i>.</li>
-                  <li>Choisissez une activité dans la rubrique <u><i>Programmer...</u></i> et appuyez sur le bouton <u><i>Programmer</u></i>.</li>
+                  <li>Choisissez une activité dans la rubrique <u><i>Candidats</u></i> et appuyez sur le bouton <u><i>Programmer</u></i>.</li>
                   <li>Et ainsi de suite...</li>
                   <li>Si vous souhaitez garder en option plusieurs activités sur le même créneau horaire, précédez d'un tiret le marqueur de l'activité que vous souhaitez rendre chevauchable  
                   (i.e. celle pour laquelle vous souhaitez programmer des activités en coactivité).</li>

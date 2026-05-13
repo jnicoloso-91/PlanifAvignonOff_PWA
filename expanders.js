@@ -548,12 +548,21 @@ export function wireExpanders(){
   });
 }
 
+let addMenuPopover = null;
+
 function openMenuAjouter(btnId) {
 
   const btnAjouter = document.getElementById(btnId); 
   if (!btnAjouter) return;
 
-  openPopoverMenu(btnAjouter, {
+  // Menu deja ouvert -> on le ferme
+  if (addMenuPopover) {
+    addMenuPopover.close?.();
+    addMenuPopover = null;
+    return;
+  }
+
+  addMenuPopover = openPopoverMenu(btnAjouter, {
     items: [
 
       {
@@ -573,17 +582,30 @@ function openMenuAjouter(btnId) {
           if (row) duplicateActivite?.(row);
         }
       }
-
-    ]
+    ],
+    onClose: () => {
+      addMenuPopover = null;
+    }
   });
 
 }
 
-function openPopoverMenu(anchorEl, { items = [] } = {}) {
+function openPopoverMenu(anchorEl, { items = [], onClose = null } = {}) {
   document.querySelector(".mini-menu-pop")?.remove();
 
   const pop = document.createElement("div");
   pop.className = "mini-menu-pop";
+
+  let closeHandler = null;
+
+  function closeMenu() {
+    pop.remove();
+    if (closeHandler) {
+      document.removeEventListener("pointerdown", closeHandler, true);
+      closeHandler = null;
+    }
+    onClose?.();
+  }
 
   items.forEach((it) => {
     const btn = document.createElement("button");
@@ -602,7 +624,7 @@ function openPopoverMenu(anchorEl, { items = [] } = {}) {
 
       if (btn.disabled) return;
 
-      pop.remove();
+      closeMenu();
       it.action?.();
     });
 
@@ -624,15 +646,22 @@ function openPopoverMenu(anchorEl, { items = [] } = {}) {
   pop.style.top = `${top}px`;
 
   requestAnimationFrame(() => {
-    const close = (ev) => {
-      if (!pop.contains(ev.target) && ev.target !== anchorEl) {
-        pop.remove();
-        document.removeEventListener("pointerdown", close, true);
+    closeHandler = (ev) => {
+      const target = ev.target instanceof Node ? ev.target : null;
+      if (!target) return;
+
+      if (!pop.contains(target) && !anchorEl.contains(target)) {
+        closeMenu();
       }
     };
 
-    document.addEventListener("pointerdown", close, true);
+    document.addEventListener("pointerdown", closeHandler, true);
   });
+
+  return {
+    close: closeMenu,
+    el: pop
+  };
 }
 
 export function wireExpanderButtons() {
