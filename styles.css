@@ -3292,6 +3292,10 @@ input[type="range"]:focus::-moz-range-thumb {
    Import programme
   =========================*/
 
+#import-prog-response {
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
+}
 #import-prog-response .prog-day-list,
 #import-prog-response .prog-row {
   white-space: normal;
@@ -3306,25 +3310,6 @@ input[type="range"]:focus::-moz-range-thumb {
 #import-prog-response .prog-row.is-disabled .prog-title {
   pointer-events: none;
 }
-
-/* .import-prog-summary {
-  margin-top: 10px;
-  margin-bottom: 20px;
-  margin-left: 0;
-  white-space: normal;
-  position: sticky;
-}
-
-.import-prog-toolbar.sheet-footer {
-  position: sticky;
-  top: 0;
-  z-index: 5; */
-
-  /* padding: 6px 0 10px;
-  margin-bottom: 6px;
-
-  background: var(--sheet-bg, #fff); */
-/* } */
 
 .import-prog-sticky-head {
   position: sticky;
