@@ -84,7 +84,7 @@ import {
   openSheetImportBilletReduc,
   openSheetInfosPlus,
   openSheetSearch,
-  openSheetProgramPreview,
+  openSheetImportProgram,
 } from './sheets.js';
 
 import {
@@ -863,7 +863,7 @@ async function importProgramFromXlsxFile(f) {
       return;
     }
 
-    openSheetProgramPreview(selectedByDay, addedCount);
+    openSheetImportProgram(selectedByDay, addedCount);
 
   } catch (e) {
     alert("Échec import programme : " + e.message);

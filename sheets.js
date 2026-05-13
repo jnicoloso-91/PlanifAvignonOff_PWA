@@ -7799,17 +7799,41 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 }
 
 // Preview d'un programme d'activités
-export function openSheetProgramPreview(selectedByDay, addedCount) {
+export function openSheetImportProgram(selectedByDay, addedCount) {
   const excludedKeys = new Set();
 
   // Présentation du programme d'activités importé
   function summarizeProgram(selectedByDay, addedCount, { excludedKeys = new Set() } = {}) {
     if (!addedCount) {
-      return `<p>Aucune activité supplémentaire ne peut être proposée avec ces hypothèses.</p>`;
+      return `<p>Aucune activité programmée dans ce fichier.</p>`;
     }
 
     const parts = [];
-    parts.push((addedCount == 1) ? `<p>✅ ${addedCount} nouvelle activité sélectionnée:</p>` : `<p>✅ ${addedCount} nouvelles activités sélectionnées:</p>` );
+    const totalSuffix = addedCount > 1 ? ' activités importables dont ' : ' activité importable dont ';
+    const selectedSuffix = addedCount > 1 ? ' sélectionnées' : ' sélectionnée';
+    parts.push(
+      `<div class ="import-prog-sticky-head">
+        <div class="import-prog-summary">
+          ✅ <span id="import-prog-count-total">${addedCount}</span>
+          <span id="import-prog-count-total-suffix">${totalSuffix}</span>
+          <span id="import-prog-count-selected">${addedCount}</span>
+          <span id="import-prog-count-selected-suffix">${selectedSuffix}</span>
+        </div>
+
+        <div class="import-prog-toolbar-actions">
+          <button type="button"
+                  class="exp-toolbar-btn"
+                  id="btn-import-prog-none">
+            <span>Tout désélectionner</span>
+          </button>
+          <button type="button"
+                  class="exp-toolbar-btn"
+                  id="btn-import-prog-all">
+            <span>Tout sélectionner</span>
+          </button>
+        </div>
+
+      </div>`);
 
     const days = Array.from(selectedByDay.keys()).sort((a, b) => a - b);
 
@@ -7981,7 +8005,6 @@ export function openSheetProgramPreview(selectedByDay, addedCount) {
           <div id="import-prog-response-box"
                class="ai-response-box"
                style="width:100%;">
-            <div class="ai-response-label">Programme importé</div>
             <div id="import-prog-response" class="ai-response-bubble"></div>
           </div>
         </div>
@@ -7999,7 +8022,37 @@ export function openSheetProgramPreview(selectedByDay, addedCount) {
 
       const disabledKeys = getDisabledImportedSlotKeys(selectedByDay);
 
-      elResp.innerHTML = summarizeProgram(selectedByDay, addedCount);
+      function refreshImportSelectionUI() {
+        const selectableInputs = [...elResp.querySelectorAll(".prog-toggle-input:not(:disabled)")];
+        const selectedInputs = selectableInputs.filter(i => i.checked);
+
+        const totalEl = elResp.querySelector("#import-prog-count-total");
+        const selectedEl = elResp.querySelector("#import-prog-count-selected");
+
+        if (totalEl) totalEl.textContent = String(selectableInputs.length);
+        if (selectedEl) selectedEl.textContent = String(selectedInputs.length);
+
+        const totalSuffixEl = elResp.querySelector("#import-prog-count-total-suffix");
+        const selectedSuffixEl = elResp.querySelector("#import-prog-count-selected-suffix");
+
+        const totalSuffix = selectableInputs.length > 1 ? ' activités importables dont ' : ' activité importable dont ';
+        const selectedSuffix = selectedInputs.length > 1 ? ' sélectionnées' : ' sélectionnée';
+        
+        if (totalSuffixEl) totalSuffixEl.textContent = totalSuffix;
+        if (selectedSuffixEl) selectedSuffixEl.textContent = selectedSuffix;
+        
+      }
+
+      function syncExcludedKeysFromUI() {
+        elResp.querySelectorAll(".prog-row").forEach(li => {
+          const key = li.dataset.slotKey;
+          const input = li.querySelector(".prog-toggle-input");
+          if (!key || !input || input.disabled) return;
+
+          if (input.checked) excludedKeys.delete(key);
+          else excludedKeys.add(key);
+        });
+      }
 
       for (const key of disabledKeys) {
         const li = elResp.querySelector(`.prog-row[data-slot-key="${CSS.escape(key)}"]`);
@@ -8014,12 +8067,33 @@ export function openSheetProgramPreview(selectedByDay, addedCount) {
         }
       }
 
+      syncExcludedKeysFromUI();
+      refreshImportSelectionUI();
+
       body.querySelector("#btn-import-prog-cancel")
         ?.addEventListener("click", () => close());
 
       body.querySelector("#btn-import-prog-apply")?.addEventListener("click", () => {
         applyImportedProgramToCurrentDf(selectedByDay, excludedKeys, disabledKeys);
         close();
+      });
+
+      body.querySelector("#btn-import-prog-none")?.addEventListener("click", () => {
+        elResp.querySelectorAll(".prog-toggle-input:not(:disabled)").forEach(input => {
+          input.checked = false;
+        });
+
+        syncExcludedKeysFromUI();
+        refreshImportSelectionUI();
+      });
+
+      body.querySelector("#btn-import-prog-all")?.addEventListener("click", () => {
+        elResp.querySelectorAll(".prog-toggle-input:not(:disabled)").forEach(input => {
+          input.checked = true;
+        });
+
+        syncExcludedKeysFromUI();
+        refreshImportSelectionUI();
       });
 
       elResp.addEventListener("change", (e) => {
@@ -8032,7 +8106,10 @@ export function openSheetProgramPreview(selectedByDay, addedCount) {
 
         if (input.checked) excludedKeys.delete(key);
         else excludedKeys.add(key);
+
+        refreshImportSelectionUI();
       });
+
     }
   });
 }
