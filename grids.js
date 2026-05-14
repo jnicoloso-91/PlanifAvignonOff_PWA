@@ -1942,27 +1942,27 @@ function gridOptionsCommon(gridId, el) {
     singleClickEdit: false,
     suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
-    onCellKeyDown: (p) => {
-      if (p.event?.key !== "Enter") return;
-      if (!p.colDef?.editable) return;
+    // onCellKeyDown: (p) => {   // permet entrée / sortie d'édition de cellule sur touche Enter 
+    //   if (p.event?.key !== "Enter") return;
+    //   if (!p.colDef?.editable) return;
 
-      p.event.preventDefault?.();
-      p.event.stopPropagation?.();
+    //   p.event.preventDefault?.();
+    //   p.event.stopPropagation?.();
 
-      const editing = p.api.getEditingCells?.() || [];
+    //   const editing = p.api.getEditingCells?.() || [];
 
-      // ⚠️ Intentionnel : dans ce handler AG Grid, getEditingCells()
-      // reflète l'état inverse attendu au moment de Enter.  
-      // Ne pas remettre le if dans le sens "logique".  
-      if (editing.length <= 0) {
-        p.api.stopEditing(false); // commit
-      } else {
-        p.api.startEditingCell({
-          rowIndex: p.rowIndex,
-          colKey: p.colDef.field
-        });
-      }
-    },
+    //   // ⚠️ Intentionnel : dans ce handler AG Grid, getEditingCells()
+    //   // reflète l'état inverse attendu au moment de Enter.  
+    //   // Ne pas remettre le if dans le sens "logique".  
+    //   if (editing.length <= 0) {
+    //     p.api.stopEditing(false); // commit
+    //   } else {
+    //     p.api.startEditingCell({
+    //       rowIndex: p.rowIndex,
+    //       colKey: p.colDef.field
+    //     });
+    //   }
+    // },
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
