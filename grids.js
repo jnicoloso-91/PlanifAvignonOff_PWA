@@ -79,10 +79,7 @@ export let activeGridId = null;
 
 // Enregistrement des data permettant de restaurer le scrolling grille et page 
 // après une edition sur mobile (-> remontée du champ à editer avec montée clavier)
-let editRestore = null;
-
-// ------- Créneau sélectionné -------
-// let selectedSlot = null;
+// let editRestore = null;
 
 // ------- Helpers -------
 const $ = id => document.getElementById(id);
@@ -1970,32 +1967,32 @@ function gridOptionsCommon(gridId, el) {
         });
       }
     },
-    onCellEditingStarted: (p) => {
+    // onCellEditingStarted: (p) => {
 
-      const vp = getGridViewportFromCellParams(p);
+    //   const vp = getGridViewportFromCellParams(p);
 
-      editRestore = {
-        splitter: getSplitterFromCellParams(p),
-        gridVp: vp,
-        gridScrollTop: vp?.scrollTop ?? 0,
-        rowIndex: p.rowIndex,
-      };
-    },
-    onCellEditingStopped: (p) => {
-      const st = editRestore;
-      editRestore = null;
+    //   editRestore = {
+    //     splitter: getSplitterFromCellParams(p),
+    //     gridVp: vp,
+    //     gridScrollTop: vp?.scrollTop ?? 0,
+    //     rowIndex: p.rowIndex,
+    //   };
+    // },
+    // onCellEditingStopped: (p) => {
+    //   const st = editRestore;
+    //   editRestore = null;
 
-      setTimeout(() => {
-        if (st?.gridVp) st.gridVp.scrollTop = st.gridScrollTop;
+    //   setTimeout(() => {
+    //     if (st?.gridVp) st.gridVp.scrollTop = st.gridScrollTop;
 
-        p.api.ensureIndexVisible?.(p.rowIndex, "middle");
+    //     p.api.ensureIndexVisible?.(p.rowIndex, "middle");
 
-        st?.splitter?.scrollIntoView({
-          behavior: "auto",
-          block: "nearest"
-        });
-      }, 300);
-    },
+    //     st?.splitter?.scrollIntoView({
+    //       behavior: "auto",
+    //       block: "nearest"
+    //     });
+    //   }, 300);
+    // },
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
