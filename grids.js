@@ -1968,41 +1968,6 @@ function gridOptionsCommon(gridId, el) {
     //     });
     //   }
     // },
-    
-// // Pb fermeture auto de l'édition cellule sur Nokia
-// onCellEditingStarted: (p) => {
-//   lastEditStartedAt = performance.now();
-//   lastEditStartedCell = {
-//     rowIndex: p.rowIndex,
-//     colKey: p.column?.getColId?.() || p.colDef?.field
-//   };
-// },
-
-onCellEditingStopped: (p) => {
-  const stack = (new Error().stack || "")
-    .split("\n")
-    .slice(1, 8)
-    .join("\n");
-
-  logToPage(`${stack} ------------`);
-  // const dt = performance.now() - lastEditStartedAt;
-
-  // if (!reopeningEdit && dt < 250 && lastEditStartedCell) {
-  //   reopeningEdit = true;
-
-  //   setTimeout(() => {
-  //     p.api.startEditingCell({
-  //       rowIndex: lastEditStartedCell.rowIndex,
-  //       colKey: lastEditStartedCell.colKey
-  //     });
-
-  //     reopeningEdit = false;
-  //   }, 80);
-
-  //   return;
-  // }
-},
-
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
