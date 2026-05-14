@@ -2152,8 +2152,8 @@ async function maybeExportBeforeImportOrReset() {
           label: "Oui",
           primary: true,
           action: async () => {
-            await doExportExcel();
             r.close();
+            await doExportExcel();
             await showOkDialog({
               title: "Contexte sauvegardé",
               message: "Vous pouvez maintenant choisir le fichier à ouvrir.",
