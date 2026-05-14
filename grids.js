@@ -1967,32 +1967,35 @@ function gridOptionsCommon(gridId, el) {
     //     });
     //   }
     // },
-onCellEditingStarted: (p) => {
-  lastEditStartedAt = performance.now();
-  lastEditStartedCell = {
-    rowIndex: p.rowIndex,
-    colKey: p.column?.getColId?.() || p.colDef?.field
-  };
-},
+    
+// // Pb fermeture auto de l'édition cellule sur Nokia
+// onCellEditingStarted: (p) => {
+//   lastEditStartedAt = performance.now();
+//   lastEditStartedCell = {
+//     rowIndex: p.rowIndex,
+//     colKey: p.column?.getColId?.() || p.colDef?.field
+//   };
+// },
 
-onCellEditingStopped: (p) => {
-  const dt = performance.now() - lastEditStartedAt;
+// onCellEditingStopped: (p) => {
+//   const dt = performance.now() - lastEditStartedAt;
 
-  if (!reopeningEdit && dt < 2000 && lastEditStartedCell) {
-    reopeningEdit = true;
+//   if (!reopeningEdit && dt < 250 && lastEditStartedCell) {
+//     reopeningEdit = true;
 
-    setTimeout(() => {
-      p.api.startEditingCell({
-        rowIndex: lastEditStartedCell.rowIndex,
-        colKey: lastEditStartedCell.colKey
-      });
+//     setTimeout(() => {
+//       p.api.startEditingCell({
+//         rowIndex: lastEditStartedCell.rowIndex,
+//         colKey: lastEditStartedCell.colKey
+//       });
 
-      reopeningEdit = false;
-    }, 80);
+//       reopeningEdit = false;
+//     }, 80);
 
-    return;
-  }
-},
+//     return;
+//   }
+// },
+
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
