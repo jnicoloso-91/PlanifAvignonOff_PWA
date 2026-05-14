@@ -563,9 +563,7 @@ function wireHiddenFileInput(){
 
         // Mise à jour du nom de fichier en entête de page
         ctx.setMetaParam('excelFileName', f.name);
-        const btn = document.getElementById("pg-next");
-        btn.innerHTML = f.name;
-
+        showExcelFileName(f.name);
       }
     } finally {
       pendingFileMode = "import";
@@ -1971,10 +1969,8 @@ async function doNouveauContexte() {
   activitesAPI.initPeriodeProgrammation(ctx.getDf());
   rebuildColumnsForActiviteGrids([]);
 
-  const fn = '&#8644;';
-  ctx.setMetaParam('excelFileName', fn);
-  const btn = document.getElementById("pg-next");
-  btn.innerHTML = fn;
+  ctx.setMetaParam('excelFileName', null);
+  showExcelFileName(null);
 
 
   // 14) RAZ contextState
@@ -2407,6 +2403,8 @@ async function doExportExcel() {
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
+      ctx.setMetaParam('excelFileName', handle.name);
+      showExcelFileName(handle.name);
     } else { 
       // fallback
       const url = URL.createObjectURL(blob);
@@ -2919,5 +2917,11 @@ export async function importFromUrlOrTxt(raw, parser=null) {
     if (nbInstances > 1) setSortModel('grid-non-programmees', 'Activite', 'asc');
   }, 100);
   
+}
+
+// Affiche le nom du fichier Excel courant
+export function showExcelFileName(fn) {
+    const btn = document.getElementById("pg-next");
+    btn.innerHTML = (fn) ? fn : '&#8644;';
 }
 
