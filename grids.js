@@ -77,6 +77,10 @@ export const grids = new Map();           // id -> { api, el, loader }
 window.grids = grids;
 export let activeGridId = null;
 
+// Enregistrement des data permettant de restaurer le scrolling grille et page 
+// après une edition sur mobile (-> remontée du champ à editer avec montée clavier)
+let editRestore = null;
+
 // ------- Créneau sélectionné -------
 // let selectedSlot = null;
 
@@ -216,6 +220,11 @@ export function getRowsFromGridId(gridId) {
 // Récupère l'API d'une grille par son id (selon ta structure window.grids)
 export function getGridApiById(gridId) {
   return window.grids?.get(gridId)?.api || null;
+}
+
+// Renvoie le viewport de grille
+function getGridViewport(gridEl) {
+  return gridEl?.querySelector(".ag-body-viewport");
 }
 
 // util AG Grid (inchangé)
@@ -1860,6 +1869,22 @@ function normText(s) {
     .trim();
 }
 
+// Renvoie le viewport de grille à partir du params d'un handler de cellule (onCellEditingStarted par exemple)
+function getGridViewportFromCellParams(p) {
+  return p.eGridCell
+    ?.closest(".ag-root-wrapper")
+    ?.querySelector(".ag-body-viewport") || null;
+} 
+
+// Renvoie le splitter de grille à partir du params d'un handler de cellule (onCellEditingStarted par exemple)
+function getSplitterFromCellParams(p) {
+  const exp = p.eGridCell?.closest(".st-expander");
+  const expId = exp?.id;
+  if (!expId) return null;
+
+  return document.querySelector(`.v-splitter[data-top="${expId}"]`);
+}
+
 // gridOptions communes
 function gridOptionsCommon(gridId, el) {
   return {
@@ -1924,15 +1949,6 @@ function gridOptionsCommon(gridId, el) {
     singleClickEdit: false,
     suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
-    // onCellKeyDown: (p) => {
-    //   // bonus: Enter déclenche l’édition (utile sur desktop)
-    //   if (p.event?.key === 'Enter' && p.colDef?.editable) {
-    //     p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
-    //     p.event.preventDefault?.();
-    //   }
-    // },
-    // ⚠️ Intentionnel : dans ce handler AG Grid, getEditingCells()
-    // reflète l'état inverse attendu au moment de Enter.     
     onCellKeyDown: (p) => {
       if (p.event?.key !== "Enter") return;
       if (!p.colDef?.editable) return;
@@ -1942,6 +1958,9 @@ function gridOptionsCommon(gridId, el) {
 
       const editing = p.api.getEditingCells?.() || [];
 
+      // ⚠️ Intentionnel : dans ce handler AG Grid, getEditingCells()
+      // reflète l'état inverse attendu au moment de Enter.  
+      // Ne pas remettre le if dans le sens "logique".  
       if (editing.length <= 0) {
         p.api.stopEditing(false); // commit
       } else {
@@ -1950,6 +1969,32 @@ function gridOptionsCommon(gridId, el) {
           colKey: p.colDef.field
         });
       }
+    },
+    onCellEditingStarted: (p) => {
+
+      const vp = getGridViewportFromCellParams(p);
+
+      editRestore = {
+        splitter: getSplitterFromCellParams(p),
+        gridVp: vp,
+        gridScrollTop: vp?.scrollTop ?? 0,
+        rowIndex: p.rowIndex,
+      };
+    },
+    onCellEditingStopped: (p) => {
+      const st = editRestore;
+      editRestore = null;
+
+      setTimeout(() => {
+        if (st?.gridVp) st.gridVp.scrollTop = st.gridScrollTop;
+
+        p.api.ensureIndexVisible?.(p.rowIndex, "middle");
+
+        st?.splitter?.scrollIntoView({
+          behavior: "auto",
+          block: "nearest"
+        });
+      }, 300);
     },
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
