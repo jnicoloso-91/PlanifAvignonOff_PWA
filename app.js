@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
   handleVisibilityChange();
-  showExcelFileName(ctx.getMetaParam?.('excelFileName'));
+  // showExcelFileName(ctx.getMetaParam?.('excelFileName'));
 
   console.log('✅ Application initialisée');
 
