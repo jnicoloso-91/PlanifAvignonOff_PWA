@@ -2347,7 +2347,7 @@ function exportWorkbook() {
 }
 
 // Export Excel ancienne mode (via XLSX et téléchargement sans le saveFilePicker)
-async function doExportExcel() {
+async function doExportExcelOld() {
 
   const workbook = exportWorkbook();
   if (!workbook) return;
@@ -2365,7 +2365,7 @@ async function doExportExcel() {
 }
 
 // Export Excel nouvelle mode (via saveFilePicker ou téléchargement en fallback)
-async function doExportExcelNew() {
+async function doExportExcel() {
   try {
     const filename = "In & Off.xlsx";
     let handle = null;
