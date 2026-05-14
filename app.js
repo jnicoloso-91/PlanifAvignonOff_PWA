@@ -153,23 +153,6 @@ function initSheetGrids() {
   window.sheetGrids = window.sheetGrids || new Map();
 }
 
-// function enableKeyboardAutoScroll() {
-//   document.addEventListener('focusin', (e) => {
-//     const el = e.target;
-//     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
-
-//     // ✅ 1) Input géré par un système custom → on s’efface
-//     if (el.dataset.keyboardManaged === "true") return;
-
-//     // ✅ 2) Fallback legacy (ce pour quoi ce code existe vraiment)
-//     setTimeout(() => {
-//       el.scrollIntoView({
-//         behavior: 'smooth',
-//         block: 'center'
-//       });
-//     }, 300);
-//   });
-// }
 function scrollInputAboveKeyboard(input, { pad = 20 } = {}) {
   if (!input) return false;
 
@@ -206,24 +189,49 @@ function scrollInputAboveKeyboard(input, { pad = 20 } = {}) {
   return true;
 }
 
-function scrollInputAboveKeyboardRetry(input, { pad = 20, tries = 6, delay = 80 } = {}) {
-  let n = 0;
-
-  function tick() {
-    n++;
-
-    const didScroll = scrollInputAboveKeyboard(input, { pad });
-
-    // si ça a scrollé, ou si on a assez essayé, stop
-    if (didScroll || n >= tries) return;
-
-    setTimeout(tick, delay);
-  }
-
-  tick();
-}
-
+// Permet à la page de monter au dessus du clavier si edition champ texte sur mobile (avec restore scrollY en fin d'édition)
 function enableKeyboardAutoScroll() {
+
+  function waitKeyboardAndScroll(el, initialScrollY) {
+    let done = false;
+    let tries = 0;
+
+    const cleanup = () => {
+      window.visualViewport?.removeEventListener("resize", onVV);
+      window.visualViewport?.removeEventListener("scroll", onVV);
+    };
+
+    const attempt = () => {
+      if (done) return;
+
+      tries++;
+
+      const didScroll = scrollInputAboveKeyboard(el, { pad: 20 });
+
+      if (didScroll) {
+        restoreScrollY = initialScrollY;
+        done = true;
+        cleanup();
+        return;
+      }
+
+      if (tries >= 8) {
+        cleanup();
+        return;
+      }
+
+      setTimeout(attempt, 80);
+    };
+
+    const onVV = () => {
+      setTimeout(attempt, 30);
+    };
+
+    window.visualViewport?.addEventListener("resize", onVV);
+    window.visualViewport?.addEventListener("scroll", onVV);
+
+    setTimeout(attempt, 120);
+  }
 
   const isMobile =
     window.matchMedia("(pointer: coarse)").matches;
@@ -241,6 +249,7 @@ function enableKeyboardAutoScroll() {
       return;
     }
 
+    // input géré ailleurs
     if (el.dataset.keyboardManaged === "true") return;
 
     const sc =
@@ -248,34 +257,29 @@ function enableKeyboardAutoScroll() {
 
     const initialScrollY = sc.scrollTop;
 
-    setTimeout(() => {
+    // setTimeout(() => {
 
-      // const didScroll =
-      //   scrollInputAboveKeyboard(el, { pad: 20 });
+    //   let didAnyScroll = false;
 
-      // if (didScroll) {
-      //   restoreScrollY = initialScrollY;
-      // }
-let didAnyScroll = false;
+    //   let n = 0;
+    //   function retry() {
+    //     n++;
 
-let n = 0;
-function retry() {
-  n++;
+    //     const didScroll = scrollInputAboveKeyboard(el, { pad: 20 });
+    //     if (didScroll) didAnyScroll = true;
 
-  const didScroll = scrollInputAboveKeyboard(el, { pad: 20 });
-  if (didScroll) didAnyScroll = true;
+    //     if (didScroll || n >= 6) {
+    //       if (didAnyScroll) restoreScrollY = initialScrollY;
+    //       return;
+    //     }
 
-  if (didScroll || n >= 6) {
-    if (didAnyScroll) restoreScrollY = initialScrollY;
-    return;
-  }
+    //     setTimeout(retry, 80);
+    //   }
 
-  setTimeout(retry, 80);
-}
+    //   retry();
 
-retry();
-
-    }, 250);
+    // }, 250);
+    waitKeyboardAndScroll(el, initialScrollY);
   });
 
   document.addEventListener('focusout', () => {
