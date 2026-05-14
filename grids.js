@@ -1979,7 +1979,12 @@ function gridOptionsCommon(gridId, el) {
 // },
 
 onCellEditingStopped: (p) => {
-  // logToPage("onCellEditingStopped");
+  const stack = (new Error().stack || "")
+    .split("\n")
+    .slice(1, 8)
+    .join("\n");
+
+  logToPage(`${stack} ------------`);
   // const dt = performance.now() - lastEditStartedAt;
 
   // if (!reopeningEdit && dt < 250 && lastEditStartedCell) {
