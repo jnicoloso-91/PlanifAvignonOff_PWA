@@ -183,7 +183,7 @@ function scrollInputAboveKeyboard(input, { pad = 20 } = {}) {
   window.scrollBy({
     top: delta,
     left: 0,
-    behavior: 'auto'
+    behavior: 'smooth'
   });
 
   return true;
@@ -257,6 +257,8 @@ function enableKeyboardAutoScroll() {
 
     const initialScrollY = sc.scrollTop;
 
+    // Deux versions alternatives pour ne pas rater des remontées de clavier : setTimeout et waitKeyboardAndScroll
+    // Celle avec setTimeout à l'aire plus efficace, à voir avec le temps...
     setTimeout(() => {
 
       let didAnyScroll = false;
@@ -280,6 +282,7 @@ function enableKeyboardAutoScroll() {
 
     }, 250);
     // waitKeyboardAndScroll(el, initialScrollY);
+    
   });
 
   document.addEventListener('focusout', () => {
