@@ -175,8 +175,8 @@ function enableKeyboardAutoScroll(input) {
 
   if (isMobile) {
     input.scrollIntoView({
-      behavior: "auto",
-      block: "nearest",
+      behavior: isMobile ? "auto" : "smooth",
+      block: isMobile ? "nearest" : "center",
       inline: "nearest"
     });
     return;
@@ -260,30 +260,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   console.log('✅ Application initialisée');
 
-(function patchScrollDebug() {
-  const oldSIV = Element.prototype.scrollIntoView;
-  Element.prototype.scrollIntoView = function(opts) {
-    console.warn("scrollIntoView", this, opts);
-    console.trace();
-    return oldSIV.call(this, opts);
-  };
+// (function patchScrollDebug() {
+//   const oldSIV = Element.prototype.scrollIntoView;
+//   Element.prototype.scrollIntoView = function(opts) {
+//     console.warn("scrollIntoView", this, opts);
+//     console.trace();
+//     return oldSIV.call(this, opts);
+//   };
 
-  for (const [gridId, h] of window.grids?.entries?.() || []) {
-    const api = h.api;
-    if (!api || api.__scrollDebug) continue;
+//   for (const [gridId, h] of window.grids?.entries?.() || []) {
+//     const api = h.api;
+//     if (!api || api.__scrollDebug) continue;
 
-    const oldEnsure = api.ensureIndexVisible?.bind(api);
-    if (oldEnsure) {
-      api.ensureIndexVisible = (...args) => {
-        console.warn("ensureIndexVisible", gridId, args);
-        console.trace();
-        return oldEnsure(...args);
-      };
-    }
+//     const oldEnsure = api.ensureIndexVisible?.bind(api);
+//     if (oldEnsure) {
+//       api.ensureIndexVisible = (...args) => {
+//         console.warn("ensureIndexVisible", gridId, args);
+//         console.trace();
+//         return oldEnsure(...args);
+//       };
+//     }
 
-    api.__scrollDebug = true;
-  }
-})();
+//     api.__scrollDebug = true;
+//   }
+// })();
 
   // Pour DEBUG
   // logToPage('✅ Application initialisée');
