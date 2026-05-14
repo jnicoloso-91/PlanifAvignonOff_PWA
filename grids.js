@@ -77,17 +77,6 @@ export const grids = new Map();           // id -> { api, el, loader }
 window.grids = grids;
 export let activeGridId = null;
 
-// Enregistrement des data permettant de restaurer le scrolling grille et page 
-// après une edition sur mobile (-> remontée du champ à editer avec montée clavier)
-// let editRestore = null;
-
-// Gère le blocage de autoSizePanelFromRowCount pendant edition de cellule
-let gridEditingInProgress = false;
-
-function markGridEditing(on) {
-  gridEditingInProgress = !!on;
-}
-
 // ------- Helpers -------
 const $ = id => document.getElementById(id);
 
@@ -1828,8 +1817,6 @@ let autoSizePanelFromRowCountCalls = 0;
 // Appelé en fin de refreshGrid
 function autoSizePanelFromRowCount(pane, gridEl, api, gridId, { nbRows=null, nbRowsPred=null, maxRows = 5 } = {}) {
   if (!pane || !gridEl) return;
-  
-  if (gridEditingInProgress) return;
 
   // S'il s'agit de grid-programmees et que l'on est en mode calendar pas de resize auto
   if (gridId === 'grid-programmees' && isProgrammeCalendarVisible()) return;
@@ -1976,41 +1963,6 @@ function gridOptionsCommon(gridId, el) {
         });
       }
     },
-    // onCellEditingStarted: (p) => {
-
-    //   const vp = getGridViewportFromCellParams(p);
-
-    //   editRestore = {
-    //     splitter: getSplitterFromCellParams(p),
-    //     gridVp: vp,
-    //     gridScrollTop: vp?.scrollTop ?? 0,
-    //     rowIndex: p.rowIndex,
-    //   };
-    // },
-    // onCellEditingStopped: (p) => {
-    //   const st = editRestore;
-    //   editRestore = null;
-
-    //   setTimeout(() => {
-    //     if (st?.gridVp) st.gridVp.scrollTop = st.gridScrollTop;
-
-    //     p.api.ensureIndexVisible?.(p.rowIndex, "middle");
-
-    //     st?.splitter?.scrollIntoView({
-    //       behavior: "auto",
-    //       block: "nearest"
-    //     });
-    //   }, 300);
-    // },
-onCellEditingStarted: () => {
-  markGridEditing(true);
-},
-
-onCellEditingStopped: () => {
-  setTimeout(() => {
-    markGridEditing(false);
-  }, 400); // laisse le clavier redescendre
-},
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 

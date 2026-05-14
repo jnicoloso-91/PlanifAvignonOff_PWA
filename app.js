@@ -153,21 +153,38 @@ function initSheetGrids() {
   window.sheetGrids = window.sheetGrids || new Map();
 }
 
-function enableKeyboardAutoScroll() {
-  document.addEventListener('focusin', (e) => {
-    const el = e.target;
-    if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+// function enableKeyboardAutoScroll() {
+//   document.addEventListener('focusin', (e) => {
+//     const el = e.target;
+//     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
 
-    // ✅ 1) Input géré par un système custom → on s’efface
-    if (el.dataset.keyboardManaged === "true") return;
+//     // ✅ 1) Input géré par un système custom → on s’efface
+//     if (el.dataset.keyboardManaged === "true") return;
 
-    // ✅ 2) Fallback legacy (ce pour quoi ce code existe vraiment)
-    setTimeout(() => {
-      el.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
-    }, 300);
+//     // ✅ 2) Fallback legacy (ce pour quoi ce code existe vraiment)
+//     setTimeout(() => {
+//       el.scrollIntoView({
+//         behavior: 'smooth',
+//         block: 'center'
+//       });
+//     }, 300);
+//   });
+// }
+function enableKeyboardAutoScroll(input) {
+  const isMobile = window.matchMedia("(pointer: coarse)").matches;
+
+  if (isMobile) {
+    input.scrollIntoView({
+      behavior: "auto",
+      block: "nearest",
+      inline: "nearest"
+    });
+    return;
+  }
+
+  input.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
   });
 }
 
@@ -242,6 +259,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   showExcelFileName();
 
   console.log('✅ Application initialisée');
+
+(function patchScrollDebug() {
+  const oldSIV = Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView = function(opts) {
+    console.warn("scrollIntoView", this, opts);
+    console.trace();
+    return oldSIV.call(this, opts);
+  };
+
+  for (const [gridId, h] of window.grids?.entries?.() || []) {
+    const api = h.api;
+    if (!api || api.__scrollDebug) continue;
+
+    const oldEnsure = api.ensureIndexVisible?.bind(api);
+    if (oldEnsure) {
+      api.ensureIndexVisible = (...args) => {
+        console.warn("ensureIndexVisible", gridId, args);
+        console.trace();
+        return oldEnsure(...args);
+      };
+    }
+
+    api.__scrollDebug = true;
+  }
+})();
 
   // Pour DEBUG
   // logToPage('✅ Application initialisée');
