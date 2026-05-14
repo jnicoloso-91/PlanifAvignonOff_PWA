@@ -1147,7 +1147,7 @@ main, .page-wrap {
 
 /* zone scrollable interne (important pour iOS) */
 .file-sheet__content {
-  max-height: 66vh;               /* à ajuster si besoin */
+  max-height: 68vh;               /* à ajuster si besoin */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
