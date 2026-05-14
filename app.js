@@ -170,21 +170,97 @@ function initSheetGrids() {
 //     }, 300);
 //   });
 // }
-function enableKeyboardAutoScroll(input) {
-  const isMobile = window.matchMedia("(pointer: coarse)").matches;
+function scrollInputAboveKeyboard(input, { pad = 20 } = {}) {
+  if (!input) return false;
 
-  if (isMobile) {
-    input.scrollIntoView({
-      behavior: isMobile ? "auto" : "smooth",
-      block: isMobile ? "nearest" : "center",
-      inline: "nearest"
-    });
-    return;
+  const vv = window.visualViewport;
+  if (!vv) return false;
+
+  const r = input.getBoundingClientRect();
+
+  const visibleBottom =
+    vv.offsetTop + vv.height - pad;
+
+  const visibleTop =
+    vv.offsetTop + pad;
+
+  let delta = 0;
+
+  if (r.bottom > visibleBottom) {
+    delta = r.bottom - visibleBottom;
+  }
+  else if (r.top < visibleTop) {
+    delta = r.top - visibleTop;
   }
 
-  input.scrollIntoView({
-    behavior: "smooth",
-    block: "center"
+  if (Math.abs(delta) < 2) {
+    return false;
+  }
+
+  window.scrollBy({
+    top: delta,
+    left: 0,
+    behavior: 'auto'
+  });
+
+  return true;
+}
+
+function enableKeyboardAutoScroll() {
+
+  const isMobile =
+    window.matchMedia("(pointer: coarse)").matches;
+
+  if (!isMobile) return;
+
+  let restoreScrollY = null;
+
+  document.addEventListener('focusin', (e) => {
+
+    const el = e.target;
+
+    if (!(el instanceof HTMLInputElement ||
+          el instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    if (el.dataset.keyboardManaged === "true") return;
+
+    const sc =
+      document.scrollingElement || document.documentElement;
+
+    const initialScrollY = sc.scrollTop;
+
+    setTimeout(() => {
+
+      const didScroll =
+        scrollInputAboveKeyboard(el, { pad: 20 });
+
+      if (didScroll) {
+        restoreScrollY = initialScrollY;
+      }
+
+    }, 250);
+  });
+
+  document.addEventListener('focusout', () => {
+
+    if (restoreScrollY == null) return;
+
+    const y = restoreScrollY;
+    restoreScrollY = null;
+
+    setTimeout(() => {
+
+      const sc =
+        document.scrollingElement || document.documentElement;
+
+      sc.scrollTo({
+        top: y,
+        behavior: 'auto'
+      });
+
+    }, 350);
   });
 }
 
@@ -260,31 +336,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   console.log('✅ Application initialisée');
 
-// (function patchScrollDebug() {
-//   const oldSIV = Element.prototype.scrollIntoView;
-//   Element.prototype.scrollIntoView = function(opts) {
-//     console.warn("scrollIntoView", this, opts);
-//     console.trace();
-//     return oldSIV.call(this, opts);
-//   };
-
-//   for (const [gridId, h] of window.grids?.entries?.() || []) {
-//     const api = h.api;
-//     if (!api || api.__scrollDebug) continue;
-
-//     const oldEnsure = api.ensureIndexVisible?.bind(api);
-//     if (oldEnsure) {
-//       api.ensureIndexVisible = (...args) => {
-//         console.warn("ensureIndexVisible", gridId, args);
-//         console.trace();
-//         return oldEnsure(...args);
-//       };
-//     }
-
-//     api.__scrollDebug = true;
-//   }
-// })();
-
-  // Pour DEBUG
+  // Pour DEBUG sans DevTools
   // logToPage('✅ Application initialisée');
 });
