@@ -2107,6 +2107,22 @@ function openConfirmDialog({
   };
 }
 
+function showOkDialog({ title, message }) {
+  return new Promise(resolve => {
+    openConfirmDialog({
+      title,
+      message,
+      buttons: [
+        {
+          label: "OK",
+          primary: true,
+          action: () => resolve(true)
+        }
+      ]
+    });
+  });
+}
+
 async function maybeExportBeforeImportOrReset() {
 
   if (!contextState.modified) return true;
@@ -2138,7 +2154,10 @@ async function maybeExportBeforeImportOrReset() {
           action: async () => {
             await doExportExcel();
             r.close();
-            alert("Contexte sauvegardé");
+            await showOkDialog({
+              title: "Contexte sauvegardé",
+              message: "Vous pouvez maintenant choisir le fichier à ouvrir.",
+            });
             resolve(true);
           }
         }
