@@ -207,7 +207,7 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Nouveau programme</span>
-          <span class="file-sheet__subtitle">Réinitialise le programme d'activités</span>
+          <span class="file-sheet__subtitle">Réinitialise seulement le programme d'activités</span>
         </div>
       </li>
       <li class="file-sheet__separator" aria-hidden="true"></li> 
@@ -222,7 +222,7 @@ const fileMenuSheetInnerHtml = () => {
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
           <span class="file-sheet__titleText">Importer programme</span>
-          <span class="file-sheet__subtitle">Importe un programme d'activités depuis Excel</span>
+          <span class="file-sheet__subtitle">Importe seulement le programme d'activités depuis Excel</span>
         </div>
       </li>
       <li class="file-sheet__item" data-action="importMarkers">
