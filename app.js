@@ -206,6 +206,23 @@ function scrollInputAboveKeyboard(input, { pad = 20 } = {}) {
   return true;
 }
 
+function scrollInputAboveKeyboardRetry(input, { pad = 20, tries = 6, delay = 80 } = {}) {
+  let n = 0;
+
+  function tick() {
+    n++;
+
+    const didScroll = scrollInputAboveKeyboard(input, { pad });
+
+    // si ça a scrollé, ou si on a assez essayé, stop
+    if (didScroll || n >= tries) return;
+
+    setTimeout(tick, delay);
+  }
+
+  tick();
+}
+
 function enableKeyboardAutoScroll() {
 
   const isMobile =
@@ -233,12 +250,30 @@ function enableKeyboardAutoScroll() {
 
     setTimeout(() => {
 
-      const didScroll =
-        scrollInputAboveKeyboard(el, { pad: 20 });
+      // const didScroll =
+      //   scrollInputAboveKeyboard(el, { pad: 20 });
 
-      if (didScroll) {
-        restoreScrollY = initialScrollY;
-      }
+      // if (didScroll) {
+      //   restoreScrollY = initialScrollY;
+      // }
+let didAnyScroll = false;
+
+let n = 0;
+function retry() {
+  n++;
+
+  const didScroll = scrollInputAboveKeyboard(el, { pad: 20 });
+  if (didScroll) didAnyScroll = true;
+
+  if (didScroll || n >= 6) {
+    if (didAnyScroll) restoreScrollY = initialScrollY;
+    return;
+  }
+
+  setTimeout(retry, 80);
+}
+
+retry();
 
     }, 250);
   });
