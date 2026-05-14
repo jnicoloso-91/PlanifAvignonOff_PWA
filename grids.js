@@ -1978,7 +1978,7 @@ onCellEditingStarted: (p) => {
 onCellEditingStopped: (p) => {
   const dt = performance.now() - lastEditStartedAt;
 
-  if (!reopeningEdit && dt < 250 && lastEditStartedCell) {
+  if (!reopeningEdit && dt < 2000 && lastEditStartedCell) {
     reopeningEdit = true;
 
     setTimeout(() => {
