@@ -11,6 +11,7 @@ import {
 import {
   wireBottomBar,
   wireAppKebab,
+  showExcelFileName,
 } from './menus.js';
 
 import {
@@ -341,14 +342,6 @@ function handleVisibilityChange() {
   document.addEventListener("visibilitychange", () => handleReturnToApp());
 }
 
-// Affiche le nom du fichier Excel courant
-function showExcelFileName() {
-    const fn = ctx.getMetaParam?.('excelFileName');
-    const btn = document.getElementById("pg-next");
-    btn.innerHTML = (fn) ? fn : '&#8644;';
-
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('⏳ DOM prêt, initialisation du contexte...');
 
@@ -374,7 +367,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   enableKeyboardAutoScroll();
   rebuildColumnsForActiviteGrids(ctx.df);
   handleVisibilityChange();
-  showExcelFileName();
+  showExcelFileName(ctx.getMetaParam?.('excelFileName'));
 
   console.log('✅ Application initialisée');
 
