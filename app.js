@@ -257,29 +257,29 @@ function enableKeyboardAutoScroll() {
 
     const initialScrollY = sc.scrollTop;
 
-    // setTimeout(() => {
+    setTimeout(() => {
 
-    //   let didAnyScroll = false;
+      let didAnyScroll = false;
 
-    //   let n = 0;
-    //   function retry() {
-    //     n++;
+      let n = 0;
+      function retry() {
+        n++;
 
-    //     const didScroll = scrollInputAboveKeyboard(el, { pad: 20 });
-    //     if (didScroll) didAnyScroll = true;
+        const didScroll = scrollInputAboveKeyboard(el, { pad: 20 });
+        if (didScroll) didAnyScroll = true;
 
-    //     if (didScroll || n >= 6) {
-    //       if (didAnyScroll) restoreScrollY = initialScrollY;
-    //       return;
-    //     }
+        if (didScroll || n >= 6) {
+          if (didAnyScroll) restoreScrollY = initialScrollY;
+          return;
+        }
 
-    //     setTimeout(retry, 80);
-    //   }
+        setTimeout(retry, 80);
+      }
 
-    //   retry();
+      retry();
 
-    // }, 250);
-    waitKeyboardAndScroll(el, initialScrollY);
+    }, 250);
+    // waitKeyboardAndScroll(el, initialScrollY);
   });
 
   document.addEventListener('focusout', () => {
