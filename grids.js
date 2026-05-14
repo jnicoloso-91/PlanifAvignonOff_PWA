@@ -1924,11 +1924,31 @@ function gridOptionsCommon(gridId, el) {
     singleClickEdit: false,
     suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
+    // onCellKeyDown: (p) => {
+    //   // bonus: Enter déclenche l’édition (utile sur desktop)
+    //   if (p.event?.key === 'Enter' && p.colDef?.editable) {
+    //     p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
+    //     p.event.preventDefault?.();
+    //   }
+    // },
+    // ⚠️ Intentionnel : dans ce handler AG Grid, getEditingCells()
+    // reflète l'état inverse attendu au moment de Enter.     
     onCellKeyDown: (p) => {
-      // bonus: Enter déclenche l’édition (utile sur desktop)
-      if (p.event?.key === 'Enter' && p.colDef?.editable) {
-        p.api.startEditingCell({ rowIndex: p.rowIndex, colKey: p.colDef.field });
-        p.event.preventDefault?.();
+      if (p.event?.key !== "Enter") return;
+      if (!p.colDef?.editable) return;
+
+      p.event.preventDefault?.();
+      p.event.stopPropagation?.();
+
+      const editing = p.api.getEditingCells?.() || [];
+
+      if (editing.length <= 0) {
+        p.api.stopEditing(false); // commit
+      } else {
+        p.api.startEditingCell({
+          rowIndex: p.rowIndex,
+          colKey: p.colDef.field
+        });
       }
     },
     suppressNoRowsOverlay: true,
