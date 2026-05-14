@@ -2113,7 +2113,7 @@ async function maybeExportBeforeImportOrReset() {
 
   return new Promise((resolve) => {
 
-    openConfirmDialog({
+    const r = openConfirmDialog({
       title: "Contexte modifié",
       message:
         "Le contexte courant a été modifié.\n" +
@@ -2137,6 +2137,8 @@ async function maybeExportBeforeImportOrReset() {
           primary: true,
           action: async () => {
             await doExportExcel();
+            r.close();
+            alert("Contexte sauvegardé");
             resolve(true);
           }
         }
@@ -2190,8 +2192,7 @@ async function doImportFromCatOff() {
   importContextFromXlsxFile(f2026, {add:true});
 }
 
-// Export Excel
-async function doExportExcel() {
+function exportWorkbook() {
 
   // Change le nom des colonnes
   // mapping: { ancienNom: nouveauNom }
@@ -2314,7 +2315,27 @@ async function doExportExcel() {
       XLSX.utils.book_append_sheet(wb, wsCarnet, 'Carnet');
     }
 
-    XLSX.writeFile(wb, 'In & Off.xlsx');
+    contextState.modified = false;
+    ctx.setMetaParam('contextState', contextState);
+
+    return wb;
+
+  } catch (e) {
+    console.error(e);
+    alert('❌ Export KO');
+    return null;
+  }
+}
+
+// Export Excel ancienne mode (via XLSX et téléchargement sans le saveFilePicker)
+async function doExportExcel() {
+
+  const workbook = exportWorkbook();
+  if (!workbook) return;
+
+  try {
+    XLSX.writeFile(workbook, 'In & Off.xlsx');
+
     contextState.modified = false;
     ctx.setMetaParam('contextState', contextState);
 
@@ -2324,41 +2345,66 @@ async function doExportExcel() {
   }
 }
 
-// Choix du mode d'export au format Ics
-function chooseIcsExportMode() {
-  return new Promise(resolve => {
-    const dlg = document.createElement("dialog");
-    dlg.className = "bb-dialog";
+// Export Excel nouvelle mode (via saveFilePicker ou téléchargement en fallback)
+async function doExportExcelNew() {
+  try {
+    const filename = "In & Off.xlsx";
+    let handle = null;
 
-    dlg.innerHTML = `
-      <form method="dialog" class="bb-dialog-body">
+    if (typeof /** @type {any} */(window).showSaveFilePicker === "function") {
+      try {
+        handle = await /** @type {any} */(window).showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: "Excel Workbook",
+            accept: {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                [".xlsx"]
+            }
+          }]
+        });
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        console.error(err);
+      }
+    }
 
-        <div class="bb-dialog-header">
-          <h4>Exporter vers calendrier</h4>
-          <button class="bb-dialog-close" value="cancel" aria-label="Fermer">x</button>
-        </div>
+    const workbook = exportWorkbook();
+    if (!workbook) return;
 
-        <div class="bb-dialog-actions">
-          <button value="full" class="bb-btn is-primary">Programme complet</button>
-          <button value="selected" class="bb-btn">Activité sélectionnée</button>
-        </div>
+    const arrayBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array"
+    });
 
-      </form>
-    `;
+    const blob = new Blob([arrayBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
 
-    document.body.appendChild(dlg);
+    if (handle) {
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+    } else { 
+      // fallback
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
 
-    dlg.addEventListener("close", () => {
-      const val = dlg.returnValue || "cancel";
-      dlg.remove();
-      resolve(val);
-    }, { once: true });
+    contextState.modified = false;
+    ctx.setMetaParam('contextState', contextState);
 
-    dlg.showModal();
-  });
+  } catch (e) {
+    console.error(e);
+    alert('❌ Export KO');
+  }
 }
 
-// Export du programme (complet ou activité sélectionnée) au format Ics
+// Export du programme (complet ou activités sélectionnées) au format Ics
 async function doExportIcs() {
   try {
     // overlayAttente.hidden = false;
@@ -2401,9 +2447,8 @@ async function doExportIcs() {
 
 }
 
-// Export d'un tableau d'activités au format Ics
-// Par defaut export du programme d'activités courant filtré
-async function exportIcs(df=null) {
+// Export du programme d'activités courant filtré au format Ics
+async function exportIcsFiltered(df=null) {
   if (!df) {
     const filteredRows = [];
     window.grids?.get('grid-programmees').api.forEachNodeAfterFilterAndSort(node => {
