@@ -1878,6 +1878,10 @@ function getSplitterFromCellParams(p) {
   return document.querySelector(`.v-splitter[data-top="${expId}"]`);
 }
 
+let lastEditStartedAt = 0;
+let lastEditStartedCell = null;
+let reopeningEdit = false;
+
 // gridOptions communes
 function gridOptionsCommon(gridId, el) {
   return {
@@ -1941,7 +1945,7 @@ function gridOptionsCommon(gridId, el) {
     suppressMovableColumns: false,
     singleClickEdit: false,
     suppressClickEdit: false,
-    stopEditingWhenCellsLoseFocus: false, //true,
+    stopEditingWhenCellsLoseFocus: true,
     // onCellKeyDown: (p) => {   // permet entrée / sortie d'édition de cellule sur touche Enter 
     //   if (p.event?.key !== "Enter") return;
     //   if (!p.colDef?.editable) return;
@@ -1963,6 +1967,32 @@ function gridOptionsCommon(gridId, el) {
     //     });
     //   }
     // },
+onCellEditingStarted: (p) => {
+  lastEditStartedAt = performance.now();
+  lastEditStartedCell = {
+    rowIndex: p.rowIndex,
+    colKey: p.column?.getColId?.() || p.colDef?.field
+  };
+},
+
+onCellEditingStopped: (p) => {
+  const dt = performance.now() - lastEditStartedAt;
+
+  if (!reopeningEdit && dt < 250 && lastEditStartedCell) {
+    reopeningEdit = true;
+
+    setTimeout(() => {
+      p.api.startEditingCell({
+        rowIndex: lastEditStartedCell.rowIndex,
+        colKey: lastEditStartedCell.colKey
+      });
+
+      reopeningEdit = false;
+    }, 80);
+
+    return;
+  }
+},
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
