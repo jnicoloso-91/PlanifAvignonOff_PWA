@@ -1941,7 +1941,7 @@ function gridOptionsCommon(gridId, el) {
     suppressMovableColumns: false,
     singleClickEdit: false,
     suppressClickEdit: false,
-    stopEditingWhenCellsLoseFocus: true,
+    stopEditingWhenCellsLoseFocus: false, //true,
     // onCellKeyDown: (p) => {   // permet entrée / sortie d'édition de cellule sur touche Enter 
     //   if (p.event?.key !== "Enter") return;
     //   if (!p.colDef?.editable) return;
