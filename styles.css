@@ -1164,6 +1164,12 @@ main, .page-wrap {
   user-select: none; -webkit-user-select: none;
 }
 
+.file-sheet__separator {
+  height: 1px;
+  margin: 4px 5px;
+  background: rgba(0,0,0,.18);
+  list-style: none;
+}
 
 /*====================*/
 /* Kebab menu         */

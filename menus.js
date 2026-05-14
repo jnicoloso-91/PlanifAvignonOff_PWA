@@ -210,6 +210,7 @@ const fileMenuSheetInnerHtml = () => {
           <span class="file-sheet__subtitle">Réinitialise le programme d'activités</span>
         </div>
       </li>
+      <li class="file-sheet__separator" aria-hidden="true"></li> 
       <li class="file-sheet__item" data-action="open">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7l3 3h6v13H4z"/></svg>
         <div class="file-sheet__text">
@@ -252,6 +253,7 @@ const fileMenuSheetInnerHtml = () => {
           <span class="file-sheet__subtitle">Importe depuis le site de Billet Réduc</span>
         </div>
       </li>
+      <li class="file-sheet__separator" aria-hidden="true"></li> 
       <li class="file-sheet__item" data-action="exportExcel">
         <svg class="file-sheet__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5h11l5 5v9a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 5v4h8"/></svg>
         <div class="file-sheet__text">
@@ -266,6 +268,7 @@ const fileMenuSheetInnerHtml = () => {
           <span class="file-sheet__subtitle">Exporte le programme d'activités vers le calendrier</span>
         </div>
       </li>
+      <li class="file-sheet__separator" aria-hidden="true"></li> 
       <li class="file-sheet__item" data-action="rapportCoherence">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
             viewBox="0 0 24 24" fill="none" stroke="currentColor"
