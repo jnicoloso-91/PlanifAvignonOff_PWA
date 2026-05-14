@@ -23,6 +23,7 @@ import {
 
 import { 
   log,
+  logToPage,
 } from './debug.js';
 
 import {
@@ -1977,24 +1978,25 @@ function gridOptionsCommon(gridId, el) {
 //   };
 // },
 
-// onCellEditingStopped: (p) => {
-//   const dt = performance.now() - lastEditStartedAt;
+onCellEditingStopped: (p) => {
+  logToPage("onCellEditingStopped");
+  // const dt = performance.now() - lastEditStartedAt;
 
-//   if (!reopeningEdit && dt < 250 && lastEditStartedCell) {
-//     reopeningEdit = true;
+  // if (!reopeningEdit && dt < 250 && lastEditStartedCell) {
+  //   reopeningEdit = true;
 
-//     setTimeout(() => {
-//       p.api.startEditingCell({
-//         rowIndex: lastEditStartedCell.rowIndex,
-//         colKey: lastEditStartedCell.colKey
-//       });
+  //   setTimeout(() => {
+  //     p.api.startEditingCell({
+  //       rowIndex: lastEditStartedCell.rowIndex,
+  //       colKey: lastEditStartedCell.colKey
+  //     });
 
-//       reopeningEdit = false;
-//     }, 80);
+  //     reopeningEdit = false;
+  //   }, 80);
 
-//     return;
-//   }
-// },
+  //   return;
+  // }
+},
 
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
