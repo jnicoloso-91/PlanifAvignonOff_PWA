@@ -662,7 +662,7 @@ export function creerActivitesAPI(ctx) {
       const getDebutMinutes = (r) => hhmmToMinutes(r?.Debut);
       const getDureeMinutes = (r) => hhmmToMinutes(richValueGetValue(r?.Duree));
 
-      const shortName = (s) => !s ? "" : s.length <= 20 ? s.slice(0,20) : s.slice(0,20) + "...";
+      const shortName = (s) => s; // !s ? "" : s.length <= 20 ? s.slice(0,20) : s.slice(0,20) + "...";
 
       // Lignes pertinentes (activité non vide) pour doublons
       const rowsValid = rows.filter(r => r && String(r.Activite ?? '').trim() !== '');
