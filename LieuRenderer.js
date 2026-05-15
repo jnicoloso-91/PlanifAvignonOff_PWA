@@ -1,4 +1,4 @@
-import { logToPage } from "./debug";
+import { logToPage } from "./debug.js";
 
 // Pb sur lieu vide résolu, IOS impex en mode Safari et PWA (ouverture app iti Apple y compros en mode Safari)
 export class LieuRenderer {
