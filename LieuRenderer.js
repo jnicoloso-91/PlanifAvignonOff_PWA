@@ -137,12 +137,21 @@ export class LieuRenderer {
       const url = this.$icon.dataset.url;
       if (!url) return;
       e.stopPropagation();
-      if (this.isIOS) { // && this.isStandalone) {
-        // PWA iOS : naviguer dans la webview pour éviter l'écran blanc "OK"
+      if (this.isIOS) { // && this.isStandalone pour limiter au mode PWA
+        // Solution 1 : window.location.assign() avec url web 
+        // -> navigue dans la webview pour éviter l'écran blanc "OK" en mode PWA, 
+        // mais perte du scroll de page au retour et webview pas ergonomique
         // window.location.assign(url);
-        window.open(url, '_blank');
-        // const dest = encodeURIComponent("TRANSVERSAL (THEATRE) (Avignon)");
-        // window.location.href = `comgooglemaps://?daddr=${dest}&directionsmode=walking`;
+
+        // Solution 2: window.open avec url web
+        // -> ouvre la webview dans un nouvel onglet ou dans l'appli en mode PWA, 
+        // mais passage par webview pas ergonomique et perte du scroll page au retour en mode Safari
+        // window.open(url, '_blank');
+
+        // Solution 3: window.location.href avec url appli et non web (à gérer dans le buildDirectionsUrl appelé dans le refresh) 
+        // -> ouvre directement l'appli et marche en mode Safari et PWA, 
+        // mais pas de fallback simple si Google maps pas installé (pas fait en l'état)
+        window.location.href = url;
       } else {
         // Safari/Android/Desktop : nouvel onglet
         window.open(url, '_blank', 'noopener');
@@ -290,8 +299,12 @@ export function buildDirectionsUrl(address) {
   // return onApple
   //   ? `http://maps.apple.com/?daddr=${q}&dirflg=w`
   //   : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`;
+
+  // return onApple
+  //   ? `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`
+  //   : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`;
   return onApple
-    ? `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`
+    ? `comgooglemaps://?daddr=${q}&directionsmode=walking` // navigation directe vers l'appli
     : `https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking`;
 }
 
