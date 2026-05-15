@@ -1,3 +1,5 @@
+import { logToPage } from "./debug";
+
 // Pb sur lieu vide résolu, IOS impex en mode Safari et PWA (ouverture app iti Apple y compros en mode Safari)
 export class LieuRenderer {
   init(p) {
@@ -138,6 +140,7 @@ export class LieuRenderer {
       if (this.isIOS && this.isStandalone) {
         // PWA iOS : naviguer dans la webview pour éviter l'écran blanc "OK"
         window.location.assign(url);
+        logToPage(url);
       } else {
         // Safari/Android/Desktop : nouvel onglet
         window.open(url, '_blank', 'noopener');
