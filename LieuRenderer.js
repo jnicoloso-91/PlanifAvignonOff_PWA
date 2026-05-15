@@ -140,9 +140,9 @@ export class LieuRenderer {
       if (this.isIOS) { // && this.isStandalone) {
         // PWA iOS : naviguer dans la webview pour éviter l'écran blanc "OK"
         // window.location.assign(url);
-        // window.open(url, '_blank');
-        const dest = encodeURIComponent("TRANSVERSAL (THEATRE) (Avignon)");
-        window.location.href = `comgooglemaps://?daddr=${dest}&directionsmode=walking`;
+        window.open(url, '_blank');
+        // const dest = encodeURIComponent("TRANSVERSAL (THEATRE) (Avignon)");
+        // window.location.href = `comgooglemaps://?daddr=${dest}&directionsmode=walking`;
       } else {
         // Safari/Android/Desktop : nouvel onglet
         window.open(url, '_blank', 'noopener');
