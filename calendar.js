@@ -470,14 +470,15 @@ function openDirectionsExternal(url) {
     window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
 
-  // iOS PWA : _blank est souvent mauvais => on navigue DANS la webview (comportement voulu)
-  if (isIOS && isStandalone) {
-    window.location.assign(url);
+  // iOS : on appelle directement l'appli google maps 
+  // (dans ce cas l'url retournée par buildDirectionsUrl est celle de l'appli pas celle de la webview)
+  if (isIOS) {
+    window.location.href = url;
     return;
   }
 
   // Sinon : ouvrir en nouvel onglet. Pas de fallback assign.
-  const w = window.open(url, '_blank', 'noopener,noreferrer');
+  const w = window.open(url, '_blank'); //, 'noopener,noreferrer');
   if (!w) {
     // popup bloqué : ne pas casser l'app
     console.warn("[CAL] popup blocked for directions");
