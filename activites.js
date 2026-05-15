@@ -662,6 +662,8 @@ export function creerActivitesAPI(ctx) {
       const getDebutMinutes = (r) => hhmmToMinutes(r?.Debut);
       const getDureeMinutes = (r) => hhmmToMinutes(richValueGetValue(r?.Duree));
 
+      const shortName = (s) => !s ? "" : s.length <= 20 ? s.slice(0,20) : s.slice(0,20) + "...";
+
       // Lignes pertinentes (activité non vide) pour doublons
       const rowsValid = rows.filter(r => r && String(r.Activite ?? '').trim() !== '');
 
@@ -732,25 +734,27 @@ export function creerActivitesAPI(ctx) {
           });
           if (isEmptyProg) return;
 
+          const sName = shortName(row.Activite);
+
           // Date invalide (si fournie)
           if (row.Date != null && String(row.Date).trim() !== '' && !estEntier(row.Date)) {
-            bloc.push(`Date invalide à la ligne ${idx + 2} : ${row.Date}`);
+            bloc.push(`Date invalide à la ligne ${idx + 2} : ${row.Date} (${sName})`);
           }
 
           // Heure/Durée si Activite présente
           if (String(row?.Activite ?? '').trim() !== '') {
             const h = row?.Debut, d = richValueGetValue(row?.Duree);
-            if (!isTimeLike(String(h ?? ''))) bloc.push(`Heure invalide à la ligne ${idx + 2} : ${h}`);
-            if (!isTimeLike(String(d ?? ''))) bloc.push(`Durée invalide à la ligne ${idx + 2} : ${d}`);
+            if (!isTimeLike(String(h ?? ''))) bloc.push(`Heure invalide à la ligne ${idx + 2} : ${h} (${sName})`);
+            if (!isTimeLike(String(d ?? ''))) bloc.push(`Durée invalide à la ligne ${idx + 2} : ${d} (${sName})`);
           }
 
           // Session/Relache 
           if (!_estSessionValide(row?.Session)) {
-            bloc.push(`Période de validité invalide à la ligne ${idx + 2} : ${row?.Session}`);
+            bloc.push(`Période de validité invalide à la ligne ${idx + 2} : ${row?.Session} (${sName})`);
           }
           if (!_estRelacheValide(row?.Relaches ?? row?.Relache)) {
             const v = row?.Relaches ?? row?.Relache;
-            bloc.push(`Relâches invalides à la ligne ${idx + 2} : ${v}`);
+            bloc.push(`Relâches invalides à la ligne ${idx + 2} : ${v} (${sName})`);
           }
         });
         if (bloc.length) erreurs.push('🕒 Erreurs de format:\n' + bloc.join('\n'));
@@ -784,9 +788,11 @@ export function creerActivitesAPI(ctx) {
           });
           if (isEmptyProg) return;
 
+          const sName = shortName(row.Activite);
+
           if (String(row?.Activite ?? '').trim() !== '') {
             const h = String(row?.Debut ?? '').trim();
-            if (!h) bloc.push(`Heure vide à la ligne ${idx + 2}`);
+            if (!h) bloc.push(`Heure vide à la ligne ${idx + 2} (${sName})`);
           }
         });
         if (bloc.length) erreurs.push('⚠️ Heures non renseignées:\n' + bloc.join('\n'));
@@ -802,10 +808,12 @@ export function creerActivitesAPI(ctx) {
           });
           if (isEmptyProg) return;
 
+          const sName = shortName(row.Activite);
+
           const dMin = getDureeMinutes(row);
           if (dMin === 0) {
             const dStr = String(row?.Duree ?? '').trim();
-            const msg = dStr ? `Durée nulle à la ligne ${idx + 2}` : `Durée vide à la ligne ${idx + 2}`;
+            const msg = dStr ? `Durée nulle à la ligne ${idx + 2} (${sName})` : `Durée vide à la ligne ${idx + 2} (${sName})`;
             bloc.push(msg);
           }
         });
