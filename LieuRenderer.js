@@ -154,7 +154,7 @@ export class LieuRenderer {
         window.location.href = url;
       } else {
         // Safari/Android/Desktop : nouvel onglet
-        window.open(url, '_blank', 'noopener');
+        window.open(url, '_blank'); //, 'noopener');
       }
     };
     this.$icon.addEventListener('click', this.onIconClick);
