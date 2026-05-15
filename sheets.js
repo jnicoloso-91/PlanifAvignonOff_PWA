@@ -15,13 +15,13 @@ import {
   dateintStrToPretty,
   mmFromHHhMM,
   mmToHHhMM,
-  mmToHM,
   isoDateToLocalDate,
   localDateToIsoDate,
   prettyToDateint,
   prettyToMinutes,
   parseHHMM,
   isWeekendDateInt,
+  dateintToPretty,
 } from './utils-date.js';
 
 import { 
@@ -7656,7 +7656,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       const colDefs = [
         { headerName: "Activité", field: "Activite", flex: 2, minWidth: 160, cellRenderer: SearchActiviteRenderer },
         { headerName: "Lieu", field: "Lieu", flex: 1, minWidth: 120 },
-        { headerName: "Date", field: "Date", width: 105 },
+        { headerName: "Date", field: "Date", width: 105, valueFormatter:p=>dateintToPretty(p.value) },
         { headerName: "Début", field: "Debut", width: 80 },
         { headerName: "Fin", field: "Fin", width: 80 },
       ];

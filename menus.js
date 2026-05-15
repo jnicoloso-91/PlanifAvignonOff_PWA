@@ -1462,9 +1462,10 @@ export function openKebabMenu(anchorBtn, { items = [], side = false } = {}) {
 
   // prevent double-open on the same button
   if (anchorBtn.__menuOpen) {
-    try { anchorBtn.__menuOpen.remove(); } catch {}
+    anchorBtn.__menuOpen.close?.();
     anchorBtn.__menuOpen = null;
-  }
+    return null;
+  } 
 
   // 1) Build the menu (initially invisible so we can measure/position)
   const menu = document.createElement('div');
@@ -1569,9 +1570,9 @@ export function openKebabMenu(anchorBtn, { items = [], side = false } = {}) {
 
   // Important: defer outside-click to avoid closing immediately
   const onDocClick = (e) => {
-    if (menu.contains(e.target) || e.target === anchorBtn) return menu;
+    if (menu.contains(e.target) || anchorBtn.contains(e.target)) return;
     closeMenu();
-  };
+  }; 
 
   // Prevent the very click that opened the button from closing the menu
   anchorBtn.addEventListener('click', (e)=> e.stopPropagation(), { once: true });
@@ -1585,8 +1586,11 @@ export function openKebabMenu(anchorBtn, { items = [], side = false } = {}) {
 
   // Position now (after in-DOM to get proper size)
   pos();
-  anchorBtn.__menuOpen = menu;
-  return { close: closeMenu };
+  // anchorBtn.__menuOpen = menu;
+  // return { close: closeMenu };
+  const api = { close: closeMenu };
+  anchorBtn.__menuOpen = api;
+  return api;
 }
 
 // Rechargement de l'application

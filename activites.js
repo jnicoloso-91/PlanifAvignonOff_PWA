@@ -753,7 +753,7 @@ export function creerActivitesAPI(ctx) {
             bloc.push(`Relâches invalides à la ligne ${idx + 2} : ${v}`);
           }
         });
-        if (bloc.length) erreurs.push(bloc.join('\n'));
+        if (bloc.length) erreurs.push('🕒 Erreurs de format:\n' + bloc.join('\n'));
       }
 
       // 4) 🛑 Date incompatible avec Session/Relache (via _estDateValide)
@@ -805,7 +805,7 @@ export function creerActivitesAPI(ctx) {
           const dMin = getDureeMinutes(row);
           if (dMin === 0) {
             const dStr = String(row?.Duree ?? '').trim();
-            const msg = dStr ? `Durée égale à 0 à la ligne ${idx + 2} : ${dStr}` : `Durée vide à la ligne ${idx + 2}`;
+            const msg = dStr ? `Durée nulle à la ligne ${idx + 2}` : `Durée vide à la ligne ${idx + 2}`;
             bloc.push(msg);
           }
         });
