@@ -137,7 +137,7 @@ export class LieuRenderer {
       const url = this.$icon.dataset.url;
       if (!url) return;
       e.stopPropagation();
-      if (this.isIOS && this.isStandalone) {
+      if (this.isIOS) { // && this.isStandalone) {
         // PWA iOS : naviguer dans la webview pour éviter l'écran blanc "OK"
         // window.location.assign(url);
         // window.open(url, '_blank');
