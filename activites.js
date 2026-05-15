@@ -680,7 +680,7 @@ export function creerActivitesAPI(ctx) {
           if (arr.length > 1) {
             const bloc = ['🟠 Doublons d’activités :'];
             for (const row of arr) {
-              const dateStr = estEntier(row?.Date) ? String(parseInt(row.Date, 10)) : 'Vide';
+              const dateStr = row?.Date ? dateintToPretty(row?.Date) : 'Vide'; 
               const heureStr = String(row?.Debut ?? '').trim() || 'Vide';
               const dureeStr = String(row?.Duree ?? '').trim() || 'Vide';
               bloc.push(`${dateStr} - ${heureStr} - ${row?.Activite ?? ''} (${dureeStr})`);
@@ -718,7 +718,7 @@ export function creerActivitesAPI(ctx) {
         if (chev.length) {
           const bloc = ['🔴 Chevauchements:'];
           for (const [r1, r2] of chev) {
-            bloc.push(`${r1.Activite} (${r1.Debut} / ${r1.Duree}) chevauche ${r2.Activite} (${r2.Debut} / ${r2.Duree}) le ${r1.Date}`);
+            bloc.push(`${r1.Activite} (${r1.Debut} / ${r1.Duree}) chevauche ${r2.Activite} (${r2.Debut} / ${r2.Duree}) le ${dateintToPretty(r1.Date)}`);
           }
           erreurs.push(bloc.join('\n'));
         }
