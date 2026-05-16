@@ -2125,6 +2125,7 @@ function _getJoursPossibles(rowActivite) {
 
   for (let jour = dateToDateint(_ctx.getMetaParam("periode_a_programmer_debut")); jour <= dateToDateint(_ctx.getMetaParam("periode_a_programmer_fin")); jour++) {
     if (!_estDateValide(jour, rowActivite.Session, rowActivite.Relache)) continue;
+    if (_estActiviteChevauchable(rowActivite)) continue;
 
     const jList = _getActivitesProgrammeesDuJourTriees(jour);
     if (jList.length === 0) { // journée libre
