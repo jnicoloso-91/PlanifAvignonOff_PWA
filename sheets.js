@@ -7,7 +7,6 @@ import {
   genUUID,
   escapeHtml,
   escapeAttr,
-  toNumberSafe,
 } from './utils.js';
 
 import { 
@@ -23,6 +22,7 @@ import {
   parseHHMM,
   isWeekendDateInt,
   dateintToPretty,
+  toDateint,
 } from './utils-date.js';
 
 import { 
@@ -7456,7 +7456,7 @@ export async function openSheetReprogrammer(uuid) {
       });
 
       body.querySelector("#btnReprogApply")?.addEventListener("click", async () => {
-        const chosen = toNumberSafe(picker?.getValue?.());
+        const chosen = toDateint(picker?.getValue?.());
         if (!chosen) return;
 
         removeGhostEverywhere();
