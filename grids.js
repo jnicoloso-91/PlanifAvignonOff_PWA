@@ -2901,6 +2901,7 @@ export async function refreshGrid(gridId, fallbackSelection=false) {
   // Workaround sur colonnes optionnelles
   // on les détype pour eviter les affichages Invalid Type sur les colonnes inférées comme étant de type Number
   // A généraliser (fait ici seulement sur une hypothétique colonne Prix)
+  // Pour rechercher les colonnes optionnelles rechercher celles qui ne sont pas dans MANDATORY_COLS
   const cols = api.getColumnDefs();
   for (const c of cols) {
     if (c.field === "Prix") {

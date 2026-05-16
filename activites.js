@@ -1567,7 +1567,15 @@ function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, tra
     if (!Number.isFinite(d) || !Number.isFinite(du)) continue;
     const h_debut = d, h_fin = d + du;
 
-    if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
+    // if (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE) && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
+    //   const nouvelle = { ...row }; // delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
+    //   nouvelle.__type_activite = 'ActiviteExistante';
+    //   nouvelle.__uuid = row.__uuid;
+    //   proposables.push(nouvelle);
+    // }
+    if (_estDateValide(ligneRef.Date, row.Session, row.Relache) && 
+      ((_estActiviteChevauchable(row) && (h_debut < debut_min)) ||   // Condition pour les activités chevauchables
+      (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE)))) {                  // Condition pour les activités non chevauchables
       const nouvelle = { ...row }; // delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
@@ -1605,7 +1613,15 @@ function _getActivitesProgrammablesApres(df, activitesProgrammees, ligneRef, tra
     const h_debut = d, h_fin = d + du;
 
     const borneHaute = (fin_max == null) ? MAX_DAY : (fin_max - _MARGE);
-    if (h_debut >= (debut_min + _MARGE) && (h_fin <= borneHaute || borneHaute === MAX_DAY) && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
+    // if (h_debut >= (debut_min + _MARGE) && (h_fin <= borneHaute || borneHaute === MAX_DAY) && _estDateValide(ligneRef.Date, row.Session, row.Relache)) {
+    //   const nouvelle = { ...row }; //delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
+    //   nouvelle.__type_activite = 'ActiviteExistante';
+    //   nouvelle.__uuid = row.__uuid;
+    //   proposables.push(nouvelle);
+    // }
+    if (_estDateValide(ligneRef.Date, row.Session, row.Relache) && 
+      ((_estActiviteChevauchable(row) && (h_debut >= debut_min)) ||   // Condition pour les activités chevauchables
+      (h_debut >= (debut_min + _MARGE) && (h_fin <= borneHaute || borneHaute === MAX_DAY)))) {                  // Condition pour les activités non chevauchables
       const nouvelle = { ...row }; //delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
       nouvelle.__uuid = row.__uuid;
