@@ -7,6 +7,7 @@ import {
   genUUID,
   escapeHtml,
   escapeAttr,
+  toNumberSafe,
 } from './utils.js';
 
 import { 
@@ -7455,7 +7456,7 @@ export async function openSheetReprogrammer(uuid) {
       });
 
       body.querySelector("#btnReprogApply")?.addEventListener("click", async () => {
-        const chosen = picker?.getValue?.();
+        const chosen = toNumberSafe(picker?.getValue?.());
         if (!chosen) return;
 
         removeGhostEverywhere();

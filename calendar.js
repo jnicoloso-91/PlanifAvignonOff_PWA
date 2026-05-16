@@ -11,6 +11,7 @@ import {
   prettyToMinutes, 
   parseHHMM,
   isWeekendDateInt,
+  toDateInt,
 } from './utils-date.js';
 
 import {
@@ -1088,6 +1089,9 @@ function waitForProgrammeGridReadyOnce(timeoutMs = 1200) {
 function getProgrammeCalendarDataSource() {
   const activites = ctx.df;
   let rows = getFilteredProgrammeRows?.() || [];
+
+  // Au cas où on se retrouve avec une string de type jj/mm dans le data source...
+  if (rows) for (const r of rows) r.Date = toDateInt(r.Date);
 
   // fallback : au boot getFilteredProgrammeRows peut être vide alors que ctx.df est ok
   if ((!rows || rows.length === 0) && Array.isArray(activites) && activites.length) {

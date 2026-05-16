@@ -330,3 +330,16 @@ export function includesSafe(str, searchString) {
     // Utilise includes pour vérifier la présence de searchString
     return str.includes(searchString);
 }
+
+// Conversion safe d'une String en Number
+export function toNumberSafe(v, def = null) {
+  if (v == null) return def;
+
+  const s = String(v).trim().replace(',', '.');
+
+  if (s === '') return def;
+
+  const n = Number(s);
+
+  return Number.isFinite(n) ? n : def;
+} 
