@@ -953,6 +953,7 @@ function buildColumnsActivitesCommon(){
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
     { field:'HyperlienGoogle', headerName: 'Google', minWidth:120, flex:1, cellRenderer: AvisRenderer },
     { field:'HyperlienBR', headerName: 'Billet Réduc', minWidth:120, flex:1, cellRenderer: HyperlienBRRenderer },
+    // { field:'Prix', cellDataType: false },
   ];
 }
 
@@ -2896,6 +2897,19 @@ export async function refreshGrid(gridId, fallbackSelection=false) {
 
   // api.setGridOption?.('rowData', rows || []);
   api.setRowData(rows);
+
+  // Workaround sur colonnes optionnelles
+  // on les détype pour eviter les affichages Invalid Type sur les colonnes inférées comme étant de type Number
+  // A généraliser (fait ici seulement sur une hypothétique colonne Prix)
+  const cols = api.getColumnDefs();
+  for (const c of cols) {
+    if (c.field === "Prix") {
+      c.cellDataType = 'text';
+      c.valueParser = p => p.newValue == null ? '' : String(p.newValue);
+      c.valueFormatter = p => p.value == null ? '' : String(p.value);    
+    }
+  }
+  api.setGridOption("columnDefs", cols);
 
   // const nbRows = rows.length;
   const nbRows = api.getDisplayedRowCount();

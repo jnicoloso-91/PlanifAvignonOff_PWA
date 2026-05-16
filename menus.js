@@ -9,6 +9,8 @@ import {
   mergeRowsNoDupMultiKey, 
   overloadRowsOrInsert,
   escapeHtml,
+  buildKey,
+  defaultNormalizer,
 } from './utils.js';
 
 import { 
@@ -1625,6 +1627,7 @@ export function wireAppKebab() {
         { id:'help',      label:'Aide',                     onClick: ()=>openSheetAide() },
         // { id:'JsonOff',   label:'Export JSON Off',          onClick: async ()=> await exportJsonForAi('off', 2026) },
         // { id:'JsonIn',    label:'Export JSON In',           onClick: async ()=> await exportJsonForAi('in', 2026) },
+        // { id:'cleanCat',    label:'Nettoyer CatalogueOff',  onClick: async ()=> await nettoyerCatalogueOff() },
       ]
     });
   }, { passive: true });
@@ -2751,6 +2754,140 @@ function syncCallAvecOverlayAttente(fnct, param, msg="Echec") {
     overlayAttente.hidden = true; // Masque l'overlay d'attente
     return res;
   }
+}
+
+// Nettoyage du catalogue Off de l'appli
+async function nettoyerCatalogueOff() {
+
+  alert("Cette fonction suppose que vous avez chargé préalablement le catalogue du Off");
+
+  console.log("Parsing du catalogue en ligne");
+  const parsed = await asyncCallAvecOverlayAttente(parseAvignonOffProgPageUrl, "https://www.festivaloffavignon.com/programme", 'Echec chargement catalogue en ligne');
+
+  alert(
+    "Les activités supprimées sont des activités dont la clef est invalide et dont la page de détail est pointée par une autre à clef valide. " + 
+    "Les activités patchées sont des activités dont la clef est invalide mais qui pointent vers une page valide non référencée par ailleurs. " + 
+    "Dans ce cas on garde l'activité et on patche la clef et les informations de détail");
+
+  // Clef utilisée pour retrouver les activités dans le parsing du catalogue en ligne
+  const keyCols = ["Activite", "Debut", "Lieu"];
+
+  const cleanRows = [];
+
+  let nbSup = 0;
+  let nbMod = 0;
+  let nbHNull = 0;
+  let nbHInv = 0;
+
+  // Construction de la map des clefs du parsing (catalogue en ligne)
+  const mapPa = new Map();
+  for (const r of parsed) {
+    const k = buildKey(r, keyCols);
+    mapPa.set(k, { ...r });
+  }
+
+   // Construction de la map des clefs du df (catalogue Off de l'appli)
+  const mapDf = new Map();
+  for (const r of ctx.df) {
+    const k = buildKey(r, keyCols);
+    mapDf.set(k, { ...r });
+  }
+
+ // Parcours du df
+  for (const r2 of ctx.df) {
+    const k = buildKey(r2, keyCols);
+
+    // Si l'activité n'est pas retrouvée dans le parsing avec sa clef
+    if (!mapPa.has(k)) {
+      const url = r2.Hyperlien;
+
+      // On recherche dans le catalogue en ligne la page de détail pointée par l'Hyperlien
+      if (!url) {
+        console.log(`${r2.Activite} : Hyperlien null ou vide`);
+        cleanRows.push(r2);
+        nbHNull++;
+        continue;
+      }
+
+      const pa = await parseAvignonOffSpecPageUrl(url);
+      if (!pa || pa.length <=0) {
+        console.log(`${r2.Activite} : Hyperlien invalide`);
+        cleanRows.push(r2);
+        nbHInv++;
+        continue;
+      }  
+
+      function unpadHeure(hhmm) {
+        if (hhmm == null) return null;
+        return String(hhmm).replace(/^0+(\d+h)/, '$1');
+      }
+
+      const detail = pa[0];
+      detail.Debut = unpadHeure(detail.Debut);
+      const kc = buildKey(detail, keyCols);
+
+      if (!mapPa.has(kc)) {
+        console.log("ATTENTION : clef de page de détail inconnue dans le parsing du catalogue en ligne (-> parsing catalogue en ligne incomplet)"); 
+      }
+
+      // Si la clef associée à la page de detail est différente de celle de la ligne et qu'elle est par ailleurs dans le df on peut supprimer cette ligne
+      if (k !== kc && mapDf.has(kc) && mapDf.get(kc).Hyperlien == r2.Hyperlien ) {
+        console.log(`Suppression activité ${r2.Activite}`);
+        nbSup++;
+        continue;
+      }
+
+      // Sinon on garde la ligne et on la patche eventuellemnt (sauf si page de détail non valide auquel cas on supprime)
+      else {
+        // Si k et kc différents 
+        if (k !== kc) {
+          // Si detail ne pointe pas sur la page d'accueil
+          // (page d'accueil = fallback du catalogue en ligne quand on recherche une activité inexistante)
+          if (defaultNormalizer(detail.Activite) !== defaultNormalizer("Page d'accueil") && 
+            defaultNormalizer(detail.Activite) !== defaultNormalizer("actualités du festival")) {
+            console.log(`Patch de l'activité ${r2.Activite} en ${detail.Activite}`);
+            const newRow = {
+              ...r2,
+              Activite: detail.Activite ? detail.Activite : r2.Activite,
+              Debut: detail.Debut ? detail.Debut : r2.Debut,
+              Lieu: detail.Lieu ? detail.Lieu : r2.Lieu,
+              Duree: detail.Duree ? detail.Duree : r2.Duree,
+              Session: detail.Session ? detail.Session : r2.Session,
+              Relache: detail.Relache ? detail.Relache : r2.Relache,
+            }
+            cleanRows.push(newRow);
+            nbMod++;
+          }
+          // Sinon on supprime
+          else {
+            console.log(`Suppression activité ${r2.Activite}`);
+            nbSup++;
+            continue;
+          }
+        } else {
+          cleanRows.push(r2);
+        }
+      }
+
+    // Si l'activité est présente dans le parsing c'est qu'elle est valide -> on la garde
+    // Au detail prés que les informations de détail ne sont peut-être pas à jour mais un import du catalogue en ligne fait ce job
+    } else {
+      cleanRows.push(r2);
+    }
+
+  }
+
+  recalcFinForAll(cleanRows);
+
+  console.log(`Nombre de lignes initial : ${ctx.df.length}`)
+  console.log(`Nombre de lignes final : ${cleanRows.length}`)
+  console.log(`Nombre de lignes supprimées : ${nbSup}`)
+  console.log(`Nombre de lignes modifiées : ${nbMod}`)
+  console.log(`Nombre de lignes avec Hyperlien null : ${nbHNull}`)
+  console.log(`Nombre de lignes avec Hyperlien invalide : ${nbHInv}`)
+
+  ctx.mutateDf(rows => sortDf(cleanRows));
+
 }
 
 // Importe des activités depuis une URL ou un texte brut

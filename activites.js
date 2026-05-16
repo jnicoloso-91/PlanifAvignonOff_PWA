@@ -1488,7 +1488,8 @@ function _getDatesFromRows(rows) {
   return out;
 }
 
-// Vérifie qu'une activité est potentiellement programmable (i.e. qu'elle n'est pas programmée et que son heure de début et sa durée sont valides)
+// Vérifie qu'une activité est potentiellement programmable 
+// i.e. qu'elle n'est pas déjà programmée et que son heure de début et sa durée sont valides
 function _estActiviteProgrammable(row) {
   const d = row?.Date;
   return (d == null || d === '' || Number.isNaN(+d)) && _estHeureValide(row?.Debut) && _estDureeValide(richValueGetValue(row?.Duree));

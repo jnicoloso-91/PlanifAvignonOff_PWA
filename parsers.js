@@ -1029,8 +1029,9 @@ export function parseAvignonOffSpecPageDom(doc, { url=null } = {}) {
   // Activité
   const titleTxt = _clean(doc.querySelector('title')?.textContent || "");
   if (titleTxt) {
-    const part = titleTxt.split('–')[0].split('-')[0].trim();
-    res.Activite = part || titleTxt;
+    // const part = titleTxt.split('–')[0].split('-')[0].trim();
+    // res.Activite = part || titleTxt;
+    res.Activite = titleTxt;
   }
 
   // Style = 1er tag dans .intro-spectacle > .liste-tags
@@ -2295,6 +2296,16 @@ const _parseSession = (txt) => {
   if (mDuAu) {
     const d1 = pad2(mDuAu[1]), d2 = pad2(mDuAu[2]);
     return `[${d1}-${d2}]/${mm}`;
+  }
+  // ex: "Les 5, 7, 9, 25 juillet" -> "(5,7,9,25)/07"
+  const mLes = s.match(/\bles?\s+((?:\d{1,2}\s*(?:,|;|et)?\s*)+)\b/);
+  if (mLes) {
+    const jours = [...mLes[1].matchAll(/\d{1,2}/g)]
+      .map(m => String(Number(m[0]))); // retire les zéros initiaux
+
+    if (jours.length) {
+      return `(${jours.join(',')})/${mm}`;
+    }
   }
   const mLe = s.match(/\ble\s+(\d{1,2})\b/i);
   if (mLe) {

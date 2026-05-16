@@ -148,12 +148,12 @@ export function mergeRowsNoDupMultiKey(
   const map = new Map();
 
   for (const r of arr1) {
-    const k = _buildKey(r, keyCols, normalizer);
+    const k = buildKey(r, keyCols, normalizer);
     map.set(k, { ...r });
   }
 
   for (const r2 of arr2) {
-    const k = _buildKey(r2, keyCols, normalizer);
+    const k = buildKey(r2, keyCols, normalizer);
     if (!map.has(k)) {
       map.set(k, { ...r2 });
     } else {
@@ -265,7 +265,7 @@ export const defaultNormalizer = v => String(v ?? '')
 // Séparateur sûr (Unit Separator) pour éviter les collisions
 const SEP = '\x1F';
 
-function _buildKey(row, cols, normalizer = defaultNormalizer) {
+export function buildKey(row, cols, normalizer = defaultNormalizer) {
   return cols.map(c => normalizer(row?.[c])).join(SEP);
 }
 
