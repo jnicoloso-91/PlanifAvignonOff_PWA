@@ -3276,3 +3276,13 @@ function refreshCreneauCaption(gridId, splId) {
     txt
   );
 }
+
+// Réinitialise le filtre sur une grille
+export function reinitFilter(gridId) {
+  const gridApi = getGridApiById(gridId);
+  gridApi.setQuickFilter?.("");
+  gridApi.setFilterModel({});
+  gridApi.onFilterChanged?.();
+  if (gridId == "grid-programmees" && isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
+  else ensureRowVisible(gridId, getSelectedRowUuid(gridId));
+}

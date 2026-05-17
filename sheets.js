@@ -59,6 +59,8 @@ import {
   selectRowByUuid,
   wireAgTouchScrollRouter,
   ensureRowVisible,
+  getGridApiById,
+  reinitFilter,
 } from './grids.js';
 
 import {
@@ -2632,11 +2634,12 @@ export function openSheetFiltres(gridId) {
 
       clearBtn.addEventListener("click", () => {
         quickChip.setValues?.([]);
-        gridApi.setQuickFilter?.("");
-        gridApi.setFilterModel({});
-        gridApi.onFilterChanged?.();
-        if (gridId == "grid-programmees" && isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
-        else ensureRowVisible(gridId, getSelectedRowUuid(gridId));
+        // gridApi.setQuickFilter?.("");
+        // gridApi.setFilterModel({});
+        // gridApi.onFilterChanged?.();
+        // if (gridId == "grid-programmees" && isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
+        // else ensureRowVisible(gridId, getSelectedRowUuid(gridId));
+        reinitFilter(gridId);
         close();
       });
 
@@ -7585,6 +7588,8 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           <div class="grid-host" style="margin-top:10px; min-height: 0; flex: 1 1 auto;">
             <div id="searchGrid" class="ag-theme-quartz compact" style="width:100%; height:100%;"></div>
           </div>
+
+          <div class="muted" style="margin-top:8px" id="selectedInfo"></div>
         </div>
 
         <div class="sheet-footer sheet-footer--search">
@@ -7645,10 +7650,14 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       const input = body.querySelector("#searchInput");
       const btnClear = body.querySelector("#btnSearchClear");
       const info  = body.querySelector("#searchInfo");
+      const selectedInfo  = body.querySelector("#selectedInfo");
       const btnCancel = body.querySelector("#btnSearchCancel");
       const btnRun    = body.querySelector("#btnSearchRun");
       const btnSelect = body.querySelector("#btnSearchSelect");
       const gridEl    = body.querySelector("#searchGrid");
+
+      let gridId= null;
+      let visibleInGrid = true;
 
       if (!input || !gridEl) { close(); return; }
 
@@ -7674,6 +7683,39 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         onSelectionChanged: () => {
           const sel = gridApi?.getSelectedRows?.()?.[0] || null;
           btnSelect.disabled = !sel;
+          if (sel) {
+            const activite = ctx.df.filter(r => r.Activite == sel.Activite)?.[0] || null;
+            if (activite) {
+              const estProg = activitesAPI.estActiviteProgrammee(activite);
+              gridId = estProg ? 'grid-programmees' : 'grid-non-programmees';
+              const api = getGridApiById(gridId);
+              visibleInGrid = api.getDisplayedRowCount() > 0 &&
+                api.getDisplayedRowCount() &&
+                (() => {
+                  let found = false;
+
+                  api.forEachNodeAfterFilter(node => {
+                    if (node.data?.Activite === activite.Activite) {
+                      found = true;
+                    }
+                  });
+
+                  return found;
+                })();
+
+              // selectedInfo.textContent = estProg ? 'Activité de la zone Programme' : 'Activité de la zone stock';
+              selectedInfo.innerHTML = `
+                <span>${estProg ? 'Activité de la zone Programme' : 'Activité de la zone stock'}</span>
+                ${
+                  !visibleInGrid
+                    ? `<span style="display:block; color:#d32f2f; font-weight:600">
+                        Attention : le bouton Sélectionner enlèvera le filtre courant
+                      </span>`
+                    : ''
+                }
+              `;
+            }
+          }
         },
         suppressDragLeaveHidesColumns: true,
         singleClickEdit: false,
@@ -7786,6 +7828,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
         close();
 
+        if (!visibleInGrid) reinitFilter(gridId);
         selectionnerActivite(uuid);
 
       });
