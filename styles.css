@@ -519,8 +519,8 @@ main, .page-wrap {
   padding-right: 2px !important;
 }
 
+/* Zoom inline editing */
 @media (pointer: coarse) and (max-width: 812px) {
-  Zoom inline editing */
   .ag-cell-inline-editing input,
   .ag-cell-inline-editing textarea {
     font-size: 16px !important;
