@@ -7872,9 +7872,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
         close();
 
-        // const actEl = document.activeElement;
-        // /** @type {any} */(actEl).blur?.();
-        blurBottomBarButtons(); 
+        requestAnimationFrame(blurBottomBarButtons); 
 
         if (!visibleInGrid) reinitFilter(gridId);
         selectionnerActivite(uuid);
