@@ -2013,36 +2013,36 @@ function gridOptionsCommon(gridId, el) {
     //     time: now
     //   };
     // },
-onCellClicked: (p) => {
-  if (!useSheetEditor) return;
-  if (!isCellEditableForMobile(p)) return;
+// onCellClicked: (p) => {
+//   if (!useSheetEditor) return;
+//   if (!isCellEditableForMobile(p)) return;
 
-  const now = Date.now();
-  const colId = p.column.getColId();
-  const rowId = p.node?.id ?? p.data?.__uuid ?? p.rowIndex;
+//   const now = Date.now();
+//   const colId = p.column.getColId();
+//   const rowId = p.node?.id ?? p.data?.__uuid ?? p.rowIndex;
 
-  const sameCell =
-    lastTap &&
-    lastTap.rowId === rowId &&
-    lastTap.colId === colId;
+//   const sameCell =
+//     lastTap &&
+//     lastTap.rowId === rowId &&
+//     lastTap.colId === colId;
 
-  if (sameCell && now - lastTap.time < 450) {
-    lastTap = null;
+//   if (sameCell && now - lastTap.time < 450) {
+//     lastTap = null;
 
-    if (p.colDef.field === "Date") {
-      p.api.startEditingCell({
-        rowIndex: p.rowIndex,
-        colKey: colId,
-      });
-    } else {
-      openSheetCellEdit(p);
-    }
+//     if (p.colDef.field === "Date") {
+//       p.api.startEditingCell({
+//         rowIndex: p.rowIndex,
+//         colKey: colId,
+//       });
+//     } else {
+//       openSheetCellEdit(p);
+//     }
 
-    return;
-  }
+//     return;
+//   }
 
-  lastTap = { rowId, colId, time: now };
-},
+//   lastTap = { rowId, colId, time: now };
+// },
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
@@ -2831,6 +2831,61 @@ function autoOpenSelectOnEdit(api){
   });
 }
 
+function wireGridDoubleTapSheetEditor(gridEl, api) {
+  let lastTap = null;
+
+  gridEl.addEventListener("pointerup", (e) => {
+    if (!useSheetEditor) return;
+
+    const cellEl = e.target.closest(".ag-cell");
+    const rowEl  = e.target.closest(".ag-row");
+
+    if (!cellEl || !rowEl) return;
+
+    const rowIndex = Number(rowEl.getAttribute("row-index"));
+    const colId = cellEl.getAttribute("col-id");
+    if (!Number.isFinite(rowIndex) || !colId) return;
+
+    const now = Date.now();
+
+    const sameCell =
+      lastTap &&
+      lastTap.rowIndex === rowIndex &&
+      lastTap.colId === colId;
+
+    if (sameCell && now - lastTap.time < 450) {
+      lastTap = null;
+
+      const rowNode = api.getDisplayedRowAtIndex(rowIndex);
+      if (!rowNode) return;
+
+      const params = {
+        api,
+        node: rowNode,
+        data: rowNode.data,
+        rowIndex,
+        column: api.getColumn(colId),
+        colDef: api.getColumnDef(colId),
+        value: rowNode.data?.[colId],
+      };
+
+      if (!isCellEditableForMobile(params)) return;
+
+      if (colId === "Date") {
+        api.startEditingCell({ rowIndex, colKey: colId });
+      } else {
+        openSheetCellEdit(params);
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    lastTap = { rowIndex, colId, time: now };
+  }, { passive: false });
+}
+
 // ===== Contrôleur de grille =====
 function createGridController({ gridId, elementId, loader, columnsBuilder, optionsPatch = {}}) {
   if (grids.has(gridId)) return grids.get(gridId);
@@ -2851,6 +2906,8 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
   };
 
   const api = window.agGrid.createGrid(el, gridOptions);
+
+  if (useSheetEditor) wireGridDoubleTapSheetEditor(el, api);
 
   // pour que le quick filter prenne en compte les colonnes masquées
   api.setGridOption('includeHiddenColumnsInQuickFilter', true); 
