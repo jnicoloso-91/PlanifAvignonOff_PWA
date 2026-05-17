@@ -69,7 +69,7 @@ const DAY_COLORS = [
 
 const COULEUR_ACTIVITE_PROGRAMMABLE = "#d9fcd9"  // ("#ccffcc" autre vert clair  "#cfe2f3" bleu clair)
 
-const AUTOSIZED_COLS = ['Session', 'Relache'];
+const AUTOSIZED_COLS = ['Session', 'Relache', 'Marqueur'];
 
 const OR_SEP = "|";
 
