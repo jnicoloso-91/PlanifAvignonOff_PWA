@@ -7559,8 +7559,8 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
   openSheetExclusive({
     title,
-    panelHeight: "55vh",
-    panelMaxHeight: "55vh",
+    panelHeight: "60vh",
+    panelMaxHeight: "60vh",
     mount: (body, { close }) => {
       body.innerHTML = `
         <div class="sheet-body--search">
@@ -7709,7 +7709,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
                 ${
                   !visibleInGrid
                     ? `<span style="display:block; color:#d32f2f; font-weight:600">
-                        Attention : Sélectionner supprime le filtre courant
+                        Sélection supprime le filtre courant
                       </span>`
                     : ''
                 }
