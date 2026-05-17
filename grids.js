@@ -942,12 +942,12 @@ function buildColumnsActivitesCommon(){
     { field:'Mood', headerName: 'Ton', minWidth:150, flex:0.6, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'Style', headerName: 'Style', minWidth:150, flex:0.6, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'Note', headerName: 'Note', width, minWidth:width, editable: false, cellRenderer: NoteRenderer },
-    { field:'Marqueur', headerName: 'Marqueur', width, minWidth:width, filter: "agTextColumnFilter", filterParams: {textMatcher: marqueurTextMatcher}, valueGetter: (p) => { const v = p.data?.Marqueur; return v == null ? "" : String(v); } }, //, valueParser: valueParserNumerique, cellEditor:IntCellEditor
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'Session', headerName: 'Séances', width:widthSR, minWidth:widthSR, valueParser: valueParserSession, onCellValueChanged: updSeances },
     { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
+    { field:'Marqueur', headerName: 'Marqueur', minWidth:widthSR, flex:1, filter: "agTextColumnFilter", filterParams: {textMatcher: marqueurTextMatcher}, valueGetter: (p) => { const v = p.data?.Marqueur; return v == null ? "" : String(v); } }, //, valueParser: valueParserNumerique, cellEditor:IntCellEditor
     { field:'Orga', headerName: 'Orga', width, minWidth:width, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
