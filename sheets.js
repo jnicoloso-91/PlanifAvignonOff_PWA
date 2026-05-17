@@ -7553,24 +7553,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         block: "center",     // "start" | "center" | "end" | "nearest"
       });
     }
-    // function scrollExpanderIntoView(expId) {
-    //   const expEl = document.getElementById(expId);
-    //   if (!expEl) return;
-
-    //   const bottomBarH =
-    //     document.querySelector(".bottom-bar")?.getBoundingClientRect().height || 72;
-
-    //   const margin = bottomBarH + 24;
-
-    //   const rect = expEl.getBoundingClientRect();
-    //   const targetY =
-    //     window.scrollY + rect.top - margin;
-
-    //   window.scrollTo({
-    //     top: Math.max(0, targetY),
-    //     behavior: "smooth"
-    //   });
-    // }
 
     try { openExpander?.(expId); } catch {}
 
@@ -7874,12 +7856,18 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       input.addEventListener("input", updateRunState);
 
-      btnSelect?.addEventListener("click", () => {
+      btnSelect?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
         const sel = gridApi?.getSelectedRows?.()?.[0];
         const uuid = sel?.__uuid;
         if (!uuid) return;
 
         close();
+
+        const actEl = document.activeElement;
+        /** @type {any} */(actEl).blur?.();
 
         if (!visibleInGrid) reinitFilter(gridId);
         selectionnerActivite(uuid);
