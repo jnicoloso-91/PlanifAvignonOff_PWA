@@ -7709,7 +7709,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
                 ${
                   !visibleInGrid
                     ? `<span style="display:block; color:#d32f2f; font-weight:600">
-                        Attention : le bouton Sélectionner enlèvera le filtre courant
+                        Attention : Sélectionner supprime le filtre courant
                       </span>`
                     : ''
                 }

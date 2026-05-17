@@ -3200,6 +3200,7 @@ input[type="range"]:focus::-moz-range-thumb {
   gap: 5px;
   overflow: hidden;
   padding-top: 0px;
+  margin-bottom: -10px;
 }
 
 
