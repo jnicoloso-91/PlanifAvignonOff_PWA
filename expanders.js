@@ -2008,7 +2008,7 @@ export function duplicateActivite(sel) {
   }, 50);
 }
 
-// Revoie le splitter sous un expander
+// Renvoie le splitter sous un expander
 export function getSplitterAfterExpander(expanderId) {
   return document.querySelector(`.v-splitter[data-top="${expanderId}"]`);
 }
