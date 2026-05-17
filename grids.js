@@ -75,7 +75,7 @@ const AUTOSIZED_COLS = ['Marqueur'];
 
 const OR_SEP = "|";
 
-const useSheetEditor = false; //window.matchMedia("(max-width: 812px)").matches;
+const useSheetEditor = window.matchMedia("(max-width: 812px)").matches;
 
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
@@ -1978,42 +1978,71 @@ function gridOptionsCommon(gridId, el) {
     singleClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
     suppressClickEdit: useSheetEditor, // empêche l’édition inline au simple clic/tap
-    onCellClicked: (p) => {
-      if (!useSheetEditor) return;
-      if (!isCellEditableForMobile(p)) return;
+    // onCellClicked: (p) => {
+    //   if (!useSheetEditor) return;
+    //   if (!isCellEditableForMobile(p)) return;
 
-      const now = Date.now();
-      const colId = p.column.getColId();
+    //   const now = Date.now();
+    //   const colId = p.column.getColId();
 
-      const sameCell =
-        lastTap &&
-        lastTap.rowIndex === p.rowIndex &&
-        lastTap.colId === colId;
+    //   const sameCell =
+    //     lastTap &&
+    //     lastTap.rowIndex === p.rowIndex &&
+    //     lastTap.colId === colId;
 
-      // Emulation double click
-      if (sameCell && now - lastTap.time < 350) {
-        lastTap = null;
+    //   // Emulation double click
+    //   if (sameCell && now - lastTap.time < 350) {
+    //     lastTap = null;
 
-        // sauf Date : on laisse ton éditeur custom
-        if (p.colDef.field === "Date") {
-          p.api.startEditingCell({
-            rowIndex: p.rowIndex,
-            colKey: p.column.getColId(),
-          });
-          return;
-        }
+    //     // sauf Date : on laisse ton éditeur custom
+    //     if (p.colDef.field === "Date") {
+    //       p.api.startEditingCell({
+    //         rowIndex: p.rowIndex,
+    //         colKey: p.column.getColId(),
+    //       });
+    //       return;
+    //     }
 
-        openSheetCellEdit(p);
-        return;
-      }
+    //     openSheetCellEdit(p);
+    //     return;
+    //   }
 
-      lastTap = {
+    //   lastTap = {
+    //     rowIndex: p.rowIndex,
+    //     colId,
+    //     time: now
+    //   };
+    // },
+onCellClicked: (p) => {
+  if (!useSheetEditor) return;
+  if (!isCellEditableForMobile(p)) return;
+
+  const now = Date.now();
+  const colId = p.column.getColId();
+  const rowId = p.node?.id ?? p.data?.__uuid ?? p.rowIndex;
+
+  const sameCell =
+    lastTap &&
+    lastTap.rowId === rowId &&
+    lastTap.colId === colId;
+
+  if (sameCell && now - lastTap.time < 450) {
+    lastTap = null;
+
+    if (p.colDef.field === "Date") {
+      p.api.startEditingCell({
         rowIndex: p.rowIndex,
-        colId,
-        time: now
-      };
-    },
+        colKey: colId,
+      });
+    } else {
+      openSheetCellEdit(p);
+    }
 
+    return;
+  }
+
+  lastTap = { rowId, colId, time: now };
+},
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
