@@ -1041,7 +1041,7 @@ main, .page-wrap {
 }
 
 /* hover / click feedback */
-.bb-icon-btn:hover {
+/* .bb-icon-btn:hover {
   background: rgba(0,0,0,.06);
 }
 .bb-icon-btn:active {
@@ -1051,9 +1051,10 @@ main, .page-wrap {
 
 @media (hover: hover) {
   .bottom-bar .bb-icon-btn:hover {
-    background: transparent;
+    background: rgba(0,0,0,.06);
   }
-}
+} */
+
 /* Taille et rendu des SVG (cohérents partout) */
 .bb-icon {
   width: 20px;            /* à ajuster si “énormes” sur iOS (ex: 18px) */
