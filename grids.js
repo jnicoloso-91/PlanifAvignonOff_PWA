@@ -75,7 +75,7 @@ const AUTOSIZED_COLS = ['Marqueur'];
 
 const OR_SEP = "|";
 
-const useSheetEditor = window.matchMedia("(max-width: 812px)").matches;
+const useSheetEditor = false; //window.matchMedia("(max-width: 812px)").matches;
 
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
