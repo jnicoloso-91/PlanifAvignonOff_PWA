@@ -7550,9 +7550,27 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       expEl.scrollIntoView({
         behavior: "smooth",   // ou "auto" instantané
-        block: "nearest",     // "start" | "center" | "end" | "nearest"
+        block: "center",     // "start" | "center" | "end" | "nearest"
       });
     }
+    // function scrollExpanderIntoView(expId) {
+    //   const expEl = document.getElementById(expId);
+    //   if (!expEl) return;
+
+    //   const bottomBarH =
+    //     document.querySelector(".bottom-bar")?.getBoundingClientRect().height || 72;
+
+    //   const margin = bottomBarH + 24;
+
+    //   const rect = expEl.getBoundingClientRect();
+    //   const targetY =
+    //     window.scrollY + rect.top - margin;
+
+    //   window.scrollTo({
+    //     top: Math.max(0, targetY),
+    //     behavior: "smooth"
+    //   });
+    // }
 
     try { openExpander?.(expId); } catch {}
 
