@@ -7705,7 +7705,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
               // selectedInfo.textContent = estProg ? 'Activité de la zone Programme' : 'Activité de la zone stock';
               selectedInfo.innerHTML = `
-                <span>${estProg ? 'Activité de la zone Programme' : 'Activité de la zone stock'}</span>
+                <span>${estProg ? 'Activité de la zone Programme' : 'Activité de la zone Stock'}</span>
                 ${
                   !visibleInGrid
                     ? `<span style="display:block; color:#d32f2f; font-weight:600">
@@ -8163,3 +8163,87 @@ function slotKey(dayInt, slot) {
   return `${r.__uuid || ''}|${dayInt}|${slot.startMin ?? ''}`;
 }
 
+let cellEditCtx = null;
+
+export function openSheetCellEdit(params) {
+  if (!params?.node || !params?.column) return;
+
+  cellEditCtx = params;
+
+  const colId = params.column.getColId();
+  const title = params.colDef?.headerName || colId;
+  const initialValue = params.value ?? "";
+
+  openSheetExclusive({
+    title: `Edition champ ${title}`,
+    panelHeight: "20vh",
+    panelMaxHeight: "20vh",
+
+    mount: (body, { close }) => {
+      body.innerHTML = `
+        <div class="sheet-body--cell-edit">
+          <textarea id="cellEditInput"
+                    class="ai-input"
+                    rows="1"
+                    placeholder="Valeur..."></textarea>
+        </div>
+
+        <div class="sheet-footer">
+          <button type="button" class="bb-btn" id="btnCellEditCancel">Annuler</button>
+          <button type="button" class="bb-btn is-primary" id="btnCellEditSave">OK</button>
+        </div>
+      `;
+
+      const input = body.querySelector("#cellEditInput");
+      const btnCancel = body.querySelector("#btnCellEditCancel");
+      const btnSave = body.querySelector("#btnCellEditSave");
+
+      input.value = initialValue;
+
+      function save() {
+        const newValue = input.value;
+
+        cellEditCtx.node.setDataValue(
+          cellEditCtx.column.getColId(),
+          newValue
+        );
+
+        cellEditCtx = null;
+        close();
+      }
+
+      btnCancel.addEventListener("click", () => {
+        cellEditCtx = null;
+        close();
+      });
+
+      btnSave.addEventListener("click", save);
+
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          save();
+        }
+
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cellEditCtx = null;
+          close();
+        }
+      });
+
+      queueMicrotask(() => {
+        setTimeout(() => {
+          try {
+            input.focus();
+            input.select();
+          } catch {}
+        }, 120);
+      });
+
+      body.onClose?.(() => {
+        cellEditCtx = null;
+      });
+    }
+  });
+}

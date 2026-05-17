@@ -54,6 +54,7 @@ import { AvisRenderer } from './AvisRenderer.js';
 import { LieuRenderer } from './LieuRenderer.js';
 import { NoteRenderer } from './NoteRenderer.js';
 import { infosPlusPopoverCellRenderer } from './infos-plus.js';
+import { openSheetCellEdit } from './sheets.js';
 
 // Palette de couleurs de jours pour colorisation des activités programmées
 const DAY_COLORS = [
@@ -69,9 +70,12 @@ const DAY_COLORS = [
 
 const COULEUR_ACTIVITE_PROGRAMMABLE = "#d9fcd9"  // ("#ccffcc" autre vert clair  "#cfe2f3" bleu clair)
 
-const AUTOSIZED_COLS = ['Session', 'Relache', 'Marqueur'];
+// const AUTOSIZED_COLS = ['Session', 'Relache', 'Marqueur'];
+const AUTOSIZED_COLS = ['Marqueur'];
 
 const OR_SEP = "|";
+
+const isMobile = window.window.matchMedia("(max-width: 812px)").matches;
 
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
@@ -900,7 +904,8 @@ function marqueurTextMatcher(params) {
 // Colonnes des grilles d'activités programmées et non programmées
 function buildColumnsActivitesCommon(){
   let width = window.matchMedia("(max-width: 750px)").matches ? 60 : 80;
-  let widthSR = window.matchMedia("(max-width: 750px)").matches ? 70 : 90;
+  let widthSR = window.matchMedia("(max-width: 750px)").matches ? 80 : 100;
+  let widthM = window.matchMedia("(max-width: 750px)").matches ? 70 : 90;
 
   // Colonnes “texte” cachées pour recherche / filtre
   const HIDDEN_TEXT_COLS = [
@@ -945,9 +950,9 @@ function buildColumnsActivitesCommon(){
     { field:'Duree', headerName: 'Durée', width, suppressSizeToFit:true, valueParser: valueParserDuree },
     { field:'Fin', headerName: 'Fin', width, suppressSizeToFit:true, editable: false, valueParser: valueParserHeure },
     { field:'Lieu', headerName: 'Lieu', minWidth:160, flex:1, cellRenderer: LieuRenderer, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
-    { field:'Session', headerName: 'Séances', width:widthSR, minWidth:widthSR, valueParser: valueParserSession, onCellValueChanged: updSeances },
-    { field:'Relache', headerName: 'Relâches', width:widthSR, minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
-    { field:'Marqueur', headerName: 'Marqueur', minWidth:widthSR, flex:1, filter: "agTextColumnFilter", filterParams: {textMatcher: marqueurTextMatcher}, valueGetter: (p) => { const v = p.data?.Marqueur; return v == null ? "" : String(v); } }, //, valueParser: valueParserNumerique, cellEditor:IntCellEditor
+    { field:'Session', headerName: 'Séances', minWidth:widthSR, valueParser: valueParserSession, onCellValueChanged: updSeances },
+    { field:'Relache', headerName: 'Relâches', minWidth:widthSR, valueParser: valueParserRelache, onCellValueChanged: updSeances },
+    { field:'Marqueur', headerName: 'Marqueur', minWidth:widthM, flex:1, filter: "agTextColumnFilter", filterParams: {textMatcher: marqueurTextMatcher}, valueGetter: (p) => { const v = p.data?.Marqueur; return v == null ? "" : String(v); } }, //, valueParser: valueParserNumerique, cellEditor:IntCellEditor
     { field:'Orga', headerName: 'Orga', width, minWidth:width, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
     { field:'Reserve', headerName: 'Réservé', width, minWidth:width, valueParser: valueParserReserve },
     { field:'Hyperlien', headerName: 'Page Web', minWidth:120, flex:1, cellRenderer: HyperlienRenderer },
@@ -1880,6 +1885,17 @@ function getSplitterFromCellParams(p) {
   return document.querySelector(`.v-splitter[data-top="${expId}"]`);
 }
 
+// Indique si une cellule est editable
+function isCellEditable(params) {
+  const editable = params.colDef.editable;
+
+  if (typeof editable === "function") {
+    return editable(params);
+  }
+
+  return editable === true;
+}
+
 let lastEditStartedAt = 0;
 let lastEditStartedCell = null;
 let reopeningEdit = false;
@@ -1946,8 +1962,14 @@ function gridOptionsCommon(gridId, el) {
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
     singleClickEdit: false,
-    suppressClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
+    // suppressClickEdit: false,
+    suppressClickEdit: true, //isMobile, // empêche l’édition inline au simple clic/tap
+    onCellDoubleClicked: (params) => {
+      // if (!isMobile) return;
+      if (!isCellEditable(params)) return;
+      openSheetCellEdit(params);
+    },    
     // onCellKeyDown: (p) => {   // permet entrée / sortie d'édition de cellule sur touche Enter 
     //   if (p.event?.key !== "Enter") return;
     //   if (!p.colDef?.editable) return;
@@ -2007,9 +2029,8 @@ function gridOptionsCommon(gridId, el) {
 
       // OR : au moins un match
       return parts.some(p => hay.includes(p));
-    }
+    },
 
-    
     // floatingFilter: true,
     // suppressMenuHide: false,
     // suppressColumnVirtualisation: false,
