@@ -61,6 +61,7 @@ import {
   ensureRowVisible,
   getGridApiById,
   reinitFilter,
+  flashRowOverlayInGrid,
 } from './grids.js';
 
 import {
@@ -71,6 +72,7 @@ import {
   getCalDays,
   scrollCalendarToDay,
   PX_PER_MIN,
+  flashCalendarEvent,
 } from './calendar.js';
 
 import {
@@ -2634,11 +2636,6 @@ export function openSheetFiltres(gridId) {
 
       clearBtn.addEventListener("click", () => {
         quickChip.setValues?.([]);
-        // gridApi.setQuickFilter?.("");
-        // gridApi.setFilterModel({});
-        // gridApi.onFilterChanged?.();
-        // if (gridId == "grid-programmees" && isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
-        // else ensureRowVisible(gridId, getSelectedRowUuid(gridId));
         reinitFilter(gridId);
         close();
       });
@@ -7512,7 +7509,23 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     return parts.every(p => hay.includes(p));
   } 
 
-  function selectionnerActivite(uuid){
+  function flashExpanderTitle(expId) {
+    const exp = document.getElementById(expId);
+    const header = exp?.querySelector(".st-expander-header");
+    const title = header?.querySelector(".title");
+
+    if (!title) return;
+
+    title.classList.remove("grid-attention");
+    void /** @type {HTMLElement} */ (title).offsetWidth;
+    title.classList.add("grid-attention");
+
+    setTimeout(() => {
+      title.classList.remove("grid-attention");
+    }, 1400);
+  } 
+
+  async function selectionnerActivite(uuid){
     const row = ctx.dfGetByUuid?.(uuid) || (ctx.getDf?.() || []).find(r => r?.__uuid === uuid);
     if (!row) return false;
 
@@ -7543,15 +7556,22 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
     try { openExpander?.(expId); } catch {}
 
-    queueMicrotask(() => {
-      scrollExpanderIntoView(expId);
-    });
-
     // double rAF = le temps que l’expander s’ouvre / que la grille repeigne
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      let ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: true });
-      if (!ok) fallbackSelect(gridId);
-      if (isProgrammeCalendarVisible) rerenderProgrammeCalendar();
+      scrollExpanderIntoView(expId);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        let ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: false });
+        if (!ok) fallbackSelect(gridId);
+        flashRowOverlayInGrid(gridId, uuid);
+
+        if (isProgrammeCalendarVisible) {
+          rerenderProgrammeCalendar();
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            flashCalendarEvent(uuid);
+          }));
+        }  
+      }));
+
     }));
 
     return true;
@@ -7679,11 +7699,13 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         rowSelection: "single", 
         onGridReady: (params) => {
           if (!isIOS()) requestAnimationFrame(() => wireAgTouchScrollRouter('grid-search', { sheetGrid:true} ));
+          selectRowByUuidInSheetGrid(lastSelectedUuid);
         },
         onSelectionChanged: () => {
           const sel = gridApi?.getSelectedRows?.()?.[0] || null;
           btnSelect.disabled = !sel;
           if (sel) {
+            ctx.setMetaParam?.("lastSearchSelectedUuid", sel.__uuid);
             const activite = ctx.df.filter(r => r.Activite == sel.Activite)?.[0] || null;
             if (activite) {
               const estProg = activitesAPI.estActiviteProgrammee(activite);
@@ -7725,8 +7747,21 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       gridApi = window.agGrid.createGrid(gridEl, gridOptions);
 
+      const lastSelectedUuid = ctx.getMetaParam?.("lastSearchSelectedUuid");
+
       // ➜ enregistre dans le registre des sheets
       window.sheetGrids.set('grid-search', { api: gridApi, el: gridEl });
+
+      function selectRowByUuidInSheetGrid(uuid) {
+        let /** @type {any} */ node = null;
+
+        gridApi.forEachNode?.(n => { if (!node && n.data?.__uuid === uuid) node = n; });
+        if (!node) return false;
+
+        node.setSelected?.(true, true);
+
+        return true;
+      }
 
       function runSearch(){
         const q = (input.value || "").trim();
@@ -8176,8 +8211,8 @@ export function openSheetCellEdit(params) {
 
   openSheetExclusive({
     title: `Edition champ ${title}`,
-    panelHeight: "20vh",
-    panelMaxHeight: "20vh",
+    panelHeight: "23vh",
+    panelMaxHeight: "23vh",
 
     mount: (body, { close }) => {
       body.innerHTML = `
@@ -8201,14 +8236,31 @@ export function openSheetCellEdit(params) {
       input.value = initialValue;
 
       function save() {
-        const newValue = input.value;
+        if (!cellEditCtx) return;
+
+        let newValue = input.value;
+
+        const colDef = cellEditCtx.colDef;
+
+        // applique le valueParser AG Grid
+        if (typeof colDef.valueParser === "function") {
+          newValue = colDef.valueParser({
+            api: cellEditCtx.api,
+            column: cellEditCtx.column,
+            colDef,
+            context: cellEditCtx.context,
+            data: cellEditCtx.data,
+            node: cellEditCtx.node,
+            oldValue: cellEditCtx.value,
+            newValue,
+          });
+        }
 
         cellEditCtx.node.setDataValue(
           cellEditCtx.column.getColId(),
           newValue
         );
 
-        cellEditCtx = null;
         close();
       }
 

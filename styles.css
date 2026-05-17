@@ -596,6 +596,30 @@ main, .page-wrap {
   animation: row-flash 480ms ease-out;
 }
 
+.ag-theme-quartz,
+.grid-host {
+  position: relative;
+}
+
+.row-flash-overlay {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+  border: 3px solid rgba(255, 193, 7, .95);
+  background: rgba(255, 230, 0, .18);
+  border-radius: 6px;
+  opacity: 0;
+}
+
+.row-flash-overlay.is-flashing {
+  animation: rowOverlayFlash 1.4s ease-out;
+}
+
+@keyframes rowOverlayFlash {
+  0% { opacity: 1; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 /*===============================*/
 /* Splitter entre grilles        */
@@ -2896,6 +2920,25 @@ input[type="range"]:focus::-moz-range-thumb {
   pointer-events: none;
 }
 
+.calendar-event-attention {
+  animation: calendarEventAttention 1.4s ease-out;
+}
+
+@keyframes calendarEventAttention {
+  0% {
+    background-color: rgba(255, 230, 0, .75);
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, .75);
+    transform: scale(1.03);
+  }
+  55% {
+    background-color: rgba(255, 230, 0, .35);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+    transform: scale(1);
+  }
+}
 
 /*=========================
    SetMarqueur
@@ -3287,6 +3330,7 @@ input[type="range"]:focus::-moz-range-thumb {
   display: flex;
   align-items: center;
 }
+
 
 /*=========================
    Import marqueurs

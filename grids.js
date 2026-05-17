@@ -75,7 +75,7 @@ const AUTOSIZED_COLS = ['Marqueur'];
 
 const OR_SEP = "|";
 
-const isMobile = window.window.matchMedia("(max-width: 812px)").matches;
+const useSheetEditor = window.matchMedia("(max-width: 812px)").matches;
 
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
@@ -484,11 +484,12 @@ export function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {
       { duration: 450, easing: 'ease-out' }
     );
   }
+
   return true;
 }
 
 // Renvoie Row Node et Element en fonction de l'uuid de ligne
-export async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paints = 2, debug = false } = {}) {
+async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paints = 2, debug = false } = {}) {
   
   // CSS.escape polyfill safe
   const cssEscape = (window.CSS && CSS.escape) ? CSS.escape : (s) => String(s).replace(/["\\#:.%]/g, '\\$&');
@@ -913,7 +914,7 @@ function buildColumnsActivitesCommon(){
   ];
 
   return [
-    { field:'Date', headerName:'Date', width, suppressSizeToFit:true,
+    { field:'Date', headerName:'Date', width, suppressSizeToFit:true, editable:true,
       valueFormatter:p=>dateintToPretty(p.value),
       valueParser:p=>prettyToDateint(p.newValue) ?? p.oldValue ?? null,
       comparator:(a,b)=>(safeDateint(a)||0)-(safeDateint(b)||0)
@@ -985,13 +986,13 @@ function buildColumnsActivitesProgrammees() {
 
   cols[iDebut] = {
     ...cols[iDebut] ,
-    editable: (p) => !activitesAPI.estActiviteReservee(p.data),
+    editable: (p) => !useSheetEditor && !activitesAPI.estActiviteReservee(p.data),
     onCellValueChanged: updFin,
   };
 
   cols[iDuree] = {
     ...cols[iDuree] ,
-    editable: (p) => !activitesAPI.estActiviteReservee(p.data),
+    editable: (p) => !useSheetEditor && !activitesAPI.estActiviteReservee(p.data),
     onCellValueChanged: updFin,
   };
 
@@ -1886,26 +1887,39 @@ function getSplitterFromCellParams(p) {
 }
 
 // Indique si une cellule est editable
-function isCellEditable(params) {
-  const editable = params.colDef.editable;
+// remplace le p.colDef.editable qui est tjrs à false sur Mobile;
+function isCellEditableForMobile(p) {
 
-  if (typeof editable === "function") {
-    return editable(params);
+  if (!p) return false;
+
+  if (p.context?.gridId === 'grid-programmees') {
+    if (
+      p.colDef.colId === 'Debut' || 
+      p.colDef.colId === 'Duree') return !activitesAPI.estActiviteReservee(p.data);
   }
+  if (
+    p.context?.gridId === 'grid-creneaux' ||
+    p.context?.gridId === 'grid-programmables') return false;
 
-  return editable === true;
+  if (
+    p.colDef.colId === 'Fin' ||
+    p.colDef.colId === '__desc_summary' ||
+    p.colDef.colId === 'Note') return false;
+
+  return true;
 }
 
 let lastEditStartedAt = 0;
 let lastEditStartedCell = null;
 let reopeningEdit = false;
+let lastTap = null;
 
 // gridOptions communes
 function gridOptionsCommon(gridId, el) {
   return {
     context: { gridId },                 
     defaultColDef: { 
-      editable: true, 
+      editable: !useSheetEditor, 
       resizable: true, 
       sortable: true, 
       // filter: true,
@@ -1963,34 +1977,43 @@ function gridOptionsCommon(gridId, el) {
     suppressMovableColumns: false,
     singleClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
-    // suppressClickEdit: false,
-    suppressClickEdit: true, //isMobile, // empêche l’édition inline au simple clic/tap
-    onCellDoubleClicked: (params) => {
-      // if (!isMobile) return;
-      if (!isCellEditable(params)) return;
-      openSheetCellEdit(params);
-    },    
-    // onCellKeyDown: (p) => {   // permet entrée / sortie d'édition de cellule sur touche Enter 
-    //   if (p.event?.key !== "Enter") return;
-    //   if (!p.colDef?.editable) return;
+    suppressClickEdit: useSheetEditor, // empêche l’édition inline au simple clic/tap
+    onCellClicked: (p) => {
+      if (!useSheetEditor) return;
+      if (!isCellEditableForMobile(p)) return;
 
-    //   p.event.preventDefault?.();
-    //   p.event.stopPropagation?.();
+      const now = Date.now();
+      const colId = p.column.getColId();
 
-    //   const editing = p.api.getEditingCells?.() || [];
+      const sameCell =
+        lastTap &&
+        lastTap.rowIndex === p.rowIndex &&
+        lastTap.colId === colId;
 
-    //   // ⚠️ Intentionnel : dans ce handler AG Grid, getEditingCells()
-    //   // reflète l'état inverse attendu au moment de Enter.  
-    //   // Ne pas remettre le if dans le sens "logique".  
-    //   if (editing.length <= 0) {
-    //     p.api.stopEditing(false); // commit
-    //   } else {
-    //     p.api.startEditingCell({
-    //       rowIndex: p.rowIndex,
-    //       colKey: p.colDef.field
-    //     });
-    //   }
-    // },
+      // Emulation double click
+      if (sameCell && now - lastTap.time < 350) {
+        lastTap = null;
+
+        // sauf Date : on laisse ton éditeur custom
+        if (p.colDef.field === "Date") {
+          p.api.startEditingCell({
+            rowIndex: p.rowIndex,
+            colKey: p.column.getColId(),
+          });
+          return;
+        }
+
+        openSheetCellEdit(p);
+        return;
+      }
+
+      lastTap = {
+        rowIndex: p.rowIndex,
+        colId,
+        time: now
+      };
+    },
+
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
@@ -2037,6 +2060,7 @@ function gridOptionsCommon(gridId, el) {
 
     // enableBrowserTooltips: true,
     // suppressTouch: false,
+    
   }
 };
 
@@ -2177,62 +2201,6 @@ const gridOptionsActivitesProgrammables = {
   onFilterChanged: p => { updateGridCounters(p.api, document.getElementById('badge-programmables')); saveGridFilterModelToMeta(p, 'grid-programmables'); },
 }
 
-// Sélectionne dans une autre grille la ligne correspondant à celle qui vient d'être sélectionnée et la rend visible
-// function synchronizeSelection(event, dstGridId) {
-//   // Évite les boucles si la sélection vient d'une action programmatique
-//   if (event?.source !== 'rowClicked') return;
-
-//   const srcApi = event.api;
-//   const dstApi = getGridApiById(dstGridId);
-//   if (!srcApi || !dstApi) return;
-
-//   const sel = srcApi.getSelectedRows?.()[0];
-//   // Si plus rien n'est sélectionné côté "programmable" => on nettoie en face
-//   if (!sel) {
-//     dstApi.deselectAll?.({ source: 'programmatic' });
-//     return;
-//   }
-
-//   const uuid = sel.__uuid;
-//   const activite = (sel.Activite || '').trim().toLowerCase();
-
-//   // Cherche le node correspondant dans "programmees"
-//   let targetNode = null;
-//   dstApi.forEachNode(node => {
-//     const d = node.data || {};
-//     if (uuid && d.__uuid === uuid) targetNode = node;
-//   });
-//   // Fallback si pas de __uuid commun : on matche sur Activite
-//   if (!targetNode && activite) {
-//     dstApi.forEachNode(node => {
-//       const d = node.data || {};
-//       if (!targetNode && String(d.Activite || '').trim().toLowerCase() === activite) {
-//         targetNode = node;
-//       }
-//     });
-//   }
-
-//   if (!targetNode) {
-//     // Rien trouvé côté programmees : on peut désélectionner ou ignorer
-//     // dstApi.deselectAll?.({ source: 'programmatic' });
-//     return;
-//   }
-
-//   // Sélection "silencieuse" (v30+): évite les finishActions et marque la source
-//   dstApi.setNodesSelected({
-//     nodes: [targetNode],
-//     newValue: true,
-//     clearSelection: true,
-//     source: 'programmatic'
-//   });
-
-//   // S'assure que la ligne est visible (après paint pour éviter les races)
-//   queueMicrotask(() => {
-//     try {
-//       dstApi.ensureNodeVisible(targetNode, 'middle'); // 'top' | 'middle' | 'bottom'
-//     } catch {}
-//   });
-// }
 let __selectionSyncLock = false;
 
 function withSelectionSyncLock(fn) {
@@ -2919,13 +2887,12 @@ export async function refreshGrid(gridId, fallbackSelection=false) {
   // api.setGridOption?.('rowData', rows || []);
   api.setRowData(rows);
 
-  // Workaround sur colonnes optionnelles
-  // on les détype pour eviter les affichages Invalid Type sur les colonnes inférées comme étant de type Number
+  // ==== Workaround sur colonnes optionnelles ====
+  // on les détype (cellDataType: 'text') pour eviter les affichages Invalid Type sur les colonnes inférées comme étant de type Number
   // A généraliser (fait ici seulement sur une hypothétique colonne Prix)
   // Pour rechercher les colonnes optionnelles rechercher celles qui ne sont pas dans MANDATORY_COLS
   // Par exemple:
   // const mandatorySet = new Set(MANDATORY_COLS);
-
   // const columnDefs = Object.keys(dfRows[0] ?? {}).map(field => ({
   //   field,
   //   ...(mandatorySet.has(field)
@@ -2945,6 +2912,7 @@ export async function refreshGrid(gridId, fallbackSelection=false) {
     }
   }
   api.setGridOption("columnDefs", cols);
+  // ==== Workaround sur colonnes optionnelles ====
 
   // const nbRows = rows.length;
   const nbRows = api.getDisplayedRowCount();
@@ -3307,3 +3275,46 @@ export function reinitFilter(gridId) {
   if (gridId == "grid-programmees" && isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
   else ensureRowVisible(gridId, getSelectedRowUuid(gridId));
 }
+
+// Fait flasher une ligne 
+export function flashRowOverlayInGrid(gridId, uuid) {
+  const h = window.grids?.get?.(gridId);
+  const api = h?.api;
+  const gridEl = h?.el;
+  if (!api || !gridEl) return;
+
+  let node = null;
+  api.forEachNodeAfterFilterAndSort(n => {
+    if (n.data?.__uuid === uuid) node = n;
+  });
+  if (!node) return;
+
+  api.ensureIndexVisible(/** @type {any} */(node).rowIndex, "middle");
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const rowEl = gridEl.querySelector(`.ag-row[row-index="${node.rowIndex}"]`);
+    if (!rowEl) return;
+
+    const gridRect = gridEl.getBoundingClientRect();
+    const rowRect = rowEl.getBoundingClientRect();
+
+    let overlay = gridEl.querySelector(".row-flash-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "row-flash-overlay";
+      gridEl.appendChild(overlay);
+    }
+
+    overlay.style.top = `${rowRect.top - gridRect.top}px`;
+    overlay.style.left = `${rowRect.left - gridRect.left}px`;
+    overlay.style.width = `${rowRect.width}px`;
+    overlay.style.height = `${rowRect.height}px`;
+
+    overlay.classList.remove("is-flashing");
+    void overlay.offsetWidth;
+    overlay.classList.add("is-flashing");
+
+    setTimeout(() => overlay.classList.remove("is-flashing"), 1400);
+  }));
+}
+

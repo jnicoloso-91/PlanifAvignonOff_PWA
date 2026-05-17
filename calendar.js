@@ -2007,3 +2007,22 @@ export function rowsToICS_TZID(rows, {
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
 }
+
+// Fait flasher un event
+export function flashCalendarEvent(uuid) {
+  const ev = document.querySelector(
+    `.cal-ev[data-uuid="${CSS.escape(String(uuid))}"]`
+  );
+
+  if (!ev) return false;
+
+  ev.classList.remove("calendar-event-attention");
+  void /** @type {HTMLElement} */(ev).offsetWidth;
+  ev.classList.add("calendar-event-attention");
+
+  setTimeout(() => {
+    ev.classList.remove("calendar-event-attention");
+  }, 1400);
+
+  return true;
+}
