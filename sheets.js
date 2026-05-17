@@ -7811,7 +7811,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       function blurBottomBarButtons() {
         document
-          .querySelectorAll(".bottom-bar button, .bottom-bar .bb-btn")
+          .querySelectorAll(".bottom-bar button, .bottom-bar .bb-icon-btn")
           .forEach(btn => /** @type {any} */(btn).blur?.());
       }
 

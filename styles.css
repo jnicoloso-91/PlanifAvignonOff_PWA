@@ -1041,19 +1041,13 @@ main, .page-wrap {
 }
 
 /* hover / click feedback */
-/* .bb-icon-btn:hover {
+.bb-icon-btn:hover {
   background: rgba(0,0,0,.06);
 }
 .bb-icon-btn:active {
   transform: scale(0.92);
   background: rgba(0,0,0,.1);
 }
-
-@media (hover: hover) {
-  .bottom-bar .bb-icon-btn:hover {
-    background: rgba(0,0,0,.06);
-  }
-} */
 
 /* Taille et rendu des SVG (cohérents partout) */
 .bb-icon {
