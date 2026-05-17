@@ -9,7 +9,7 @@ import {
   richValueGetValue,
   afterFrames,
   isIOS,
-  genUUID,
+  isAndroid,
 } from './utils.js';
 
 import { 
@@ -75,7 +75,7 @@ const AUTOSIZED_COLS = ['Marqueur'];
 
 const OR_SEP = "|";
 
-const useSheetEditor = window.matchMedia("(max-width: 812px)").matches;
+const useSheetEditor = isIOS() || isAndroid(); //window.matchMedia("(max-width: 812px)").matches;
 
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
@@ -2831,7 +2831,7 @@ function autoOpenSelectOnEdit(api){
   });
 }
 
-function wireGridDoubleTapSheetEditor(gridEl, api) {
+function wireGridDoubleTapSheetEditor(gridId, gridEl, api) {
   let lastTap = null;
 
   gridEl.addEventListener("pointerup", (e) => {
@@ -2867,6 +2867,7 @@ function wireGridDoubleTapSheetEditor(gridEl, api) {
         column: api.getColumn(colId),
         colDef: api.getColumnDef(colId),
         value: rowNode.data?.[colId],
+        context: { gridId },
       };
 
       if (!isCellEditableForMobile(params)) return;
@@ -2907,7 +2908,7 @@ function createGridController({ gridId, elementId, loader, columnsBuilder, optio
 
   const api = window.agGrid.createGrid(el, gridOptions);
 
-  if (useSheetEditor) wireGridDoubleTapSheetEditor(el, api);
+  if (useSheetEditor) wireGridDoubleTapSheetEditor(gridId, el, api);
 
   // pour que le quick filter prenne en compte les colonnes masquées
   api.setGridOption('includeHiddenColumnsInQuickFilter', true); 
@@ -3249,12 +3250,12 @@ export function wireGrids() {
     optionsPatch: gridOptionsActivitesNonProgrammees,
   });
 
-  // Mis en commentaire car ce long press interfère avec double-click notamment sur Android 
-  wireActiviteNonProgrammeesLongPress( {
-    action: (row) => {
-      duplicateActivite(row);
-    }
-  });
+  // Mis en commentaire car interfère avec double-click -> remplacé par bouton Dupliquer 
+  // wireActiviteNonProgrammeesLongPress( {
+  //   action: (row) => {
+  //     duplicateActivite(row);
+  //   }
+  // });
 
 }
 

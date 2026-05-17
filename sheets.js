@@ -8221,20 +8221,20 @@ export function openSheetCellEdit(params) {
   const initialValue = params.value ?? "";
 
   openSheetExclusive({
-    title: `Edition champ ${title}`,
-    panelHeight: "23vh",
-    panelMaxHeight: "23vh",
+    title: `Edition ${title}`,
+    panelHeight: "25vh",
+    panelMaxHeight: "25vh",
 
     mount: (body, { close }) => {
       body.innerHTML = `
         <div class="sheet-body--cell-edit">
-          <textarea id="cellEditInput"
-                    class="ai-input"
-                    rows="1"
-                    placeholder="Valeur..."></textarea>
+          <input id="cellEditInput"
+                    class="ai-input cell-edit-input"
+                    type="text"
+                    placeholder="Valeur..."></input>
         </div>
 
-        <div class="sheet-footer">
+        <div class="sheet-footer sheet-footer--cell-edit">
           <button type="button" class="bb-btn" id="btnCellEditCancel">Annuler</button>
           <button type="button" class="bb-btn is-primary" id="btnCellEditSave">OK</button>
         </div>
@@ -8283,7 +8283,7 @@ export function openSheetCellEdit(params) {
       btnSave.addEventListener("click", save);
 
       input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        if (e.key === "Enter") {
           e.preventDefault();
           save();
         }

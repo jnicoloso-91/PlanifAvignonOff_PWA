@@ -239,6 +239,10 @@ export function isIOS() {
   return false;
 }
 
+export function isAndroid() {
+  return /Android/.test(navigator.userAgent);
+}
+
 export function isStandalonePWA() {
   return window.matchMedia('(display-mode: standalone)').matches
 // @ts-ignore
