@@ -7809,6 +7809,12 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         btnClear.style.display = input.value ? "flex" : "none";
       }
 
+      function blurBottomBarButtons() {
+        document
+          .querySelectorAll(".bottom-bar button, .bottom-bar .bb-btn")
+          .forEach(btn => /** @type {any} */(btn).blur?.());
+      }
+
       input.addEventListener("input", updateClearBtn);
 
       btnClear.addEventListener("click", (e) => {
@@ -7866,8 +7872,9 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
         close();
 
-        const actEl = document.activeElement;
-        /** @type {any} */(actEl).blur?.();
+        // const actEl = document.activeElement;
+        // /** @type {any} */(actEl).blur?.();
+        blurBottomBarButtons(); 
 
         if (!visibleInGrid) reinitFilter(gridId);
         selectionnerActivite(uuid);
