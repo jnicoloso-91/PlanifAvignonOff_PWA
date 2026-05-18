@@ -1302,13 +1302,17 @@ export function openSheetExclusive({
   // exclusif : enlever toute sheet ouverte
   document.querySelectorAll('.' + classes.wrap).forEach(n => n.remove());
 
+  const sizeStyle = [
+    panelMaxHeight ? `max-height:${panelMaxHeight}` : "",
+    panelHeight ? `height:${panelHeight}` : ""
+  ].filter(Boolean).join(";");
+
   // markup conforme à ta CSS
   const root = document.createElement('div');
   root.className = classes.wrap;
   root.innerHTML = `
     <div class="${classes.backdrop}" data-backdrop></div>
-    <div class="${classes.panel}" role="dialog" aria-modal="true"
-         style="max-height:${panelMaxHeight};height:${panelHeight}">
+    <div class="${classes.panel}" role="dialog" aria-modal="true" style="${sizeStyle}">
       <span class="${classes.handle}" aria-hidden="true"></span>
       <header class="${classes.header}" data-drag-region>
         <button class="${classes.infoBtn}" title="Info" aria-label="Info">i</button>
@@ -8218,8 +8222,8 @@ export function openSheetCellEdit(params) {
 
   openSheetExclusive({
     title: `Edition ${title}`,
-    panelHeight: "200px",
-    panelMaxHeight: "200px",
+    panelHeight: null,
+    panelMaxHeight: "70vh",
     classes: {       
       wrap: 'sheet-wrap',
       backdrop: 'sheet-backdrop',
