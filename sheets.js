@@ -8308,11 +8308,13 @@ export function openSheetCellEdit(params) {
         }
       });
 
-      queueMicrotask(() => {
+      requestAnimationFrame(() => {
         setTimeout(() => {
           try {
             input.focus();
             input.select();
+            // Pour aider IOS à faire monter le clavier...
+            input.click();
           } catch {}
         }, 120);
       });
