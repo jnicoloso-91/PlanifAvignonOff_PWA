@@ -8308,23 +8308,21 @@ export function openSheetCellEdit(params) {
         }
       });
 
-      // requestAnimationFrame(() => {
-      //   setTimeout(() => {
-      //     try {
-      //       input.focus();
-      //       input.select();
-      //       // Pour aider IOS à faire monter le clavier...
-      //       input.click();
-      //     } catch {}
-      //   }, 120);
-      // });
-
       requestAnimationFrame(() => {
-        try {
-          input.focus({preventScroll: true });
-          input.select();
-        } catch {}
+        setTimeout(() => {
+          try {
+            input.focus();
+            input.select();
+          } catch {}
+        }, 120);
       });
+
+      // requestAnimationFrame(() => {
+      //   try {
+      //     input.focus({preventScroll: true });
+      //     input.select();
+      //   } catch {}
+      // });
 
       body.onClose?.(() => {
         cellEditCtx = null;
