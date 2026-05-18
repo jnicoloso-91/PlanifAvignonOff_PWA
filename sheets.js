@@ -8310,7 +8310,8 @@ export function openSheetCellEdit(params) {
 
       input.addEventListener("blur", (e) => {
         e.preventDefault();
-        save();
+        cellEditCtx = null;
+        close();
       });
 
       requestAnimationFrame(() => {
