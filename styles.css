@@ -2734,9 +2734,23 @@ input[type="range"]:focus::-moz-range-thumb {
   touch-action: manipulation;
 }
 
+/* Gestion de la sélection */
 #programme-panel #calA .cal-ev.is-selected{
   outline: 2px solid rgba(0,120,215,.45);
 }
+
+/* Gestion de l'état de réservation */
+#programme-panel #calA .cal-ev.is-reserved {
+  background: #f4eeee;
+}
+#programme-panel #calA .cal-ev.is-selected.is-reserved {
+  outline: 2px solid rgba(215, 0, 0, 0.45);
+  background: #f4eeee;
+}
+/* #programme-panel #calA .cal-ev.is-reserved a.cal-ev__title {
+  color: #d32f2f !important;
+  font-weight: 600;
+} */
 
 #programme-panel #calA .cal-ev.is-continuation-prev{
   border-top-left-radius:0;
@@ -2795,14 +2809,6 @@ input[type="range"]:focus::-moz-range-thumb {
 /* Responsive */
 @media (max-width: 812px){
   #programme-panel #calA .cal-ev__title{ font-size: 11px; }
-}
-
-/* #programme-panel #calA .cal-ev.is-reserved a.cal-ev__title {
-  color: #d32f2f !important;
-  font-weight: 600;
-} */
-#programme-panel #calA .cal-ev.is-reserved {
-  background: #f4eeee;
 }
 
 .cal-day__actions {
