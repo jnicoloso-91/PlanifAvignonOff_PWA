@@ -3664,6 +3664,7 @@ input[type="range"]:focus::-moz-range-thumb {
 
 .cell-edit-container {
   padding: 0px 10px 8px;
+  overscroll-behavior: contain;
 }
 
 .cell-edit-input {
@@ -3672,6 +3673,7 @@ input[type="range"]:focus::-moz-range-thumb {
   min-height: 44px;
   max-height: 44px;
   box-sizing: border-box;
+  scroll-margin-bottom: 40vh;
 }
 
 .cell-edit-subtitle {
@@ -3683,4 +3685,5 @@ input[type="range"]:focus::-moz-range-thumb {
 .sheet-footer--cell-edit {
   position: static;
   padding: 8px 14px calc(10px + env(safe-area-inset-bottom));
+  background: #fff;
 }
