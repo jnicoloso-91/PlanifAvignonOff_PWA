@@ -8308,11 +8308,12 @@ export function openSheetCellEdit(params) {
         }
       });
 
-      // input.addEventListener("blur", (e) => {
-      //   e.preventDefault();
-      //   cellEditCtx = null;
-      //   close();
-      // });
+      input.addEventListener("blur", (e) => {
+        logToPage("blur");
+        // e.preventDefault();
+        // cellEditCtx = null;
+        // close();
+      });
 
       requestAnimationFrame(() => {
         setTimeout(() => {
