@@ -8308,11 +8308,11 @@ export function openSheetCellEdit(params) {
         }
       });
 
-      input.addEventListener("blur", (e) => {
-        e.preventDefault();
-        cellEditCtx = null;
-        close();
-      });
+      // input.addEventListener("blur", (e) => {
+      //   e.preventDefault();
+      //   cellEditCtx = null;
+      //   close();
+      // });
 
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -8322,13 +8322,6 @@ export function openSheetCellEdit(params) {
           } catch {}
         }, 120);
       });
-
-      // requestAnimationFrame(() => {
-      //   try {
-      //     input.focus({preventScroll: true });
-      //     input.select();
-      //   } catch {}
-      // });
 
       body.onClose?.(() => {
         cellEditCtx = null;
