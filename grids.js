@@ -32,9 +32,10 @@ import {
 } from './app.js'; 
 
 import { 
-  openExpanderAsync,
-  scrollExpanderIntoViewCenteredAsync,
   openExpander,
+  openExpanderAsync,
+  scrollToExpanderSimple,
+  scrollExpanderIntoViewCenteredAsync,
   duplicateActivite,
 } from './expanders.js'; 
 
@@ -43,6 +44,7 @@ import {
   isProgrammeCalendarVisible,
   ensureCalendarEventVisible,
   saveProgrammeGridHeight,
+  flashCalendarEvent,
 } from './calendar.js';
 
 import { sortDf } from './activites.js'; 
@@ -75,7 +77,7 @@ const AUTOSIZED_COLS = ['Marqueur'];
 
 const OR_SEP = "|";
 
-const useSheetEditor = isIOS() || isAndroid(); //window.matchMedia("(max-width: 812px)").matches;
+const useSheetEditor = isIOS() || isAndroid(); 
 
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
@@ -314,53 +316,53 @@ function autoSizeColsManual(h, colIds, opts = {}) {
   }
 
   // --- compute width for one column, scanning all rows (optionally capped)
-function _computeManualColWidth(api, gridEl, colId, opt = {}) {
-  const {
-    includeHeader = true,
-    maxRows = 0,
-    minWidth = 60,
-    maxWidth = 520,
-    cellPaddingPx = 18,     // padding gauche+droite "cell"
-    headerPaddingPx = 18,   // padding gauche+droite "header"
-    headerOverheadPx = 0,   // tri/menu/etc. (mets 0 si tu ne veux pas sur-tailler)
-    extraPx = 6,            // petite marge anti-troncage
-  } = opt;
+  function _computeManualColWidth(api, gridEl, colId, opt = {}) {
+    const {
+      includeHeader = true,
+      maxRows = 0,
+      minWidth = 60,
+      maxWidth = 520,
+      cellPaddingPx = 18,     // padding gauche+droite "cell"
+      headerPaddingPx = 18,   // padding gauche+droite "header"
+      headerOverheadPx = 0,   // tri/menu/etc. (mets 0 si tu ne veux pas sur-tailler)
+      extraPx = 6,            // petite marge anti-troncage
+    } = opt;
 
-  const font = _getAgCellFont(gridEl); // ex: "14px Inter, sans-serif"
+    const font = _getAgCellFont(gridEl); // ex: "14px Inter, sans-serif"
 
-  // ---- header text width
-  let headerTextPx = 0;
-  if (includeHeader) {
-    const header = _getHeaderLabel(api, colId);
-    if (header) headerTextPx = _measureTextPx(header, font);
+    // ---- header text width
+    let headerTextPx = 0;
+    if (includeHeader) {
+      const header = _getHeaderLabel(api, colId);
+      if (header) headerTextPx = _measureTextPx(header, font);
+    }
+
+    // ---- cells text width
+    let maxCellTextPx = 0;
+
+    const iter = api?.forEachNodeAfterFilterAndSort || api?.forEachNode;
+    if (typeof iter === "function") {
+      let count = 0;
+      iter.call(api, (node) => {
+        if (!node) return;
+
+        count++;
+        if (maxRows > 0 && count > maxRows) return;
+
+        const txt = _getCellValue(api, colId, node);
+        if (!txt) return;
+
+        const w = _measureTextPx(txt, font);
+        if (w > maxCellTextPx) maxCellTextPx = w;
+      });
+    }
+
+    const cellWidth = Math.ceil(maxCellTextPx + cellPaddingPx + extraPx);
+    const headWidth = Math.ceil(headerTextPx + headerPaddingPx + headerOverheadPx + extraPx);
+
+    const width = Math.max(cellWidth, headWidth);
+    return Math.max(minWidth, Math.min(maxWidth, width));
   }
-
-  // ---- cells text width
-  let maxCellTextPx = 0;
-
-  const iter = api?.forEachNodeAfterFilterAndSort || api?.forEachNode;
-  if (typeof iter === "function") {
-    let count = 0;
-    iter.call(api, (node) => {
-      if (!node) return;
-
-      count++;
-      if (maxRows > 0 && count > maxRows) return;
-
-      const txt = _getCellValue(api, colId, node);
-      if (!txt) return;
-
-      const w = _measureTextPx(txt, font);
-      if (w > maxCellTextPx) maxCellTextPx = w;
-    });
-  }
-
-  const cellWidth = Math.ceil(maxCellTextPx + cellPaddingPx + extraPx);
-  const headWidth = Math.ceil(headerTextPx + headerPaddingPx + headerOverheadPx + extraPx);
-
-  const width = Math.max(cellWidth, headWidth);
-  return Math.max(minWidth, Math.min(maxWidth, width));
-}
 
   // --- optional cache (per grid element + colId + rowCount + font)
   const _manualAutosizeCache = new Map();
@@ -1972,77 +1974,13 @@ function gridOptionsCommon(gridId, el) {
       return { '--day-bg': bg, 'color': c };
     },
     onCellValueChanged: (p) => onCellValueChangedCommon(p),
+
     rowSelection: 'single',
     suppressDragLeaveHidesColumns: true,
     suppressMovableColumns: false,
     singleClickEdit: false,
     stopEditingWhenCellsLoseFocus: true,
     suppressClickEdit: useSheetEditor, // empêche l’édition inline au simple clic/tap
-    // onCellClicked: (p) => {
-    //   if (!useSheetEditor) return;
-    //   if (!isCellEditableForMobile(p)) return;
-
-    //   const now = Date.now();
-    //   const colId = p.column.getColId();
-
-    //   const sameCell =
-    //     lastTap &&
-    //     lastTap.rowIndex === p.rowIndex &&
-    //     lastTap.colId === colId;
-
-    //   // Emulation double click
-    //   if (sameCell && now - lastTap.time < 350) {
-    //     lastTap = null;
-
-    //     // sauf Date : on laisse ton éditeur custom
-    //     if (p.colDef.field === "Date") {
-    //       p.api.startEditingCell({
-    //         rowIndex: p.rowIndex,
-    //         colKey: p.column.getColId(),
-    //       });
-    //       return;
-    //     }
-
-    //     openSheetCellEdit(p);
-    //     return;
-    //   }
-
-    //   lastTap = {
-    //     rowIndex: p.rowIndex,
-    //     colId,
-    //     time: now
-    //   };
-    // },
-// onCellClicked: (p) => {
-//   if (!useSheetEditor) return;
-//   if (!isCellEditableForMobile(p)) return;
-
-//   const now = Date.now();
-//   const colId = p.column.getColId();
-//   const rowId = p.node?.id ?? p.data?.__uuid ?? p.rowIndex;
-
-//   const sameCell =
-//     lastTap &&
-//     lastTap.rowId === rowId &&
-//     lastTap.colId === colId;
-
-//   if (sameCell && now - lastTap.time < 450) {
-//     lastTap = null;
-
-//     if (p.colDef.field === "Date") {
-//       p.api.startEditingCell({
-//         rowIndex: p.rowIndex,
-//         colKey: colId,
-//       });
-//     } else {
-//       openSheetCellEdit(p);
-//     }
-
-//     return;
-//   }
-
-//   lastTap = { rowId, colId, time: now };
-// },
     suppressNoRowsOverlay: true,
     suppressRowClickSelection: false,
 
@@ -2533,7 +2471,7 @@ export async function ensureRowVisible(gridId, uuid) {
   return { api, node, rowEl: rowEl2 };
 }
 
-// Mini flash propre
+// Mini flash propre pour le phantom flight
 function flashArrival(gridId, node) {
   const h = grids.get(gridId);
   if (!h || !node) return;
@@ -2641,22 +2579,42 @@ function animateGhostToTopLeft(ghost, fromRect, toRect, { duration=500 } = {}) {
 // Si gridOrigine = gridCible, utilisez le paramètre srcRow pour spécifier la row de départ du vol
 async function doPhantomFlight (gridOrigine, gridCible, expCible) { 
 
-  if (isProgrammeCalendarVisible()) return;
-
+  // if (isProgrammeCalendarVisible()) return;
+  
   // 0) récupération du rectangle et du label de l'origine
   const srcRow = getSelectedRow(gridOrigine);
-  if (!srcRow) return;
-  const { node, rowEl } = await getRowNodeAndElByUuid(gridOrigine, srcRow.__uuid);
-  const fromRect = rowEl?.getBoundingClientRect() || null;
-  const ghostLabel = (srcRow.Activité || srcRow.Activite || '').trim();
+  // if (!srcRow) return;
+  // const { node, rowEl } = await getRowNodeAndElByUuid(gridOrigine, srcRow.__uuid);
+  // const fromRect = rowEl?.getBoundingClientRect() || null;
+  // const ghostLabel = (srcRow.Activité || srcRow.Activite || '').trim();
+
+  let fromRect = null;
+  let ghostLabel = '';
+
+  if (srcRow) {
+    const { node, rowEl } = await getRowNodeAndElByUuid(gridOrigine, srcRow.__uuid);
+    fromRect = rowEl?.getBoundingClientRect() || null;
+    ghostLabel = (srcRow.Activité || srcRow.Activite || '').trim();
+  } else {
+    const api = getGridApiById(gridOrigine);
+    const gridEl = api.length;
+    fromRect = gridEl?.getBoundingClientRect() || null;
+  }
 
   // 1) ouvrir l’expander cible et rendre la row visible
   openExpander(expCible);
+  scrollToExpanderSimple(expCible);
   await nextPaint(2);
 
   // 2) animer vers la VRAIE ligne si possible, sinon flash-only
   const dstRow = getSelectedRow(gridCible);
   if (!dstRow) return;
+
+  if (isProgrammeCalendarVisible() && gridCible == 'grid-programmees') {
+    flashCalendarEvent(dstRow.__uuid);
+    return;
+  }
+
   const dst = await ensureRowVisible(gridCible, dstRow.__uuid);
 
   if (fromRect && dst.rowEl) {
@@ -2673,8 +2631,10 @@ async function doPhantomFlight (gridOrigine, gridCible, expCible) {
   if (dst.node) {
     dst.node.setSelected?.(true, true);
     dst.api.ensureNodeVisible?.(dst.node, 'middle');
-    flashArrival(gridCible, dst.node);
-  }
+    // flashArrival(gridCible, dst.node);
+    flashRowOverlayInGrid(gridCible, dstRow.__uuid);
+  }  
+
 }
 
 /**

@@ -920,6 +920,8 @@ function renderProgrammeCalendar(daysEl, rows, pp, selectedDateInt) {
       ev.dataset.startMin = String(startMin);
       ev.dataset.endMin = String(endMin);
 
+      if (activitesAPI.estActiviteReservee(r)) ev.classList.add("is-reserved");
+
       if (r._segIsContinuation) ev.classList.add("is-continuation-prev");
       if (r._segContinuesNext) ev.classList.add("is-continuation-next");
 

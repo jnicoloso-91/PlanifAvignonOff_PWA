@@ -283,7 +283,7 @@ function offsetTopWithin(el, ancestor){
   return top;
 }
 
-// Trouve le conteneur qui scrolle
+// Trouve le premier ancêtre scrollabe d'un élément
 function getScrollContainer(el) {
   let cur = el;
   while (cur && cur !== document.body) {
@@ -389,6 +389,17 @@ async function scrollExpanderIntoViewCentered(exp, {
 export async function scrollExpanderIntoViewCenteredAsync(exp, opts){
   await scrollExpanderIntoViewCentered(exp, opts); // si elle ne renvoie pas de promesse, ajoute `await waitAF()`
   await waitAF();
+}
+
+// Rend visible un expander (version simple)
+export function scrollToExpanderSimple(expId) {
+  const expEl = document.getElementById(expId);
+  if (!expEl) return;
+
+  expEl.scrollIntoView({
+    behavior: "smooth",   // ou "auto" instantané
+    block: "center",     // "start" | "center" | "end" | "nearest"
+  });
 }
 
 // Rend visible un expander
@@ -1392,11 +1403,11 @@ function applyPrioriteImmutable(df, uuids, marqVal) {
   return changed ? out : df;
 }
 
-let _prioPopup = null;
+let _markerPopup = null;
 
 // Crée la popup Marqueur
 export function getOrCreateMarqueurPopup() {
-  if (_prioPopup) return _prioPopup;
+  if (_markerPopup) return _markerPopup;
 
   // 1) créer DOM une fois
   const backdrop = document.createElement("div");
@@ -1642,7 +1653,7 @@ export function getOrCreateMarqueurPopup() {
       // colle le premier marqueur
       if (parts.length > 0) {
         parts[0] = "-" + normalizeMarker(parts[0]).replace(/^-+/,"");
-      }
+      } else parts[0] = "-";
     }
 
     input.value = joinMarkers(parts);
@@ -1781,7 +1792,7 @@ export function getOrCreateMarqueurPopup() {
     }, true);
   });
 
-  _prioPopup = {
+  _markerPopup = {
     /** @ts-ignore */
     open({ gridApi: ga, ctx: c, defaultValue = null, uuids = null, title = null, _bulkAddRows = null } = {}) {
       gridApi = ga || null;
@@ -1840,7 +1851,7 @@ export function getOrCreateMarqueurPopup() {
     close
   };
 
-  return _prioPopup;
+  return _markerPopup;
 }
 
 // Ouvre la popup Prio

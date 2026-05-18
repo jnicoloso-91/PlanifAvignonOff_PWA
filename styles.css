@@ -596,15 +596,16 @@ main, .page-wrap {
   animation: row-flash 480ms ease-out;
 }
 
-.ag-theme-quartz,
-.grid-host {
-  position: relative;
+/* Flash de la row sélectionnée */
+.st-expander-body {
+  position: relative; /* necessaire pour permettre au flash overlay en absolute de bien se positionner */
 }
 
 .row-flash-overlay {
+  display: none;
   position: absolute;
   pointer-events: none;
-  z-index: 50;
+  z-index: 1;
   border: 3px solid rgba(255, 193, 7, .95);
   background: rgba(255, 230, 0, .18);
   border-radius: 6px;
@@ -612,6 +613,7 @@ main, .page-wrap {
 }
 
 .row-flash-overlay.is-flashing {
+  display: block;
   animation: rowOverlayFlash 1.4s ease-out;
 }
 
@@ -2795,6 +2797,14 @@ input[type="range"]:focus::-moz-range-thumb {
   #programme-panel #calA .cal-ev__title{ font-size: 11px; }
 }
 
+/* #programme-panel #calA .cal-ev.is-reserved a.cal-ev__title {
+  color: #d32f2f !important;
+  font-weight: 600;
+} */
+#programme-panel #calA .cal-ev.is-reserved {
+  background: #f4eeee;
+}
+
 .cal-day__actions {
   display: flex;
   align-items: center;
@@ -2920,6 +2930,7 @@ input[type="range"]:focus::-moz-range-thumb {
   pointer-events: none;
 }
 
+/* Flash de l'event sélectionné */
 .calendar-event-attention {
   animation: calendarEventAttention 1.4s ease-out;
 }

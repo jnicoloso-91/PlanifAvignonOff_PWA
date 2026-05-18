@@ -47,6 +47,7 @@ import {
 import { 
   openExpander, 
   getOrCreateMarqueurPopup,
+  scrollToExpanderSimple,
 } from './expanders.js'; 
 
 import {
@@ -7544,21 +7545,11 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       }
     }
 
-    function scrollExpanderIntoView(expId) {
-      const expEl = document.getElementById(expId);
-      if (!expEl) return;
-
-      expEl.scrollIntoView({
-        behavior: "smooth",   // ou "auto" instantané
-        block: "center",     // "start" | "center" | "end" | "nearest"
-      });
-    }
-
     try { openExpander?.(expId); } catch {}
 
     // double rAF = le temps que l’expander s’ouvre / que la grille repeigne
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      scrollExpanderIntoView(expId);
+      scrollToExpanderSimple(expId);
       requestAnimationFrame(() => requestAnimationFrame(() => {
         let ok = selectRowByUuid?.(gridId, uuid, { align: "middle", flash: false });
         if (!ok) fallbackSelect(gridId);
@@ -7872,6 +7863,10 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
         close();
 
+        // Désactive le hover parasite des bottom bar boutons qui ont reçu le click sélection
+        // Visible notamment sur Iphone : le bouton Coller de la bottom bar passe en fond gris 
+        // après appui sur bouton Sélectionner de la sheet 
+        // Mais non fonctionnel en l'état, point à revoir...
         requestAnimationFrame(blurBottomBarButtons); 
 
         if (!visibleInGrid) reinitFilter(gridId);
