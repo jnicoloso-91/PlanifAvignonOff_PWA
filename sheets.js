@@ -8213,16 +8213,33 @@ export function openSheetCellEdit(params) {
 
   const colId = params.column.getColId();
   const title = params.colDef?.headerName || colId;
+  const activiteName = params.data?.Activite || null;
   const initialValue = params.value ?? "";
 
   openSheetExclusive({
     title: `Edition ${title}`,
     panelHeight: "25vh",
     panelMaxHeight: "25vh",
-
+    classes: {       
+      wrap: 'sheet-wrap',
+      backdrop: 'sheet-backdrop',
+      panel: 'sheet-panel',
+      header: 'sheet-header sheet-header--cell-edit',
+      handle: 'sheet-handle',
+      title: 'sheet-title',
+      actions: 'sheet-actions',
+      infoBtn: 'sheet-info',
+      closeBtn: 'sheet-close',
+      body: 'sheet-body sheet-body--cell-edit',
+      // états
+      isOpen: 'is-open',
+      isClosing: 'is-closing',
+      dragging: 'dragging',
+    },
     mount: (body, { close }) => {
       body.innerHTML = `
-        <div class="sheet-body--cell-edit">
+        <div class="cell-edit-container">
+          ${activiteName ? `<div class="cell-edit-subtitle">pour ${activiteName}</div>` : ""}
           <input id="cellEditInput"
                     class="ai-input cell-edit-input"
                     type="text"
@@ -8235,6 +8252,7 @@ export function openSheetCellEdit(params) {
         </div>
       `;
 
+      const subtitle = activiteName ? `pour l'activité ${activiteName}` : "";
       const input = body.querySelector("#cellEditInput");
       const btnCancel = body.querySelector("#btnCellEditCancel");
       const btnSave = body.querySelector("#btnCellEditSave");
