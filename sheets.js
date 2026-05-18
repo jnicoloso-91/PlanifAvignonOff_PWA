@@ -8296,7 +8296,6 @@ export function openSheetCellEdit(params) {
       btnSave.addEventListener("click", save);
 
       input.addEventListener("keydown", (e) => {
-        logToPage(e.key);
         if (e.key === "Enter") {
           e.preventDefault();
           save();
