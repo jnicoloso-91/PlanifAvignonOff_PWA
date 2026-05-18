@@ -3663,7 +3663,7 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 .cell-edit-container {
-  padding: 0px 10px 8px;
+  padding: 0px 10px 10px;
 }
 
 .cell-edit-input {
@@ -3681,7 +3681,10 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 .sheet-footer--cell-edit {
-  position: static;
+  /* position: static;
   padding: 8px 14px calc(10px + env(safe-area-inset-bottom));
-  background: #fff;
+  background: #fff; */
+  padding-top: 10px;
+  padding-bottom: 10px;
+  height: calc(var(--footer-h) - 12px);
 }

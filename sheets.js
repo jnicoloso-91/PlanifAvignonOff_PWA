@@ -8218,7 +8218,7 @@ export function openSheetCellEdit(params) {
 
   openSheetExclusive({
     title: `Edition ${title}`,
-    panelHeight: "25vh",
+    panelHeight: "200px",
     panelMaxHeight: "25vh",
     classes: {       
       wrap: 'sheet-wrap',
