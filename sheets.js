@@ -8262,6 +8262,8 @@ export function openSheetCellEdit(params) {
       function save() {
         if (!cellEditCtx) return;
 
+        logToPage("save");
+        
         let newValue = input.value;
 
         const colDef = cellEditCtx.colDef;
@@ -8310,9 +8312,8 @@ export function openSheetCellEdit(params) {
 
       input.addEventListener("blur", (e) => {
         logToPage("blur");
-        // e.preventDefault();
-        // cellEditCtx = null;
-        // close();
+        cellEditCtx = null;
+        close();
       });
 
       requestAnimationFrame(() => {
