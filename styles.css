@@ -3681,9 +3681,9 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 
 .sheet-footer--cell-edit {
-  /* position: static;
-  padding: 8px 14px calc(10px + env(safe-area-inset-bottom));
-  background: #fff; */
+  position: static;
+  /* padding: 8px 14px calc(10px + env(safe-area-inset-bottom)); */
+  /* background: #fff; */
   padding-top: 10px;
   padding-bottom: 10px;
   height: calc(var(--footer-h) - 12px);
