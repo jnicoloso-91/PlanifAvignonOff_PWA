@@ -8296,6 +8296,7 @@ export function openSheetCellEdit(params) {
       btnSave.addEventListener("click", save);
 
       input.addEventListener("keydown", (e) => {
+        logToPage("keydown");
         if (e.key === "Enter") {
           e.preventDefault();
           save();
@@ -8306,6 +8307,14 @@ export function openSheetCellEdit(params) {
           cellEditCtx = null;
           close();
         }
+      });
+
+      input.addEventListener("change", (e) => {
+        logToPage("change");
+      });
+
+      input.addEventListener("blur", (e) => {
+        logToPage("blur");
       });
 
       requestAnimationFrame(() => {
