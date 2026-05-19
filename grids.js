@@ -2603,7 +2603,7 @@ async function doPhantomFlight (gridOrigine, gridCible, expCible) {
 
   // 1) ouvrir l’expander cible et rendre la row visible
   openExpander(expCible);
-  scrollToExpanderSimple(expCible);
+  if (!gridOrigine === 'grid-programmees') scrollToExpanderSimple(expCible);
   await nextPaint(2);
 
   // 2) animer vers la VRAIE ligne si possible, sinon flash-only
