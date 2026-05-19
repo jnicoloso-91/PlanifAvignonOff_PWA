@@ -928,7 +928,7 @@ function buildColumnsActivitesCommon(){
       }
     },
     { field:'Activite', headerName: 'Activité', minWidth:200, flex:1.5, cellRenderer: ActiviteRenderer, filter: "agTextColumnFilter", filterParams: {textMatcher: accentInsensitiveMatcher} },
-    { field:'__desc_summary', headerName: '', width:30, minWidth:30, sortable: false ,  editable: false, cellClass: "col-padding-tight", cellRenderer: infosPlusPopoverCellRenderer },
+    // { field:'__desc_summary', headerName: '', width:30, minWidth:30, sortable: false ,  editable: false, cellClass: "col-padding-tight", cellRenderer: infosPlusPopoverCellRenderer },
     ...HIDDEN_TEXT_COLS.map(c => ({
       ...c,
 
