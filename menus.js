@@ -2388,6 +2388,7 @@ async function doExportExcel() {
             }
           }]
         });
+        sessionStorage.setItem("forceProgrammeOnReturn", "1");
       } catch (err) {
         if (err.name === "AbortError") return;
         console.error(err);
