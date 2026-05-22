@@ -758,30 +758,31 @@ function closeDD({ reason = "manual" } = {}) {
       if (dd && dd.contains(hit)) return;
 
       closeDD({ reason: "outside" });
-// // Tentative de solution pour fermeture intempestive de la liste de choix (remplace le bloc précédent)
-// // 1) item dropdown => select
-// const item = hit.closest(".chipbox-dditem");
-// if (item && dd && dd.contains(item)) {
-//   ev.preventDefault();
-//   ev.stopPropagation();
-//   selectLabel(item.textContent || "");
-//   return;
-// }
 
-// // 2) inside dd => ne pas fermer
-// if (dd && dd.contains(hit)) return;
+      // Empêche la fermeture de dropdown si click dans input wrap (container de l'input) 
+      // A tenter si fermeture intempestive de la liste de choix à la place du bloc précédent (vu sur Android)
+      // // 1) item dropdown => select
+      // const item = hit.closest(".chipbox-dditem");
+      // if (item && dd && dd.contains(item)) {
+      //   ev.preventDefault();
+      //   ev.stopPropagation();
+      //   selectLabel(item.textContent || "");
+      //   return;
+      // }
 
-// // 3) inside chipbox/input/wrap => ne pas fermer
-// if (boxEl && boxEl.contains(hit)) {
-//   if (hit === inputEl || inputEl.contains(hit)) {
-//     refreshAndOpenDD();
-//   }
-//   return;
-// }
+      // // 2) inside dd => ne pas fermer
+      // if (dd && dd.contains(hit)) return;
 
-// // 4) vrai extérieur
-// closeDD({ reason: "outside" });
-// // Fin Tentative de solution pour fermeture intempestive de la liste de choix
+      // // 3) inside chipbox/input/wrap => ne pas fermer
+      // if (boxEl && boxEl.contains(hit)) {
+      //   if (hit === inputEl || inputEl.contains(hit)) {
+      //     refreshAndOpenDD();
+      //   }
+      //   return;
+      // }
+
+      // // 4) vrai extérieur
+      // closeDD({ reason: "outside" });
 
     }
 
@@ -984,21 +985,17 @@ function closeDD({ reason = "manual" } = {}) {
     // ⚠️ Important : écoute sur pointerup + touchend (pointerdown à eviter sur IOS)
     // document.addEventListener("pointerdown", onGlobalPick, { capture: true, passive: false });
     document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
-// Tentative de solution pour fermeture intempestive de la liste de choix
     // document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
-if (!window.PointerEvent) {
-  document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
-}
-// Fin Tentative de solution pour fermeture intempestive de la liste de choix
+    if (!window.PointerEvent) { // pointerup et touchend en double à éviter
+      document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
+    }
 
     function cleanupGlobalListeners() {
       document.removeEventListener("pointerup", onGlobalPick, true);
-// Tentative de solution pour fermeture intempestive de la liste de choix
       // document.removeEventListener("touchend",  onGlobalPick, true);
-if (!window.PointerEvent) {
-  document.removeEventListener("touchend", onGlobalPick, true);
-}
-// Fin Tentative de solution pour fermeture intempestive de la liste de choix
+      if (!window.PointerEvent) {
+        document.removeEventListener("touchend", onGlobalPick, true);
+      }
 
       window.visualViewport?.removeEventListener("resize", schedulePositionDD);
       window.visualViewport?.removeEventListener("scroll", schedulePositionDD);
@@ -8345,6 +8342,7 @@ export function openSheetCellEdit(params) {
       const input = body.querySelector("#cellEditInput");
       const btnCancel = body.querySelector("#btnCellEditCancel");
       const btnSave = body.querySelector("#btnCellEditSave");
+      const scrollBeforeEdit = window.scrollY;
 
       input.value = initialValue;
 
@@ -8405,6 +8403,21 @@ export function openSheetCellEdit(params) {
           cellEditCtx = null;
           close();
         }, 100);
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({
+              top: /** @type {any} */(window).__cellEditScrollY ?? scrollBeforeEdit,
+              left: 0,
+              behavior: "instant"
+            });
+          });
+        });
+
+      });
+
+      input.addEventListener("focus", () => {
+        /** @type {any} */(window).__cellEditScrollY = window.scrollY;
       });
 
       requestAnimationFrame(() => {
