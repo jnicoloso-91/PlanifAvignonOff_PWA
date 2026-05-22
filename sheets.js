@@ -8458,15 +8458,15 @@ export function openSheetCellEdit(params) {
           close();
         }, 100);
 
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.scrollTo({
-              top: /** @type {any} */(window).__cellEditScrollY ?? scrollBeforeEdit,
-              left: 0,
-              behavior: "instant"
-            });
-          });
-        });
+        // requestAnimationFrame(() => {
+        //   requestAnimationFrame(() => {
+        //     window.scrollTo({
+        //       top: /** @type {any} */(window).__cellEditScrollY ?? scrollBeforeEdit,
+        //       left: 0,
+        //       behavior: "instant"
+        //     });
+        //   });
+        // });
 
       });
 
