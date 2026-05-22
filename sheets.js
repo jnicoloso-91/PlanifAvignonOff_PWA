@@ -1365,6 +1365,7 @@ function restoreScrollerTop(scroller, y) {
     try { scroller.scrollTop = y; } catch {}
   };
 
+  logToPage(`restoreScrollerTop ${y}`);
   apply();
   requestAnimationFrame(apply);
   setTimeout(apply, 120);
