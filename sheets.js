@@ -1440,17 +1440,17 @@ export function openSheetExclusive({
 
   // Wiring du scroll restore en fermeture de sheet
   const pageScroller = getActivePageScroller();
-  let savedPageScrollTop = pageScroller?.scrollTop ?? 0;
+  const savedPageScrollTop = pageScroller?.scrollTop ?? 0;
 
-  bodyEl.addEventListener("focusin", (e) => {
+  // bodyEl.addEventListener("focusin", (e) => {
     
-    const t = e.target;
+  //   const t = e.target;
 
-    if (/** @type {any} */(t)?.matches?.("input, textarea, select")) {
-      const sc = getActivePageScroller();
-      savedPageScrollTop = sc?.scrollTop ?? savedPageScrollTop;
-    }
-  }, true);
+  //   if (/** @type {any} */(t)?.matches?.("input, textarea, select")) {
+  //     const sc = getActivePageScroller();
+  //     savedPageScrollTop = sc?.scrollTop ?? savedPageScrollTop;
+  //   }
+  // }, true);
 
   bodyEl.addEventListener("focusout", (e) => {
     const t = e.target;
