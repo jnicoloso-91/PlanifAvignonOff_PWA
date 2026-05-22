@@ -1365,11 +1365,9 @@ function restoreScrollerTop(scroller, y) {
     try { scroller.scrollTop = y; } catch {}
   };
 
-  logToPage(`restoreScrollerTop ${y}`);
   apply();
   requestAnimationFrame(apply);
-  setTimeout(apply, 120);
-  setTimeout(apply, 2000);
+  setTimeout(apply, 1500);
 }
 
 /**
@@ -1439,17 +1437,10 @@ export function openSheetExclusive({
   const /** @type {HTMLElement} */ infoBtn = root.querySelector('.' + classes.infoBtn);
 
   // Wiring du scroll restore en fermeture de sheet
+  // Sert au restore du scrollY à la fermeture de la sheet sur Android 
+  // Car dans ce cas sur une sheet avec input la montée du clavier lors de l'édition peut s'accompagner d'un reset du scrollY
   const pageScroller = getActivePageScroller();
-  const savedPageScrollTop = pageScroller?.scrollTop ?? 0;
-
-  // bodyEl.addEventListener("focusout", (e) => {
-  //   const t = e.target;
-
-  //   if (/** @type {any} */(t)?.matches?.("input, textarea, select")) {
-  //     const sc = getActivePageScroller();
-  //     restoreScrollerTop(sc, savedPageScrollTop);
-  //   }
-  // }, true);
+  const savedPageScrollTop = pageScroller?.scrollTop ?? 0; 
 
   // Wiring de la popup info
   infoBtn.hidden = textInfo === null;
@@ -8380,7 +8371,6 @@ export function openSheetCellEdit(params) {
       const input = body.querySelector("#cellEditInput");
       const btnCancel = body.querySelector("#btnCellEditCancel");
       const btnSave = body.querySelector("#btnCellEditSave");
-      const scrollBeforeEdit = window.scrollY;
 
       input.value = initialValue;
 
@@ -8442,21 +8432,7 @@ export function openSheetCellEdit(params) {
           close();
         }, 100);
 
-        // requestAnimationFrame(() => {
-        //   requestAnimationFrame(() => {
-        //     window.scrollTo({
-        //       top: /** @type {any} */(window).__cellEditScrollY ?? scrollBeforeEdit,
-        //       left: 0,
-        //       behavior: "instant"
-        //     });
-        //   });
-        // });
-
       });
-
-      // input.addEventListener("focus", () => {
-      //   /** @type {any} */(window).__cellEditScrollY = window.scrollY;
-      // });
 
       requestAnimationFrame(() => {
         setTimeout(() => {
