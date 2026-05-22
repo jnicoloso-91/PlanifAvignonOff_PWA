@@ -1369,7 +1369,7 @@ function restoreScrollerTop(scroller, y) {
   apply();
   requestAnimationFrame(apply);
   setTimeout(apply, 120);
-  setTimeout(apply, 300);
+  setTimeout(apply, 1000);
 }
 
 /**
