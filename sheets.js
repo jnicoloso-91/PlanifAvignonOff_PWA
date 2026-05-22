@@ -1349,6 +1349,28 @@ function openSheet({
   return { close: destroy, el: wrap, body, panel };
 }
 
+// Récupère le scroller de la page active
+function getActivePageScroller() {
+  return document.querySelector(".page.is-active")
+      || document.querySelector(".page--planning")
+      || document.scrollingElement
+      || document.documentElement;
+}
+
+// Restore le scrollY d'une page scroller
+function restoreScrollerTop(scroller, y) {
+  if (!scroller) return;
+
+  const apply = () => {
+    try { scroller.scrollTop = y; } catch {}
+  };
+
+  apply();
+  requestAnimationFrame(apply);
+  setTimeout(apply, 120);
+  setTimeout(apply, 300);
+}
+
 /**
  * Ouverture d'une sheet modale exclusive
  * @param {*} param0 
@@ -1415,6 +1437,29 @@ export function openSheetExclusive({
   const /** @type {HTMLElement} */ closeBtn = root.querySelector('.' + classes.closeBtn);
   const /** @type {HTMLElement} */ infoBtn = root.querySelector('.' + classes.infoBtn);
 
+  // Wiring du scroll restore en fermeture de sheet
+  const pageScroller = getActivePageScroller();
+  let savedPageScrollTop = pageScroller?.scrollTop ?? 0;
+
+  bodyEl.addEventListener("focusin", (e) => {
+    
+    const t = e.target;
+
+    if (/** @type {any} */(t)?.matches?.("input, textarea, select")) {
+      const sc = getActivePageScroller();
+      savedPageScrollTop = sc?.scrollTop ?? savedPageScrollTop;
+    }
+  }, true);
+
+  bodyEl.addEventListener("focusout", (e) => {
+    const t = e.target;
+
+    if (/** @type {any} */(t)?.matches?.("input, textarea, select")) {
+      const sc = getActivePageScroller();
+      restoreScrollerTop(sc, savedPageScrollTop);
+    }
+  }, true);
+
   // Wiring de la popup info
   infoBtn.hidden = textInfo === null;
   infoBtn.addEventListener("click", (e) => {
@@ -1459,6 +1504,8 @@ export function openSheetExclusive({
     if (classes.isClosing) root.classList.add(classes.isClosing);
     panel.style.transform = ''; // rollback si un swipe a posé un translateY
     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
+    const sc = getActivePageScroller();
+    restoreScrollerTop(sc, savedPageScrollTop);
   }
 
   // events
