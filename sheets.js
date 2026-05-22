@@ -1442,6 +1442,8 @@ export function openSheetExclusive({
   const pageScroller = getActivePageScroller();
   const savedPageScrollTop = pageScroller?.scrollTop ?? 0;
 
+logToPage(`PAGE SCROLL ${savedPageScrollTop}`);
+
   // bodyEl.addEventListener("focusin", (e) => {
     
   //   const t = e.target;
