@@ -8396,7 +8396,7 @@ export function openSheetCellEdit(params) {
       const input = body.querySelector("#cellEditInput");
       const btnCancel = body.querySelector("#btnCellEditCancel");
       const btnSave = body.querySelector("#btnCellEditSave");
-      // const scrollBeforeEdit = window.scrollY;
+      const scrollBeforeEdit = window.scrollY;
 
       input.value = initialValue;
 
@@ -8458,21 +8458,21 @@ export function openSheetCellEdit(params) {
           close();
         }, 100);
 
-        // requestAnimationFrame(() => {
-        //   requestAnimationFrame(() => {
-        //     window.scrollTo({
-        //       top: /** @type {any} */(window).__cellEditScrollY ?? scrollBeforeEdit,
-        //       left: 0,
-        //       behavior: "instant"
-        //     });
-        //   });
-        // });
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({
+              top: /** @type {any} */(window).__cellEditScrollY ?? scrollBeforeEdit,
+              left: 0,
+              behavior: "instant"
+            });
+          });
+        });
 
       });
 
-      // input.addEventListener("focus", () => {
-      //   /** @type {any} */(window).__cellEditScrollY = window.scrollY;
-      // });
+      input.addEventListener("focus", () => {
+        /** @type {any} */(window).__cellEditScrollY = window.scrollY;
+      });
 
       requestAnimationFrame(() => {
         setTimeout(() => {
