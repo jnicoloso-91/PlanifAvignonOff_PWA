@@ -7,6 +7,7 @@ import {
   genUUID,
   escapeHtml,
   escapeAttr,
+  isAndroid,
 } from './utils.js';
 
 import { 
@@ -8367,12 +8368,50 @@ export function openSheetCellEdit(params) {
         </div>
       `;
 
-      const subtitle = activiteName ? `pour l'activité ${activiteName}` : "";
+      const sheetPanelEl = body.closest(".sheet-panel");
       const input = body.querySelector("#cellEditInput");
       const btnCancel = body.querySelector("#btnCellEditCancel");
       const btnSave = body.querySelector("#btnCellEditSave");
 
       input.value = initialValue;
+
+      // Permet de faire remonter suffisamment la sheet quand le clavier Android avec options monte
+      function installSimpleKeyboardFix(sheetEl) {
+
+        const vv = window.visualViewport;
+        if (!vv) return () => {};
+
+        const basePad =
+          parseFloat(getComputedStyle(sheetEl).paddingBottom || "0") || 0;
+
+        function apply() {
+
+          const kb =
+            Math.max(0,
+              window.innerHeight - vv.height - vv.offsetTop);
+
+          sheetEl.style.paddingBottom =
+            `${basePad + kb + 12}px`;
+        }
+
+        function reset() {
+          sheetEl.style.paddingBottom = `${basePad}px`;
+        }
+
+        vv.addEventListener("resize", apply);
+        vv.addEventListener("scroll", apply);
+
+        return () => {
+          vv.removeEventListener("resize", apply);
+          vv.removeEventListener("scroll", apply);
+          reset();
+        };
+      }
+
+      const cleanupKbFix =
+        isAndroid
+          ? installSimpleKeyboardFix(sheetPanelEl)
+          : null;
 
       function save() {
         if (!cellEditCtx) return;
@@ -8445,6 +8484,7 @@ export function openSheetCellEdit(params) {
 
       body.onClose?.(() => {
         cellEditCtx = null;
+        cleanupKbFix?.();
       });
     }
   });
