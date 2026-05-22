@@ -1460,6 +1460,13 @@ export function openSheetExclusive({
     }
   }, true);
 
+const sc = document.querySelector(".page.is-active");
+
+sc.addEventListener("scroll", () => {
+  logToPage(`PAGE SCROLL ${sc.scrollTop}`);
+  if (sc.scrollTop === 0) console.trace("scroll remis à 0");
+}, { passive: true });
+
   // Wiring de la popup info
   infoBtn.hidden = textInfo === null;
   infoBtn.addEventListener("click", (e) => {
@@ -1486,7 +1493,7 @@ export function openSheetExclusive({
   };
   try { mount?.(bodyEl, helpers); } catch (e) { console.error('sheet mount error:', e); }
 
-  // ouverture (ta CSS anime sur .is-open)
+  // ouverture (CSS anime sur .is-open)
   requestAnimationFrame(() => {
     root.classList.add(classes.isOpen);
     onOpen?.(helpers);
@@ -8389,7 +8396,7 @@ export function openSheetCellEdit(params) {
       const input = body.querySelector("#cellEditInput");
       const btnCancel = body.querySelector("#btnCellEditCancel");
       const btnSave = body.querySelector("#btnCellEditSave");
-      const scrollBeforeEdit = window.scrollY;
+      // const scrollBeforeEdit = window.scrollY;
 
       input.value = initialValue;
 
@@ -8451,21 +8458,21 @@ export function openSheetCellEdit(params) {
           close();
         }, 100);
 
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.scrollTo({
-              top: /** @type {any} */(window).__cellEditScrollY ?? scrollBeforeEdit,
-              left: 0,
-              behavior: "instant"
-            });
-          });
-        });
+        // requestAnimationFrame(() => {
+        //   requestAnimationFrame(() => {
+        //     window.scrollTo({
+        //       top: /** @type {any} */(window).__cellEditScrollY ?? scrollBeforeEdit,
+        //       left: 0,
+        //       behavior: "instant"
+        //     });
+        //   });
+        // });
 
       });
 
-      input.addEventListener("focus", () => {
-        /** @type {any} */(window).__cellEditScrollY = window.scrollY;
-      });
+      // input.addEventListener("focus", () => {
+      //   /** @type {any} */(window).__cellEditScrollY = window.scrollY;
+      // });
 
       requestAnimationFrame(() => {
         setTimeout(() => {
