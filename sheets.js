@@ -1504,7 +1504,7 @@ sc.addEventListener("scroll", () => {
     });
   });
 
-  // fermeture avec état .is-closing si ta CSS l’utilise
+  // fermeture avec état .is-closing si la CSS l’utilise
   function close(reason='manual') {
     onBeforeClose?.(helpers, reason);
     root.classList.remove(classes.isOpen);
@@ -1513,6 +1513,8 @@ sc.addEventListener("scroll", () => {
     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
     const sc = getActivePageScroller();
     restoreScrollerTop(sc, savedPageScrollTop);
+
+/** @type {any} */(sc).removeEventListener("scroll", sc);
   }
 
   // events
