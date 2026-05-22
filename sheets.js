@@ -1464,7 +1464,6 @@ const sc = document.querySelector(".page.is-active");
 
 sc.addEventListener("scroll", () => {
   logToPage(`PAGE SCROLL ${sc.scrollTop}`);
-  if (sc.scrollTop === 0) console.trace("scroll remis à 0");
 }, { passive: true });
 
   // Wiring de la popup info
@@ -1513,8 +1512,6 @@ sc.addEventListener("scroll", () => {
     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
     const sc = getActivePageScroller();
     restoreScrollerTop(sc, savedPageScrollTop);
-
-/** @type {any} */(sc).removeEventListener("scroll", sc);
   }
 
   // events
@@ -8472,9 +8469,9 @@ export function openSheetCellEdit(params) {
 
       });
 
-      input.addEventListener("focus", () => {
-        /** @type {any} */(window).__cellEditScrollY = window.scrollY;
-      });
+      // input.addEventListener("focus", () => {
+      //   /** @type {any} */(window).__cellEditScrollY = window.scrollY;
+      // });
 
       requestAnimationFrame(() => {
         setTimeout(() => {
