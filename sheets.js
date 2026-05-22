@@ -538,19 +538,41 @@ function createChipBox({
       isOpen = true;
     }
 
-    function closeDD({ reason = "manual" } = {}) {
-      if (!dd) return;
-      dd.classList.remove("open");
-      dd.hidden = true;
-      isOpen = false;
+// Tentative de solution pour fermeture intempestive de la liste de choix
+    // function closeDD({ reason = "manual" } = {}) {
+    //   if (!dd) return;
+    //   dd.classList.remove("open");
+    //   dd.hidden = true;
+    //   isOpen = false;
 
-      // ✅ commit “standard input” (même si suggestions existent)
-      // mais PAS si on ferme suite à un pick ou un focus input.
-      const shouldCommit =
-        (reason === "outside" || reason === "blur" || reason === "escape");
+    //   // ✅ commit “standard input” (même si suggestions existent)
+    //   // mais PAS si on ferme suite à un pick ou un focus input.
+    //   const shouldCommit =
+    //     (reason === "outside" || reason === "blur" || reason === "escape");
 
-      if (shouldCommit) commitInputAsChip();
-    }
+    //   if (shouldCommit) commitInputAsChip();
+    // }
+function closeDD({ reason = "manual" } = {}) {
+  clearTimeout(emptyCloseTimer);
+
+  if (reason === "empty" && document.activeElement === inputEl) {
+    const q = normKey(inputEl.value || "");
+
+    // Android : focus + q vide + filtered temporairement vide => ignorer
+    if (!q) return;
+  }
+
+  if (!dd) return;
+  dd.classList.remove("open");
+  dd.hidden = true;
+  isOpen = false;
+
+  const shouldCommit =
+    (reason === "outside" || reason === "blur" || reason === "escape");
+
+  if (shouldCommit) commitInputAsChip();
+}
+// Fin Tentative de solution pour fermeture intempestive de la liste de choix
 
     function renderDD() {
       if (!dd) return;
@@ -736,6 +758,31 @@ function createChipBox({
       if (dd && dd.contains(hit)) return;
 
       closeDD({ reason: "outside" });
+// // Tentative de solution pour fermeture intempestive de la liste de choix (remplace le bloc précédent)
+// // 1) item dropdown => select
+// const item = hit.closest(".chipbox-dditem");
+// if (item && dd && dd.contains(item)) {
+//   ev.preventDefault();
+//   ev.stopPropagation();
+//   selectLabel(item.textContent || "");
+//   return;
+// }
+
+// // 2) inside dd => ne pas fermer
+// if (dd && dd.contains(hit)) return;
+
+// // 3) inside chipbox/input/wrap => ne pas fermer
+// if (boxEl && boxEl.contains(hit)) {
+//   if (hit === inputEl || inputEl.contains(hit)) {
+//     refreshAndOpenDD();
+//   }
+//   return;
+// }
+
+// // 4) vrai extérieur
+// closeDD({ reason: "outside" });
+// // Fin Tentative de solution pour fermeture intempestive de la liste de choix
+
     }
 
     let ignoreVVUntil = 0;
@@ -752,6 +799,29 @@ function createChipBox({
     }
     function canAutoOpen() {
       return Date.now() >= suppressAutoOpenUntil;
+    }
+
+    function scheduleCloseEmpty() {
+      clearTimeout(emptyCloseTimer);
+
+      emptyCloseTimer = window.setTimeout(() => {
+        // évite fermeture pendant stabilisation clavier Android
+        if (Date.now() - lastFocusAt < 350) return;
+
+        // si l’input n’est plus focus, on peut fermer
+        if (document.activeElement !== inputEl) {
+          closeDD({ reason: "empty" });
+          return;
+        }
+
+        // si l’utilisateur tape vraiment une recherche sans résultat, on peut fermer
+        const q = normKey(inputEl.value || "");
+        if (q && !filtered.length) {
+          closeDD({ reason: "empty" });
+        }
+
+        // si q vide + focus input => ne pas fermer brutalement
+      }, 120);
     }
 
     let posScheduled = false;
@@ -799,9 +869,14 @@ function createChipBox({
 
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
+
+    let emptyCloseTimer = 0;
+    let lastFocusAt = 0;
             
     // input / focus : doit ouvrir la dropdown même sans taper 
     inputEl.addEventListener("focus", () => {
+      lastFocusAt = Date.now();
+
       // 1) viewport fix clavier
       try { kbFix.apply(); } catch {}
 
@@ -909,11 +984,21 @@ function createChipBox({
     // ⚠️ Important : écoute sur pointerup + touchend (pointerdown à eviter sur IOS)
     // document.addEventListener("pointerdown", onGlobalPick, { capture: true, passive: false });
     document.addEventListener("pointerup", onGlobalPick, { capture: true, passive: false });
-    document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
+// Tentative de solution pour fermeture intempestive de la liste de choix
+    // document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
+if (!window.PointerEvent) {
+  document.addEventListener("touchend", onGlobalPick, { capture: true, passive: false });
+}
+// Fin Tentative de solution pour fermeture intempestive de la liste de choix
 
     function cleanupGlobalListeners() {
       document.removeEventListener("pointerup", onGlobalPick, true);
-      document.removeEventListener("touchend",  onGlobalPick, true);
+// Tentative de solution pour fermeture intempestive de la liste de choix
+      // document.removeEventListener("touchend",  onGlobalPick, true);
+if (!window.PointerEvent) {
+  document.removeEventListener("touchend", onGlobalPick, true);
+}
+// Fin Tentative de solution pour fermeture intempestive de la liste de choix
 
       window.visualViewport?.removeEventListener("resize", schedulePositionDD);
       window.visualViewport?.removeEventListener("scroll", schedulePositionDD);
