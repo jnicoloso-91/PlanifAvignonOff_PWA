@@ -1369,7 +1369,7 @@ function restoreScrollerTop(scroller, y) {
   apply();
   requestAnimationFrame(apply);
   setTimeout(apply, 120);
-  setTimeout(apply, 1000);
+  setTimeout(apply, 2000);
 }
 
 /**
@@ -1442,7 +1442,7 @@ export function openSheetExclusive({
   const pageScroller = getActivePageScroller();
   const savedPageScrollTop = pageScroller?.scrollTop ?? 0;
 
-logToPage(`PAGE SCROLL ${savedPageScrollTop}`);
+logToPage(`SAVE ${savedPageScrollTop}`);
 
   // bodyEl.addEventListener("focusin", (e) => {
     
