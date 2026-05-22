@@ -1442,32 +1442,14 @@ export function openSheetExclusive({
   const pageScroller = getActivePageScroller();
   const savedPageScrollTop = pageScroller?.scrollTop ?? 0;
 
-logToPage(`SAVE ${savedPageScrollTop}`);
-
-  // bodyEl.addEventListener("focusin", (e) => {
-    
+  // bodyEl.addEventListener("focusout", (e) => {
   //   const t = e.target;
 
   //   if (/** @type {any} */(t)?.matches?.("input, textarea, select")) {
   //     const sc = getActivePageScroller();
-  //     savedPageScrollTop = sc?.scrollTop ?? savedPageScrollTop;
+  //     restoreScrollerTop(sc, savedPageScrollTop);
   //   }
   // }, true);
-
-  bodyEl.addEventListener("focusout", (e) => {
-    const t = e.target;
-
-    if (/** @type {any} */(t)?.matches?.("input, textarea, select")) {
-      const sc = getActivePageScroller();
-      restoreScrollerTop(sc, savedPageScrollTop);
-    }
-  }, true);
-
-const sc = document.querySelector(".page.is-active");
-
-sc.addEventListener("scroll", () => {
-  logToPage(`PAGE SCROLL ${sc.scrollTop}`);
-}, { passive: true });
 
   // Wiring de la popup info
   infoBtn.hidden = textInfo === null;
