@@ -380,7 +380,6 @@ function createChipBox({
 
     // Pour faire que le clavier ne s'ouvre qu'à la deuxième tap sur Android (comme sur Iphone)
     let androidPreviewArmed = false;
-    // let suppressNextFocus = false;
 
     function isStandalone() {
       return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
