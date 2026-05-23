@@ -962,6 +962,7 @@ function createChipBox({
     });
 
     inputEl.addEventListener("blur", () => {
+      logToPage("Blur");
       if (isAndroid()) {
         inputEl.readOnly = false;
         androidPreviewArmed = false;
@@ -1004,6 +1005,7 @@ function createChipBox({
     // Entrée => chip (pas virgule)
     inputEl.addEventListener("keydown", (ev) => {
       // navigation dropdown custom si ouverte
+      if (isAndroid()) logToPage(`Key ${ev.key}`);
       if (dd && isOpen && filtered.length) {
         if (ev.key === "ArrowDown") {
           ev.preventDefault();
