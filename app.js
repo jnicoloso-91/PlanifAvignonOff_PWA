@@ -312,6 +312,8 @@ function handleVisibilityChange() {
   function handleReturnToApp() {
     if (document.visibilityState !== "visible") return;
 
+    logToPage("handleVisibilityChange");
+
     const force = sessionStorage.getItem("forceProgrammeOnReturn");
 
     if (force) {
