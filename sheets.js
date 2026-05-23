@@ -543,13 +543,10 @@ function createChipBox({
     }
 
     function closeDD({ reason = "manual" } = {}) {
-      // if (reason === "outside" || reason === "pick" || reason === "escape") {
-      //   androidPreviewArmed = false;
-      // }
-  if (reason === "outside" || reason === "pick" || reason === "escape") {
-    androidPreviewArmed = false;
-    inputEl.readOnly = false;
-  }
+      if (reason === "outside" || reason === "pick" || reason === "escape") {
+        androidPreviewArmed = false;
+        inputEl.readOnly = false;
+      }
 
       // Empêche la fermeture intempestive de la liste de choix sur Android
       clearTimeout(emptyCloseTimer);
@@ -616,8 +613,9 @@ function createChipBox({
     }
 
     function selectLabel(label) {
-inputEl.readOnly = false;
-androidPreviewArmed = false;
+      inputEl.readOnly = false;
+      androidPreviewArmed = false;
+
       addToken(label);
       inputEl.value = "";
 
@@ -870,212 +868,57 @@ androidPreviewArmed = false;
     inputEl.addEventListener("pointerup", openFromInput, { passive: true });
 
     // Android specific behavior for handling pointer
-    // inputEl.addEventListener("pointerdown", (ev) => {
-    //   if (!isAndroid) return;
+    inputEl.addEventListener("pointerdown", (ev) => {
+      if (!isAndroid()) return;
 
-    //   // Si la dropdown n'est pas ouverte : 1er tap = ouvrir liste sans focus clavier
-    //   if (!isOpen) {
-    //     ev.preventDefault();
-    //     ev.stopPropagation();
+      // 1er tap : liste seule
+      if (!isOpen) {
+        ev.preventDefault();
+        ev.stopPropagation();
 
-    //     androidPreviewArmed = true;
+        androidPreviewArmed = true;
+        inputEl.readOnly = true;
 
-    //     ensureDD();
-    //     refreshAndOpenDD();
+        ensureDD();
+        refreshAndOpenDD();
 
-    //     // important : enlever le focus après le cycle courant
-    //     setTimeout(() => {
-    //       try { inputEl.blur(); } catch {}
-    //     }, 0);
-
-    //     return;
-    //   }
-
-    //   // Si la dropdown est déjà ouverte et qu'on a fait un premier tap :
-    //   // 2e tap = autoriser focus clavier
-    //   if (androidPreviewArmed) {
-    //     androidPreviewArmed = false;
-    //     return;
-    //   }
-    // }, { capture: true, passive: false });
-    // inputEl.addEventListener("pointerdown", (ev) => {
-    //   if (!isAndroid()) return;
-
-    //   if (!isOpen) {
-    //     ev.preventDefault();
-    //     ev.stopPropagation();
-
-    //     suppressNextFocus = true;
-    //     androidPreviewArmed = true;
-
-    //     ensureDD();
-    // inputEl.readOnly = true;
-
-    // ensureDD();
-    // refreshAndOpenDD();
-
-    // setTimeout(() => {
-    //   inputEl.readOnly = false;
-    // }, 250);
-
-    //     refreshAndOpenDD();
-
-    //     return;
-    //   }
-
-    //   if (androidPreviewArmed) {
-    //     androidPreviewArmed = false;
-    //     suppressNextFocus = false;
-    //     return;
-    //   }
-    // }, { capture: true, passive: false });
-//     inputEl.addEventListener("pointerdown", (ev) => {
-//       if (!isAndroid()) return;
-
-//       // 1er tap : liste seule, pas clavier
-//       if (!isOpen) {
-//         ev.preventDefault();
-//         ev.stopPropagation();
-
-//         androidPreviewArmed = true;
-//         inputEl.readOnly = true;
-
-//         ensureDD();
-//         refreshAndOpenDD();
-
-//         return;
-//       }
-
-//       // 2e tap : on autorise l'édition
-//       // if (androidPreviewArmed) {
-//       //   androidPreviewArmed = false;
-//       //   inputEl.readOnly = false;
-
-//       //   // laisse le focus/clavier se faire normalement
-//       //   return;
-//       // }
-// if (androidPreviewArmed) {
-//   androidPreviewArmed = false;
-//   inputEl.readOnly = false;
-
-//   setTimeout(() => {
-//     try { inputEl.focus({ preventScroll: false }); }
-//     catch { inputEl.focus(); }
-
-//     setTimeout(() => {
-//       inputEl.scrollIntoView({
-//         block: "center",
-//         inline: "nearest",
-//         behavior: "auto"
-//       });
-//     }, 120);
-//   }, 0);
-
-//   return;
-// }
-//     }, { capture: true, passive: false });
-inputEl.addEventListener("pointerdown", (ev) => {
-  if (!isAndroid()) return;
-
-  // 1er tap : liste seule
-  if (!isOpen) {
-    ev.preventDefault();
-    ev.stopPropagation();
-
-    androidPreviewArmed = true;
-    inputEl.readOnly = true;
-
-    ensureDD();
-    refreshAndOpenDD();
-
-    return;
-  }
-
-  // 2e tap : édition + clavier + recentrage manuel
-  // if (androidPreviewArmed) {
-  //   ev.preventDefault();
-  //   ev.stopPropagation();
-
-  //   androidPreviewArmed = false;
-  //   inputEl.readOnly = false;
-
-  //   requestAnimationFrame(() => {
-  //     inputEl.focus();
-
-  //     setTimeout(() => {
-  //       ensureInputVisible({ marginBottom: 140 });
-  //     }, 250);
-  //   });
-
-  //   return;
-  // }
-// if (androidPreviewArmed) {
-//   ev.preventDefault();
-//   ev.stopPropagation();
-
-//   androidPreviewArmed = false;
-
-//   inputEl.readOnly = false;
-//   inputEl.blur();
-
-//   setTimeout(() => {
-//     inputEl.focus();
-
-//     // Important Android : force le scroll de la sheet, pas de la page
-//     setTimeout(() => {
-//       const sheetBody =
-//         inputEl.closest(".sheet-body") ||
-//         inputEl.closest(".sheet-panel") ||
-//         inputEl.closest(".sheet-wrap");
-
-//       const r = inputEl.getBoundingClientRect();
-//       const vv = window.visualViewport;
-
-//       if (sheetBody && vv) {
-//         const keyboardSafeBottom = vv.offsetTop + vv.height - 140;
-
-//         if (r.bottom > keyboardSafeBottom) {
-//           sheetBody.scrollTop += r.bottom - keyboardSafeBottom;
-//         }
-//       }
-//     }, 300);
-//   }, 80);
-
-//   return;
-// }
-if (androidPreviewArmed) {
-  ev.preventDefault();
-  ev.stopPropagation();
-
-  androidPreviewArmed = false;
-  inputEl.readOnly = false;
-
-  setTimeout(() => {
-    inputEl.focus();
-
-    setTimeout(() => {
-      const sheetBody = inputEl.closest(".sheet-body");
-      if (!sheetBody) return;
-
-      const r = inputEl.getBoundingClientRect();
-      const br = sheetBody.getBoundingClientRect();
-      const vv = window.visualViewport;
-
-      const safeBottom = vv
-        ? Math.min(br.bottom, vv.offsetTop + vv.height - 120)
-        : br.bottom - 120;
-
-      const delta = r.bottom - safeBottom;
-
-      if (delta > 0) {
-        sheetBody.scrollTop += delta + 12;
+        return;
       }
-    }, 250);
-  }, 80);
 
-  return;
-}
-}, { capture: true, passive: false });
+      // 2e tap : édition + clavier + recentrage manuel
+      if (androidPreviewArmed) {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        androidPreviewArmed = false;
+        inputEl.readOnly = false;
+
+        setTimeout(() => {
+          inputEl.focus();
+
+          setTimeout(() => {
+            const sheetBody = inputEl.closest(".sheet-body");
+            if (!sheetBody) return;
+
+            const r = inputEl.getBoundingClientRect();
+            const br = sheetBody.getBoundingClientRect();
+            const vv = window.visualViewport;
+
+            const safeBottom = vv
+              ? Math.min(br.bottom, vv.offsetTop + vv.height - 120)
+              : br.bottom - 120;
+
+            const delta = r.bottom - safeBottom;
+
+            if (delta > 0) {
+              sheetBody.scrollTop += delta + 12;
+            }
+          }, 250);
+        }, 80);
+
+        return;
+      }
+    }, { capture: true, passive: false });
 
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
@@ -8681,15 +8524,17 @@ export function openSheetCellEdit(params) {
 
       });
 
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          try {
-            input.focus();
-            input.select();
-          } catch {}
-        }, 120);
-      });
-
+      if (!isAndroid()) {
+          requestAnimationFrame(() => {
+          setTimeout(() => {
+            try {
+              input.focus();
+              input.select();
+            } catch {}
+          }, 120);
+        });
+      }
+      
       body.onClose?.(() => {
         cellEditCtx = null;
         cleanupKbFix?.();
