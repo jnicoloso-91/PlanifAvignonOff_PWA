@@ -962,7 +962,6 @@ function createChipBox({
     });
 
     inputEl.addEventListener("blur", () => {
-      if (isAndroid()) logToPage(`Key ${ev.key}`);
       if (isAndroid()) {
         inputEl.readOnly = false;
         androidPreviewArmed = false;
@@ -1005,7 +1004,6 @@ function createChipBox({
     // Entrée => chip (pas virgule)
     inputEl.addEventListener("keydown", (ev) => {
       // navigation dropdown custom si ouverte
-      if (isAndroid()) logToPage(`Key ${ev.key}`);
       if (dd && isOpen && filtered.length) {
         if (ev.key === "ArrowDown") {
           ev.preventDefault();
@@ -1032,7 +1030,7 @@ function createChipBox({
       }
 
       // création chip (mode normal)
-      if (ev.key === "Enter" || ev.key === "Next" || ev.key === "Done" || ev.key === "Unidentified") {
+      if (ev.key === "Enter" || ev.key === "Next" || ev.key === "Done") {
         ev.preventDefault();
         keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
