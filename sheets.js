@@ -968,8 +968,8 @@ function createChipBox({
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
         // ev.preventDefault();
-        keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
-        commitInputAsChip();
+        // keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
+        // commitInputAsChip();
       }
     });
 
