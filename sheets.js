@@ -466,7 +466,7 @@ function createChipBox({
       lastCommitAt = now;
 
       const v = normToken(inputEl.value || "");
-      
+
       if (v) {
         addToken(v);
         inputEl.value = "";
@@ -967,7 +967,7 @@ function createChipBox({
     // Rattrapage du Enter sur Android 
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
-        ev.preventDefault();
+        // ev.preventDefault();
         keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
       }
@@ -1028,6 +1028,7 @@ function createChipBox({
           setActive(activeIndex - 1);
           return;
         }
+        // Enter pick la selection de la dd et non le contenu de l'input
         // if (ev.key === "Enter" || ev.key === "Next" || ev.key === "Done") {
         //   ev.preventDefault();
         //   keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
