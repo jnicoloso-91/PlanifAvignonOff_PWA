@@ -903,6 +903,15 @@ inputEl.addEventListener("pointerdown", (ev) => {
     androidPreviewArmed = true;
 
     ensureDD();
+inputEl.readOnly = true;
+
+ensureDD();
+refreshAndOpenDD();
+
+setTimeout(() => {
+  inputEl.readOnly = false;
+}, 250);
+
     refreshAndOpenDD();
 
     return;
@@ -923,16 +932,16 @@ inputEl.addEventListener("pointerdown", (ev) => {
             
     // input / focus : doit ouvrir la dropdown même sans taper 
     inputEl.addEventListener("focus", () => {
-  if (isAndroid() && suppressNextFocus) {
-    suppressNextFocus = false;
+      if (isAndroid() && suppressNextFocus) {
+        suppressNextFocus = false;
 
-    requestAnimationFrame(() => {
-      try { inputEl.blur(); } catch {}
-    });
+        requestAnimationFrame(() => {
+          try { inputEl.blur(); } catch {}
+        });
 
-    return;
-  }
-  
+        return;
+      }
+
       lastFocusAt = Date.now();
 
       // 1) viewport fix clavier
