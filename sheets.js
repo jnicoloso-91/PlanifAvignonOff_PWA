@@ -727,7 +727,6 @@ function createChipBox({
     }
 
     function onGlobalPick(ev) {
-      if (isAndroid()) logToPage("onGlobalPick");
       if (!isOpen) return;
 
       const xy = getClientXY(ev);
@@ -970,8 +969,8 @@ function createChipBox({
       if (isAndroid()) {
         if (isAndroid()) logToPage("focusout");
         // ev.preventDefault();
-        // keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
-        // commitInputAsChip();
+        keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
+        commitInputAsChip();
       }
     });
 
