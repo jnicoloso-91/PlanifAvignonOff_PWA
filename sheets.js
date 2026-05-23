@@ -871,6 +871,13 @@ function createChipBox({
       } else if (t === boxEl) doEnter();
     });
 
+    boxEl.addEventListener("focusout", (ev) => {
+      if (isAndroid()) {
+        inputEl.readOnly = false;
+        androidPreviewArmed = false;
+      }
+    });
+
     // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
     inputEl.addEventListener("pointerup", openFromInput, { passive: true });
 
@@ -956,6 +963,10 @@ function createChipBox({
     });
 
     inputEl.addEventListener("blur", () => {
+      if (isAndroid()) {
+        inputEl.readOnly = false;
+        androidPreviewArmed = false;
+      }
       try { kbFix.reset?.(); } catch {}
     });
 
@@ -1020,8 +1031,7 @@ function createChipBox({
       }
 
       // création chip (mode normal)
-      // if (ev.key === "Enter" || ev.key === ",") {
-      if (ev.key === "Enter") {
+      if (ev.key === "Enter" || ev.key === "Next") {
         ev.preventDefault();
         doEnter();
       } else if (ev.key === "Backspace" && !inputEl.value) {
