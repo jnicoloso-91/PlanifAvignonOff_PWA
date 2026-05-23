@@ -848,6 +848,14 @@ function createChipBox({
       }
     }
 
+    function doEnter() {
+      keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
+      if (inputEl.value) addToken(inputEl.value);
+      inputEl.value = "";
+      refreshSuggestions();
+      if (dd) closeDD();
+    }
+
     // ============ Listeners ============
     window.visualViewport?.addEventListener("resize", schedulePositionDD);
     window.visualViewport?.addEventListener("scroll", schedulePositionDD);
@@ -860,7 +868,7 @@ function createChipBox({
       if (!t) return;
       if (t === inputEl || t.closest?.("input") === inputEl) {
         inputEl.focus({ preventScroll: true });
-      }
+      } else if (t === boxEl) doEnter();
     });
 
     // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
@@ -972,12 +980,16 @@ function createChipBox({
       }, 40);
     });
 
+    let keyupListenerArmed = true;
     inputEl.addEventListener("keyup", () => {
+      if (!keyupListenerArmed) {
+        keyupListenerArmed = true;
+        return;
+      }
       ensureDD();
       refreshSuggestions();
       if (dd) openDD();
     });
-    // Bug Samsung
 
     // Entrée => chip (pas virgule)
     inputEl.addEventListener("keydown", (ev) => {
@@ -994,12 +1006,13 @@ function createChipBox({
           setActive(activeIndex - 1);
           return;
         }
-        if (ev.key === "Enter") {
-          ev.preventDefault();
-          const pick = filtered[activeIndex];
-          if (pick) selectLabel(pick);
-          return;
-        }
+        // if (ev.key === "Enter") {
+        //   ev.preventDefault();
+        //   keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
+        //   const pick = filtered[activeIndex];
+        //   if (pick) selectLabel(pick);
+        //   return;
+        // }
         if (ev.key === "Escape") {
           closeDD();
           return;
@@ -1010,10 +1023,7 @@ function createChipBox({
       // if (ev.key === "Enter" || ev.key === ",") {
       if (ev.key === "Enter") {
         ev.preventDefault();
-        if (inputEl.value) addToken(inputEl.value);
-        inputEl.value = "";
-        refreshSuggestions();
-        // if (dd) openDD();
+        doEnter();
       } else if (ev.key === "Backspace" && !inputEl.value) {
         const last = Array.from(map.values()).pop();
         if (last) removeToken(last);
