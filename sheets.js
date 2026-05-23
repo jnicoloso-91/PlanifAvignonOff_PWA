@@ -961,9 +961,13 @@ function createChipBox({
       // ensureInputVisible({ tries: 4 });
     });
 
-    inputEl.addEventListener("focusout", () => {
-      logToPage("focusout");
-      commitInputAsChip();
+    // Rattrapage du Enter sur Android 
+    inputEl.addEventListener("focusout", (ev) => {
+      if (isAndroid()) {
+        ev.preventDefault();
+        keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
+        commitInputAsChip();
+      }
     });
 
     inputEl.addEventListener("blur", () => {
@@ -1021,7 +1025,7 @@ function createChipBox({
           setActive(activeIndex - 1);
           return;
         }
-        // if (ev.key === "Enter") {
+        // if (ev.key === "Enter" || ev.key === "Next" || ev.key === "Done") {
         //   ev.preventDefault();
         //   keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         //   const pick = filtered[activeIndex];
@@ -1039,7 +1043,10 @@ function createChipBox({
         ev.preventDefault();
         keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
-      } else if (ev.key === "Backspace" && !inputEl.value) {
+      } 
+
+      // suppression de chip
+      else if (ev.key === "Backspace" && !inputEl.value) {
         const last = Array.from(map.values()).pop();
         if (last) removeToken(last);
       }
