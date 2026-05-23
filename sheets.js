@@ -452,6 +452,13 @@ function createChipBox({
       if (dd) renderDD();
     }
 
+    // function doEnter() {
+    //   if (inputEl.value) addToken(inputEl.value);
+    //   inputEl.value = "";
+    //   refreshSuggestions();
+    //   if (dd) closeDD();
+    // }
+
     let lastCommitAt = 0;
     function commitInputAsChip() {
       const now = Date.now();
@@ -848,14 +855,6 @@ function createChipBox({
       }
     }
 
-    function doEnter() {
-      keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
-      if (inputEl.value) addToken(inputEl.value);
-      inputEl.value = "";
-      refreshSuggestions();
-      if (dd) closeDD();
-    }
-
     // ============ Listeners ============
     window.visualViewport?.addEventListener("resize", schedulePositionDD);
     window.visualViewport?.addEventListener("scroll", schedulePositionDD);
@@ -868,7 +867,7 @@ function createChipBox({
       if (!t) return;
       if (t === inputEl || t.closest?.("input") === inputEl) {
         inputEl.focus({ preventScroll: true });
-      } else if (t === boxEl) doEnter();
+      } else if (t === boxEl) commitInputAsChip();
     });
 
     boxEl.addEventListener("focusout", (ev) => {
@@ -1033,7 +1032,8 @@ function createChipBox({
       // création chip (mode normal)
       if (ev.key === "Enter" || ev.key === "Next") {
         ev.preventDefault();
-        doEnter();
+        keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
+        commitInputAsChip();
       } else if (ev.key === "Backspace" && !inputEl.value) {
         const last = Array.from(map.values()).pop();
         if (last) removeToken(last);
