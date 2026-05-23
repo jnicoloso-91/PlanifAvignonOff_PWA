@@ -898,63 +898,82 @@ androidPreviewArmed = false;
     //     return;
     //   }
     // }, { capture: true, passive: false });
-// inputEl.addEventListener("pointerdown", (ev) => {
-//   if (!isAndroid()) return;
+    // inputEl.addEventListener("pointerdown", (ev) => {
+    //   if (!isAndroid()) return;
 
-//   if (!isOpen) {
-//     ev.preventDefault();
-//     ev.stopPropagation();
+    //   if (!isOpen) {
+    //     ev.preventDefault();
+    //     ev.stopPropagation();
 
-//     suppressNextFocus = true;
-//     androidPreviewArmed = true;
+    //     suppressNextFocus = true;
+    //     androidPreviewArmed = true;
 
-//     ensureDD();
-// inputEl.readOnly = true;
+    //     ensureDD();
+    // inputEl.readOnly = true;
 
-// ensureDD();
-// refreshAndOpenDD();
+    // ensureDD();
+    // refreshAndOpenDD();
 
-// setTimeout(() => {
-//   inputEl.readOnly = false;
-// }, 250);
+    // setTimeout(() => {
+    //   inputEl.readOnly = false;
+    // }, 250);
 
-//     refreshAndOpenDD();
+    //     refreshAndOpenDD();
 
-//     return;
-//   }
+    //     return;
+    //   }
 
-//   if (androidPreviewArmed) {
-//     androidPreviewArmed = false;
-//     suppressNextFocus = false;
-//     return;
-//   }
-// }, { capture: true, passive: false });
-inputEl.addEventListener("pointerdown", (ev) => {
-  if (!isAndroid()) return;
+    //   if (androidPreviewArmed) {
+    //     androidPreviewArmed = false;
+    //     suppressNextFocus = false;
+    //     return;
+    //   }
+    // }, { capture: true, passive: false });
+    inputEl.addEventListener("pointerdown", (ev) => {
+      if (!isAndroid()) return;
 
-  // 1er tap : liste seule, pas clavier
-  if (!isOpen) {
-    ev.preventDefault();
-    ev.stopPropagation();
+      // 1er tap : liste seule, pas clavier
+      if (!isOpen) {
+        ev.preventDefault();
+        ev.stopPropagation();
 
-    androidPreviewArmed = true;
-    inputEl.readOnly = true;
+        androidPreviewArmed = true;
+        inputEl.readOnly = true;
 
-    ensureDD();
-    refreshAndOpenDD();
+        ensureDD();
+        refreshAndOpenDD();
 
-    return;
-  }
+        return;
+      }
 
-  // 2e tap : on autorise l'édition
-  if (androidPreviewArmed) {
-    androidPreviewArmed = false;
-    inputEl.readOnly = false;
+      // 2e tap : on autorise l'édition
+      // if (androidPreviewArmed) {
+      //   androidPreviewArmed = false;
+      //   inputEl.readOnly = false;
 
-    // laisse le focus/clavier se faire normalement
-    return;
-  }
-}, { capture: true, passive: false });
+      //   // laisse le focus/clavier se faire normalement
+      //   return;
+      // }
+if (androidPreviewArmed) {
+  androidPreviewArmed = false;
+  inputEl.readOnly = false;
+
+  setTimeout(() => {
+    try { inputEl.focus({ preventScroll: false }); }
+    catch { inputEl.focus(); }
+
+    setTimeout(() => {
+      inputEl.scrollIntoView({
+        block: "center",
+        inline: "nearest",
+        behavior: "auto"
+      });
+    }, 120);
+  }, 0);
+
+  return;
+}
+    }, { capture: true, passive: false });
 
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
@@ -964,16 +983,6 @@ inputEl.addEventListener("pointerdown", (ev) => {
             
     // input / focus : doit ouvrir la dropdown même sans taper 
     inputEl.addEventListener("focus", () => {
-      // if (isAndroid() && suppressNextFocus) {
-      //   suppressNextFocus = false;
-
-      //   requestAnimationFrame(() => {
-      //     try { inputEl.blur(); } catch {}
-      //   });
-
-      //   return;
-      // }
-
       lastFocusAt = Date.now();
 
       // 1) viewport fix clavier
