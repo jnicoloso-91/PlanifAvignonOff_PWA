@@ -992,23 +992,57 @@ inputEl.addEventListener("pointerdown", (ev) => {
   }
 
   // 2e tap : édition + clavier + recentrage manuel
-  if (androidPreviewArmed) {
-    ev.preventDefault();
-    ev.stopPropagation();
+  // if (androidPreviewArmed) {
+  //   ev.preventDefault();
+  //   ev.stopPropagation();
 
-    androidPreviewArmed = false;
-    inputEl.readOnly = false;
+  //   androidPreviewArmed = false;
+  //   inputEl.readOnly = false;
 
-    requestAnimationFrame(() => {
-      inputEl.focus();
+  //   requestAnimationFrame(() => {
+  //     inputEl.focus();
 
-      setTimeout(() => {
-        ensureInputVisible({ marginBottom: 140 });
-      }, 250);
-    });
+  //     setTimeout(() => {
+  //       ensureInputVisible({ marginBottom: 140 });
+  //     }, 250);
+  //   });
 
-    return;
-  }
+  //   return;
+  // }
+if (androidPreviewArmed) {
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  androidPreviewArmed = false;
+
+  inputEl.readOnly = false;
+  inputEl.blur();
+
+  setTimeout(() => {
+    inputEl.focus();
+
+    // Important Android : force le scroll de la sheet, pas de la page
+    setTimeout(() => {
+      const sheetBody =
+        inputEl.closest(".sheet-body") ||
+        inputEl.closest(".sheet-panel") ||
+        inputEl.closest(".sheet-wrap");
+
+      const r = inputEl.getBoundingClientRect();
+      const vv = window.visualViewport;
+
+      if (sheetBody && vv) {
+        const keyboardSafeBottom = vv.offsetTop + vv.height - 140;
+
+        if (r.bottom > keyboardSafeBottom) {
+          sheetBody.scrollTop += r.bottom - keyboardSafeBottom;
+        }
+      }
+    }, 300);
+  }, 80);
+
+  return;
+}
 }, { capture: true, passive: false });
 
     // fallback desktop/Android
