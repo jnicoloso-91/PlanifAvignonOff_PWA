@@ -378,6 +378,10 @@ function createChipBox({
     let filtered = [];            // suggestions filtrées et non sélectionnées
     let activeIndex = 0;
 
+    // Pour faire que le clavier ne s'ouvre qu'à la deuxième tap sur Android (comme sur Iphone)
+    let androidPreviewOpen = false;
+    let androidPreviewAt = 0;
+
     function isStandalone() {
       return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
     }
@@ -450,7 +454,6 @@ function createChipBox({
     }
 
     let lastCommitAt = 0;
-
     function commitInputAsChip() {
       const now = Date.now();
       if (now - lastCommitAt < 200) return;
@@ -539,41 +542,30 @@ function createChipBox({
       isOpen = true;
     }
 
-// Tentative de solution pour fermeture intempestive de la liste de choix
-    // function closeDD({ reason = "manual" } = {}) {
-    //   if (!dd) return;
-    //   dd.classList.remove("open");
-    //   dd.hidden = true;
-    //   isOpen = false;
+    function closeDD({ reason = "manual" } = {}) {
+      androidPreviewOpen = false;
 
-    //   // ✅ commit “standard input” (même si suggestions existent)
-    //   // mais PAS si on ferme suite à un pick ou un focus input.
-    //   const shouldCommit =
-    //     (reason === "outside" || reason === "blur" || reason === "escape");
+      // Empêche la fermeture intempestive de la liste de choix sur Android
+      clearTimeout(emptyCloseTimer);
+      if (reason === "empty" && document.activeElement === inputEl) {
+        const q = normKey(inputEl.value || "");
 
-    //   if (shouldCommit) commitInputAsChip();
-    // }
-function closeDD({ reason = "manual" } = {}) {
-  clearTimeout(emptyCloseTimer);
+        // Android : focus + q vide + filtered temporairement vide => ignorer
+        if (!q) return;
+      }
 
-  if (reason === "empty" && document.activeElement === inputEl) {
-    const q = normKey(inputEl.value || "");
+      if (!dd) return;
+      dd.classList.remove("open");
+      dd.hidden = true;
+      isOpen = false;
 
-    // Android : focus + q vide + filtered temporairement vide => ignorer
-    if (!q) return;
-  }
+      // ✅ commit “standard input” (même si suggestions existent)
+      // mais PAS si on ferme suite à un pick ou un focus input.
+      const shouldCommit =
+        (reason === "outside" || reason === "blur" || reason === "escape");
 
-  if (!dd) return;
-  dd.classList.remove("open");
-  dd.hidden = true;
-  isOpen = false;
-
-  const shouldCommit =
-    (reason === "outside" || reason === "blur" || reason === "escape");
-
-  if (shouldCommit) commitInputAsChip();
-}
-// Fin Tentative de solution pour fermeture intempestive de la liste de choix
+      if (shouldCommit) commitInputAsChip();
+    }
 
     function renderDD() {
       if (!dd) return;
@@ -618,6 +610,8 @@ function closeDD({ reason = "manual" } = {}) {
     }
 
     function selectLabel(label) {
+      androidPreviewOpen = false;
+      
       addToken(label);
       inputEl.value = "";
 
@@ -761,7 +755,7 @@ function closeDD({ reason = "manual" } = {}) {
       closeDD({ reason: "outside" });
 
       // Empêche la fermeture de dropdown si click dans input wrap (container de l'input) 
-      // A tenter si fermeture intempestive de la liste de choix à la place du bloc précédent (vu sur Android)
+      // A tenter à la place du bloc précédent si fermeture intempestive de la liste de choix (vu sur Android)
       // // 1) item dropdown => select
       // const item = hit.closest(".chipbox-dditem");
       // if (item && dd && dd.contains(item)) {
@@ -901,13 +895,12 @@ function closeDD({ reason = "manual" } = {}) {
       try { kbFix.reset?.(); } catch {}
     });
 
-    // Bug Samsung
+    // Résolution du bug rencontré sur Android Samsung : dropdown qui ne s'ouvre pas on focus
     // inputEl.addEventListener("input", () => {
     //   refreshSuggestions();
     //   if (dd) openDD();
     // });
     let inputRefreshTimer = 0;
-
     inputEl.addEventListener("input", () => {
       clearTimeout(inputRefreshTimer);
 
@@ -970,6 +963,34 @@ function closeDD({ reason = "manual" } = {}) {
         if (last) removeToken(last);
       }
     });
+
+    inputEl.addEventListener("pointerdown", (ev) => {
+      if (!isAndroid) return;
+
+      const now = Date.now();
+
+      // Si dropdown fermée ou dernier preview trop ancien :
+      // premier tap = suggestions seulement, pas clavier
+      if (!isOpen || !androidPreviewOpen || now - androidPreviewAt > 1200) {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        androidPreviewOpen = true;
+        androidPreviewAt = now;
+
+        ensureDD();
+        refreshAndOpenDD();
+
+        // on enlève le focus éventuel pour empêcher le clavier
+        try { inputEl.blur(); } catch {}
+
+        return;
+      }
+
+      // deuxième tap proche : édition normale
+      androidPreviewOpen = false;
+
+    }, { capture: true, passive: false });
 
     // natif datalist : change => chip
     inputEl.addEventListener("change", () => {
