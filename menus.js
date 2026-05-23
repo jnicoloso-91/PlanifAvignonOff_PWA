@@ -2392,8 +2392,7 @@ async function doExportExcel() {
         // Au cas où le showSaveFilePicker provoque un rechargement de la page (bug dans certains navigateurs notamment IOS), 
         // on met un flag dans sessionStorage pour forcer le retour à la page planning en cas de rechargement de la page appli.
         // Ce flag est utilisé ensuite par le listener de visibilityChange sur document.
-        // Malheureusement pas d'event visibilityChange sur IOS, donc on ne peut pas faire mieux pour le moment.
-        // sessionStorage.setItem("forceProgrammeOnReturn", "1");
+        sessionStorage.setItem("forceProgrammeOnReturn", "1");
 
       } catch (err) {
         if (err.name === "AbortError") return;
