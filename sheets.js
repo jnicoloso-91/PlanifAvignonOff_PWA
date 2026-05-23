@@ -8442,7 +8442,6 @@ export function openSheetCellEdit(params) {
               window.innerHeight - vv.height - vv.offsetTop);
 
           sheetEl.style.paddingBottom =
-            // `${basePad + kb + 12}px`;
             `${basePad + kb}px`;
         }
 
