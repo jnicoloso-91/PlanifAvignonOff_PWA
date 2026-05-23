@@ -379,8 +379,7 @@ function createChipBox({
     let activeIndex = 0;
 
     // Pour faire que le clavier ne s'ouvre qu'à la deuxième tap sur Android (comme sur Iphone)
-    let androidPreviewOpen = false;
-    let androidPreviewAt = 0;
+    let androidPreviewArmed = false;
 
     function isStandalone() {
       return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
@@ -543,7 +542,9 @@ function createChipBox({
     }
 
     function closeDD({ reason = "manual" } = {}) {
-      androidPreviewOpen = false;
+      if (reason === "outside" || reason === "pick" || reason === "escape") {
+        androidPreviewArmed = false;
+      }
 
       // Empêche la fermeture intempestive de la liste de choix sur Android
       clearTimeout(emptyCloseTimer);
@@ -863,6 +864,36 @@ function createChipBox({
     // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
     inputEl.addEventListener("pointerup", openFromInput, { passive: true });
 
+    // Android specific behavior for handling pointer
+    inputEl.addEventListener("pointerdown", (ev) => {
+      if (!isAndroid) return;
+
+      // Si la dropdown n'est pas ouverte : 1er tap = ouvrir liste sans focus clavier
+      if (!isOpen) {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        androidPreviewArmed = true;
+
+        ensureDD();
+        refreshAndOpenDD();
+
+        // important : enlever le focus après le cycle courant
+        setTimeout(() => {
+          try { inputEl.blur(); } catch {}
+        }, 0);
+
+        return;
+      }
+
+      // Si la dropdown est déjà ouverte et qu'on a fait un premier tap :
+      // 2e tap = autoriser focus clavier
+      if (androidPreviewArmed) {
+        androidPreviewArmed = false;
+        return;
+      }
+    }, { capture: true, passive: false });
+
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
 
@@ -963,37 +994,6 @@ function createChipBox({
         if (last) removeToken(last);
       }
     });
-
-    inputEl.addEventListener("pointerdown", (ev) => {
-      if (!isAndroid()) return;
-
-      logToPage(`Pointerdown`);
-
-      const now = Date.now();
-
-      // Si dropdown fermée ou dernier preview trop ancien :
-      // premier tap = suggestions seulement, pas clavier
-      if (!isOpen || !androidPreviewOpen || now - androidPreviewAt > 1200) {
-        logToPage(`Première tap`);
-        ev.preventDefault();
-        ev.stopPropagation();
-
-        androidPreviewOpen = true;
-        androidPreviewAt = now;
-
-        ensureDD();
-        refreshAndOpenDD();
-
-        // on enlève le focus éventuel pour empêcher le clavier
-        try { inputEl.blur(); } catch {}
-
-        return;
-      }
-
-      // deuxième tap proche : édition normale
-      androidPreviewOpen = false;
-
-    }, { capture: true, passive: false });
 
     // natif datalist : change => chip
     inputEl.addEventListener("change", () => {
