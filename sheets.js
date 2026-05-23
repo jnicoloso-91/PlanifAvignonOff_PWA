@@ -1032,7 +1032,7 @@ function createChipBox({
       }
 
       // création chip (mode normal)
-      if (ev.key === "Enter" || ev.key === "Next") {
+      if (ev.key === "Enter" || ev.key === "Next" || ev.key === "Done" || ev.key === "Unidentified") {
         ev.preventDefault();
         keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
