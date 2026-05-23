@@ -466,11 +466,14 @@ function createChipBox({
       lastCommitAt = now;
 
       const v = normToken(inputEl.value || "");
-      if (!v) return;
+      
+      if (v) {
+        addToken(v);
+        inputEl.value = "";
+        refreshSuggestions();
+      }
 
-      addToken(v);
-      inputEl.value = "";
-      refreshSuggestions();
+      if (dd) closeDD();
     }
 
     let lastPick = 0;
