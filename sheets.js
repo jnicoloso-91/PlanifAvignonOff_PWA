@@ -380,6 +380,7 @@ function createChipBox({
 
     // Pour faire que le clavier ne s'ouvre qu'à la deuxième tap sur Android (comme sur Iphone)
     let androidPreviewArmed = false;
+    let suppressNextFocus = false;
 
     function isStandalone() {
       return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
@@ -611,8 +612,6 @@ function createChipBox({
     }
 
     function selectLabel(label) {
-      androidPreviewOpen = false;
-
       addToken(label);
       inputEl.value = "";
 
@@ -865,34 +864,56 @@ function createChipBox({
     inputEl.addEventListener("pointerup", openFromInput, { passive: true });
 
     // Android specific behavior for handling pointer
-    inputEl.addEventListener("pointerdown", (ev) => {
-      if (!isAndroid) return;
+    // inputEl.addEventListener("pointerdown", (ev) => {
+    //   if (!isAndroid) return;
 
-      // Si la dropdown n'est pas ouverte : 1er tap = ouvrir liste sans focus clavier
-      if (!isOpen) {
-        ev.preventDefault();
-        ev.stopPropagation();
+    //   // Si la dropdown n'est pas ouverte : 1er tap = ouvrir liste sans focus clavier
+    //   if (!isOpen) {
+    //     ev.preventDefault();
+    //     ev.stopPropagation();
 
-        androidPreviewArmed = true;
+    //     androidPreviewArmed = true;
 
-        ensureDD();
-        refreshAndOpenDD();
+    //     ensureDD();
+    //     refreshAndOpenDD();
 
-        // important : enlever le focus après le cycle courant
-        setTimeout(() => {
-          try { inputEl.blur(); } catch {}
-        }, 0);
+    //     // important : enlever le focus après le cycle courant
+    //     setTimeout(() => {
+    //       try { inputEl.blur(); } catch {}
+    //     }, 0);
 
-        return;
-      }
+    //     return;
+    //   }
 
-      // Si la dropdown est déjà ouverte et qu'on a fait un premier tap :
-      // 2e tap = autoriser focus clavier
-      if (androidPreviewArmed) {
-        androidPreviewArmed = false;
-        return;
-      }
-    }, { capture: true, passive: false });
+    //   // Si la dropdown est déjà ouverte et qu'on a fait un premier tap :
+    //   // 2e tap = autoriser focus clavier
+    //   if (androidPreviewArmed) {
+    //     androidPreviewArmed = false;
+    //     return;
+    //   }
+    // }, { capture: true, passive: false });
+inputEl.addEventListener("pointerdown", (ev) => {
+  if (!isAndroid()) return;
+
+  if (!isOpen) {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    suppressNextFocus = true;
+    androidPreviewArmed = true;
+
+    ensureDD();
+    refreshAndOpenDD();
+
+    return;
+  }
+
+  if (androidPreviewArmed) {
+    androidPreviewArmed = false;
+    suppressNextFocus = false;
+    return;
+  }
+}, { capture: true, passive: false });
 
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
@@ -902,6 +923,16 @@ function createChipBox({
             
     // input / focus : doit ouvrir la dropdown même sans taper 
     inputEl.addEventListener("focus", () => {
+  if (isAndroid() && suppressNextFocus) {
+    suppressNextFocus = false;
+
+    requestAnimationFrame(() => {
+      try { inputEl.blur(); } catch {}
+    });
+
+    return;
+  }
+  
       lastFocusAt = Date.now();
 
       // 1) viewport fix clavier
