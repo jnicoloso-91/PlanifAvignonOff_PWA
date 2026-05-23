@@ -961,6 +961,11 @@ function createChipBox({
       // ensureInputVisible({ tries: 4 });
     });
 
+    inputEl.addEventListener("focusout", () => {
+      logToPage("focusout");
+      commitInputAsChip();
+    });
+
     inputEl.addEventListener("blur", () => {
       if (isAndroid()) {
         inputEl.readOnly = false;
