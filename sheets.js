@@ -380,7 +380,7 @@ function createChipBox({
 
     // Pour faire que le clavier ne s'ouvre qu'à la deuxième tap sur Android (comme sur Iphone)
     let androidPreviewArmed = false;
-    let suppressNextFocus = false;
+    // let suppressNextFocus = false;
 
     function isStandalone() {
       return !!window.navigator.standalone || window.matchMedia("(display-mode: standalone)").matches;
@@ -543,9 +543,13 @@ function createChipBox({
     }
 
     function closeDD({ reason = "manual" } = {}) {
-      if (reason === "outside" || reason === "pick" || reason === "escape") {
-        androidPreviewArmed = false;
-      }
+      // if (reason === "outside" || reason === "pick" || reason === "escape") {
+      //   androidPreviewArmed = false;
+      // }
+  if (reason === "outside" || reason === "pick" || reason === "escape") {
+    androidPreviewArmed = false;
+    inputEl.readOnly = false;
+  }
 
       // Empêche la fermeture intempestive de la liste de choix sur Android
       clearTimeout(emptyCloseTimer);
@@ -612,6 +616,8 @@ function createChipBox({
     }
 
     function selectLabel(label) {
+inputEl.readOnly = false;
+androidPreviewArmed = false;
       addToken(label);
       inputEl.value = "";
 
@@ -892,34 +898,60 @@ function createChipBox({
     //     return;
     //   }
     // }, { capture: true, passive: false });
+// inputEl.addEventListener("pointerdown", (ev) => {
+//   if (!isAndroid()) return;
+
+//   if (!isOpen) {
+//     ev.preventDefault();
+//     ev.stopPropagation();
+
+//     suppressNextFocus = true;
+//     androidPreviewArmed = true;
+
+//     ensureDD();
+// inputEl.readOnly = true;
+
+// ensureDD();
+// refreshAndOpenDD();
+
+// setTimeout(() => {
+//   inputEl.readOnly = false;
+// }, 250);
+
+//     refreshAndOpenDD();
+
+//     return;
+//   }
+
+//   if (androidPreviewArmed) {
+//     androidPreviewArmed = false;
+//     suppressNextFocus = false;
+//     return;
+//   }
+// }, { capture: true, passive: false });
 inputEl.addEventListener("pointerdown", (ev) => {
   if (!isAndroid()) return;
 
+  // 1er tap : liste seule, pas clavier
   if (!isOpen) {
     ev.preventDefault();
     ev.stopPropagation();
 
-    suppressNextFocus = true;
     androidPreviewArmed = true;
+    inputEl.readOnly = true;
 
     ensureDD();
-inputEl.readOnly = true;
-
-ensureDD();
-refreshAndOpenDD();
-
-setTimeout(() => {
-  inputEl.readOnly = false;
-}, 250);
-
     refreshAndOpenDD();
 
     return;
   }
 
+  // 2e tap : on autorise l'édition
   if (androidPreviewArmed) {
     androidPreviewArmed = false;
-    suppressNextFocus = false;
+    inputEl.readOnly = false;
+
+    // laisse le focus/clavier se faire normalement
     return;
   }
 }, { capture: true, passive: false });
@@ -932,15 +964,15 @@ setTimeout(() => {
             
     // input / focus : doit ouvrir la dropdown même sans taper 
     inputEl.addEventListener("focus", () => {
-      if (isAndroid() && suppressNextFocus) {
-        suppressNextFocus = false;
+      // if (isAndroid() && suppressNextFocus) {
+      //   suppressNextFocus = false;
 
-        requestAnimationFrame(() => {
-          try { inputEl.blur(); } catch {}
-        });
+      //   requestAnimationFrame(() => {
+      //     try { inputEl.blur(); } catch {}
+      //   });
 
-        return;
-      }
+      //   return;
+      // }
 
       lastFocusAt = Date.now();
 
