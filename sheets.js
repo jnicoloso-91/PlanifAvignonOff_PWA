@@ -727,6 +727,7 @@ function createChipBox({
     }
 
     function onGlobalPick(ev) {
+      if (isAndroid()) logToPage("onGlobalPick");
       if (!isOpen) return;
 
       const xy = getClientXY(ev);
