@@ -1009,36 +1009,68 @@ inputEl.addEventListener("pointerdown", (ev) => {
 
   //   return;
   // }
+// if (androidPreviewArmed) {
+//   ev.preventDefault();
+//   ev.stopPropagation();
+
+//   androidPreviewArmed = false;
+
+//   inputEl.readOnly = false;
+//   inputEl.blur();
+
+//   setTimeout(() => {
+//     inputEl.focus();
+
+//     // Important Android : force le scroll de la sheet, pas de la page
+//     setTimeout(() => {
+//       const sheetBody =
+//         inputEl.closest(".sheet-body") ||
+//         inputEl.closest(".sheet-panel") ||
+//         inputEl.closest(".sheet-wrap");
+
+//       const r = inputEl.getBoundingClientRect();
+//       const vv = window.visualViewport;
+
+//       if (sheetBody && vv) {
+//         const keyboardSafeBottom = vv.offsetTop + vv.height - 140;
+
+//         if (r.bottom > keyboardSafeBottom) {
+//           sheetBody.scrollTop += r.bottom - keyboardSafeBottom;
+//         }
+//       }
+//     }, 300);
+//   }, 80);
+
+//   return;
+// }
 if (androidPreviewArmed) {
   ev.preventDefault();
   ev.stopPropagation();
 
   androidPreviewArmed = false;
-
   inputEl.readOnly = false;
-  inputEl.blur();
 
   setTimeout(() => {
     inputEl.focus();
 
-    // Important Android : force le scroll de la sheet, pas de la page
     setTimeout(() => {
-      const sheetBody =
-        inputEl.closest(".sheet-body") ||
-        inputEl.closest(".sheet-panel") ||
-        inputEl.closest(".sheet-wrap");
+      const sheetBody = inputEl.closest(".sheet-body");
+      if (!sheetBody) return;
 
       const r = inputEl.getBoundingClientRect();
+      const br = sheetBody.getBoundingClientRect();
       const vv = window.visualViewport;
 
-      if (sheetBody && vv) {
-        const keyboardSafeBottom = vv.offsetTop + vv.height - 140;
+      const safeBottom = vv
+        ? Math.min(br.bottom, vv.offsetTop + vv.height - 120)
+        : br.bottom - 120;
 
-        if (r.bottom > keyboardSafeBottom) {
-          sheetBody.scrollTop += r.bottom - keyboardSafeBottom;
-        }
+      const delta = r.bottom - safeBottom;
+
+      if (delta > 0) {
+        sheetBody.scrollTop += delta + 12;
       }
-    }, 300);
+    }, 250);
   }, 80);
 
   return;
