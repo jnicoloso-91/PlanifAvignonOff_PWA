@@ -885,7 +885,7 @@ function createChipBox({
       if (!isAndroid()) return;
 
       // 1er tap : liste seule
-      if (!isOpen) {
+      if (!isOpen && !(document.activeElement === inputEl)) {
         ev.preventDefault();
         ev.stopPropagation();
 
