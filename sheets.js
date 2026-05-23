@@ -929,51 +929,87 @@ androidPreviewArmed = false;
     //     return;
     //   }
     // }, { capture: true, passive: false });
-    inputEl.addEventListener("pointerdown", (ev) => {
-      if (!isAndroid()) return;
+//     inputEl.addEventListener("pointerdown", (ev) => {
+//       if (!isAndroid()) return;
 
-      // 1er tap : liste seule, pas clavier
-      if (!isOpen) {
-        ev.preventDefault();
-        ev.stopPropagation();
+//       // 1er tap : liste seule, pas clavier
+//       if (!isOpen) {
+//         ev.preventDefault();
+//         ev.stopPropagation();
 
-        androidPreviewArmed = true;
-        inputEl.readOnly = true;
+//         androidPreviewArmed = true;
+//         inputEl.readOnly = true;
 
-        ensureDD();
-        refreshAndOpenDD();
+//         ensureDD();
+//         refreshAndOpenDD();
 
-        return;
-      }
+//         return;
+//       }
 
-      // 2e tap : on autorise l'édition
-      // if (androidPreviewArmed) {
-      //   androidPreviewArmed = false;
-      //   inputEl.readOnly = false;
+//       // 2e tap : on autorise l'édition
+//       // if (androidPreviewArmed) {
+//       //   androidPreviewArmed = false;
+//       //   inputEl.readOnly = false;
 
-      //   // laisse le focus/clavier se faire normalement
-      //   return;
-      // }
-if (androidPreviewArmed) {
-  androidPreviewArmed = false;
-  inputEl.readOnly = false;
+//       //   // laisse le focus/clavier se faire normalement
+//       //   return;
+//       // }
+// if (androidPreviewArmed) {
+//   androidPreviewArmed = false;
+//   inputEl.readOnly = false;
 
-  setTimeout(() => {
-    try { inputEl.focus({ preventScroll: false }); }
-    catch { inputEl.focus(); }
+//   setTimeout(() => {
+//     try { inputEl.focus({ preventScroll: false }); }
+//     catch { inputEl.focus(); }
 
-    setTimeout(() => {
-      inputEl.scrollIntoView({
-        block: "center",
-        inline: "nearest",
-        behavior: "auto"
-      });
-    }, 120);
-  }, 0);
+//     setTimeout(() => {
+//       inputEl.scrollIntoView({
+//         block: "center",
+//         inline: "nearest",
+//         behavior: "auto"
+//       });
+//     }, 120);
+//   }, 0);
 
-  return;
-}
-    }, { capture: true, passive: false });
+//   return;
+// }
+//     }, { capture: true, passive: false });
+inputEl.addEventListener("pointerdown", (ev) => {
+  if (!isAndroid()) return;
+
+  // 1er tap : liste seule
+  if (!isOpen) {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    androidPreviewArmed = true;
+    inputEl.readOnly = true;
+
+    ensureDD();
+    refreshAndOpenDD();
+
+    return;
+  }
+
+  // 2e tap : édition + clavier + recentrage manuel
+  if (androidPreviewArmed) {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    androidPreviewArmed = false;
+    inputEl.readOnly = false;
+
+    requestAnimationFrame(() => {
+      inputEl.focus();
+
+      setTimeout(() => {
+        ensureInputVisible({ marginBottom: 140 });
+      }, 250);
+    });
+
+    return;
+  }
+}, { capture: true, passive: false });
 
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
