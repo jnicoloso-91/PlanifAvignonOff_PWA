@@ -962,7 +962,6 @@ function createChipBox({
     });
 
     inputEl.addEventListener("blur", () => {
-      logToPage("Blur");
       if (isAndroid()) {
         inputEl.readOnly = false;
         androidPreviewArmed = false;
