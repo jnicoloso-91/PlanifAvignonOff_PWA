@@ -881,7 +881,7 @@ function createChipBox({
       refreshSuggestions();
 
       // Android: ne pas auto-open sur focus (évite reopen après sélection)
-      // if (dd && !isAndroid && canAutoOpen() && filtered.length) openDD();
+      // if (dd && !isAndroid() && canAutoOpen() && filtered.length) openDD();
       if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
 
       // Assure que le caret se mette à la fin du texte
@@ -965,7 +965,7 @@ function createChipBox({
     });
 
     inputEl.addEventListener("pointerdown", (ev) => {
-      if (!isAndroid) return;
+      if (!isAndroid()) return;
 
       logToPage(`Pointerdown`);
 
@@ -8399,7 +8399,8 @@ export function openSheetCellEdit(params) {
 
       input.value = initialValue;
 
-      // Permet de faire remonter suffisamment la sheet quand le clavier Android avec options monte
+      // Permet de faire remonter complètement la sheet quand le clavier Android monte
+      // Sinon la ligne d'options du clavier Android cache les boutons du footer
       function installSimpleKeyboardFix(sheetEl) {
 
         const vv = window.visualViewport;
@@ -8433,7 +8434,7 @@ export function openSheetCellEdit(params) {
       }
 
       const cleanupKbFix =
-        isAndroid
+        isAndroid()
           ? installSimpleKeyboardFix(sheetPanelEl)
           : null;
 
