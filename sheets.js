@@ -611,7 +611,7 @@ function createChipBox({
 
     function selectLabel(label) {
       androidPreviewOpen = false;
-      
+
       addToken(label);
       inputEl.value = "";
 
@@ -967,11 +967,14 @@ function createChipBox({
     inputEl.addEventListener("pointerdown", (ev) => {
       if (!isAndroid) return;
 
+      logToPage(`Pointerdown`);
+
       const now = Date.now();
 
       // Si dropdown fermée ou dernier preview trop ancien :
       // premier tap = suggestions seulement, pas clavier
       if (!isOpen || !androidPreviewOpen || now - androidPreviewAt > 1200) {
+        logToPage(`Première tap`);
         ev.preventDefault();
         ev.stopPropagation();
 
