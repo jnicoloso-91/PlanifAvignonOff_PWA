@@ -611,7 +611,6 @@ function createChipBox({
         it.addEventListener("pointerenter", () => setActive(idx));
         it.addEventListener("pointerdown", () => { 
           if (isAndroid()) { 
-            logToPage("pointerdown on dd item"); 
             pickingFromDD = true; 
             selectedItem = it;
           }
