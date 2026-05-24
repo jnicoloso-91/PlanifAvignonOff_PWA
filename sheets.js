@@ -982,7 +982,7 @@ function createChipBox({
     let focusoutArmed = false;
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid() && focusoutArmed && ev.rangeParent !== "chipbox-ddlist") {
-          if (isAndroid()) logToPage(`focusout 12 ${ev.rangeParent}`);
+          if (isAndroid()) logToPage(`focusout 13 ${ev.rangeParent} ${ev.relatedTarget}`);
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
