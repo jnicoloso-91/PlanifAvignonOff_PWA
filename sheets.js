@@ -558,13 +558,13 @@ function createChipBox({
       }
 
       // Empêche la fermeture intempestive de la liste de choix sur Android
-      clearTimeout(emptyCloseTimer);
-      if (reason === "empty" && document.activeElement === inputEl) {
-        const q = normKey(inputEl.value || "");
+      // clearTimeout(emptyCloseTimer);
+      // if (reason === "empty" && document.activeElement === inputEl) {
+      //   const q = normKey(inputEl.value || "");
 
-        // Android : focus + q vide + filtered temporairement vide => ignorer
-        if (!q) return;
-      }
+      //   // Android : focus + q vide + filtered temporairement vide => ignorer
+      //   if (!q) return;
+      // }
 
       if (!dd) return;
       dd.classList.remove("open");
@@ -632,13 +632,13 @@ function createChipBox({
 
       // ✅ IMPORTANT: empêcher le focus/retap de ré-ouvrir immédiatement (Android)
       suppressAutoOpen(350);
+
+      // Nettoyage pour Android
       androidPreviewArmed = false;
       inputEl.readOnly = false;
 
       refreshSuggestions();
       closeDD({ reason: "pick" });
-
-      if (isAndroid()) { try { inputEl.blur(); } catch {} }
     }
 
     let lastEnsureAt = 0;
@@ -816,28 +816,28 @@ function createChipBox({
       return Date.now() >= suppressAutoOpenUntil;
     }
 
-    function scheduleCloseEmpty() {
-      clearTimeout(emptyCloseTimer);
+    // function scheduleCloseEmpty() {
+    //   clearTimeout(emptyCloseTimer);
 
-      emptyCloseTimer = window.setTimeout(() => {
-        // évite fermeture pendant stabilisation clavier Android
-        if (Date.now() - lastFocusAt < 350) return;
+    //   emptyCloseTimer = window.setTimeout(() => {
+    //     // évite fermeture pendant stabilisation clavier Android
+    //     if (Date.now() - lastFocusAt < 350) return;
 
-        // si l’input n’est plus focus, on peut fermer
-        if (document.activeElement !== inputEl) {
-          closeDD({ reason: "empty" });
-          return;
-        }
+    //     // si l’input n’est plus focus, on peut fermer
+    //     if (document.activeElement !== inputEl) {
+    //       closeDD({ reason: "empty" });
+    //       return;
+    //     }
 
-        // si l’utilisateur tape vraiment une recherche sans résultat, on peut fermer
-        const q = normKey(inputEl.value || "");
-        if (q && !filtered.length) {
-          closeDD({ reason: "empty" });
-        }
+    //     // si l’utilisateur tape vraiment une recherche sans résultat, on peut fermer
+    //     const q = normKey(inputEl.value || "");
+    //     if (q && !filtered.length) {
+    //       closeDD({ reason: "empty" });
+    //     }
 
-        // si q vide + focus input => ne pas fermer brutalement
-      }, 120);
-    }
+    //     // si q vide + focus input => ne pas fermer brutalement
+    //   }, 120);
+    // }
 
     let posScheduled = false;
     function schedulePositionDD() {
@@ -945,7 +945,7 @@ function createChipBox({
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
 
-    let emptyCloseTimer = 0;
+    // let emptyCloseTimer = 0;
     let lastFocusAt = 0;
             
     // input / focus : doit ouvrir la dropdown même sans taper 
@@ -988,7 +988,7 @@ function createChipBox({
             // if (dd) closeDD();
             return;
           }
-          if (isAndroid()) logToPage(`focusout 16`);
+          if (isAndroid()) logToPage(`focusout 17`);
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
