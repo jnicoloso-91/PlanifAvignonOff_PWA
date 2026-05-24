@@ -968,7 +968,7 @@ function createChipBox({
     // Rattrapage du Enter sur Android 
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
-        if (isAndroid()) logToPage("focusout 3");
+        if (isAndroid()) logToPage("focusout 4");
         // ev.preventDefault();
         // keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
