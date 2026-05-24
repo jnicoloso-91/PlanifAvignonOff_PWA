@@ -986,9 +986,10 @@ function createChipBox({
       if (isAndroid() && focusoutArmed) {
           if (pickingFromDD) { // le picking vient de dd dans ce cas on sort
             pickingFromDD = false;
+            if (dd) closeDD();
             return;
           }
-          if (isAndroid()) logToPage(`focusout 14`);
+          if (isAndroid()) logToPage(`focusout 15`);
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
