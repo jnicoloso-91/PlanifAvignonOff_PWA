@@ -728,7 +728,7 @@ function createChipBox({
 
     function onGlobalPick(ev) {
       if (!isOpen) return;
-      if (isAndroid()) logToPage("focusout 2");
+      if (isAndroid()) logToPage("GlobalPick");
 
       const xy = getClientXY(ev);
       if (!xy) { closeDD({ reason: "abort" }); return; }
@@ -968,7 +968,7 @@ function createChipBox({
     // Rattrapage du Enter sur Android 
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
-        if (isAndroid()) logToPage("focusout 2");
+        if (isAndroid()) logToPage("focusout 3");
         // ev.preventDefault();
         // keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
