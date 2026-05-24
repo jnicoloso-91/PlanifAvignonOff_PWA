@@ -971,8 +971,8 @@ function createChipBox({
     let focusoutArmed = false;
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
-        if (isAndroid()) logToPage("focusout 7");
         if (focusoutArmed) {
+          if (isAndroid()) logToPage("focusout 8");
           focusoutArmed = false;
           ev.preventDefault();
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
@@ -1063,7 +1063,10 @@ function createChipBox({
         if (last) removeToken(last);
       }
 
-      if (isAndroid()) focusoutArmed = true;
+      if (isAndroid()) {
+        if (isAndroid()) logToPage("Keydown -> focusout armed");
+        focusoutArmed = true;
+      }
     });
 
     // natif datalist : change => chip
