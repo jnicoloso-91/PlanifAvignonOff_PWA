@@ -728,6 +728,7 @@ function createChipBox({
 
     function onGlobalPick(ev) {
       if (!isOpen) return;
+      if (isAndroid()) logToPage("focusout 2");
 
       const xy = getClientXY(ev);
       if (!xy) { closeDD({ reason: "abort" }); return; }
