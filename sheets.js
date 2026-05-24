@@ -640,8 +640,6 @@ function createChipBox({
       inputEl.readOnly = false;
 
       refreshSuggestions();
-      if (isAndroid()) logToPage("closeDD");
-
       closeDD({ reason: "pick" });
     }
 
@@ -738,6 +736,7 @@ function createChipBox({
 
     function onGlobalPick(ev) {
       if (!isOpen) return;
+      if (isAndroid()) logToPage("onGlobalPick");
 
       const xy = getClientXY(ev);
       if (!xy) { closeDD({ reason: "abort" }); return; }
@@ -992,7 +991,7 @@ function createChipBox({
             // if (dd) closeDD();
             return;
           }
-          if (isAndroid()) logToPage(`focusout 19`);
+          if (isAndroid()) logToPage(`focusout 20`);
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
