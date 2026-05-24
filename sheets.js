@@ -559,6 +559,8 @@ function createChipBox({
 
       // Empêche la fermeture intempestive de la liste de choix sur Android
       // clearTimeout(emptyCloseTimer);
+
+      // ATTENTION !!! enlevé pour test
       // if (reason === "empty" && document.activeElement === inputEl) {
       //   const q = normKey(inputEl.value || "");
 
@@ -567,6 +569,7 @@ function createChipBox({
       // }
 
       if (!dd) return;
+      if (isAndroid()) logToPage("closeDD");
       dd.classList.remove("open");
       dd.hidden = true;
       isOpen = false;
@@ -746,6 +749,8 @@ function createChipBox({
       if (item && dd && dd.contains(item)) {
         ev.preventDefault();
         ev.stopPropagation();
+
+        if (isAndroid()) logToPage("onGlobalPick");
 
         selectLabel(item.textContent || "");
         return;
@@ -988,7 +993,7 @@ function createChipBox({
             // if (dd) closeDD();
             return;
           }
-          if (isAndroid()) logToPage(`focusout 17`);
+          if (isAndroid()) logToPage(`focusout 18`);
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
