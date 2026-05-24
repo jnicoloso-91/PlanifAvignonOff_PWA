@@ -951,21 +951,28 @@ function createChipBox({
     inputEl.addEventListener("focus", () => {
       lastFocusAt = Date.now();
 
-      // 1) viewport fix clavier
+      // Keyboard viewport fix
       try { kbFix.apply(); } catch {}
 
-      // 2) dropdown logic
+      // Dropdown logic
       ensureDD();
       refreshSuggestions();
 
       // Android: ne pas auto-open sur focus (évite reopen après sélection)
       // if (dd && !isAndroid() && canAutoOpen() && filtered.length) openDD();
-      if (dd && isIOS() && canAutoOpen() && filtered.length) openDD();
+      // if (dd && isIOS() && canAutoOpen() && filtered.length) openDD();
+      if (dd && canAutoOpen() && filtered.length) openDD();
 
       // Assure que le caret se mette à la fin du texte
       requestAnimationFrame(() => moveCaretToEnd(inputEl));
+      
+      // Armement focusout sur Android pour forcer commit sur touche Next
+      if (isAndroid()) {
+        if (isAndroid()) logToPage("Keydown -> focusout armed");
+        focusoutArmed = true;
+      }
 
-      // 3) visibilité (au cas où)
+      // Assure visibilité (au cas où)
       // ensureInputVisible({ tries: 4 });
     });
 
@@ -976,7 +983,7 @@ function createChipBox({
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
         if (focusoutArmed) {
-          if (isAndroid()) logToPage("focusout 10");
+          if (isAndroid()) logToPage("focusout 11");
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
@@ -1067,10 +1074,6 @@ function createChipBox({
         if (last) removeToken(last);
       }
 
-      if (isAndroid()) {
-        if (isAndroid()) logToPage("Keydown -> focusout armed");
-        focusoutArmed = true;
-      }
     });
 
     // natif datalist : change => chip
