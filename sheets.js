@@ -579,6 +579,7 @@ function createChipBox({
       if (shouldCommit) commitInputAsChip();
     }
 
+    let pickingFromDD = false;
     function renderDD() {
       if (!dd) return;
       dd.replaceChildren();
@@ -604,6 +605,7 @@ function createChipBox({
         it.textContent = label;
 
         it.addEventListener("pointerenter", () => setActive(idx));
+        it.addEventListener("pointerdown", () => { if (isAndroid()) pickingFromDD = true; });
         list.appendChild(it);
       });
 
@@ -981,8 +983,8 @@ function createChipBox({
     // Sinon le onGlobalPick sur sélection dans dd ne passe pas
     let focusoutArmed = false;
     inputEl.addEventListener("focusout", (ev) => {
-      if (isAndroid() && focusoutArmed && ev.rangeParent !== "chipbox-ddlist") {
-          if (isAndroid()) logToPage(`focusout 13 ${ev.rangeParent} ${ev.relatedTarget}`);
+      if (isAndroid() && focusoutArmed && pickingFromDD) {
+          if (isAndroid()) logToPage(`focusout 14`);
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
