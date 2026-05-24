@@ -983,7 +983,11 @@ function createChipBox({
     // Sinon le onGlobalPick sur sélection dans dd ne passe pas
     let focusoutArmed = false;
     inputEl.addEventListener("focusout", (ev) => {
-      if (isAndroid() && focusoutArmed && pickingFromDD) {
+      if (isAndroid() && focusoutArmed) {
+          if (pickingFromDD) { // le picking vient de dd dans ce cas on sort
+            pickingFromDD = false;
+            return;
+          }
           if (isAndroid()) logToPage(`focusout 14`);
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
