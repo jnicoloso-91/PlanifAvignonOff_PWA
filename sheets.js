@@ -369,7 +369,7 @@ function createChipBox({
    * Version custom avec datalists natives remplacées par dropdown custom
    */
   function initChipBoxCustom({ boxEl, inputEl, datalistEl = null, initial = [], suggestions = [], onChange = null, scrollerEl = null }) {
-    const NEED_PORTAL = isIOS && isStandalone();
+    const NEED_PORTAL = isIOS() && isStandalone();
 
     // --- Dropdown custom (si activé)
     /** @type {HTMLElement | null} */
@@ -631,9 +631,13 @@ function createChipBox({
 
       // ✅ IMPORTANT: empêcher le focus/retap de ré-ouvrir immédiatement (Android)
       suppressAutoOpen(350);
+      androidPreviewArmed = false;
+      inputEl.readOnly = false;
 
       refreshSuggestions();
-      closeDD();
+      closeDD({ reason: "pick" });
+
+      if (isAndroid()) { try { inputEl.blur(); } catch {} }
     }
 
     let lastEnsureAt = 0;
@@ -958,7 +962,7 @@ function createChipBox({
 
       // Android: ne pas auto-open sur focus (évite reopen après sélection)
       // if (dd && !isAndroid() && canAutoOpen() && filtered.length) openDD();
-      if (dd && isIOS && canAutoOpen() && filtered.length) openDD();
+      if (dd && isIOS() && canAutoOpen() && filtered.length) openDD();
 
       // Assure que le caret se mette à la fin du texte
       requestAnimationFrame(() => moveCaretToEnd(inputEl));
@@ -974,7 +978,7 @@ function createChipBox({
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
         if (focusoutArmed) {
-          if (isAndroid()) logToPage("focusout 9");
+          if (isAndroid()) logToPage("focusout 10");
           ev.preventDefault();
           focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
@@ -8049,7 +8053,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       
       queueMicrotask(() => {
         runSearch();
-        if (!isIOS) {
+        if (!isIOS()) {
           try { input.focus({ preventScroll: true }); } catch { input.focus(); }
         }
       });
