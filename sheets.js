@@ -727,8 +727,8 @@ function createChipBox({
     }
 
     function onGlobalPick(ev) {
-      if (isAndroid()) logToPage("GlobalPick");
       if (!isOpen) return;
+      if (isAndroid()) logToPage("GlobalPick");
 
       const xy = getClientXY(ev);
       if (!xy) { closeDD({ reason: "abort" }); return; }
@@ -965,12 +965,16 @@ function createChipBox({
       // ensureInputVisible({ tries: 4 });
     });
 
-    // Rattrapage du Enter sur Android 
+    // Fallback Enter sur Android si touche Next appuyée
+    // Ne doit être armé que si on vient d'appuyer sur une touche clavier (keydown) 
+    // Sinon le onGlobalPick sur sélection dans dd ne passe pas
+    let focusoutArmed = false;
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
-        if (isAndroid()) logToPage("focusout 4");
-        // ev.preventDefault();
-        // keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
+        if (isAndroid()) logToPage("focusout 6");
+        if (focusoutArmed) focusoutArmed = false;
+        ev.preventDefault();
+        keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
       }
     });
@@ -1044,18 +1048,20 @@ function createChipBox({
         }
       }
 
-      // création chip (mode normal)
+      // création chip sur Enter Next Done (mode normal)
       if (ev.key === "Enter" || ev.key === "Next" || ev.key === "Done") {
         ev.preventDefault();
         keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
       } 
 
-      // suppression de chip
+      // suppression de chip sur Backspace est input vide
       else if (ev.key === "Backspace" && !inputEl.value) {
         const last = Array.from(map.values()).pop();
         if (last) removeToken(last);
       }
+
+      if (isAndroid()) focusoutArmed = true;
     });
 
     // natif datalist : change => chip
