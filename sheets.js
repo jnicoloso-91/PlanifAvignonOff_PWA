@@ -633,7 +633,7 @@ function createChipBox({
       if (dd) renderDD();
     }
 
-    function selectLabel(label) {
+    function selectLabelFromDD(label) {
       inputEl.readOnly = false;
       androidPreviewArmed = false;
 
@@ -744,7 +744,7 @@ function createChipBox({
 
     function onGlobalPick(ev) {
       if (!isOpen) return;
-      if (isAndroid()) logToPage("onGlobalPick");
+      // if (isAndroid()) logToPage("onGlobalPick");
 
       const xy = getClientXY(ev);
       if (!xy) { closeDD({ reason: "abort" }); return; }
@@ -758,7 +758,7 @@ function createChipBox({
         ev.preventDefault();
         ev.stopPropagation();
 
-        selectLabel(item.textContent || "");
+        selectLabelFromDD(item.textContent || "");
         return;
       }
 
@@ -791,7 +791,7 @@ function createChipBox({
       // if (item && dd && dd.contains(item)) {
       //   ev.preventDefault();
       //   ev.stopPropagation();
-      //   selectLabel(item.textContent || "");
+      //   selectLabelFromDD(item.textContent || "");
       //   return;
       // }
 
@@ -979,32 +979,32 @@ function createChipBox({
       requestAnimationFrame(() => moveCaretToEnd(inputEl));
       
       // Armement focusout sur Android pour forcer commit sur touche Next
-      if (isAndroid()) {
-        if (isAndroid()) logToPage("focus -> focusout armed");
-        focusoutArmed = true;
-      }
+      // if (isAndroid()) {
+      //   // if (isAndroid()) logToPage("focus -> focusout armed");
+      //   focusoutArmed = true;
+      // }
 
       // Assure visibilité (au cas où)
       // ensureInputVisible({ tries: 4 });
     });
 
     // Fallback Enter sur Android si touche Next appuyée
-    // Ne doit être armé que si on vient d'appuyer sur une touche clavier (keydown) 
-    // Sinon le onGlobalPick sur sélection dans dd ne passe pas
-    let focusoutArmed = false;
+    // Appelle selectLabelFromDD ou commitInputAsChip selon valeur de pickingFromDD
+    // let focusoutArmed = false;
     inputEl.addEventListener("focusout", (ev) => {
-      if (isAndroid() && focusoutArmed) {
-          if (pickingFromDD) { // le picking vient de dd dans ce cas on sort
-            if (isAndroid()) logToPage(`focusout 21 -> pickingFromDD = false`);
-            pickingFromDD = false;
-            selectLabel(selectedItem?.textContent || "");
-            return;
-          }
-          if (isAndroid()) logToPage(`focusout 21 -> commitInputAsChip`);
+      if (isAndroid()) { // && focusoutArmed) {
+        if (pickingFromDD) { // le picking vient de dd dans ce cas on sort
+          // if (isAndroid()) logToPage(`focusout -> selectLabelFromDD`);
+          pickingFromDD = false;
+          selectLabelFromDD(selectedItem?.textContent || "");
+          return;
+        } else {
+          // if (isAndroid()) logToPage(`focusout -> commitInputAsChip`);
           ev.preventDefault();
-          focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
+          // focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
           commitInputAsChip();
+        }
       }
     });
 
@@ -1068,7 +1068,7 @@ function createChipBox({
         //   ev.preventDefault();
         //   keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         //   const pick = filtered[activeIndex];
-        //   if (pick) selectLabel(pick);
+        //   if (pick) selectLabelFromDD(pick);
         //   return;
         // }
         if (ev.key === "Escape") {
