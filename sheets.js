@@ -545,6 +545,7 @@ function createChipBox({
 
     function openDD() {
       if (!dd) return;
+      if (isAndroid()) logToPage("openDD");
       positionDD();
       dd.hidden = false;
       dd.classList.add("open");
@@ -747,6 +748,7 @@ function createChipBox({
         return;
       }
 
+      // 2) inputEl => refreshAndOpenDD
       if (hit === inputEl || inputEl.contains(hit)) {
         // iOS: laisser le navigateur faire le focus / clavier
         if (ev.type === "pointerup" || ev.type === "touchend") {
@@ -972,9 +974,9 @@ function createChipBox({
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
         if (focusoutArmed) {
-          if (isAndroid()) logToPage("focusout 8");
-          focusoutArmed = false;
+          if (isAndroid()) logToPage("focusout 9");
           ev.preventDefault();
+          focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
           commitInputAsChip();
         }
