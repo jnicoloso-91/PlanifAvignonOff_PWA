@@ -582,7 +582,7 @@ function createChipBox({
     }
 
     let pickingFromDD = false;
-    let selectedLabel = null;
+    let selectedItem = null;
 
     function renderDD() {
       if (!dd) return;
@@ -613,7 +613,7 @@ function createChipBox({
           if (isAndroid()) { 
             logToPage("pointerdown on dd item"); 
             pickingFromDD = true; 
-            selectedLabel = it;
+            selectedItem = it;
           }
         });
         list.appendChild(it);
@@ -997,7 +997,7 @@ function createChipBox({
           if (pickingFromDD) { // le picking vient de dd dans ce cas on sort
             if (isAndroid()) logToPage(`focusout 21 -> pickingFromDD = false`);
             pickingFromDD = false;
-            selectLabel(selectedLabel);
+            selectLabel(selectedItem?.textContent || "");
             return;
           }
           if (isAndroid()) logToPage(`focusout 21 -> commitInputAsChip`);
