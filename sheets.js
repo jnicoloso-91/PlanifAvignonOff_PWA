@@ -605,7 +605,7 @@ function createChipBox({
         it.textContent = label;
 
         it.addEventListener("pointerenter", () => setActive(idx));
-        it.addEventListener("pointerdown", () => { if (isAndroid()) pickingFromDD = true; });
+        it.addEventListener("pointerdown", () => { if (isAndroid()) { logToPage("pointerdown on dd item"); pickingFromDD = true; }});
         list.appendChild(it);
       });
 
