@@ -545,7 +545,6 @@ function createChipBox({
 
     function openDD() {
       if (!dd) return;
-      if (isAndroid()) logToPage("openDD");
       positionDD();
       dd.hidden = false;
       dd.classList.add("open");
