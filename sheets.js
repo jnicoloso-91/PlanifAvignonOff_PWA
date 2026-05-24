@@ -971,11 +971,13 @@ function createChipBox({
     let focusoutArmed = false;
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) {
-        if (isAndroid()) logToPage("focusout 6");
-        if (focusoutArmed) focusoutArmed = false;
-        ev.preventDefault();
-        keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
-        commitInputAsChip();
+        if (isAndroid()) logToPage("focusout 7");
+        if (focusoutArmed) {
+          focusoutArmed = false;
+          ev.preventDefault();
+          keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
+          commitInputAsChip();
+        }
       }
     });
 
