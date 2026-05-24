@@ -727,8 +727,8 @@ function createChipBox({
     }
 
     function onGlobalPick(ev) {
-      if (!isOpen) return;
       if (isAndroid()) logToPage("GlobalPick");
+      if (!isOpen) return;
 
       const xy = getClientXY(ev);
       if (!xy) { closeDD({ reason: "abort" }); return; }
