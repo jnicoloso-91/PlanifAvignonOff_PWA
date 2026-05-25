@@ -543,8 +543,10 @@ function createChipBox({
       dd.style.width = r.width + "px";
     }
 
+    let nbopenDD = 0;
     function openDD() {
       if (!dd) return;
+      if (isAndroid()) logToPage(`openDD ${nbopenDD++}`)
       positionDD();
       dd.hidden = false;
       dd.classList.add("open");
@@ -899,9 +901,12 @@ function createChipBox({
     // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
     inputEl.addEventListener("pointerup", openFromInput, { passive: true });
 
+    let nbpointerdown = 0;
     // Android specific behavior for handling pointer
     inputEl.addEventListener("pointerdown", (ev) => {
       if (!isAndroid()) return;
+
+      if (isAndroid()) logToPage(`pointerdown ${nbpointerdown++}`);
 
       // 1er tap : liste seule
       if (!isOpen && !(document.activeElement === inputEl)) {
