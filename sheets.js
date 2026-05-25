@@ -7984,10 +7984,10 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           </div>
 
           <div class="search-input-wrap has-label" id="searchWrap">
-            <textarea id="searchInput"
-                      class="ai-input"
-                      rows="1"
-                      placeholder="Titre, lieu, avis, distribution...">""</textarea>
+            <input  id="searchInput"
+                    class="ai-input"
+                    type="text"
+                    placeholder="Titre, lieu, avis, distribution..."/>
             <button type="button"
                     class="search-clear-btn"
                     id="btnSearchClear"
@@ -8245,15 +8245,17 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       btnCancel?.addEventListener("click", () => close());
       btnRun?.addEventListener("click", () => runSearch());
 
-      input.addEventListener("keydown", (e) => {
-        runSearch();
+      input.addEventListener("keyup", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
           /** @type {HTMLElement} */(e.target).blur();
         }
       });
 
-      input.addEventListener("input", updateRunState);
+      input.addEventListener("input", (e) => {
+        updateRunState();
+        runSearch();
+      });
 
       btnSelect?.addEventListener("click", (e) => {
         e.preventDefault();
