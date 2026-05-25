@@ -7364,8 +7364,6 @@ export function createWheelPicker(wrapEl, { itemPx = 36, onChange = null } = {})
   function installWheelSmart(wheelEl) {
     let locked = false;
 
-if (isAndroid()) logToPage("Install wheel 4");
-
     wheelEl.addEventListener("wheel", (ev) => {
       if (ev.ctrlKey) return;
 
@@ -7431,125 +7429,128 @@ if (isAndroid()) logToPage("Install wheel 4");
     if (navigator.vibrate) navigator.vibrate(6);
   }
 
-  // function onScroll() {
-  //   if (disposed) return;
-  //   if (raf) return;
-  //   raf = requestAnimationFrame(() => {
-  //     raf = 0;
-  //     emitIfChanged();
-  //   });
-  // }
-function onScroll() {
-  if (disposed) return;
-
-  if (!raf) {
+  function onScroll() {
+    if (disposed) return;
+    if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
       emitIfChanged();
     });
   }
 
-  scheduleSnap(220);
-}
+  // Options sans defilement pour Android
+  // En cas d'utilisation penser à supprimer le snapTimer dans destroy
+  // function onScroll() {
+  //   if (disposed) return;
 
-let snapTimer = null;
+  //   if (!raf) {
+  //     raf = requestAnimationFrame(() => {
+  //       raf = 0;
+  //       emitIfChanged();
+  //     });
+  //   }
 
-function getClosestItemToCenter() {
-  const wr = wheel.getBoundingClientRect();
-  const centerY = wr.top + wr.height / 2;
+  //   scheduleSnap(220);
+  // }
 
-  let best = null;
-  let bestDist = Infinity;
+  // let snapTimer = null;
 
-  wheel.querySelectorAll(".wheel-item").forEach(el => {
-    const r = el.getBoundingClientRect();
-    const cy = r.top + r.height / 2;
-    const d = Math.abs(cy - centerY);
+  // function getClosestItemToCenter() {
+  //   const wr = wheel.getBoundingClientRect();
+  //   const centerY = wr.top + wr.height / 2;
 
-    if (d < bestDist) {
-      bestDist = d;
-      best = el;
-    }
-  });
+  //   let best = null;
+  //   let bestDist = Infinity;
 
-  return best;
-}
+  //   wheel.querySelectorAll(".wheel-item").forEach(el => {
+  //     const r = el.getBoundingClientRect();
+  //     const cy = r.top + r.height / 2;
+  //     const d = Math.abs(cy - centerY);
 
-function snapToClosest({ behavior = "auto" } = {}) {
-  const target = getClosestItemToCenter();
-  if (!target) return;
+  //     if (d < bestDist) {
+  //       bestDist = d;
+  //       best = el;
+  //     }
+  //   });
 
-  const top =
-    target.offsetTop -
-    (wheel.clientHeight / 2 - target.clientHeight / 2);
+  //   return best;
+  // }
 
-  wheel.scrollTo({ top, behavior });
+  // function snapToClosest({ behavior = "auto" } = {}) {
+  //   const target = getClosestItemToCenter();
+  //   if (!target) return;
 
-  requestAnimationFrame(() => {
-    emitIfChanged();
-    updateActive();
-  });
-}
+  //   const top =
+  //     target.offsetTop -
+  //     (wheel.clientHeight / 2 - target.clientHeight / 2);
 
-function scheduleSnap(delay = 220) {
-  if (snapTimer) clearTimeout(snapTimer);
+  //   wheel.scrollTo({ top, behavior });
 
-  snapTimer = setTimeout(() => {
-    snapTimer = null;
-    snapToClosest({ behavior: "auto" }); // pas smooth
-  }, delay);
-}
+  //   requestAnimationFrame(() => {
+  //     emitIfChanged();
+  //     updateActive();
+  //   });
+  // }
 
-let touchY = 0;
-let touchAccum = 0;
-let touchLock = false;
+  // function scheduleSnap(delay = 220) {
+  //   if (snapTimer) clearTimeout(snapTimer);
 
-if (isAndroid()) {
-  // wheel.style.overscrollBehavior = "contain";
-  // wheel.style.touchAction = "none";
+  //   snapTimer = setTimeout(() => {
+  //     snapTimer = null;
+  //     snapToClosest({ behavior: "auto" }); // pas smooth
+  //   }, delay);
+  // }
 
-  wheel.addEventListener("touchstart", (ev) => {
-    touchY = ev.touches[0].clientY;
-    touchAccum = 0;
-    touchLock = false;
-  }, { passive: true });
+  // let touchY = 0;
+  // let touchAccum = 0;
+  // let touchLock = false;
 
-  wheel.addEventListener("touchmove", (ev) => {
-    ev.preventDefault();
+  // if (isAndroid()) {
+  //   // wheel.style.overscrollBehavior = "contain";
+  //   // wheel.style.touchAction = "none";
 
-    const y = ev.touches[0].clientY;
-    const dy = touchY - y;
-    touchY = y;
+  //   wheel.addEventListener("touchstart", (ev) => {
+  //     touchY = ev.touches[0].clientY;
+  //     touchAccum = 0;
+  //     touchLock = false;
+  //   }, { passive: true });
 
-    touchAccum += dy;
+  //   wheel.addEventListener("touchmove", (ev) => {
+  //     ev.preventDefault();
 
-    if (touchLock) return;
+  //     const y = ev.touches[0].clientY;
+  //     const dy = touchY - y;
+  //     touchY = y;
 
-    if (Math.abs(touchAccum) >= itemPx * 0.65) {
-      const dir = touchAccum > 0 ? 1 : -1;
-      touchAccum = 0;
-      touchLock = true;
+  //     touchAccum += dy;
 
-      wheel.scrollTo({
-        top: wheel.scrollTop + dir * itemPx,
-        behavior: "auto"
-      });
+  //     if (touchLock) return;
 
-      emitIfChanged();
-      updateActive();
+  //     if (Math.abs(touchAccum) >= itemPx * 0.65) {
+  //       const dir = touchAccum > 0 ? 1 : -1;
+  //       touchAccum = 0;
+  //       touchLock = true;
 
-      setTimeout(() => {
-        touchLock = false;
-      }, 70);
-    }
-  }, { passive: false });
+  //       wheel.scrollTo({
+  //         top: wheel.scrollTop + dir * itemPx,
+  //         behavior: "auto"
+  //       });
 
-  wheel.addEventListener("touchend", () => {
-    touchAccum = 0;
-    touchLock = false;
-    snapToClosest({ behavior: "auto" });
-  }, { passive: true });
-}
+  //       emitIfChanged();
+  //       updateActive();
+
+  //       setTimeout(() => {
+  //         touchLock = false;
+  //       }, 70);
+  //     }
+  //   }, { passive: false });
+
+  //   wheel.addEventListener("touchend", () => {
+  //     touchAccum = 0;
+  //     touchLock = false;
+  //     snapToClosest({ behavior: "auto" });
+  //   }, { passive: true });
+  // }
 
   installWheelSmart(wheel);
 
@@ -7558,9 +7559,6 @@ if (isAndroid()) {
   // init
   queueMicrotask(() => emitIfChanged());
 
-// wheel.addEventListener("pointercancel", () => scheduleSnap(80), { passive: true });
-// wheel.addEventListener("touchcancel", () => scheduleSnap(80), { passive: true });
-
   return {
     getValue,
     setValue,
@@ -7568,7 +7566,7 @@ if (isAndroid()) {
       disposed = true;
       if (raf) cancelAnimationFrame(raf);
       wheel.removeEventListener("scroll", onScroll);
-if (snapTimer) clearTimeout(snapTimer);
+      // if (snapTimer) clearTimeout(snapTimer);
     }
   };
 }
