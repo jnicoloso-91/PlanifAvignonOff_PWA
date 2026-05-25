@@ -546,7 +546,9 @@ function createChipBox({
     let nbopenDD = 0;
     function openDD() {
       if (!dd) return;
-      if (isAndroid()) logToPage(`openDD ${nbopenDD++}`)
+
+      // if (isAndroid()) logToPage(`openDD ${nbopenDD++}`)
+
       positionDD();
       dd.hidden = false;
       dd.classList.add("open");
@@ -745,6 +747,7 @@ function createChipBox({
 
     function onGlobalPick(ev) {
       if (!isOpen) return;
+      
       // if (isAndroid()) logToPage("onGlobalPick");
 
       const xy = getClientXY(ev);
@@ -918,10 +921,9 @@ function createChipBox({
     inputEl.addEventListener("pointerdown", (ev) => {
       if (!isAndroid()) return;
 
-      if (isAndroid()) logToPage(`pointerdown ${nbpointerdown++}`);
+      // if (isAndroid()) logToPage(`pointerdown ${nbpointerdown++}`);
 
       // // 1er tap : liste seule
-      // if (!isOpen && !(document.activeElement === inputEl)) {
       const hasFocus = document.activeElement === inputEl;
 
       // 1er tap : dropdown sans clavier
@@ -947,10 +949,10 @@ function createChipBox({
 
         // sur Android il ne faut pas entrer en mode édition dès le passage au champ suivant avec la touche Next 
         // -> on utilise le flag allowAndroidEditFocus en conjonction avec l'event focus reçu sur touche Next sur le champ précédent
-        allowAndroidEditFocus = true;
-        setTimeout(() => {
-          allowAndroidEditFocus = false;
-        }, 500);
+        // allowAndroidEditFocus = true;
+        // setTimeout(() => {
+        //   allowAndroidEditFocus = false;
+        // }, 500);
 
         setTimeout(() => {
           inputEl.focus();
@@ -983,21 +985,21 @@ function createChipBox({
     inputEl.addEventListener("click", openFromInput);
 
     let lastFocusAt = 0;                // moment du dernier focus
-    let allowAndroidEditFocus = false;  // flag utilisé sur Android pour ne pas entrer en mode édition dès le passage au champ suivant avec la touche Next
+    // let allowAndroidEditFocus = false;  // flag utilisé sur Android pour ne pas entrer en mode édition dès le passage au champ suivant avec la touche Next
             
     // input / focus : doit ouvrir la dropdown même sans taper 
     inputEl.addEventListener("focus", () => {
 
       // sur Android il ne faut pas entrer en mode édition dès le passage au champ suivant avec la touche Next 
       // -> on utilise le flag allowAndroidEditFocus en conjonction avec le deuxième pointerdown reçu sur le champ input
-      if (isAndroid() && !allowAndroidEditFocus) {
-        inputEl.readOnly = true;
-        androidPreviewArmed = true;
+      // if (isAndroid() && !allowAndroidEditFocus) {
+      //   inputEl.readOnly = true;
+      //   androidPreviewArmed = true;
 
-        ensureDD();
-        refreshAndOpenDD();
-        return;
-      }
+      //   ensureDD();
+      //   refreshAndOpenDD();
+      //   return;
+      // }
 
       lastFocusAt = Date.now();
 
@@ -1020,12 +1022,16 @@ function createChipBox({
     inputEl.addEventListener("focusout", (ev) => {
       if (isAndroid()) { 
         if (pickingFromDD) { // le picking vient de dd dans ce cas on sort
+
           // if (isAndroid()) logToPage(`focusout -> selectLabelFromDD`);
+
           pickingFromDD = false;
           selectLabelFromDD(selectedItem?.textContent || "");
           return;
         } else {
+
           // if (isAndroid()) logToPage(`focusout -> commitInputAsChip`);
+
           ev.preventDefault();
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
           commitInputAsChip();
