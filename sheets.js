@@ -7608,6 +7608,7 @@ export async function openSheetReprogrammer(uuid) {
   }
 
   const row = ctx.df?.find(r => r && r.__uuid === uuid);
+  const estReserve = activitesAPI.estActiviteReservee(row);
   const srcDateInt = Number(row?.Date) || null;
   let days = getJoursPossibles(row);
   const initDay = row.Date ? Number(row.Date) : days[0];
@@ -7637,7 +7638,7 @@ export async function openSheetReprogrammer(uuid) {
 
   openSheetExclusive({
     title: "Reprogrammer",
-    panelMaxHeight: "350px",
+    panelMaxHeight: estReserve ? "210px" : "350px",
     panelHeight: "60vh",
     onClose: cleanupOnClose,
     mount: async (body, { close }) => {
@@ -7648,7 +7649,7 @@ export async function openSheetReprogrammer(uuid) {
             ${row?.Activite} de ${row?.Debut} à ${row?.Fin}
 
             ${
-              activitesAPI.estActiviteReservee(row) 
+              estReserve 
                 ? `<span style="display:block; color:#d32f2f; font-weight:600; margin-top:4px;">
                     Attention : une activité réservée n’est pas reprogrammable
                   </span>`
@@ -7663,69 +7664,71 @@ export async function openSheetReprogrammer(uuid) {
         </div>
       `;
 
-      const wrap = body.querySelector("#reprogWheel");
+      if (!estReserve) {
+        const wrap = body.querySelector("#reprogWheel");
 
-      wrap.innerHTML = `
-        <div class="wheel">
-          <div class="wheel-spacer"></div>
-          ${days.map(d => {  
-            const isWeekend = isWeekendDateInt(d);
-            return `
-              <div class="wheel-item"
-                  data-v="${d}"
-                  ${isWeekend ? 'data-weekend="true"' : ''}>
-                ${dateintToDateLongFR(d)}
-              </div>
-            `;
-          }).join("")}
-          <div class="wheel-spacer"></div>
-        </div>
-        <div class="wheel-indicator"></div>
-      `;
+        wrap.innerHTML = `
+          <div class="wheel">
+            <div class="wheel-spacer"></div>
+            ${days.map(d => {  
+              const isWeekend = isWeekendDateInt(d);
+              return `
+                <div class="wheel-item"
+                    data-v="${d}"
+                    ${isWeekend ? 'data-weekend="true"' : ''}>
+                  ${dateintToDateLongFR(d)}
+                </div>
+              `;
+            }).join("")}
+            <div class="wheel-spacer"></div>
+          </div>
+          <div class="wheel-indicator"></div>
+        `;
 
-      // Attend que le scroller day se stabilise puis mesure sa valeur
-      await waitForScrollCalendarToStabilize();
-      // srcY = srcDateInt ? (getDayScrollTop(srcDateInt) ?? 0) : 0;
-      srcY = srcDateInt ? (getCalendarScrollTop() ?? 0) : 0;
+        // Attend que le scroller day se stabilise puis mesure sa valeur
+        await waitForScrollCalendarToStabilize();
+        // srcY = srcDateInt ? (getDayScrollTop(srcDateInt) ?? 0) : 0;
+        srcY = srcDateInt ? (getCalendarScrollTop() ?? 0) : 0;
 
-      // Affiche le fantôme sur un jour donné
-      function previewDayWithGhost(dateInt) {
-        if (!dateInt) return;
-        if (dateInt == initDay) return;
+        // Affiche le fantôme sur un jour donné
+        function previewDayWithGhost(dateInt) {
+          if (!dateInt) return;
+          if (dateInt == initDay) return;
 
-        // amener le jour + garder le scrollY
-        scrollCalendarToDayKeepY(dateInt, srcY, { behavior: "smooth", smoothY: false });
+          // amener le jour + garder le scrollY
+          scrollCalendarToDayKeepY(dateInt, srcY, { behavior: "smooth", smoothY: false });
 
-        // event fantôme
-        queueMicrotask(() => {
-          moveGhostToDay({ dateInt, topPx, heightPx, title: ghostTitle, place: ghostPlace, debut: row.Debut, fin: row.Fin });
-        });
-      }
-
-      picker?.destroy?.();
-      picker = createWheelPicker(wrap, {
-        onChange: (dint) => {
-          if (!dint) return;
-          if (syncing) return;
-          syncing = true;
-          // wheel -> calendar
-          scrollCalendarToDayKeepY(dint, srcY, { behavior: "auto" });
-          previewDayWithGhost(dint);
-          syncing = false;
+          // event fantôme
+          queueMicrotask(() => {
+            moveGhostToDay({ dateInt, topPx, heightPx, title: ghostTitle, place: ghostPlace, debut: row.Debut, fin: row.Fin });
+          });
         }
-      });
 
-      // init wheel + calendar
-      queueMicrotask(() => {
-        picker?.setValue(initDay, { behavior: "auto" });
-        scrollCalendarToDayKeepY(initDay, srcY, { behavior: "auto" });
-      });
+        picker?.destroy?.();
+        picker = createWheelPicker(wrap, {
+          onChange: (dint) => {
+            if (!dint) return;
+            if (syncing) return;
+            syncing = true;
+            // wheel -> calendar
+            scrollCalendarToDayKeepY(dint, srcY, { behavior: "auto" });
+            previewDayWithGhost(dint);
+            syncing = false;
+          }
+        });
 
-      // init preview + Ghost
-      queueMicrotask(() => previewDayWithGhost(initDay ?? Number(row.Date) ?? days[0]));
+        // init wheel + calendar
+        queueMicrotask(() => {
+          picker?.setValue(initDay, { behavior: "auto" });
+          scrollCalendarToDayKeepY(initDay, srcY, { behavior: "auto" });
+        });
 
-      // calendar -> wheel 
-      daysEl?.addEventListener("scroll", onCalScroll, { passive: true });
+        // init preview + Ghost
+        queueMicrotask(() => previewDayWithGhost(initDay ?? Number(row.Date) ?? days[0]));
+
+        // calendar -> wheel 
+        daysEl?.addEventListener("scroll", onCalScroll, { passive: true });
+      }
 
       body.querySelector("#btnReprogCancel")?.addEventListener("click", () => {
         // removeGhostEverywhere();
@@ -7734,16 +7737,20 @@ export async function openSheetReprogrammer(uuid) {
         close();
       });
 
-      body.querySelector("#btnReprogApply")?.addEventListener("click", async () => {
-        const chosen = toDateint(picker?.getValue?.());
-        if (!chosen) return;
+      const btnApply = body.querySelector("#btnReprogApply");
+      if (btnApply) {
+        btnApply.disabled = estReserve;
+        btnApply.addEventListener("click", async () => {
+          const chosen = toDateint(picker?.getValue?.());
+          if (!chosen) return;
 
-        removeGhostEverywhere();
+          removeGhostEverywhere();
 
-        ctx.dfPatch(uuid, { Date: chosen });
-        rerenderProgrammeCalendar({ snapDay: false });
-        close();
-      });
+          ctx.dfPatch(uuid, { Date: chosen });
+          rerenderProgrammeCalendar({ snapDay: false });
+          close();
+        });
+      }
     }
   });
 }
