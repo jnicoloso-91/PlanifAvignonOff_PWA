@@ -1550,6 +1550,7 @@ export function openSheetExclusive({
   },
   showClose = true,
   swipeBody = false,          // swipe aussi sur le body (hors ag-grid / inputs)
+  restoreScroll = true,
   panelHeight = '60vh',
   panelMaxHeight = '70vh',
   onOpen, onAfterOpen, onBeforeClose, onClose,
@@ -1640,9 +1641,13 @@ export function openSheetExclusive({
     panel.style.transform = ''; // rollback si un swipe a posé un translateY
     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
 
-    // Restore du scroll de la page planning mais écrase le scroll fait par l'appelant -> à mettre dans l'appelant
-    // const sc = getActivePageScroller();
-    // restoreScrollerTop(sc, savedPageScrollTop);
+    // Restore du scroll de la page planning 
+    // attention à appeler openSheetExclusive avec restoreScroll à false pour une sheet qui fait elle-même du scrolling
+    // sinon ce dernier sera écrasé par le restoreScrollerTop ci-dessous (cas par exemple de openSheetSearch)
+    if (restoreScroll) {
+      const sc = getActivePageScroller();
+      restoreScrollerTop(sc, savedPageScrollTop);
+    }
   }
 
   // events
@@ -7974,6 +7979,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
     title,
     panelHeight: "60vh",
     panelMaxHeight: "60vh",
+    restoreScroll: false, // pas de restoreScroll automatique qui ecraserait le scroll du bouton Sélectionner
     mount: (body, { close }) => {
       body.innerHTML = `
         <div class="sheet-body--search">
@@ -8011,6 +8017,12 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           <button type="button" class="bb-btn is-primary" id="btnSearchSelect" disabled>Sélectionner</button>
         </div>
       `;
+
+      // Wiring du scroll restore en fermeture de sheet
+      // Sert au restore du scrollY à la fermeture de la sheet sur Android 
+      // Car dans ce cas sur une sheet avec input la montée du clavier lors de l'édition peut s'accompagner d'un reset du scrollY
+      const pageScroller = getActivePageScroller();
+      const savedPageScrollTop = pageScroller?.scrollTop ?? 0; 
 
       // Gestion du mode
       let searchMode = ctx.getMetaParam?.("lastSearchMode") || "all";
@@ -8236,7 +8248,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       
       queueMicrotask(() => {
         runSearch();
-        if (!isIOS()) {
+        if (!isIOS() && !isAndroid()) {
           try { input.focus({ preventScroll: true }); } catch { input.focus(); }
         }
       });
@@ -8244,7 +8256,14 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       updateClearBtn();
       updateRunState();
 
-      btnCancel?.addEventListener("click", () => close());
+      btnCancel?.addEventListener("click", () => {
+        close();
+        // Restore du scroll de la page planning uniquement sur bouton btnCancel
+        // pour ne pas ecraser le scrolling fait sur btnRun pour afficher l'activité sélectionnée
+        const sc = getActivePageScroller();
+        restoreScrollerTop(sc, savedPageScrollTop);
+      });
+
       btnRun?.addEventListener("click", () => runSearch());
 
       input.addEventListener("keyup", (e) => {
