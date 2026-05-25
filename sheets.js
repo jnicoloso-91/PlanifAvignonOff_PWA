@@ -908,8 +908,12 @@ function createChipBox({
 
       if (isAndroid()) logToPage(`pointerdown ${nbpointerdown++}`);
 
-      // 1er tap : liste seule
-      if (!isOpen && !(document.activeElement === inputEl)) {
+      // // 1er tap : liste seule
+      // if (!isOpen && !(document.activeElement === inputEl)) {
+      const hasFocus = document.activeElement === inputEl;
+
+      // 1er tap : dropdown sans clavier
+      if (!androidPreviewArmed && !hasFocus) {        
         ev.preventDefault();
         ev.stopPropagation();
 
@@ -918,7 +922,6 @@ function createChipBox({
 
         ensureDD();
         refreshAndOpenDD();
-
         return;
       }
 
