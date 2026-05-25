@@ -898,11 +898,23 @@ function createChipBox({
       }
     });
 
+    // pointerdown déclenché à l'entrée d'une tape sur inputEl
+    // pointerup déclenché à la sortie d'une tape sur inputEl
+    // pointerup déclenché à la sortie d'une tape sur inputEl
+    // focus déclenché quand inputEl reçoit le focus
+    // focusout déclenché quand inputEl perd le focus
+    // touchdown déclenché quand une touche est enfoncée
+    // touchup déclenché quand une touche est relâchée
+    // input déclenché quand la valeur de inputEl change
+    // change déclenché quand inputEl perd le focus et que sa valeur a changé
+    
     // iOS: pointerup marche mieux que pointerdown (moins de conflits avec le clavier)
     inputEl.addEventListener("pointerup", openFromInput, { passive: true });
 
-    let nbpointerdown = 0;
     // Android specific behavior for handling pointer
+    // Première tape -> openDD sans entrer en mode édition donc sans montée clavier virtuel
+    // Deuxieme tape -> entrée en mode édition et montée clavier virtuel
+    let nbpointerdown = 0;
     inputEl.addEventListener("pointerdown", (ev) => {
       if (!isAndroid()) return;
 
@@ -932,6 +944,13 @@ function createChipBox({
 
         androidPreviewArmed = false;
         inputEl.readOnly = false;
+
+        // sur Android il ne faut pas entrer en mode édition dès le passage au champ suivant avec la touche Next 
+        // -> on utilise le flag allowAndroidEditFocus en conjonction avec l'event focus reçu sur touche Next sur le champ précédent
+        allowAndroidEditFocus = true;
+        setTimeout(() => {
+          allowAndroidEditFocus = false;
+        }, 500);
 
         setTimeout(() => {
           inputEl.focus();
@@ -963,11 +982,23 @@ function createChipBox({
     // fallback desktop/Android
     inputEl.addEventListener("click", openFromInput);
 
-    // let emptyCloseTimer = 0;
-    let lastFocusAt = 0;
+    let lastFocusAt = 0;                // moment du dernier focus
+    let allowAndroidEditFocus = false;  // flag utilisé sur Android pour ne pas entrer en mode édition dès le passage au champ suivant avec la touche Next
             
     // input / focus : doit ouvrir la dropdown même sans taper 
     inputEl.addEventListener("focus", () => {
+
+      // sur Android il ne faut pas entrer en mode édition dès le passage au champ suivant avec la touche Next 
+      // -> on utilise le flag allowAndroidEditFocus en conjonction avec le deuxième pointerdown reçu sur le champ input
+      if (isAndroid() && !allowAndroidEditFocus) {
+        inputEl.readOnly = true;
+        androidPreviewArmed = true;
+
+        ensureDD();
+        refreshAndOpenDD();
+        return;
+      }
+
       lastFocusAt = Date.now();
 
       // Keyboard viewport fix
@@ -977,29 +1008,17 @@ function createChipBox({
       ensureDD();
       refreshSuggestions();
 
-      // Android: ne pas auto-open sur focus (évite reopen après sélection)
-      // if (dd && !isAndroid() && canAutoOpen() && filtered.length) openDD();
-      // if (dd && isIOS() && canAutoOpen() && filtered.length) openDD();
       if (dd && canAutoOpen() && filtered.length) openDD();
 
       // Assure que le caret se mette à la fin du texte
       requestAnimationFrame(() => moveCaretToEnd(inputEl));
       
-      // Armement focusout sur Android pour forcer commit sur touche Next
-      // if (isAndroid()) {
-      //   // if (isAndroid()) logToPage("focus -> focusout armed");
-      //   focusoutArmed = true;
-      // }
-
-      // Assure visibilité (au cas où)
-      // ensureInputVisible({ tries: 4 });
     });
 
     // Fallback Enter sur Android si touche Next appuyée
     // Appelle selectLabelFromDD ou commitInputAsChip selon valeur de pickingFromDD
-    // let focusoutArmed = false;
     inputEl.addEventListener("focusout", (ev) => {
-      if (isAndroid()) { // && focusoutArmed) {
+      if (isAndroid()) { 
         if (pickingFromDD) { // le picking vient de dd dans ce cas on sort
           // if (isAndroid()) logToPage(`focusout -> selectLabelFromDD`);
           pickingFromDD = false;
@@ -1008,7 +1027,6 @@ function createChipBox({
         } else {
           // if (isAndroid()) logToPage(`focusout -> commitInputAsChip`);
           ev.preventDefault();
-          // focusoutArmed = false; // on désarme le focusout pour laisser passer les onGlobalPick
           keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
           commitInputAsChip();
         }
@@ -1023,11 +1041,9 @@ function createChipBox({
       try { kbFix.reset?.(); } catch {}
     });
 
-    // Résolution du bug rencontré sur Android Samsung : dropdown qui ne s'ouvre pas on focus
-    // inputEl.addEventListener("input", () => {
-    //   refreshSuggestions();
-    //   if (dd) openDD();
-    // });
+    // Résolution du bug rencontré sur Android Samsung 
+    // (dropdown qui ne s'ouvre pas quand on tape dans l'input)
+    // -> il faut passer par un timeout pour faire le openDD
     let inputRefreshTimer = 0;
     inputEl.addEventListener("input", () => {
       clearTimeout(inputRefreshTimer);
@@ -1055,7 +1071,7 @@ function createChipBox({
       if (dd) openDD();
     });
 
-    // Entrée => chip (pas virgule)
+    // Entrée => chip 
     inputEl.addEventListener("keydown", (ev) => {
       // navigation dropdown custom si ouverte
       if (dd && isOpen && filtered.length) {
@@ -1070,7 +1086,7 @@ function createChipBox({
           setActive(activeIndex - 1);
           return;
         }
-        // Enter pick la selection de la dd et non le contenu de l'input
+        // décommenter si on veut que la touche Enter picke la selection de la dd et non le contenu de l'input
         // if (ev.key === "Enter" || ev.key === "Next" || ev.key === "Done") {
         //   ev.preventDefault();
         //   keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
@@ -1084,8 +1100,10 @@ function createChipBox({
         }
       }
 
-      // création chip sur Enter Next Done (mode normal)
-      if (ev.key === "Enter" || ev.key === "Next" || ev.key === "Done") {
+      // création chip sur touche Enter (mode normal)
+      // sur Android les touches du clavier virtuel peuvent renvoyer unidentified 
+      // donc on gère la touche Next avec focusout combiné avec pickingFromDD
+      if (ev.key === "Enter") {
         ev.preventDefault();
         keyupListenerArmed = false; // on ne réouvre pas DD apres Enter
         commitInputAsChip();
