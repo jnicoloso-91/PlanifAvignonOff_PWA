@@ -1639,8 +1639,10 @@ export function openSheetExclusive({
     if (classes.isClosing) root.classList.add(classes.isClosing);
     panel.style.transform = ''; // rollback si un swipe a posé un translateY
     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
-    const sc = getActivePageScroller();
-    restoreScrollerTop(sc, savedPageScrollTop);
+
+    // Restore du scroll de la page planning mais écrase le scroll fait par l'appelant -> à mettre dans l'appelant
+    // const sc = getActivePageScroller();
+    // restoreScrollerTop(sc, savedPageScrollTop);
   }
 
   // events
