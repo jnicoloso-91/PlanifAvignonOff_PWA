@@ -747,7 +747,7 @@ function createChipBox({
 
     function onGlobalPick(ev) {
       if (!isOpen) return;
-      
+
       // if (isAndroid()) logToPage("onGlobalPick");
 
       const xy = getClientXY(ev);
@@ -7531,8 +7531,8 @@ export async function openSheetReprogrammer(uuid) {
 
   // récupère les jours de reprogrammation possibles y compris le jour courant
   function getJoursPossibles(row) {
-    let days = activitesAPI.getJoursPossibles(row);
     const cur = row ? Number(row.Date || 0) : null;
+    let days = activitesAPI.estActiviteReservee(row) ? [cur] : activitesAPI.getJoursPossibles(row);
 
     // si la date actuelle n'est pas dans les jours possibles, on l'ajoute (pour info, et éviter les bugs de synchro wheel/calendar)
     if (cur && !days.includes(cur)) {
@@ -7644,7 +7644,17 @@ export async function openSheetReprogrammer(uuid) {
 
       body.innerHTML = `
         <div class="sheet-body">
-          <div class="muted">${row?.Activite} de ${row?.Debut} à ${row?.Fin}</div>
+          <div class="muted">
+            ${row?.Activite} de ${row?.Debut} à ${row?.Fin}
+
+            ${
+              activitesAPI.estActiviteReservee(row) 
+                ? `<span style="display:block; color:#d32f2f; font-weight:600; margin-top:4px;">
+                    Attention : une activité réservée n’est pas reprogrammable
+                  </span>`
+                : ""
+            }
+          </div>
           <div class="wheel-wrap reprog" id="reprogWheel"></div>
         </div>
         <div class="sheet-footer reprog">
