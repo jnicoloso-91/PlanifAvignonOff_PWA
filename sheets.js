@@ -8116,10 +8116,11 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         };
       }
 
-      const cleanupKbFix =
-        isAndroid()
-          ? installSimpleKeyboardFix(sheetBody)
-          : null;
+      const cleanupKbFix = null;
+      // const cleanupKbFix =
+      //   isAndroid()
+      //     ? installSimpleKeyboardFix(sheetBody)
+      //     : null;
 
       let gridId= null;
       let visibleInGrid = true;
