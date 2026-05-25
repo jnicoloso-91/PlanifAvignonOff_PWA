@@ -8246,9 +8246,10 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       btnRun?.addEventListener("click", () => runSearch());
 
       input.addEventListener("keydown", (e) => {
+        e.preventDefault();
+        runSearch();
         if (e.key === "Enter") {
-          e.preventDefault();
-          runSearch();
+          e.target.blur();
         }
       });
 
