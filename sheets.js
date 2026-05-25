@@ -7978,7 +7978,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
   openSheetExclusive({
     title,
     panelHeight: "60vh",
-    panelMaxHeight: "60vh",
+    panelMaxHeight: "70vh",
     restoreScroll: false, // pas de restoreScroll automatique qui ecraserait le scroll du bouton Sélectionner
     mount: (body, { close }) => {
       body.innerHTML = `
