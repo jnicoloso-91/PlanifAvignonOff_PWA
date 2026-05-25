@@ -8072,6 +8072,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       refreshActivityOnlyUI();
 
       /** @type {HTMLInputElement} */
+      const sheetPanelEl = body.closest(".sheet-panel");
       const input = body.querySelector("#searchInput");
       const btnClear = body.querySelector("#btnSearchClear");
       const info  = body.querySelector("#searchInfo");
@@ -8080,6 +8081,45 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       const btnRun    = body.querySelector("#btnSearchRun");
       const btnSelect = body.querySelector("#btnSearchSelect");
       const gridEl    = body.querySelector("#searchGrid");
+
+      // Permet de faire remonter complètement la sheet quand le clavier Android monte
+      // Sinon la ligne d'options du clavier Android cache les boutons du footer
+      function installSimpleKeyboardFix(sheetEl) {
+
+        const vv = window.visualViewport;
+        if (!vv) return () => {};
+
+        const basePad =
+          parseFloat(getComputedStyle(sheetEl).paddingBottom || "0") || 0;
+
+        function apply() {
+
+          const kb =
+            Math.max(0,
+              window.innerHeight - vv.height - vv.offsetTop);
+
+          sheetEl.style.paddingBottom =
+            `${basePad + kb}px`;
+        }
+
+        function reset() {
+          sheetEl.style.paddingBottom = `${basePad}px`;
+        }
+
+        vv.addEventListener("resize", apply);
+        vv.addEventListener("scroll", apply);
+
+        return () => {
+          vv.removeEventListener("resize", apply);
+          vv.removeEventListener("scroll", apply);
+          reset();
+        };
+      }
+
+      const cleanupKbFix =
+        isAndroid()
+          ? installSimpleKeyboardFix(sheetPanelEl)
+          : null;
 
       let gridId= null;
       let visibleInGrid = true;
@@ -8303,6 +8343,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         // ➜ nettoyage du registre des sheet grids
         window.sheetGrids.delete('grid-carnet');
         try { gridApi?.destroy?.(); } catch {}
+        cleanupKbFix?.();
       });
     }
   });
