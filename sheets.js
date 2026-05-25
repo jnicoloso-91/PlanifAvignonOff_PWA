@@ -8072,7 +8072,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       refreshActivityOnlyUI();
 
       /** @type {HTMLInputElement} */
-      const sheetEl = body.closest(".sheet-body");
+      const sheetBody = body.closest(".sheet-body--search");
       const input = body.querySelector("#searchInput");
       const btnClear = body.querySelector("#btnSearchClear");
       const info  = body.querySelector("#searchInfo");
@@ -8118,7 +8118,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       const cleanupKbFix =
         isAndroid()
-          ? installSimpleKeyboardFix(sheetEl)
+          ? installSimpleKeyboardFix(sheetBody)
           : null;
 
       let gridId= null;
