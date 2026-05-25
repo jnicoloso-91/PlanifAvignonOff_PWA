@@ -7364,7 +7364,7 @@ export function createWheelPicker(wrapEl, { itemPx = 36, onChange = null } = {})
   function installWheelSmart(wheelEl) {
     let locked = false;
 
-if (isAndroid()) logToPage("Install wheel 3");
+if (isAndroid()) logToPage("Install wheel 4");
 
     wheelEl.addEventListener("wheel", (ev) => {
       if (ev.ctrlKey) return;
@@ -7505,8 +7505,8 @@ let touchAccum = 0;
 let touchLock = false;
 
 if (isAndroid()) {
-  wheel.style.overscrollBehavior = "contain";
-  wheel.style.touchAction = "none";
+  // wheel.style.overscrollBehavior = "contain";
+  // wheel.style.touchAction = "none";
 
   wheel.addEventListener("touchstart", (ev) => {
     touchY = ev.touches[0].clientY;
