@@ -7638,8 +7638,8 @@ export async function openSheetReprogrammer(uuid) {
 
   openSheetExclusive({
     title: "Reprogrammer",
-    panelMaxHeight: estReserve ? "17em" : "350px",
-    panelHeight: "60vh",
+    panelMaxHeight: "350px", 
+    panelHeight: estReserve ? "17em" : "350px",
     onClose: cleanupOnClose,
     mount: async (body, { close }) => {
 
