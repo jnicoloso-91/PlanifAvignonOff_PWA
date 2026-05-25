@@ -7638,8 +7638,8 @@ export async function openSheetReprogrammer(uuid) {
 
   openSheetExclusive({
     title: "Reprogrammer",
-    panelMaxHeight: "350px", 
-    panelHeight: estReserve ? "17em" : "350px",
+    panelMaxHeight: "60vh", 
+    panelHeight: null, 
     onClose: cleanupOnClose,
     mount: async (body, { close }) => {
 
@@ -7656,7 +7656,7 @@ export async function openSheetReprogrammer(uuid) {
                 : ""
             }
           </div>
-          <div class="wheel-wrap reprog" id="reprogWheel"></div>
+          ${estReserve ? `` : `<div class="wheel-wrap reprog" id="reprogWheel"></div>`}
         </div>
         <div class="sheet-footer reprog">
           <button type="button" class="bb-btn" id="btnReprogCancel">Annuler</button>
