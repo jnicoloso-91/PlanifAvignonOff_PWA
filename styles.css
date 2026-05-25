@@ -3095,7 +3095,6 @@ input[type="range"]:focus::-moz-range-thumb {
   margin: 8px auto 0;
   width: 100%;
   max-width: 34ch;
-  overflow: hidden;
   user-select: none; -webkit-user-select: none;
 }
 
@@ -3244,6 +3243,7 @@ input[type="range"]:focus::-moz-range-thumb {
 }
 .sheet-footer.reprog {
   z-index: 100;
+  position: static;
 }
 
 
