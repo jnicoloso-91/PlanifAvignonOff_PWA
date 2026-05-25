@@ -7364,7 +7364,7 @@ export function createWheelPicker(wrapEl, { itemPx = 36, onChange = null } = {})
   function installWheelSmart(wheelEl) {
     let locked = false;
 
-if (isAndroid()) logToPage("Install wheel 2");
+if (isAndroid()) logToPage("Install wheel 3");
 
     wheelEl.addEventListener("wheel", (ev) => {
       if (ev.ctrlKey) return;
@@ -7411,6 +7411,13 @@ if (isAndroid()) logToPage("Install wheel 2");
     wheel.scrollTo({ top, behavior });
   }
 
+  function updateActive() {
+    const it = getCenteredItem();
+    wheel.querySelectorAll(".wheel-item.is-active")
+      .forEach(x => x.classList.remove("is-active"));
+    if (it) it.classList.add("is-active");
+  }
+
   function emitIfChanged() {
     if (disposed) return;
     const v = getValue();
@@ -7444,13 +7451,6 @@ function onScroll() {
 
   scheduleSnap(220);
 }
-
-  function updateActive() {
-    const it = getCenteredItem();
-    wheel.querySelectorAll(".wheel-item.is-active")
-      .forEach(x => x.classList.remove("is-active"));
-    if (it) it.classList.add("is-active");
-  }
 
 let snapTimer = null;
 
@@ -7500,6 +7500,57 @@ function scheduleSnap(delay = 220) {
   }, delay);
 }
 
+let touchY = 0;
+let touchAccum = 0;
+let touchLock = false;
+
+if (isAndroid()) {
+  wheel.style.overscrollBehavior = "contain";
+  wheel.style.touchAction = "none";
+
+  wheel.addEventListener("touchstart", (ev) => {
+    touchY = ev.touches[0].clientY;
+    touchAccum = 0;
+    touchLock = false;
+  }, { passive: true });
+
+  wheel.addEventListener("touchmove", (ev) => {
+    ev.preventDefault();
+
+    const y = ev.touches[0].clientY;
+    const dy = touchY - y;
+    touchY = y;
+
+    touchAccum += dy;
+
+    if (touchLock) return;
+
+    if (Math.abs(touchAccum) >= itemPx * 0.65) {
+      const dir = touchAccum > 0 ? 1 : -1;
+      touchAccum = 0;
+      touchLock = true;
+
+      wheel.scrollTo({
+        top: wheel.scrollTop + dir * itemPx,
+        behavior: "auto"
+      });
+
+      emitIfChanged();
+      updateActive();
+
+      setTimeout(() => {
+        touchLock = false;
+      }, 70);
+    }
+  }, { passive: false });
+
+  wheel.addEventListener("touchend", () => {
+    touchAccum = 0;
+    touchLock = false;
+    snapToClosest({ behavior: "auto" });
+  }, { passive: true });
+}
+
   installWheelSmart(wheel);
 
   wheel.addEventListener("scroll", onScroll, { passive: true });
@@ -7507,10 +7558,8 @@ function scheduleSnap(delay = 220) {
   // init
   queueMicrotask(() => emitIfChanged());
 
-// wheel.addEventListener("pointerup", () => scheduleSnap(0), { passive: true });
-// wheel.addEventListener("touchend", () => scheduleSnap(0), { passive: true });
-wheel.addEventListener("pointercancel", () => scheduleSnap(80), { passive: true });
-wheel.addEventListener("touchcancel", () => scheduleSnap(80), { passive: true });
+// wheel.addEventListener("pointercancel", () => scheduleSnap(80), { passive: true });
+// wheel.addEventListener("touchcancel", () => scheduleSnap(80), { passive: true });
 
   return {
     getValue,
@@ -7519,7 +7568,7 @@ wheel.addEventListener("touchcancel", () => scheduleSnap(80), { passive: true })
       disposed = true;
       if (raf) cancelAnimationFrame(raf);
       wheel.removeEventListener("scroll", onScroll);
-      if (snapTimer) clearTimeout(snapTimer);
+if (snapTimer) clearTimeout(snapTimer);
     }
   };
 }
