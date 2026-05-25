@@ -115,6 +115,9 @@ export function logToPage(...args) {
   el.textContent += args.map(a => 
     typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)
   ).join(' ') + '\n';
+
+  // Auto-scroll
+  el.scrollTop = el.scrollHeight;
 }
 
 // Log throttlé pour éviter l'inondation
