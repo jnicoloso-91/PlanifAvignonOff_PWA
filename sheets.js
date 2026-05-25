@@ -8246,10 +8246,10 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       btnRun?.addEventListener("click", () => runSearch());
 
       input.addEventListener("keydown", (e) => {
-        e.preventDefault();
         runSearch();
         if (e.key === "Enter") {
-          e.target.blur();
+          e.preventDefault();
+          /** @type {HTMLElement} */(e.target).blur();
         }
       });
 
