@@ -7364,7 +7364,7 @@ export function createWheelPicker(wrapEl, { itemPx = 36, onChange = null } = {})
   function installWheelSmart(wheelEl) {
     let locked = false;
 
-if (isAndroid()) logToPage("Install wheel 1");
+if (isAndroid()) logToPage("Install wheel 2");
 
     wheelEl.addEventListener("wheel", (ev) => {
       if (ev.ctrlKey) return;
@@ -7442,8 +7442,7 @@ function onScroll() {
     });
   }
 
-  // snap après inertie / fin de scroll
-  scheduleSnap(120);
+  scheduleSnap(220);
 }
 
   function updateActive() {
@@ -7476,9 +7475,7 @@ function getClosestItemToCenter() {
   return best;
 }
 
-function snapToClosest({ behavior = "smooth" } = {}) {
-  if (disposed) return;
-
+function snapToClosest({ behavior = "auto" } = {}) {
   const target = getClosestItemToCenter();
   if (!target) return;
 
@@ -7494,12 +7491,12 @@ function snapToClosest({ behavior = "smooth" } = {}) {
   });
 }
 
-function scheduleSnap(delay = 90) {
+function scheduleSnap(delay = 220) {
   if (snapTimer) clearTimeout(snapTimer);
 
   snapTimer = setTimeout(() => {
     snapTimer = null;
-    snapToClosest({ behavior: "smooth" });
+    snapToClosest({ behavior: "auto" }); // pas smooth
   }, delay);
 }
 
@@ -7510,8 +7507,8 @@ function scheduleSnap(delay = 90) {
   // init
   queueMicrotask(() => emitIfChanged());
 
-wheel.addEventListener("pointerup", () => scheduleSnap(0), { passive: true });
-wheel.addEventListener("touchend", () => scheduleSnap(0), { passive: true });
+// wheel.addEventListener("pointerup", () => scheduleSnap(0), { passive: true });
+// wheel.addEventListener("touchend", () => scheduleSnap(0), { passive: true });
 wheel.addEventListener("pointercancel", () => scheduleSnap(80), { passive: true });
 wheel.addEventListener("touchcancel", () => scheduleSnap(80), { passive: true });
 
