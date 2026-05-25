@@ -8122,11 +8122,12 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
                 ${
                   !visibleInGrid
                     ? `<span style="display:block; color:#d32f2f; font-weight:600">
-                        Sélection supprime le filtre courant
+                        invisible avec le filtre courant
                       </span>`
                     : ''
                 }
               `;
+              btnSelect.disabled = !visibleInGrid;
             }
           }
         },
@@ -8269,7 +8270,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         // Mais non fonctionnel en l'état, point à revoir...
         requestAnimationFrame(blurBottomBarButtons); 
 
-        if (!visibleInGrid) reinitFilter(gridId);
+        // if (!visibleInGrid) reinitFilter(gridId);
         selectionnerActivite(uuid);
 
       });
