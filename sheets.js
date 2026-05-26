@@ -1642,9 +1642,10 @@ export function openSheetExclusive({
     setTimeout(() => { root.remove(); onClose?.(helpers, reason); }, 260);
 
     // Restore du scroll de la page planning 
+    // Ce restore est particulièrement important sur Android qui a tendance à casser le scroll sur tape dans input
     // attention à appeler openSheetExclusive avec restoreScroll à false pour une sheet qui fait elle-même du scrolling
     // sinon ce dernier sera écrasé par le restoreScrollerTop ci-dessous (cas par exemple de openSheetSearch)
-    if (restoreScroll) {
+    if (restoreScroll || reason === 'close') {
       const sc = getActivePageScroller();
       restoreScrollerTop(sc, savedPageScrollTop);
     }
@@ -8072,7 +8073,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       refreshActivityOnlyUI();
 
       /** @type {HTMLInputElement} */
-      const sheetBody = body.closest(".sheet-body--search");
+      // const sheetBody = body.closest(".sheet-body--search");
       const input = body.querySelector("#searchInput");
       const btnClear = body.querySelector("#btnSearchClear");
       const info  = body.querySelector("#searchInfo");
@@ -8084,39 +8085,37 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
       // Permet de faire remonter complètement la sheet quand le clavier Android monte
       // Sinon la ligne d'options du clavier Android cache les boutons du footer
-      function installSimpleKeyboardFix(sheetEl) {
+      // function installSimpleKeyboardFix(sheetEl) {
 
-        const vv = window.visualViewport;
-        if (!vv) return () => {};
+      //   const vv = window.visualViewport;
+      //   if (!vv) return () => {};
 
-        const basePad =
-          parseFloat(getComputedStyle(sheetEl).paddingBottom || "0") || 0;
+      //   const basePad =
+      //     parseFloat(getComputedStyle(sheetEl).paddingBottom || "0") || 0;
 
-        function apply() {
+      //   function apply() {
 
-          const kb =
-            Math.max(0,
-              window.innerHeight - vv.height - vv.offsetTop);
+      //     const kb =
+      //       Math.max(0,
+      //         window.innerHeight - vv.height - vv.offsetTop);
 
-          sheetEl.style.paddingBottom =
-            `${basePad + kb}px`;
-        }
+      //     sheetEl.style.paddingBottom =
+      //       `${basePad + kb}px`;
+      //   }
 
-        function reset() {
-          sheetEl.style.paddingBottom = `${basePad}px`;
-        }
+      //   function reset() {
+      //     sheetEl.style.paddingBottom = `${basePad}px`;
+      //   }
 
-        vv.addEventListener("resize", apply);
-        vv.addEventListener("scroll", apply);
+      //   vv.addEventListener("resize", apply);
+      //   vv.addEventListener("scroll", apply);
 
-        return () => {
-          vv.removeEventListener("resize", apply);
-          vv.removeEventListener("scroll", apply);
-          reset();
-        };
-      }
-
-      const cleanupKbFix = null;
+      //   return () => {
+      //     vv.removeEventListener("resize", apply);
+      //     vv.removeEventListener("scroll", apply);
+      //     reset();
+      //   };
+      // }
       // const cleanupKbFix =
       //   isAndroid()
       //     ? installSimpleKeyboardFix(sheetBody)
@@ -8262,7 +8261,32 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
           .forEach(btn => /** @type {any} */(btn).blur?.());
       }
 
-      input.addEventListener("input", updateClearBtn);
+      // init
+      const lastQ = ctx.getMetaParam?.("lastSearchQuery");
+      input.value = initialQuery || lastQ;
+      
+      queueMicrotask(() => {
+        runSearch();
+        if (!isIOS() && !isAndroid()) {
+          try { input.focus({ preventScroll: true }); } catch { input.focus(); }
+        }
+      });
+
+      updateClearBtn();
+      updateRunState();
+
+      input.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          /** @type {HTMLElement} */(e.target).blur();
+        }
+      });
+
+      input.addEventListener("input", (e) => {
+        updateClearBtn();
+        updateRunState();
+        runSearch();
+      });
 
       btnClear.addEventListener("click", (e) => {
         e.preventDefault();
@@ -8283,20 +8307,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         });
       });      
 
-      // init
-      const lastQ = ctx.getMetaParam?.("lastSearchQuery");
-      input.value = initialQuery || lastQ;
-      
-      queueMicrotask(() => {
-        runSearch();
-        if (!isIOS() && !isAndroid()) {
-          try { input.focus({ preventScroll: true }); } catch { input.focus(); }
-        }
-      });
-
-      updateClearBtn();
-      updateRunState();
-
       btnCancel?.addEventListener("click", () => {
         close();
         // Restore du scroll de la page planning uniquement sur bouton btnCancel
@@ -8306,18 +8316,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       });
 
       btnRun?.addEventListener("click", () => runSearch());
-
-      input.addEventListener("keyup", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          /** @type {HTMLElement} */(e.target).blur();
-        }
-      });
-
-      input.addEventListener("input", (e) => {
-        updateRunState();
-        runSearch();
-      });
 
       btnSelect?.addEventListener("click", (e) => {
         e.preventDefault();
@@ -8344,7 +8342,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         // ➜ nettoyage du registre des sheet grids
         window.sheetGrids.delete('grid-carnet');
         try { gridApi?.destroy?.(); } catch {}
-        cleanupKbFix?.();
+        // cleanupKbFix?.();
       });
     }
   });
