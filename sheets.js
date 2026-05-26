@@ -1590,7 +1590,7 @@ export function openSheetExclusive({
   const /** @type {HTMLElement} */ closeBtn = root.querySelector('.' + classes.closeBtn);
   const /** @type {HTMLElement} */ infoBtn = root.querySelector('.' + classes.infoBtn);
 
-  // Wiring du scroll restore en fermeture de sheet
+  // Sauvegarde du scrollY de la page scroller actif
   // Sert au restore du scrollY à la fermeture de la sheet sur Android 
   // Car dans ce cas sur une sheet avec input la montée du clavier lors de l'édition peut s'accompagner d'un reset du scrollY
   const pageScroller = getActivePageScroller();
@@ -8019,7 +8019,7 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         </div>
       `;
 
-      // Wiring du scroll restore en fermeture de sheet
+      // Sauvegarde du scrollY de la page scroller actif
       // Sert au restore du scrollY à la fermeture de la sheet sur Android 
       // Car dans ce cas sur une sheet avec input la montée du clavier lors de l'édition peut s'accompagner d'un reset du scrollY
       const pageScroller = getActivePageScroller();
@@ -8082,44 +8082,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
       const btnRun    = body.querySelector("#btnSearchRun");
       const btnSelect = body.querySelector("#btnSearchSelect");
       const gridEl    = body.querySelector("#searchGrid");
-
-      // Permet de faire remonter complètement la sheet quand le clavier Android monte
-      // Sinon la ligne d'options du clavier Android cache les boutons du footer
-      // function installSimpleKeyboardFix(sheetEl) {
-
-      //   const vv = window.visualViewport;
-      //   if (!vv) return () => {};
-
-      //   const basePad =
-      //     parseFloat(getComputedStyle(sheetEl).paddingBottom || "0") || 0;
-
-      //   function apply() {
-
-      //     const kb =
-      //       Math.max(0,
-      //         window.innerHeight - vv.height - vv.offsetTop);
-
-      //     sheetEl.style.paddingBottom =
-      //       `${basePad + kb}px`;
-      //   }
-
-      //   function reset() {
-      //     sheetEl.style.paddingBottom = `${basePad}px`;
-      //   }
-
-      //   vv.addEventListener("resize", apply);
-      //   vv.addEventListener("scroll", apply);
-
-      //   return () => {
-      //     vv.removeEventListener("resize", apply);
-      //     vv.removeEventListener("scroll", apply);
-      //     reset();
-      //   };
-      // }
-      // const cleanupKbFix =
-      //   isAndroid()
-      //     ? installSimpleKeyboardFix(sheetBody)
-      //     : null;
 
       let gridId= null;
       let visibleInGrid = true;
@@ -8288,6 +8250,13 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         runSearch();
       });
 
+input.addEventListener("focus", () => {
+  setTimeout(() => {
+    const sc = document.querySelector(".page.is-active");
+    if (sc) sc.scrollTop = savedPageScrollTop;
+  }, 500);
+});
+
       btnClear.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -8342,7 +8311,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         // ➜ nettoyage du registre des sheet grids
         window.sheetGrids.delete('grid-carnet');
         try { gridApi?.destroy?.(); } catch {}
-        // cleanupKbFix?.();
       });
     }
   });
