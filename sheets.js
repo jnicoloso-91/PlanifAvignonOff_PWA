@@ -8267,7 +8267,7 @@ input.addEventListener("focus", () => {
   if (!isAndroid()) return;
 
   if (firstSearchFocus) {
-    logToPage("First focus 1");
+    logToPage("First focus 2");
     firstSearchFocus = false;
 
     setTimeout(() => {
