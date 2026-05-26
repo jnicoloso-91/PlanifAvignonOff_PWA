@@ -8250,13 +8250,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         runSearch();
       });
 
-input.addEventListener("focus", () => {
-  setTimeout(() => {
-    const sc = getActivePageScroller();
-    restoreScrollerTop(sc, savedPageScrollTop);
-  }, 1000);
-});
-
       btnClear.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
