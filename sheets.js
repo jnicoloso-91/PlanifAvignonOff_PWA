@@ -8256,11 +8256,11 @@ input.addEventListener("focus", () => {
   if (!isAndroid()) return;
 
   if (firstSearchFocus) {
-    logToPage("First focus");
+    logToPage("First focus 1");
     firstSearchFocus = false;
 
     setTimeout(() => {
-      const sheetBody = input.closest(".sheet-body");
+      const sheetBody = input.closest(".sheet-body--search");
       if (!sheetBody) return;
 
       const r = input.getBoundingClientRect();
@@ -8275,6 +8275,7 @@ input.addEventListener("focus", () => {
 
       if (delta > 0) {
         sheetBody.scrollTop += delta + 12;
+    logToPage(`Ajout scroll : ${delta + 12}`);
       }
     }, 1000);
   }
