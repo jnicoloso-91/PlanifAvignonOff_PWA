@@ -8252,9 +8252,9 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
 
 input.addEventListener("focus", () => {
   setTimeout(() => {
-    const sc = document.querySelector(".page.is-active");
-    if (sc) sc.scrollTop = savedPageScrollTop;
-  }, 500);
+    const sc = getActivePageScroller();
+    restoreScrollerTop(sc, savedPageScrollTop);
+  }, 1000);
 });
 
       btnClear.addEventListener("click", (e) => {
