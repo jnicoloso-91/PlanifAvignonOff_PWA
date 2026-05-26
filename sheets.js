@@ -8250,6 +8250,36 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         runSearch();
       });
 
+let firstSearchFocus = true;
+
+input.addEventListener("focus", () => {
+  if (!isAndroid()) return;
+
+  if (firstSearchFocus) {
+    logToPage("First focus");
+    firstSearchFocus = false;
+
+    setTimeout(() => {
+      const sheetBody = input.closest(".sheet-body");
+      if (!sheetBody) return;
+
+      const r = input.getBoundingClientRect();
+      const br = sheetBody.getBoundingClientRect();
+      const vv = window.visualViewport;
+
+      const safeBottom = vv
+        ? Math.min(br.bottom, vv.offsetTop + vv.height - 120)
+        : br.bottom - 120;
+
+      const delta = r.bottom - safeBottom;
+
+      if (delta > 0) {
+        sheetBody.scrollTop += delta + 12;
+      }
+    }, 1000);
+  }
+});
+
       btnClear.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
