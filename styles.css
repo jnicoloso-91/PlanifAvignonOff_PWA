@@ -3258,8 +3258,7 @@ input[type="range"]:focus::-moz-range-thumb {
   flex-direction: column;
   min-height: 0;
   gap: 5px;
-  /* overflow: hidden; */
-  overflow-y: auto;
+  overflow: hidden;
   padding-top: 0px;
   margin-bottom: -10px;
 }

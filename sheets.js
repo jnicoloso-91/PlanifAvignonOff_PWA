@@ -8250,49 +8250,6 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         runSearch();
       });
 
-function findScrollableParent(el) {
-  let cur = el;
-  while (cur && cur !== document.body) {
-    const cs = getComputedStyle(cur);
-    const canY = /(auto|scroll)/.test(cs.overflowY);
-    if (canY && cur.scrollHeight > cur.clientHeight) return cur;
-    cur = cur.parentElement;
-  }
-  return document.scrollingElement;
-}
-
-let firstSearchFocus = true;
-
-input.addEventListener("focus", () => {
-  if (!isAndroid()) return;
-
-  if (firstSearchFocus) {
-    logToPage("First focus 2");
-    firstSearchFocus = false;
-
-    setTimeout(() => {
-      // const sheetBody = findScrollableParent(input);
-      const sheetBody = input.closest(".sheet-body--search");
-      if (!sheetBody) return;
-
-      const r = input.getBoundingClientRect();
-      const br = sheetBody.getBoundingClientRect();
-      const vv = window.visualViewport;
-
-      const safeBottom = vv
-        ? Math.min(br.bottom, vv.offsetTop + vv.height - 120)
-        : br.bottom - 120;
-
-      const delta = r.bottom - safeBottom;
-
-      if (delta > 0) {
-        sheetBody.scrollTop += delta + 12;
-    logToPage(`Ajout scroll : ${delta + 12}`);
-      }
-    }, 1000);
-  }
-});
-
       btnClear.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
