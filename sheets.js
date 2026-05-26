@@ -8250,6 +8250,17 @@ export function openSheetSearch({ title = "Chercher", initialQuery = "" } = {}){
         runSearch();
       });
 
+function findScrollableParent(el) {
+  let cur = el;
+  while (cur && cur !== document.body) {
+    const cs = getComputedStyle(cur);
+    const canY = /(auto|scroll)/.test(cs.overflowY);
+    if (canY && cur.scrollHeight > cur.clientHeight) return cur;
+    cur = cur.parentElement;
+  }
+  return document.scrollingElement;
+}
+
 let firstSearchFocus = true;
 
 input.addEventListener("focus", () => {
@@ -8260,6 +8271,7 @@ input.addEventListener("focus", () => {
     firstSearchFocus = false;
 
     setTimeout(() => {
+      // const sheetBody = findScrollableParent(input);
       const sheetBody = input.closest(".sheet-body--search");
       if (!sheetBody) return;
 

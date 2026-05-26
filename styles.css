@@ -3258,7 +3258,8 @@ input[type="range"]:focus::-moz-range-thumb {
   flex-direction: column;
   min-height: 0;
   gap: 5px;
-  overflow: hidden;
+  /* overflow: hidden; */
+  overflow-y: auto;
   padding-top: 0px;
   margin-bottom: -10px;
 }
@@ -3294,6 +3295,8 @@ input[type="range"]:focus::-moz-range-thumb {
   width: 100%;
   padding-right: 36px;   /* espace pour le bouton */
   box-sizing: border-box;
+  resize: none;
+  overflow: hidden;
 }
 
 .search-clear-btn{
