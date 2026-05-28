@@ -37,6 +37,7 @@ import {
   scrollToExpanderSimple,
   scrollExpanderIntoViewCenteredAsync,
   duplicateActivite,
+  UpdButtonsState,
 } from './expanders.js'; 
 
 import {
@@ -491,7 +492,7 @@ export function selectRowByUuid(gridId, uuid, { align='middle', flash=true } = {
 }
 
 // Renvoie Row Node et Element en fonction de l'uuid de ligne
-async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paints = 2, debug = false } = {}) {
+export async function getRowNodeAndElByUuid(gridId, uuid, { ensureVisible = true, paints = 2, debug = false } = {}) {
   
   // CSS.escape polyfill safe
   const cssEscape = (window.CSS && CSS.escape) ? CSS.escape : (s) => String(s).replace(/["\\#:.%]/g, '\\$&');
@@ -2471,6 +2472,20 @@ export async function ensureRowVisible(gridId, uuid) {
   return { api, node, rowEl: rowEl2 };
 }
 
+// Assure que la ligne sélectionnée est visible
+// Fallback sur la première ligne visible si la selection courante est masquée 
+export async function ensureSelectedRowVisible(gridId, currentSelectedRowUuid) {
+  const { node, rowEl } = await getRowNodeAndElByUuid(gridId, currentSelectedRowUuid);
+  if (!node?.displayed) {
+    const api = getGridApiById(gridId);
+    const firstDisplayedNode = api.getDisplayedRowAtIndex?.(0) || null;
+    if (firstDisplayedNode) {
+      firstDisplayedNode?.setSelected?.(true, true);
+      ensureRowVisible(gridId, firstDisplayedNode.id);
+    }
+  }
+}
+
 // Mini flash propre pour le phantom flight
 function flashArrival(gridId, node) {
   const h = grids.get(gridId);
@@ -2603,7 +2618,7 @@ async function doPhantomFlight (gridOrigine, gridCible, expCible) {
 
   // 1) ouvrir l’expander cible et rendre la row visible
   openExpander(expCible);
-  if (!gridOrigine === 'grid-programmees') scrollToExpanderSimple(expCible);
+  if (!(gridOrigine === 'grid-programmees')) scrollToExpanderSimple(expCible);
   await nextPaint(2);
 
   // 2) animer vers la VRAIE ligne si possible, sinon flash-only
@@ -2985,6 +3000,8 @@ export async function refreshGrid(gridId, fallbackSelection=false) {
       ensureRowVisible('grid-programmables', getSelectedRowUuid('grid-programmables'));
     }
 
+    UpdButtonsState(gridId);
+    
     api.dispatchEvent?.({ type: 'gridSizeChanged' });
 
     // autosize pane (uniquement si ouvert ou mémorisation si fermé)

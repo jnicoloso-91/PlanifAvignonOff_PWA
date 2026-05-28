@@ -49,6 +49,7 @@ import {
   openExpander, 
   getOrCreateMarqueurPopup,
   scrollToExpanderSimple,
+  UpdButtonsState,
 } from './expanders.js'; 
 
 import {
@@ -64,6 +65,7 @@ import {
   getGridApiById,
   reinitFilter,
   flashRowOverlayInGrid,
+  ensureSelectedRowVisible,
 } from './grids.js';
 
 import {
@@ -2906,14 +2908,21 @@ export function openSheetFiltres(gridId) {
         gridApi.onFilterChanged?.();
         // refreshGrid(gridId);
         if (gridId == "grid-programmees" && isProgrammeCalendarVisible()) rerenderProgrammeCalendar();
-        else ensureRowVisible(gridId, getSelectedRowUuid(gridId));
+        else {
+          const selectedUuid = getSelectedRowUuid(gridId)
+          ensureRowVisible(gridId, selectedUuid);
+          // fallback sur la première ligne visible si la selection courante est masquée par le filtre
+          ensureSelectedRowVisible(gridId, selectedUuid); 
+        }
 
+        UpdButtonsState(gridId);
         close();
       });
 
       clearBtn.addEventListener("click", () => {
         quickChip.setValues?.([]);
         reinitFilter(gridId);
+        UpdButtonsState(gridId);
         close();
       });
 

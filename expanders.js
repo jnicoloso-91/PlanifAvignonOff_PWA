@@ -28,6 +28,8 @@ import {
   getLigneVoisineUuid,
   refreshGrid,
   dropRowFromSrcGridToDstGrid,
+  getGridApiById,
+  getRowNodeAndElByUuid,
 } from './grids.js';
 
 import {
@@ -673,6 +675,25 @@ function openPopoverMenu(anchorEl, { items = [], onClose = null } = {}) {
     close: closeMenu,
     el: pop
   };
+}
+
+export async function UpdButtonsState(gridId) {
+  const api = getGridApiById(gridId);
+  const sel = api.getSelectedRows();
+  const hasSel = sel?.length;
+  const { node, rowEl } = await getRowNodeAndElByUuid(gridId, sel[0]?.__uuid);
+  const hasSelVisible = node?.displayed ? true : false;
+  if (gridId == 'grid-programmees') {
+    const btn = document.getElementById('btn-deprogrammer');
+    (/** @type {HTMLButtonElement} */ (btn)).disabled = (hasSelVisible) ? activitesAPI.estActiviteReservee(sel[0]) : true;
+  }
+  if (gridId == 'grid-non-programmees') {
+    document.getElementById('btn-supprimer')?.toggleAttribute('disabled', !hasSelVisible);
+  }
+  if (gridId == 'grid-programmables') 
+  {
+    document.getElementById('btn-programmer')?.toggleAttribute('disabled', !hasSelVisible);
+  }
 }
 
 export function wireExpanderButtons() {
