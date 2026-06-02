@@ -431,7 +431,7 @@ export function setSortModel(gridId, colId, sort) {
   }
 }
 
-// Vérifie si une row node est actuellement visible dans le viewport de la grille (utile avant d'appeler ensureNodeVisible pour éviter les scrolls inutiles)
+// Vérifie si un row node est actuellement visible dans le viewport de la grille (utile avant d'appeler ensureNodeVisible pour éviter les scrolls inutiles)
 function isNodeInViewport(api, node, { fully = false } = {}) {
   if (!api || !node) return false;
 
@@ -2228,7 +2228,7 @@ function synchronizeSelection(event, dstGridId) {
       });
     }
 
-    if (!targetNode) return;
+    if (!targetNode || !targetNode?.displayed) return;
 
     // 4️⃣ sélection propre
     targetNode.setSelected?.(true, true);
