@@ -78,7 +78,7 @@ const AUTOSIZED_COLS = ['Marqueur'];
 
 const OR_SEP = "|";
 
-const useSheetEditor = isIOS() || isAndroid(); 
+const useSheetEditor = isIOS() || isAndroid() || window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0; 
 
 // ------- Multi-grilles -------
 export const grids = new Map();           // id -> { api, el, loader }
