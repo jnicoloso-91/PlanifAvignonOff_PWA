@@ -8786,6 +8786,13 @@ export function openSheetCellEdit(params) {
         const next = e.relatedTarget;
         if (next == btnCancel || next == btnSave) return;
 
+        if (isIOS()) {
+          setTimeout(() => {
+            save();
+          }, 80);
+          return;
+        }
+
         setTimeout(()=> {
           cellEditCtx = null;
           close();
