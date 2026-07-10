@@ -1574,7 +1574,7 @@ function _getActivitesProgrammablesAvant(df, activitesProgrammees, ligneRef, tra
     //   proposables.push(nouvelle);
     // }
     if (_estDateValide(ligneRef.Date, row.Session, row.Relache) && 
-      ((_estActiviteChevauchable(row) && (h_debut < debut_min)) ||   // Condition pour les activités chevauchables
+      ((_estActiviteChevauchable(row) && (h_fin <= fin_max)) ||   // Condition pour les activités chevauchables
       (h_debut >= (debut_min + _MARGE) && h_fin <= (fin_max - _MARGE)))) {                  // Condition pour les activités non chevauchables
       const nouvelle = { ...row }; // delete nouvelle.Debut_dt; delete nouvelle.Duree_dt;
       nouvelle.__type_activite = 'ActiviteExistante';
